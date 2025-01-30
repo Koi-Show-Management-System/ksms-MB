@@ -4,17 +4,32 @@ import { Button, View } from "react-native";
 
 function HomeScreen() {
   const navigateToHomepage = () => {
-    router.push("/homepage"); // Điều hướng đến route `homePage`
+    router.push("/homepage");
   };
 
   const navigateToWelcome = () => {
-    router.push("/welcomeScreen"); // Điều hướng đến route `welcomeScreen`
+    router.push("/welcomeScreen");
+  };
+
+  const navigateToSignup = () => {
+    router.push("/signUp");
+  };
+
+  const navigateToSignin = () => {
+    router.push("/signIn");
+  };
+
+  const navigateToRegistration = () => {
+    router.push("/koiRegistration");
   };
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <Button title="Go to Homepage" onPress={navigateToHomepage} />
       <Button title="Go to Welcome" onPress={navigateToWelcome} />
+      <Button title="Go to Sign Up" onPress={navigateToSignup} />
+      <Button title="Go to Sign In" onPress={navigateToSignin} />
+      <Button title="Go to Registration" onPress={navigateToRegistration} />
     </View>
   );
 }

@@ -1,4 +1,5 @@
 // KoiShowInformation.tsx
+import Header from "@/components/Header";
 import React, { useState } from "react";
 import {
   Image,
@@ -24,10 +25,10 @@ interface KoiShowInformationProps {
 const KoiShowInformation: React.FC<KoiShowInformationProps> = ({
   title = "Koi Show Spring 2025",
   images = [
-    "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/group-7.png",
-    "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/group-6.png",
-    "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/group-5.png",
-    "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/group-4.png",
+    "https://images.unsplash.com/photo-1552118830-98feacab238f?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    "https://images.unsplash.com/photo-1660654581211-b365ba90464a?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    "https://plus.unsplash.com/premium_photo-1713399247260-3b9c33e244ec?q=80&w=2068&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    "https://plus.unsplash.com/premium_photo-1663962975595-c99565fe3ccf?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
   ],
   eventDetails = {
     description: [
@@ -273,6 +274,10 @@ const KoiShowInformation: React.FC<KoiShowInformationProps> = ({
 
   return (
     <View style={styles.container}>
+      <Header
+        title="Home"
+        description="Register for events, purchase tickets, and view results."
+      />
       <ScrollView style={styles.scrollView}>
         {renderHeader()}
         {renderAwards()}

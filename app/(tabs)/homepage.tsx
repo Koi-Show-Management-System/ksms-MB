@@ -9,34 +9,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Header from "../../components/Header";
 
 const HomePage: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity>
-          <Text style={styles.homeText}>Home</Text>
-        </TouchableOpacity>
-        <View style={styles.headerRightContainer}>
-          <TouchableOpacity style={styles.searchButton}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/assets/Z4FRFQIBBLnlud6Q",
-              }}
-              style={styles.searchIcon}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/assets/Z4FRFQIBBLnlud6R",
-              }}
-              style={styles.profileImage}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <Header title="Koi Show Hub" />
 
       <ScrollView style={styles.scrollView}>
         {/* Hero Section */}
@@ -72,7 +51,7 @@ const HomePage: React.FC = () => {
               <View key={id} style={styles.showCard}>
                 <Image
                   source={{
-                    uri: `https://images.unsplash.com/photo-1474835409173-5dc81aae3faa?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`,
+                    uri: `https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`,
                   }}
                   style={styles.showImage}
                 />
@@ -104,32 +83,32 @@ const HomePage: React.FC = () => {
         </View>
 
         {/* Upcoming Livestream */}
-        <View style={styles.upcomingLivestream}>
+        <View style={styles.quickAccess}>
           <Text style={styles.sectionTitle}>Upcoming Livestream</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.streamContainer}>
               {[
                 {
                   image:
-                    "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    "https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
                   title: "Golden Koi Show",
                   time: "Now Streaming",
                 },
                 {
                   image:
-                    "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    "https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
                   title: "Rainbow Koi Pavilion",
                   time: "Upcoming",
                 },
                 {
                   image:
-                    "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    "https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
                   title: "Rainbow Koi Pavilion",
                   time: "Upcoming",
                 },
                 {
                   image:
-                    "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+                    "https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
                   title: "Rainbow Koi Pavilion",
                   time: "Upcoming",
                 },
@@ -167,23 +146,48 @@ const HomePage: React.FC = () => {
               style={styles.searchIcon}
             />
           </View>
-          <View style={styles.articleContainer}>
-            <Image
-              source={{
-                uri: "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-              }}
-              style={styles.articleImage}
-            />
-            <Text style={styles.articleTitle}>How to breed Koi</Text>
-            <Text style={styles.articleDescription}>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris
-              convallis libero nibh...
-            </Text>
+          <View style={styles.articles}>
+            {[
+              {
+                image:
+                  "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                title: "How to breed Koi",
+                description:
+                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris convallis libero nibh...",
+              },
+              {
+                image:
+                  "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                title: "Koi Fish Care Tips",
+                description:
+                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris convallis libero nibh...",
+              },
+              {
+                image:
+                  "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                title: "Koi Pond Maintenance",
+                description:
+                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris convallis libero nibh...",
+              },
+            ].map((article, index) => (
+              <View key={index} style={styles.articleCard}>
+                <Image
+                  source={{
+                    uri: article.image,
+                  }}
+                  style={styles.articleImage}
+                />
+                <View style={styles.articleContent}>
+                  <Text style={styles.articleTitle}>{article.title}</Text>
+                  <Text style={styles.articleDescription}>
+                    {article.description}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
       </ScrollView>
-
-      {/* Footer */}
     </SafeAreaView>
   );
 };
@@ -195,39 +199,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flexGrow: 1,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
-  },
-  homeText: {
-    fontFamily: "Poppins",
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#030303",
-  },
-  headerRightContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  searchButton: {
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 8,
-  },
-  searchIcon: {
-    width: 13,
-    height: 13,
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
   },
   heroSection: {
     width: "100%",
@@ -317,6 +288,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFA500",
     borderRadius: 10,
     padding: 10,
+    flex: 1,
+    marginHorizontal: 5,
   },
   quickAccessIcon: {
     width: 20,
@@ -324,7 +297,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   quickAccessText: {
-    fontSize: 6,
+    fontSize: 12,
     fontFamily: "Roboto",
     color: "#FFFFFF",
     textAlign: "center",
@@ -337,7 +310,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   streamCard: {
-    width: 200,
+    width: 150,
     height: 162,
     backgroundColor: "#E5E7EB",
     borderRadius: 8,
@@ -382,23 +355,37 @@ const styles = StyleSheet.create({
     borderColor: "#E1E1E1",
     borderRadius: 4,
     backgroundColor: "#333333",
+    paddingHorizontal: 10,
   },
   searchInput: {
     flex: 1,
     height: "100%",
-    paddingHorizontal: 12,
-    fontFamily: "Poppins-Regular",
+    fontFamily: "Poppins",
     fontSize: 14,
     color: "#E1E1E1",
   },
-  articleContainer: {
-    width: "100%",
+  searchIcon: {
+    width: 20,
+    height: 20,
+  },
+  articles: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  articleCard: {
+    width: "48%",
+    backgroundColor: "#1a1a1a",
+    borderRadius: 8,
+    marginBottom: 16,
+    overflow: "hidden",
   },
   articleImage: {
     width: "100%",
-    height: 252,
-    marginBottom: 12,
-    borderRadius: 8,
+    height: 120,
+  },
+  articleContent: {
+    padding: 10,
   },
   articleTitle: {
     fontFamily: "Poppins-Bold",
