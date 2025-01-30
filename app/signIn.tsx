@@ -13,7 +13,7 @@ interface SignInProps {
   onSignUp?: () => void;
 }
 
-const Signin: React.FC<SignInProps> = ({
+const SignIn: React.FC<SignInProps> = ({
   onSignIn = () => {},
   onSignUp = () => {},
 }) => {
@@ -182,4 +182,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Signin;
+export default SignIn;

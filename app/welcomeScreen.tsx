@@ -1,21 +1,22 @@
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Header from "../components/Header"; // Import Header component
 
 interface WelcomeScreenProps {
   onGetStarted?: () => void;
 }
 
-const FileWelcomeScreen: React.FC<WelcomeScreenProps> = ({
+const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onGetStarted = () => alert("Get started clicked!"),
 }) => {
   return (
     <View style={styles.welcomeScreen}>
       <View style={styles.contentContainer}>
-        <Header
-          title="Koi Show Hub"
-          description="Register for events, purchase tickets, and view results."
-        />
+        <View style={styles.headerSection}>
+          <Text style={styles.title}>Koi Show Hub</Text>
+          <Text style={styles.description}>
+            Register for events, purchase tickets, and view results.
+          </Text>
+        </View>
         <View style={styles.koiImageContainer}>
           <Image
             source={{
@@ -34,6 +35,7 @@ const FileWelcomeScreen: React.FC<WelcomeScreenProps> = ({
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   welcomeScreen: {
     width: "100%",
@@ -53,7 +55,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 48,
   },
-
+  headerSection: {
+    textAlign: "center",
+    marginBottom: 24,
+  },
   title: {
     fontSize: 34,
     fontWeight: "700",
@@ -102,4 +107,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FileWelcomeScreen;
+export default WelcomeScreen;
