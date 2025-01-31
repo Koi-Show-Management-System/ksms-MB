@@ -7,6 +7,7 @@ export default function ShowLayout() {
         name="KoiShowInformation"
         options={{ headerShown: false }}
       />
+      <Stack.Screen name="registration" options={{ headerShown: false }} />
     </Stack>
   );
 }
