@@ -1,5 +1,5 @@
 // KoiShowInformation.tsx
-import Header from "@/components/Header";
+
 import React, { useState } from "react";
 import {
   Image,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Header } from "react-native/Libraries/NewAppScreen";
 
 interface EventDetails {
   description: string[];

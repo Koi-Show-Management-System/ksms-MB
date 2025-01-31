@@ -2,25 +2,25 @@ import { router } from "expo-router";
 import React from "react";
 import { Button, View } from "react-native";
 
-function HomeScreen() {
+function testpage() {
   const navigateToHomepage = () => {
-    router.push("/homepage");
+    router.push("/(tabs)/home/homepage");
   };
 
   const navigateToWelcome = () => {
-    router.push("/welcomeScreen");
+    router.push("/(auth)/welcomeScreen");
   };
 
   const navigateToSignup = () => {
-    router.push("/signUp");
+    router.push("/(auth)/signUp");
   };
 
   const navigateToSignin = () => {
-    router.push("/signIn");
+    router.push("/(auth)/signIn");
   };
 
   const navigateToRegistration = () => {
-    router.push("/koiRegistration");
+    router.push("/(tabs)/shows/registration/koiRegistration");
   };
 
   return (
@@ -34,4 +34,4 @@ function HomeScreen() {
   );
 }
 
-export default HomeScreen;
+export default testpage;
