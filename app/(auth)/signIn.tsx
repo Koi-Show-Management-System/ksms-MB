@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
@@ -14,8 +15,12 @@ interface SignInProps {
 }
 
 const SignIn: React.FC<SignInProps> = ({
-  onSignIn = () => {},
-  onSignUp = () => {},
+  onSignIn = () => {
+    router.push("../testpage");
+  },
+  onSignUp = () => {
+    router.push("/(auth)/signUp");
+  },
 }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

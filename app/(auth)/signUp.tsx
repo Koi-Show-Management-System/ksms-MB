@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Image,
@@ -39,7 +40,7 @@ const Signup: React.FC = () => {
       return;
     }
     console.log(formData);
-    // Proceed with form submission, e.g., API call
+    router.push("/(auth)/signIn");
   };
 
   return (
