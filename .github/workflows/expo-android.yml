@@ -73,7 +73,7 @@ jobs:
           allow-snapshots: false
 
   build:
-    needs: [setup, prepare-android]
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
