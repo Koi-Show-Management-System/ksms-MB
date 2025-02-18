@@ -66,9 +66,6 @@ jobs:
           }
           EOL
           
-      - name: Configure Expo
-        run: |
-          expo login -u nhatsang29 --non-interactive
           
       - name: Build Android app
         run: |
