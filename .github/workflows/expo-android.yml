@@ -31,7 +31,7 @@ jobs:
 
       # 4. Đăng nhập Expo (dùng token)
       - name: Login to Expo
-        run: npx eas login --non-interactive --api-key "${{ secrets.EXPO_TOKEN }}"
+        run: npx eas login --token "$EXPO_TOKEN" --overwrite
 
       # 5. Chạy lệnh build Expo cho Android
       - name: Build App (Android)
