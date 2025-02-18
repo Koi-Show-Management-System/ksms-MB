@@ -25,7 +25,6 @@ jobs:
           node-version: 18
           cache: 'yarn'
       
-      # Cập nhật lên actions/cache@v3
       - name: Cache Gradle
         uses: actions/cache@v3
         with:
@@ -37,7 +36,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
             
-      # Cập nhật lên actions/cache@v3
       - name: Cache Node Modules
         uses: actions/cache@v3
         with:
@@ -117,29 +115,60 @@ jobs:
           --profile=production
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+
+      # Tìm tên file APK được tạo ra
+      - name: Find APK file
+        id: find-apk
+        run: |
+          APK_FILE=$(find ./app-build -name "*.apk" -type f -print -quit)
+          echo "APK_FILE=${APK_FILE}" >> $GITHUB_ENV
+          echo "Found APK file: ${APK_FILE}"
+
+      # Generate QR Code và tạo release
+      - name: Generate QR Code and Create Release
+        uses: actions/github-script@v6
         with:
-            tag_name: v1.0.${{ github.run_number }}
-            name: Release v1.0.${{ github.run_number }}
-            body: |
-              ### KSMS Mobile App Release
-              Build number: ${{ github.run_number }}
+          script: |
+            const qr = require('qrcode');
+            const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
+            
+            // Generate QR code as ASCII
+            const qrString = await qr.toString(downloadUrl, {type: 'terminal'});
+            
+            // Create release with QR code
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v1.0.${process.env.GITHUB_RUN_NUMBER}`,
+              name: `Release v1.0.${process.env.GITHUB_RUN_NUMBER}`,
+              body: `### KSMS Mobile App Release
+              Build number: ${process.env.GITHUB_RUN_NUMBER}
               
               :lock: Scan QR code below to download KSMS Mobile App :iphone:
               
-              Download URL: https://github.com/nhatsang29/ksms-MB/releases/download/v1.0.${{ github.run_number }}/ksms-mb-v1.0.${{ github.run_number }}.apk
-            files: ./app-build/*.apk
-            draft: false
-            prerelease: true
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Generating QR code
-        uses: kentaro-m/qr-code-commenter-action@v0.1.2
-        with:
-          repo-token: "${{ secrets.GITHUB_TOKEN }}"
-          content: https://github.com/nhatsang29/ksms-MB/releases/download/v1.0.${{ github.run_number }}/ksms-mb-v1.0.${{ github.run_number }}.apk
-          comment: |
-            :lock: Scan QR code below to download KSMS Mobile App :iphone:
+              \`\`\`
+              ${qrString}
+              \`\`\`
+              
+              Or download directly: ${downloadUrl}`,
+              draft: false,
+              prerelease: true
+            });
+            
+            // Upload APK file
+            const fs = require('fs');
+            const apkPath = process.env.APK_FILE;
+            
+            if (fs.existsSync(apkPath)) {
+              const apkContent = await fs.promises.readFile(apkPath);
+              
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id,
+                name: `ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`,
+                data: apkContent
+              });
+            } else {
+              core.setFailed('APK file not found');
+            }
