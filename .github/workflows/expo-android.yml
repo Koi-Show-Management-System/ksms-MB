@@ -38,40 +38,6 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
-  prepare-android:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Cache Gradle
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            ~/.android/build-cache
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-            
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v3
-        
-      # # Tạo Gradle Wrapper nếu chưa có
-      # - name: Create Gradle Wrapper
-      #   run: |
-      #     mkdir -p android
-      #     cd android
-      #     gradle wrapper
-      #     ./gradlew --version
-          
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v1
-        with:
-          min-wrapper-count: 1
-          allow-snapshots: false
-
   build:
     needs: setup
     runs-on: ubuntu-latest
