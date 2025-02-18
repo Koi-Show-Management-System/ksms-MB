@@ -58,13 +58,13 @@ jobs:
       - name: Install Android SDK
         uses: android-actions/setup-android@v3
         
-      # Tạo Gradle Wrapper nếu chưa có
-      - name: Create Gradle Wrapper
-        run: |
-          mkdir -p android
-          cd android
-          gradle wrapper
-          ./gradlew --version
+      # # Tạo Gradle Wrapper nếu chưa có
+      # - name: Create Gradle Wrapper
+      #   run: |
+      #     mkdir -p android
+      #     cd android
+      #     gradle wrapper
+      #     ./gradlew --version
           
       - name: Validate Gradle Wrapper
         uses: gradle/wrapper-validation-action@v1
