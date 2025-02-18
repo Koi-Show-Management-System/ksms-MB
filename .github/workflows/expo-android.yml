@@ -1,5 +1,4 @@
 name: Expo Android Build
-
 on:
   push:
     branches: [ main ]
@@ -9,7 +8,7 @@ on:
 jobs:
   build-android:
     name: Build Expo Android
-    runs-on: ubuntu-latest  # Sử dụng GitHub Actions runner mặc định
+    runs-on: ubuntu-latest
 
     steps:
       # 1. Checkout code
@@ -23,33 +22,34 @@ jobs:
           node-version: 18
           cache: 'npm'
 
-      # 3. Cài đặt dependencies
+      # 3. Install dependencies
       - name: Install dependencies
         run: |
           npm install --frozen-lockfile
           npm install -g eas-cli
 
-      # 4. Đăng nhập Expo (dùng token)
+      # 4. Login to Expo (using token)
       - name: Login to Expo
-        run: npx eas login --token "$EXPO_TOKEN" --overwrite
+        run: npx eas login --token "$EXPO_TOKEN"
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}  # Best Practice: Use GitHub Secrets
 
-      # 5. Chạy lệnh build Expo cho Android
+      # 5. Build App (Android)
       - name: Build App (Android)
         run: |
           eas build --platform android \
             --non-interactive \
             --profile production
-      # Lưu ý: Lệnh trên gọi EAS Cloud để build; bản build sẽ được lưu trên Expo servers
 
-      # 6. (Tuỳ chọn) Lấy URL APK / Tải về Artifact
-      # EAS CLI sẽ in ra link. Đoạn script sau ví dụ parse EAS logs rồi upload artifact
-      - name: Parse build result và upload artifact
+      # 6. (Optional) Get APK URL / Download Artifact (Improved)
+      - name: Parse build result and upload artifact
         id: get-build-url
         run: |
-          # Dùng eas build:list để lấy build ID / link
-          BUILD_INFO=$(eas build:list --limit 1 --json)
-          echo "BUILD_INFO_OUTPUT=$BUILD_INFO" >> $GITHUB_OUTPUT
+          BUILD_INFO=$(eas build:list --platform android --status finished --limit 1 --json)
+          BUILD_URL=$(echo "$BUILD_INFO" | jq -r '.[0].artifacts.buildUrl')
+          echo "buildUrl=$BUILD_URL" >> $GITHUB_OUTPUT  # Correct way to set output
+        if: ${{ success() }} #Only run if the build succeeded.
 
-      # Chỉ là ví dụ - tuỳ trường hợp mà parse JSON để lấy link
-      - name: Log build info
-        run: echo $BUILD_INFO_OUTPUT
+      - name: Log build URL
+        run: echo "Android Build URL: ${{ steps.get-build-url.outputs.buildUrl }}"
+        if: ${{ success() }}
