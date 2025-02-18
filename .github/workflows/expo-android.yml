@@ -51,5 +51,6 @@ jobs:
         if: ${{ success() }} #Only run if the build succeeded.
 
       - name: Log build URL
-        run: echo "Android Build URL: ${{ steps.get-build-url.outputs.buildUrl }}"
         if: ${{ success() }}
+        run: |
+          echo "Android Build URL: ${{ steps.get-build-url.outputs.buildUrl }}"
