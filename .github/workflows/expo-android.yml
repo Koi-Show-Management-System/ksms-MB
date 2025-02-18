@@ -14,8 +14,10 @@ on:
     branches: [main, development]
 
 jobs:
-  build:
+  setup:
     runs-on: ubuntu-latest
+    outputs:
+      version: v1.0.${{ github.run_number }}
     steps:
       - uses: actions/checkout@v3
       
@@ -24,6 +26,23 @@ jobs:
         with:
           node-version: 18
           cache: 'yarn'
+      
+      - name: Cache Node Modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+          
+      - name: Install dependencies
+        run: yarn install
+
+  prepare-android:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
       
       - name: Cache Gradle
         uses: actions/cache@v3
@@ -36,26 +55,40 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
             
-      - name: Cache Node Modules
-        uses: actions/cache@v3
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-node-modules-
-          
-      - name: Install dependencies
-        run: |
-          yarn install
-          
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
-        
       - name: Install Android SDK
         uses: android-actions/setup-android@v3
         
+      # Tạo Gradle Wrapper nếu chưa có
+      - name: Create Gradle Wrapper
+        run: |
+          mkdir -p android
+          cd android
+          gradle wrapper
+          ./gradlew --version
+          
       - name: Validate Gradle Wrapper
         uses: gradle/wrapper-validation-action@v1
+        with:
+          min-wrapper-count: 1
+          allow-snapshots: false
+
+  build:
+    needs: [setup, prepare-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          
+      - name: Install dependencies
+        run: yarn install
+          
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
         
       - name: Setup Expo
         uses: expo/expo-github-action@v8
@@ -97,6 +130,36 @@ jobs:
           }
           EOL
           
+      - name: Build Android app
+        run: |
+          mkdir -p app-build
+          eas build --local \
+          --non-interactive \
+          --output=./app-build \
+          --platform=android \
+          --profile=production
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-build
+          path: app-build/*.apk
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: app-build
+          path: app-build
+          
       - name: Create Tag
         run: |
           git config --global user.email "actions@github.com"
@@ -105,26 +168,7 @@ jobs:
           git push origin v1.0.${{ github.run_number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Build Android app
-        run: |
-          eas build --local \
-          --non-interactive \
-          --output=./app-build \
-          --platform=android \
-          --profile=production
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # Tìm tên file APK được tạo ra
-      - name: Find APK file
-        id: find-apk
-        run: |
-          APK_FILE=$(find ./app-build -name "*.apk" -type f -print -quit)
-          echo "APK_FILE=${APK_FILE}" >> $GITHUB_ENV
-          echo "Found APK file: ${APK_FILE}"
-
-      # Generate QR Code và tạo release
       - name: Generate QR Code and Create Release
         uses: actions/github-script@v6
         with:
@@ -132,10 +176,16 @@ jobs:
             const qr = require('qrcode');
             const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
             
-            // Generate QR code as ASCII
             const qrString = await qr.toString(downloadUrl, {type: 'terminal'});
             
-            // Create release with QR code
+            const fs = require('fs');
+            const apkFiles = fs.readdirSync('./app-build').filter(file => file.endsWith('.apk'));
+            
+            if (apkFiles.length === 0) {
+              core.setFailed('No APK files found');
+              return;
+            }
+            
             const release = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -155,20 +205,13 @@ jobs:
               prerelease: true
             });
             
-            // Upload APK file
-            const fs = require('fs');
-            const apkPath = process.env.APK_FILE;
+            const apkPath = `./app-build/${apkFiles[0]}`;
+            const apkContent = await fs.promises.readFile(apkPath);
             
-            if (fs.existsSync(apkPath)) {
-              const apkContent = await fs.promises.readFile(apkPath);
-              
-              await github.rest.repos.uploadReleaseAsset({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: release.data.id,
-                name: `ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`,
-                data: apkContent
-              });
-            } else {
-              core.setFailed('APK file not found');
-            }
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.data.id,
+              name: `ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`,
+              data: apkContent
+            });
