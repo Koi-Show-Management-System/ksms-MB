@@ -1,0 +1,55 @@
+name: Expo Android Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-android:
+    name: Build Expo Android
+    runs-on: ubuntu-latest  # Sử dụng GitHub Actions runner mặc định
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Setup Node
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+
+      # 3. Cài đặt dependencies
+      - name: Install dependencies
+        run: |
+          yarn install --frozen-lockfile
+          npm install -g eas-cli
+
+      # 4. Đăng nhập Expo (dùng token)
+      - name: Login to Expo
+        run: npx eas login --non-interactive --api-key "${{ secrets.EXPO_TOKEN }}"
+
+      # 5. Chạy lệnh build Expo cho Android
+      - name: Build App (Android)
+        run: |
+          eas build --platform android \
+            --non-interactive \
+            --profile production
+      # Lưu ý: Lệnh trên gọi EAS Cloud để build; bản build sẽ được lưu trên Expo servers
+
+      # 6. (Tuỳ chọn) Lấy URL APK / Tải về Artifact
+      # EAS CLI sẽ in ra link. Đoạn script sau ví dụ parse EAS logs rồi upload artifact
+      - name: Parse build result và upload artifact
+        id: get-build-url
+        run: |
+          # Dùng eas build:list để lấy build ID / link
+          BUILD_INFO=$(eas build:list --limit 1 --json)
+          echo "BUILD_INFO_OUTPUT=$BUILD_INFO" >> $GITHUB_OUTPUT
+
+      # Chỉ là ví dụ - tuỳ trường hợp mà parse JSON để lấy link
+      - name: Log build info
+        run: echo $BUILD_INFO_OUTPUT
