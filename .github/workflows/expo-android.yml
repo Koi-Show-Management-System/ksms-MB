@@ -33,16 +33,52 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
           
-      - name: Configure EAS
+      - name: Create eas.json
         run: |
-          echo '{"cli": {"version": ">= 0.52.0"}}' > eas.json
+          cat > eas.json << 'EOL'
+          {
+            "cli": {
+              "version": ">= 3.13.3",
+              "appVersionSource": "remote"
+            },
+            "build": {
+              "development": {
+                "developmentClient": true,
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk",
+                  "gradleCommand": ":app:assembleDebug"
+                }
+              },
+              "preview": {
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk"
+                }
+              },
+              "production": {
+                "autoIncrement": true,
+                "android": {
+                  "buildType": "apk"
+                }
+              }
+            }
+          }
+          EOL
+          
+      - name: Configure Expo
+        run: |
+          expo login -u nhatsang29 --non-interactive
           
       - name: Build Android app
         run: |
           eas build --local \
           --non-interactive \
           --output=./app-build \
-          --platform=android
+          --platform=android \
+          --profile=production
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           
       - name: Create Release
         id: create_release
@@ -50,8 +86,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.run_number }}
-          release_name: Release ${{ github.run_number }}
+          tag_name: v1.0.${{ github.run_number }}
+          release_name: Release v1.0.${{ github.run_number }}
+          body: |
+            KSMS Mobile App Release
+            Build number: ${{ github.run_number }}
           prerelease: true
           
       - name: Upload Release Asset
@@ -62,7 +101,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./app-build/*.apk
-          asset_name: app-release.apk
+          asset_name: ksms-mb-v1.0.${{ github.run_number }}.apk
           asset_content_type: application/vnd.android.package-archive
           
       - name: Generating QR code
@@ -70,6 +109,6 @@ jobs:
         uses: kentaro-m/qr-code-commenter-action@v0.1.2
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
-          content: https://github.com/releases/download/${{ github.run_number }}/app-release.apk
+          content: https://github.com/nhatsang29/ksms-MB/releases/download/v1.0.${{ github.run_number }}/ksms-mb-v1.0.${{ github.run_number }}.apk
           comment: |
-            :lock: This is a QR code for access to the preview website.:iphone: Scan a code
+            :lock: Scan QR code below to download KSMS Mobile App :iphone:
