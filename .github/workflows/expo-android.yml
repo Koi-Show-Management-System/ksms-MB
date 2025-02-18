@@ -1,5 +1,15 @@
 name: Build and Release Expo App
 
+# Thêm permissions
+permissions: 
+  contents: write
+  issues: write
+  pull-requests: write
+  discussions: write
+  packages: write
+  actions: write
+  repository-projects: write
+
 on:
   push:
     branches: [main, development]
@@ -15,6 +25,27 @@ jobs:
         with:
           node-version: 18
           cache: 'yarn'
+      
+      # Thêm cache cho Gradle
+      - name: Cache Gradle
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.android/build-cache
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+            
+      # Thêm cache cho Node modules
+      - name: Cache Node Modules
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
           
       - name: Install dependencies
         run: |
@@ -25,6 +56,10 @@ jobs:
         
       - name: Install Android SDK
         uses: android-actions/setup-android@v3
+        
+      # Thêm validate Gradle Wrapper
+      - name: Validate Gradle Wrapper
+        uses: gradle/wrapper-validation-action@v1
         
       - name: Setup Expo
         uses: expo/expo-github-action@v8
@@ -66,6 +101,15 @@ jobs:
           }
           EOL
           
+      # Thêm bước tạo tag trước khi create release
+      - name: Create Tag
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git tag v1.0.${{ github.run_number }}
+          git push origin v1.0.${{ github.run_number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Build Android app
         run: |
@@ -77,32 +121,22 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           
+      # Thay thế actions/create-release bằng softprops/action-gh-release
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: v1.0.${{ github.run_number }}
-          release_name: Release v1.0.${{ github.run_number }}
+          name: Release v1.0.${{ github.run_number }}
           body: |
             KSMS Mobile App Release
             Build number: ${{ github.run_number }}
+          files: ./app-build/*.apk
+          draft: false
           prerelease: true
-          
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./app-build/*.apk
-          asset_name: ksms-mb-v1.0.${{ github.run_number }}.apk
-          asset_content_type: application/vnd.android.package-archive
           
       - name: Generating QR code
-        id: generating_qr_code
         uses: kentaro-m/qr-code-commenter-action@v0.1.2
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
