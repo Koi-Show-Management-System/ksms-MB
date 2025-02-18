@@ -1,56 +1,56 @@
-name: Expo Android Build
+name: Build and Release Expo App
+
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [main, development]
 
 jobs:
-  build-android:
-    name: Build Expo Android
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Checkout code
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      # 2. Setup Node
-      - name: Setup Node
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: 'npm'
-
-      # 3. Install dependencies
-      - name: Install dependencies
+          cache: 'yarn'
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Login to EAS
+        run: eas login --token ${{ secrets.EAS_TOKEN }}
+      - name: Build Android app
         run: |
-          npm install --frozen-lockfile
-          npm install -g eas-cli
-
-      # 4. Login to Expo (using token)
-      - name: Login to Expo
-        run: npx eas login --token "$EXPO_TOKEN"
+          eas build --local \
+          --non-interactive \
+          --output=./app-build \
+          --platform=android
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}  # Best Practice: Use GitHub Secrets
-
-      # 5. Build App (Android)
-      - name: Build App (Android)
-        run: |
-          eas build --platform android \
-            --non-interactive \
-            --profile production
-
-      # 6. (Optional) Get APK URL / Download Artifact (Improved)
-      - name: Parse build result and upload artifact
-        id: get-build-url
-        run: |
-          BUILD_INFO=$(eas build:list --platform android --status finished --limit 1 --json)
-          BUILD_URL=$(echo "$BUILD_INFO" | jq -r '.[0].artifacts.buildUrl')
-          echo "buildUrl=$BUILD_URL" >> $GITHUB_OUTPUT  # Correct way to set output
-        if: ${{ success() }} #Only run if the build succeeded.
-
-      - name: Log build URL
-        if: ${{ success() }}
-        run: |
-          echo "Android Build URL: ${{ steps.get-build-url.outputs.buildUrl }}"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          prerelease: true
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./app-build/*.apk
+          asset_name: app-release.apk
+          asset_content_type: application/vnd.android.package-archive
+      - name: Generating QR code
+        id: generating_qr_code
+        uses: kentaro-m/qr-code-commenter-action@v0.1.2
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          content: https://github.com/releases/download/${{ github.run_number }}/app-release.apk
+          comment: |
+            :lock: This is a QR code for access to the preview website.:iphone: Scan a code
+        
