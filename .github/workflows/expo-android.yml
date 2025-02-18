@@ -121,16 +121,20 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: Release v1.0.${{ github.run_number }}
-          body: |
-            KSMS Mobile App Release
-            Build number: ${{ github.run_number }}
-          files: ./app-build/*.apk
-          draft: false
-          prerelease: true
+            tag_name: v1.0.${{ github.run_number }}
+            name: Release v1.0.${{ github.run_number }}
+            body: |
+              ### KSMS Mobile App Release
+              Build number: ${{ github.run_number }}
+              
+              :lock: Scan QR code below to download KSMS Mobile App :iphone:
+              
+              Download URL: https://github.com/nhatsang29/ksms-MB/releases/download/v1.0.${{ github.run_number }}/ksms-mb-v1.0.${{ github.run_number }}.apk
+            files: ./app-build/*.apk
+            draft: false
+            prerelease: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Generating QR code
         uses: kentaro-m/qr-code-commenter-action@v0.1.2
