@@ -98,21 +98,21 @@ jobs:
           
       - name: Build Android app
         run: |
-            rm -rf app-build
-            mkdir -p app-build
-            eas build --local \
-            --non-interactive \
-            --output=./app-build/app-release.apk \
-            --platform=android \
-            --profile=production
-          env:
-            EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          rm -rf app-build
+          mkdir -p app-build
+          eas build --local \
+          --non-interactive \
+          --output=./app-build/app-release.apk \
+          --platform=android \
+          --profile=production
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-build
-          path: app-build/*.apk
+          path: app-build/app-release.apk
           retention-days: 1
 
   release:
@@ -136,34 +136,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Generate QR Code and Create Release
-      #   uses: actions/github-script@v6
-      #   with:
-      #     script: |
-      #       const qr = require('qrcode');
-      #       const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
-            
-      #       const qrString = await qr.toString(downloadUrl, {type: 'terminal'});
-            
-      #       const fs = require('fs');
-      #       const apkFiles = fs.readdirSync('./app-build').filter(file => file.endsWith('.apk'));
-            
-      #       if (apkFiles.length === 0) {
-      #         core.setFailed('No APK files found');
-      #         return;
-      #       }
-
       - name: Generate QR Code and Create Release
         uses: actions/github-script@v6
         with:
           script: |
+            const qr = require('qrcode');
             const fs = require('fs');
             const apkPath = './app-build/app-release.apk';
-          
+            
             if (!fs.existsSync(apkPath)) {
-            core.setFailed('APK file not found');
-            return;
+              core.setFailed('APK file not found');
+              return;
             }
+            
+            const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
+            
+            const qrString = await qr.toString(downloadUrl, {type: 'terminal'});
             
             const release = await github.rest.repos.createRelease({
               owner: context.repo.owner,
@@ -184,7 +172,6 @@ jobs:
               prerelease: true
             });
             
-            const apkPath = `./app-build/${apkFiles[0]}`;
             const apkContent = await fs.promises.readFile(apkPath);
             
             await github.rest.repos.uploadReleaseAsset({
