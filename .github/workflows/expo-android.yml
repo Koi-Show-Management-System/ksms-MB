@@ -141,41 +141,65 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const apkPath = './app-build/app-release.apk';
+            const core = require('@actions/core');
             
-            if (!fs.existsSync(apkPath)) {
-              core.setFailed('APK file not found');
-              return;
+            try {
+              // Validate environment and paths
+              const apkPath = './app-build/app-release.apk';
+              if (!process.env.GITHUB_RUN_NUMBER) {
+                throw new Error('GITHUB_RUN_NUMBER is not defined');
+              }
+              if (!fs.existsSync(apkPath)) {
+                throw new Error('APK file not found');
+              }
+              
+              // Configure QR Code options
+              const qrConfig = {
+                size: 300,
+                margin: 1,
+                format: 'png',
+                dark: '000000',
+                light: 'FFFFFF',
+                ecLevel: 'Q'
+              };
+              
+              const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
+              
+              // Generate QR Code URL with advanced options
+              const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(downloadUrl)}&size=${qrConfig.size}&margin=${qrConfig.margin}&format=${qrConfig.format}&dark=${qrConfig.dark}&light=${qrConfig.light}&ecLevel=${qrConfig.ecLevel}`;
+              
+              core.info('Creating release with QR code...');
+              const release = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: `v1.0.${process.env.GITHUB_RUN_NUMBER}`,
+                name: `Release v1.0.${process.env.GITHUB_RUN_NUMBER}`,
+                body: `### KSMS Mobile App Release
+                Build number: ${process.env.GITHUB_RUN_NUMBER}
+                
+                :lock: Scan QR code below to download KSMS Mobile App :iphone:
+                
+                ![QR Code](${qrCodeUrl})
+                
+                Or download directly: ${downloadUrl}`,
+                draft: false,
+                prerelease: true
+              });
+              
+              core.info('Uploading APK file...');
+              const apkContent = await fs.promises.readFile(apkPath);
+              
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id,
+                name: `ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`,
+                data: apkContent
+              });
+              
+              core.info('Release created successfully');
+              
+            } catch (error) {
+              core.setFailed(`Release creation failed: ${error.message}`);
+              throw error;
             }
-            
-            const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
-            
-            // Sử dụng Google Chart API để tạo QR code
-            const qrCodeUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(downloadUrl)}`;
-            
-            const release = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: `v1.0.${process.env.GITHUB_RUN_NUMBER}`,
-              name: `Release v1.0.${process.env.GITHUB_RUN_NUMBER}`,
-              body: `### KSMS Mobile App Release
-              Build number: ${process.env.GITHUB_RUN_NUMBER}
-              
-              :lock: Scan QR code below to download KSMS Mobile App :iphone:
-              
-              ![QR Code](${qrCodeUrl})
-              
-              Or download directly: ${downloadUrl}`,
-              draft: false,
-              prerelease: true
-            });
-            
-            const apkContent = await fs.promises.readFile(apkPath);
-            
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: release.data.id,
-              name: `ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`,
-              data: apkContent
-            });
