@@ -145,6 +145,7 @@ jobs:
             try {
               // Validation
               const apkPath = './app-build/app-release.apk';
+              const version = `1.0.${process.env.GITHUB_RUN_NUMBER}`;
               if (!process.env.GITHUB_RUN_NUMBER) {
                 throw new Error('GITHUB_RUN_NUMBER is not defined');
               }
@@ -182,11 +183,10 @@ jobs:
                 ### Installation
                 
                 1. **Scan QR Code**
-                ![QR Code](${qrCodeUrl})
+                ![QRCode](${qrCodeUrl})
                 
                 2. **Direct Download**
-                [![Download APK](https://img.shields.io/badge/Download_APK-blue?style=for-the-badge)]
-                (${downloadUrl})
+                [![Download APK](https://img.shields.io/badge/Download_APK-blue?style=for-the-badge)](${downloadUrl})
                 
                 ### Note
                 - This is a pre-release version
