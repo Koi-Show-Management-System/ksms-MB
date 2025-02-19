@@ -140,7 +140,6 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const qr = require('qrcode');
             const fs = require('fs');
             const apkPath = './app-build/app-release.apk';
             
@@ -151,7 +150,8 @@ jobs:
             
             const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
             
-            const qrString = await qr.toString(downloadUrl, {type: 'terminal'});
+            // Sử dụng Google Chart API để tạo QR code
+            const qrCodeUrl = `https://chart.googleapis.com/chart?cht=qr&chs=300x300&chl=${encodeURIComponent(downloadUrl)}`;
             
             const release = await github.rest.repos.createRelease({
               owner: context.repo.owner,
@@ -163,9 +163,7 @@ jobs:
               
               :lock: Scan QR code below to download KSMS Mobile App :iphone:
               
-              \`\`\`
-              ${qrString}
-              \`\`\`
+              ![QR Code](${qrCodeUrl})
               
               Or download directly: ${downloadUrl}`,
               draft: false,
