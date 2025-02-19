@@ -1,4 +1,4 @@
-name: Optimized Local Build and Release (Latest Actions)
+name: Optimized Local Build and Release (Latest Actions, Input Method)
 
 permissions:
   contents: write
@@ -25,25 +25,21 @@ jobs:
     outputs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4 # Updated to v4
-
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v4 # Updated to v4
+        uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'yarn'
-
       - name: Cache Node Modules
-        uses: actions/cache@v4 # Updated to v4
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock', 'eas.json', 'app.json') }}
           restore-keys: |
             ${{ runner.os }}-node-modules-
-
       - name: Install dependencies
         run: yarn install
-
       - name: Set Version
         id: set-version
         run: echo "version=v1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
@@ -52,29 +48,24 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # Updated to v4
-
+      - uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v4 # Updated to v4
+        uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'yarn'
-
       - name: Install dependencies
         run: yarn install
-
       - name: Install EAS CLI
         run: yarn global add eas-cli
-
       - name: Setup Expo
-        uses: expo/expo-github-action@v8 
+        uses: expo/expo-github-action@v8
         with:
           expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-
       - name: Cache Gradle
-        uses: actions/cache@v4 # Updated to v4
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
@@ -82,8 +73,7 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradlew', '**/gradle/wrapper/gradle-wrapper.properties', 'build.gradle', '**/build.gradle.kts') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-
-      - name: Create eas.json (Optimized for Local Build)
+      - name: Create eas.json
         run: |
           cat > eas.json << EOF
           {
@@ -102,7 +92,6 @@ jobs:
             }
           }
           EOF
-
       - name: Build Android app (Local Build)
         run: |
           rm -rf app-build
@@ -114,9 +103,8 @@ jobs:
           --profile=production
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4 # Updated to v4
+        uses: actions/upload-artifact@v4
         with:
           name: app-build
           path: app-build/app-release.apk
@@ -126,18 +114,16 @@ jobs:
     needs: build-android
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # Updated to v4
-
+      - uses: actions/checkout@v4
       - name: Download Build Artifact
-        uses: actions/download-artifact@v4 # Updated to v4
+        uses: actions/download-artifact@v4
         with:
           name: app-build
           path: ./
-
       - name: Create Tag and Release
-        uses: actions/github-script@v7 # Updated to v7
+        uses: actions/github-script@v7
         env:
-          VERSION: ${{ needs.setup.outputs.version }}
+          VERSION: ${{ needs.setup.outputs.version }}  # Make version available as an env var
         with:
           script: |
             const fs = require('fs');
@@ -146,10 +132,10 @@ jobs:
             try {
               // --- Validation and Setup ---
               const apkPath = path.join('./', 'app-release.apk');
-              const version = process.env.VERSION;
+              const version = process.env.VERSION; // Access via process.env
 
               if (!version) {
-                throw new Error('VERSION environment variable is not defined.');
+                throw new Error('Version input is not defined.');
               }
               if (!fs.existsSync(apkPath)) {
                 throw new Error('APK file not found at: ' + apkPath);
@@ -186,7 +172,7 @@ jobs:
                 ### Note
                 - This is a pre-release version
                 - Please report any issues you encounter
-              `.trim();
+              `.trim(); //CRUCIAL
 
               // --- Create Release ---
               core.info('Creating release...');
