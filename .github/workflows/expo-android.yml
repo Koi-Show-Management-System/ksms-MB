@@ -141,10 +141,9 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const core = require('@actions/core');
             
             try {
-              // Validate environment and paths
+              // Validation
               const apkPath = './app-build/app-release.apk';
               if (!process.env.GITHUB_RUN_NUMBER) {
                 throw new Error('GITHUB_RUN_NUMBER is not defined');
@@ -153,49 +152,66 @@ jobs:
                 throw new Error('APK file not found');
               }
               
-              // Configure QR Code options
+              // QR Configuration
               const qrConfig = {
                 size: 300,
                 margin: 1,
-                format: 'png',
                 dark: '000000',
-                light: 'FFFFFF',
-                ecLevel: 'Q'
+                light: 'FFFFFF'
               };
               
               const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
               
-              // Generate QR Code URL with advanced options
-              const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(downloadUrl)}&size=${qrConfig.size}&margin=${qrConfig.margin}&format=${qrConfig.format}&dark=${qrConfig.dark}&light=${qrConfig.light}&ecLevel=${qrConfig.ecLevel}`;
+              // Generate QR Code URL
+              const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(downloadUrl)}&size=${qrConfig.size}&margin=${qrConfig.margin}&dark=${qrConfig.dark}&light=${qrConfig.light}`;
               
               core.info('Creating release with QR code...');
-              const release = await github.rest.repos.createRelease({
+              
+              const releaseResponse = await github.rest.repos.createRelease({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 tag_name: `v1.0.${process.env.GITHUB_RUN_NUMBER}`,
                 name: `Release v1.0.${process.env.GITHUB_RUN_NUMBER}`,
                 body: `### KSMS Mobile App Release
-                Build number: ${process.env.GITHUB_RUN_NUMBER}
                 
-                :lock: Scan QR code below to download KSMS Mobile App :iphone:
+                **Build Information**
+                - Version: 1.0.${process.env.GITHUB_RUN_NUMBER}
+                - Build Number: ${process.env.GITHUB_RUN_NUMBER}
+                - Release Date: ${new Date().toISOString().split('T')[0]}
                 
+                ### Installation
+                
+                1. **Scan QR Code**
                 ![QR Code](${qrCodeUrl})
                 
-                Or download directly: ${downloadUrl}`,
+                2. **Direct Download**
+                [Download APK](${downloadUrl})
+                
+                ### Note
+                - This is a pre-release version
+                - Please report any issues you encounter`,
                 draft: false,
                 prerelease: true
               });
+
+              if (!releaseResponse.data.id) {
+                throw new Error('Failed to create release');
+              }
               
               core.info('Uploading APK file...');
               const apkContent = await fs.promises.readFile(apkPath);
-              
-              await github.rest.repos.uploadReleaseAsset({
+
+              const uploadResponse = await github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                release_id: release.data.id,
+                release_id: releaseResponse.data.id,
                 name: `ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`,
                 data: apkContent
               });
+
+              if (!uploadResponse.data.id) {
+                throw new Error('Failed to upload asset');
+              }
               
               core.info('Release created successfully');
               
