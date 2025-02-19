@@ -67,7 +67,7 @@ jobs:
         run: yarn global add eas-cli
 
       - name: Setup Expo
-        uses: expo/expo-github-action@v9 #Updated to v9
+        uses: expo/expo-github-action@v8 
         with:
           expo-version: latest
           eas-version: latest
