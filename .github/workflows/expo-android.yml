@@ -98,14 +98,15 @@ jobs:
           
       - name: Build Android app
         run: |
-          mkdir -p app-build
-          eas build --local \
-          --non-interactive \
-          --output=./app-build \
-          --platform=android \
-          --profile=production
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+            rm -rf app-build
+            mkdir -p app-build
+            eas build --local \
+            --non-interactive \
+            --output=./app-build/app-release.apk \
+            --platform=android \
+            --profile=production
+          env:
+            EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
@@ -135,21 +136,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # - name: Generate QR Code and Create Release
+      #   uses: actions/github-script@v6
+      #   with:
+      #     script: |
+      #       const qr = require('qrcode');
+      #       const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
+            
+      #       const qrString = await qr.toString(downloadUrl, {type: 'terminal'});
+            
+      #       const fs = require('fs');
+      #       const apkFiles = fs.readdirSync('./app-build').filter(file => file.endsWith('.apk'));
+            
+      #       if (apkFiles.length === 0) {
+      #         core.setFailed('No APK files found');
+      #         return;
+      #       }
+
       - name: Generate QR Code and Create Release
         uses: actions/github-script@v6
         with:
           script: |
-            const qr = require('qrcode');
-            const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/v1.0.${process.env.GITHUB_RUN_NUMBER}/ksms-mb-v1.0.${process.env.GITHUB_RUN_NUMBER}.apk`;
-            
-            const qrString = await qr.toString(downloadUrl, {type: 'terminal'});
-            
             const fs = require('fs');
-            const apkFiles = fs.readdirSync('./app-build').filter(file => file.endsWith('.apk'));
-            
-            if (apkFiles.length === 0) {
-              core.setFailed('No APK files found');
-              return;
+            const apkPath = './app-build/app-release.apk';
+          
+            if (!fs.existsSync(apkPath)) {
+            core.setFailed('APK file not found');
+            return;
             }
             
             const release = await github.rest.repos.createRelease({
