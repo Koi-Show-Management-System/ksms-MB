@@ -185,7 +185,8 @@ jobs:
                 ![QR Code](${qrCodeUrl})
                 
                 2. **Direct Download**
-                [Download APK](${downloadUrl})
+                [![Download APK](https://img.shields.io/badge/Download_APK-blue?style=for-the-badge)]
+                (${downloadUrl})
                 
                 ### Note
                 - This is a pre-release version
