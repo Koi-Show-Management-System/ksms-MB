@@ -11,13 +11,13 @@ permissions:
 
 on:
   push:
-    branches: [main, development]
-    # paths:  <-- YOU WILL ADD THIS LATER
-    #   - 'src/**'
-    #   - 'App.js'
-    #   - 'package.json'
-    #   - 'yarn.lock'
-    #   - 'eas.json'
+    branches: [main]
+    paths: 
+      - 'src/**'
+      - 'App.js'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'eas.json'
 
 jobs:
   setup:
