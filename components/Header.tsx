@@ -4,13 +4,17 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface HeaderProps {
   title: string;
+  description: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ title }) => {
+const Header: React.FC<HeaderProps> = ({ title, description }) => {
   return (
     <View style={styles.header}>
       <TouchableOpacity>
         <Text style={styles.homeText}>{title}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity>
+        <Text style={styles.homeText}>{description || ""}</Text>
       </TouchableOpacity>
       <View style={styles.headerRightContainer}>
         <TouchableOpacity style={styles.searchButton}>

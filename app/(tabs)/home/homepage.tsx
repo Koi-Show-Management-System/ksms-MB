@@ -1,3 +1,4 @@
+import { router } from "expo-router"; // Import the router
 import React from "react";
 import {
   Image,
@@ -12,10 +13,14 @@ import {
 import Header from "../../../components/Header";
 
 const HomePage: React.FC = () => {
+  const handleShowPress = () => {
+    router.push("/(tabs)/shows/KoiShowInformation");
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <Header title="Koi Show Hub" />
+      <Header title="Koi Show Hub" description="" />
 
       <ScrollView style={styles.scrollView}>
         {/* Hero Section */}
@@ -48,14 +53,17 @@ const HomePage: React.FC = () => {
           <Text style={styles.sectionTitle}>Featured Shows</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {["1", "2", "3", "4"].map((id) => (
-              <View key={id} style={styles.showCard}>
+              <TouchableOpacity
+                key={id}
+                style={styles.showCard}
+                onPress={handleShowPress}>
                 <Image
                   source={{
                     uri: `https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`,
                   }}
                   style={styles.showImage}
                 />
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
@@ -68,8 +76,17 @@ const HomePage: React.FC = () => {
               { text: "Mua vé", icon: "Z4FRHgIBBLnlud6X" },
               { text: "Lịch thi đấu", icon: "Z4FRHgIBBLnlud6Y" },
               { text: "Bình chọn", icon: "Z4FRHgIBBLnlud6Z" },
+              { text: "More Shows", icon: "Z4FRHgIBBLnlud6Z" }, // This is the button we'll modify
             ].map((item, index) => (
-              <TouchableOpacity key={index} style={styles.quickAccessButton}>
+              <TouchableOpacity
+                key={index}
+                style={styles.quickAccessButton}
+                // Add onPress to the "More Shows" button
+                onPress={
+                  item.text === "More Shows"
+                    ? () => router.push("/(tabs)/shows/KoiShows")
+                    : undefined
+                }>
                 <Image
                   source={{
                     uri: `https://dashboard.codeparrot.ai/api/assets/${item.icon}`,
