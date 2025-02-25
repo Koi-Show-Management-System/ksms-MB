@@ -20,7 +20,7 @@ function testpage() {
   };
 
   const navigateToRegistration = () => {
-    router.push("/(tabs)/shows/AwardScreen");
+    router.push("/(tabs)/shows/LiveStream");
   };
 
   return (
@@ -29,7 +29,7 @@ function testpage() {
       <Button title="Go to Welcome" onPress={navigateToWelcome} />
       <Button title="Go to Sign Up" onPress={navigateToSignup} />
       <Button title="Go to Sign In" onPress={navigateToSignin} />
-      <Button title="Go to award screen" onPress={navigateToRegistration} />
+      <Button title="Go to live stream" onPress={navigateToRegistration} />
     </View>
   );
 }
