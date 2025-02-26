@@ -1,4 +1,5 @@
 // components/Header.tsx
+import { router } from "expo-router"; // Import the router
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
@@ -8,6 +9,11 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ title, description }) => {
+  // Function to navigate to UserMenu screen
+  const navigateToUserMenu = () => {
+    router.push("/(tabs)/home/UserMenu");
+  };
+
   return (
     <View style={styles.header}>
       <TouchableOpacity>
@@ -25,7 +31,7 @@ const Header: React.FC<HeaderProps> = ({ title, description }) => {
             style={styles.searchIcon}
           />
         </TouchableOpacity>
-        <TouchableOpacity>
+        <TouchableOpacity onPress={navigateToUserMenu}>
           <Image
             source={{
               uri: "https://dashboard.codeparrot.ai/api/assets/Z4FRFQIBBLnlud6R",
