@@ -36,7 +36,7 @@ const KoiCompetitionApp: React.FC = () => {
         selectedSize,
         selectedVariety,
       });
-      router.push("/(tabs)/shows/registration/ConfirmRegister");
+      router.push("/(tabs)/shows/ConfirmRegister");
     }
   };
 

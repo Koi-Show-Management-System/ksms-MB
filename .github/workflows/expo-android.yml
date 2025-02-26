@@ -1,56 +1,212 @@
-name: Expo Android Build
+name: Optimized Local Build and Release (Latest Actions, Input Method)
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  discussions: write
+  packages: write
+  actions: write
+  repository-projects: write
+
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [main, development]
+    paths: 
+      - 'src/**'
+      - 'App.js'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'eas.json'
 
 jobs:
-  build-android:
-    name: Build Expo Android
+  setup:
     runs-on: ubuntu-latest
-
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
     steps:
-      # 1. Checkout code
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      # 2. Setup Node
-      - name: Setup Node
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
-
-      # 3. Install dependencies
+          cache: 'yarn'
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock', 'eas.json', 'app.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
       - name: Install dependencies
-        run: |
-          npm install --frozen-lockfile
-          npm install -g eas-cli
+        run: yarn install
+      - name: Set Version
+        id: set-version
+        run: echo "version=v1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
 
-      # 4. Login to Expo (using token)
-      - name: Login to Expo
-        run: npx eas login --token "$EXPO_TOKEN"
+  build-android:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'yarn'
+      - name: Install dependencies
+        run: yarn install
+      - name: Install EAS CLI
+        run: yarn global add eas-cli
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradlew', '**/gradle/wrapper/gradle-wrapper.properties', 'build.gradle', '**/build.gradle.kts') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      - name: Create eas.json
+        run: |
+          cat > eas.json << EOF
+          {
+            "cli": {
+              "version": ">= 3.13.3",
+              "appVersionSource": "remote"
+            },
+            "build": {
+              "production": {
+                "autoIncrement": true,
+                "android": {
+                  "buildType": "apk",
+                  "gradleCommand": ":app:assembleRelease"
+                }
+              }
+            }
+          }
+          EOF
+      - name: Build Android app (Local Build)
+        run: |
+          rm -rf app-build
+          mkdir -p app-build
+          eas build --local \
+          --non-interactive \
+          --output=./app-build/app-release.apk \
+          --platform=android \
+          --profile=production
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}  # Best Practice: Use GitHub Secrets
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build
+          path: app-build/app-release.apk
+          retention-days: 1
 
-      # 5. Build App (Android)
-      - name: Build App (Android)
-        run: |
-          eas build --platform android \
-            --non-interactive \
-            --profile production
+  release:
+    needs: [setup, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build
+          path: ./
+      - name: Create Tag and Release
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ needs.setup.outputs.version }}  # Make version available as an env var
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
 
-      # 6. (Optional) Get APK URL / Download Artifact (Improved)
-      - name: Parse build result and upload artifact
-        id: get-build-url
-        run: |
-          BUILD_INFO=$(eas build:list --platform android --status finished --limit 1 --json)
-          BUILD_URL=$(echo "$BUILD_INFO" | jq -r '.[0].artifacts.buildUrl')
-          echo "buildUrl=$BUILD_URL" >> $GITHUB_OUTPUT  # Correct way to set output
-        if: ${{ success() }} #Only run if the build succeeded.
+            try {
+              // --- Validation and Setup ---
+              const apkPath = path.join('./', 'app-release.apk');
+              const version = process.env.VERSION; // Access via process.env
 
-      - name: Log build URL
-        if: ${{ success() }}
-        run: |
-          echo "Android Build URL: ${{ steps.get-build-url.outputs.buildUrl }}"
+              if (!version) {
+                throw new Error('Version input is not defined.');
+              }
+              if (!fs.existsSync(apkPath)) {
+                throw new Error('APK file not found at: ' + apkPath);
+              }
+
+              // --- QR Code Configuration ---
+              const qrConfig = {
+                size: 300,
+                margin: 1,
+                dark: '000000',
+                light: 'FFFFFF',
+              };
+              const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${version}/ksms-mb-${version}.apk`;
+              const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(downloadUrl)}&size=${qrConfig.size}&margin=${qrConfig.margin}&dark=${qrConfig.dark}&light=${qrConfig.light}`;
+
+
+              // --- Release Body (Markdown) ---
+              const releaseBody = `
+                ### KSMS Mobile App Release
+
+                **Build Information**
+                - Version: ${version}
+                - Build Number: ${version.substring(5)}
+                - Release Date: ${new Date().toISOString().split('T')[0]}
+
+                ### Installation
+
+                1. **Scan QR Code**
+                ![QRCode](${qrCodeUrl})
+
+                2. **Direct Download**
+                [![Download APK](https://img.shields.io/badge/Download_APK-blue?style=for-the-badge)](${downloadUrl})
+
+                ### Note
+                - This is a pre-release version
+                - Please report any issues you encounter
+              `.trim(); //CRUCIAL
+
+              // --- Create Release ---
+              core.info('Creating release...');
+              const releaseResponse = await github.rest.repos.createRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: version,
+                name: `Release ${version}`,
+                body: releaseBody,
+                draft: false,
+                prerelease: true,
+              });
+
+              if (!releaseResponse.data.id) {
+                throw new Error('Failed to create release.');
+              }
+
+              // --- Upload APK Asset ---
+              core.info('Uploading APK file...');
+              const apkContent = fs.readFileSync(apkPath);
+              const uploadResponse = await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: releaseResponse.data.id,
+                name: `ksms-mb-${version}.apk`,
+                data: apkContent,
+              });
+
+              if (!uploadResponse.data.id) {
+                throw new Error('Failed to upload asset.');
+              }
+
+              core.info('Release created successfully!');
+
+            } catch (error) {
+              core.setFailed(error.message);
+            }

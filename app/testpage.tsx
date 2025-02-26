@@ -20,15 +20,7 @@ function testpage() {
   };
 
   const navigateToRegistration = () => {
-    router.push("/(tabs)/shows/registration/koiRegistration");
-  };
-
-  const navigateToConfirmRegister = () => {
-    router.push("/(tabs)/shows/registration/ConfirmRegister");
-  };
-
-  const navigateToBuyTickets = () => {
-    router.push("/(tabs)/shows/buyTickets/BuyTickets");
+    router.push("/(tabs)/shows/LiveStream");
   };
 
   return (
@@ -37,12 +29,7 @@ function testpage() {
       <Button title="Go to Welcome" onPress={navigateToWelcome} />
       <Button title="Go to Sign Up" onPress={navigateToSignup} />
       <Button title="Go to Sign In" onPress={navigateToSignin} />
-      <Button title="Go to Registration" onPress={navigateToRegistration} />
-      <Button title="Go to Buy Tickets" onPress={navigateToBuyTickets} />
-      <Button
-        title="Go to Koi Participation"
-        onPress={navigateToConfirmRegister}
-      />
+      <Button title="Go to live stream" onPress={navigateToRegistration} />
     </View>
   );
 }

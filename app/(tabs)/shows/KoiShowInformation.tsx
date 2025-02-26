@@ -1,6 +1,7 @@
 // KoiShowInformation.tsx
 
-import React, { useState } from "react";
+import { router } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Image,
   ScrollView,
@@ -9,7 +10,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Header } from "react-native/Libraries/NewAppScreen";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import Header from "../../../components/Header"; // Sửa import này
 
 interface EventDetails {
   description: string[];
@@ -50,12 +56,165 @@ const KoiShowInformation: React.FC<KoiShowInformationProps> = ({
     enteringKoi: false,
   });
 
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
+  // Add animation values for each section
+  const eventDetailsHeight = useSharedValue(0);
+  const awardsHeight = useSharedValue(0);
+  const rulesHeight = useSharedValue(0);
+  const enteringKoiHeight = useSharedValue(0);
+
+  const springConfig = {
+    damping: 18, // Slightly adjusted for a smoother feel
+    stiffness: 120, // Slightly adjusted
+    mass: 0.6, // Slightly adjusted
   };
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => {
+      const newValue = !prev[section];
+      // Fine-tuned heights for your content.  *IMPORTANT*
+      const heights = {
+        eventDetails: 220, // Reduced a bit
+        awards: 200, // Reduced a bit
+        rules: 190, // Reduced a bit
+        enteringKoi: 190, // Reduced a bit
+      };
+
+      const targetHeight = heights[section as keyof typeof heights];
+
+      switch (section) {
+        case "eventDetails":
+          eventDetailsHeight.value = withSpring(
+            newValue ? targetHeight : 0,
+            springConfig
+          );
+          break;
+        case "awards":
+          awardsHeight.value = withSpring(
+            newValue ? targetHeight : 0,
+            springConfig
+          );
+          break;
+        case "rules":
+          rulesHeight.value = withSpring(
+            newValue ? targetHeight : 0,
+            springConfig
+          );
+          break;
+        case "enteringKoi":
+          enteringKoiHeight.value = withSpring(
+            newValue ? targetHeight : 0,
+            springConfig
+          );
+          break;
+      }
+      return { ...prev, [section]: newValue };
+    });
+  };
+
+  const createSectionStyle = useCallback(
+    (heightValue: Animated.SharedValue<number>) =>
+      useAnimatedStyle(() => ({
+        height: heightValue.value,
+        opacity: heightValue.value > 0 ? 1 : 0,
+        overflow: "hidden",
+        paddingHorizontal: 16,
+        paddingBottom: heightValue.value > 0 ? 16 : 0,
+        backgroundColor: "#E5E5E5", // Updated background color
+      })),
+    []
+  );
+
+  const eventDetailsStyle = createSectionStyle(eventDetailsHeight);
+  const awardsStyle = createSectionStyle(awardsHeight);
+  const rulesStyle = createSectionStyle(rulesHeight);
+  const enteringKoiStyle = createSectionStyle(enteringKoiHeight);
+
+  const AnimatedArrow = ({ isExpanded }: { isExpanded: boolean }) => {
+    const rotateAnimation = useSharedValue(0);
+
+    useEffect(() => {
+      rotateAnimation.value = withSpring(isExpanded ? 90 : 0, springConfig);
+    }, [isExpanded]);
+
+    const animatedStyle = useAnimatedStyle(() => {
+      return {
+        transform: [{ rotate: `${rotateAnimation.value}deg` }],
+      };
+    });
+
+    return (
+      <Animated.Image
+        source={{
+          uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-6.png",
+        }}
+        style={[styles.arrow, animatedStyle]}
+      />
+    );
+  };
+
+  const renderEventDetails = () => (
+    <Animated.View style={[styles.sectionContent, eventDetailsStyle]}>
+      {eventDetails.description.map((text, index) => (
+        <Text key={index} style={styles.descriptionText}>
+          {text}
+        </Text>
+      ))}
+      <Text style={styles.dateText}>Date & Time: {eventDetails.date}</Text>
+      {eventDetails.location.map((text, index) => (
+        <Text key={index} style={styles.locationText}>
+          {text}
+        </Text>
+      ))}
+    </Animated.View>
+  );
+
+  const renderAwardsContent = () => (
+    <Animated.View style={[styles.sectionContent, awardsStyle]}>
+      <Text style={styles.awardText}>
+        Awards will be announced during virtual award ceremony!
+      </Text>
+      <Text style={styles.awardText}>
+        No Koi can win more than one award, except for special awards.
+      </Text>
+      <Text style={styles.specialAwardTitle}>Special Awards & Prizes:</Text>
+      <Text style={styles.awardText}>• Supreme Kokugyo Prize</Text>
+      <Text style={styles.awardText}>• Judge's Award</Text>
+    </Animated.View>
+  );
+
+  const renderRulesContent = () => (
+    <Animated.View style={[styles.sectionContent, rulesStyle]}>
+      <Text style={styles.ruleText}>
+        Please review and submit the necessary information with the form online:
+      </Text>
+      <Text style={styles.bulletPoint}>
+        • Koi Name - Does your koi have a name?
+      </Text>
+      <Text style={styles.bulletPoint}>
+        • Koi Description - Write a description about this koi
+      </Text>
+      <Text style={styles.bulletPoint}>
+        • Approximate Size and Size category
+      </Text>
+    </Animated.View>
+  );
+
+  const renderEnteringKoiContent = () => (
+    <Animated.View style={[styles.sectionContent, enteringKoiStyle]}>
+      <Text style={styles.ruleText}>
+        Please review and submit the necessary information with the form online:
+      </Text>
+      <Text style={styles.bulletPoint}>
+        • Koi Name - Does your koi have a name?
+      </Text>
+      <Text style={styles.bulletPoint}>
+        • Koi Description - Write a description about this koi
+      </Text>
+      <Text style={styles.bulletPoint}>
+        • Approximate Size and Size category
+      </Text>
+    </Animated.View>
+  );
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -97,77 +256,26 @@ const KoiShowInformation: React.FC<KoiShowInformationProps> = ({
 
       {/* Title and Event Details */}
       <Text style={styles.title}>{title}</Text>
-      <TouchableOpacity
-        style={styles.sectionHeader}
-        onPress={() => toggleSection("eventDetails")}>
-        <Text style={styles.sectionTitle}>Event Details</Text>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-6.png",
-          }}
-          style={[
-            styles.arrow,
-            {
-              transform: [
-                { rotate: expandedSections.eventDetails ? "180deg" : "0deg" },
-              ],
-            },
-          ]}
-        />
-      </TouchableOpacity>
 
-      {expandedSections.eventDetails && (
-        <View style={styles.sectionContent}>
-          {eventDetails.description.map((text, index) => (
-            <Text key={index} style={styles.descriptionText}>
-              {text}
-            </Text>
-          ))}
-          <Text style={styles.dateText}>Date & Time: {eventDetails.date}</Text>
-          {eventDetails.location.map((text, index) => (
-            <Text key={index} style={styles.locationText}>
-              {text}
-            </Text>
-          ))}
-        </View>
-      )}
-    </View>
-  );
+      <View style={[styles.sectionContainer, { backgroundColor: "#E5E5E5" }]}>
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => toggleSection("eventDetails")}>
+          <Text style={styles.sectionTitle}>Event Details</Text>
+          <AnimatedArrow isExpanded={expandedSections.eventDetails} />
+        </TouchableOpacity>
+        {renderEventDetails()}
+      </View>
 
-  const renderAwards = () => (
-    <View style={styles.awardsContainer}>
-      <TouchableOpacity
-        style={styles.sectionHeader}
-        onPress={() => toggleSection("awards")}>
-        <Text style={styles.sectionTitle}>Awards</Text>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-10.png",
-          }}
-          style={[
-            styles.arrow,
-            {
-              transform: [
-                { rotate: expandedSections.awards ? "180deg" : "0deg" },
-              ],
-            },
-          ]}
-        />
-      </TouchableOpacity>
-
-      {expandedSections.awards && (
-        <View style={styles.sectionContent}>
-          <Text style={styles.awardText}>
-            Awards will be announced during virtual award ceremony!
-          </Text>
-          <Text style={styles.awardText}>
-            No Koi can win more than one award, except for special awards.
-          </Text>
-          <Text style={styles.specialAwardTitle}>Special Awards & Prizes:</Text>
-          <Text style={styles.awardText}>• Supreme Kokugyo Prize</Text>
-          <Text style={styles.awardText}>• Judge's Award</Text>
-        </View>
-      )}
+      <View style={[styles.sectionContainer, { backgroundColor: "#E5E5E5" }]}>
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => toggleSection("awards")}>
+          <Text style={styles.sectionTitle}>Awards</Text>
+          <AnimatedArrow isExpanded={expandedSections.awards} />
+        </TouchableOpacity>
+        {renderAwardsContent()}
+      </View>
     </View>
   );
 
@@ -175,61 +283,51 @@ const KoiShowInformation: React.FC<KoiShowInformationProps> = ({
     <View style={styles.rulesContainer}>
       <Text style={styles.mainHeader}>Official Koi Show Rules</Text>
 
-      <TouchableOpacity
-        style={styles.sectionHeader}
-        onPress={() => toggleSection("rules")}>
-        <Text style={styles.sectionTitle}>Rules & Regulations</Text>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-7.png",
-          }}
-          style={[
-            styles.arrow,
-            {
-              transform: [
-                { rotate: expandedSections.rules ? "180deg" : "0deg" },
-              ],
-            },
-          ]}
-        />
-      </TouchableOpacity>
+      <View
+        style={[
+          styles.sectionContainer,
+          { backgroundColor: "rgba(245, 245, 245, 1)" },
+        ]}>
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => toggleSection("rules")}>
+          <Text style={styles.sectionTitle}>Rules & Regulations</Text>
+          <AnimatedArrow isExpanded={expandedSections.rules} />
+        </TouchableOpacity>
+        {expandedSections.rules && renderRulesContent()}
+      </View>
+
+      <View
+        style={[
+          styles.sectionContainer,
+          { backgroundColor: "rgba(245, 245, 245, 1)" },
+        ]}>
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => toggleSection("enteringKoi")}>
+          <Text style={styles.sectionTitle}>Entering Koi In Show</Text>
+          <AnimatedArrow isExpanded={expandedSections.enteringKoi} />
+        </TouchableOpacity>
+        {expandedSections.enteringKoi && renderEnteringKoiContent()}
+      </View>
+    </View>
+  );
+
+  const renderNote = () => (
+    <View style={styles.noteContainer}>
+      <Text style={styles.noteText}>
+        Please carefully read the competition rules before registering, such as
+        requirements for photos/videos, participation conditions, etc.
+      </Text>
 
       <TouchableOpacity
-        style={styles.sectionHeader}
-        onPress={() => toggleSection("enteringKoi")}>
-        <Text style={styles.sectionTitle}>Entering Koi In Show</Text>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-8.png",
-          }}
-          style={[
-            styles.arrow,
-            {
-              transform: [
-                { rotate: expandedSections.enteringKoi ? "180deg" : "0deg" },
-              ],
-            },
-          ]}
-        />
+        style={styles.noteButton}
+        // onPress={navigateToRegistration}
+      >
+        <Text style={styles.noteButtonText}>
+          Read the full details of all rules and regulations
+        </Text>
       </TouchableOpacity>
-
-      {expandedSections.enteringKoi && (
-        <View style={styles.sectionContent}>
-          <Text style={styles.ruleText}>
-            Please review and submit the necessary information with the form
-            online:
-          </Text>
-          <Text style={styles.bulletPoint}>
-            • Koi Name - Does your koi have a name?
-          </Text>
-          <Text style={styles.bulletPoint}>
-            • Koi Description - Write a description about this koi
-          </Text>
-          <Text style={styles.bulletPoint}>
-            • Approximate Size and Size category
-          </Text>
-        </View>
-      )}
     </View>
   );
 
@@ -239,12 +337,14 @@ const KoiShowInformation: React.FC<KoiShowInformationProps> = ({
         <TouchableOpacity style={styles.actionButton}>
           <Text style={styles.buttonText}>Register for events</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push("/(tabs)/shows/BuyTickets")}>
           <Text style={styles.buttonText}>Purchase tickets</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.navbar}>
+      {/* <View style={styles.navbar}>
         <TouchableOpacity>
           <Image
             source={{
@@ -269,32 +369,27 @@ const KoiShowInformation: React.FC<KoiShowInformationProps> = ({
             style={styles.navIcon}
           />
         </TouchableOpacity>
-      </View>
+      </View> */}
     </View>
   );
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Home"
-        description="Register for events, purchase tickets, and view results."
-      />
+      <Header title="Home" description="" />
       <ScrollView style={styles.scrollView}>
         {renderHeader()}
-        {renderAwards()}
         {renderRules()}
+        {renderNote()}
       </ScrollView>
       {renderFooter()}
     </View>
   );
 };
 
-// Thêm vào phần styles hiện có:
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#fff",
   },
   scrollView: {
     flex: 1,
@@ -302,7 +397,6 @@ const styles = StyleSheet.create({
   headerContainer: {
     backgroundColor: "#fff",
     padding: 16,
-    marginBottom: 8,
   },
   carouselContainer: {
     height: 232,
@@ -329,7 +423,7 @@ const styles = StyleSheet.create({
   carouselButton: {
     width: 32,
     height: 32,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backgroundColor: "#E5E5E5",
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
@@ -345,15 +439,23 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     fontFamily: "Poppins",
   },
+  sectionContainer: {
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 24, // Consistent spacing between sections
+    backgroundColor: "#E5E5E5", // Added background color
+  },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#E5E5E5", // Updated background color
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "600", // Slightly less bold than the main title
     color: "#030303",
     fontFamily: "Lexend Deca",
   },
@@ -362,84 +464,115 @@ const styles = StyleSheet.create({
     height: 14,
   },
   sectionContent: {
-    paddingHorizontal: 8,
-    paddingBottom: 16,
+    backgroundColor: "#E5E5E5", // Consistent white background for content
   },
   descriptionText: {
     fontSize: 14,
-    color: "#858585",
+    color: "#333",
     marginBottom: 8,
     fontFamily: "Lexend Deca",
+    lineHeight: 20,
   },
   dateText: {
     fontSize: 14,
-    color: "#858585",
+    color: "#333",
     marginVertical: 8,
     fontFamily: "Lexend Deca",
+    lineHeight: 20,
   },
   locationText: {
     fontSize: 14,
-    color: "#858585",
+    color: "#333",
     fontFamily: "Lexend Deca",
-  },
-  awardsContainer: {
-    backgroundColor: "#fff",
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    borderRadius: 8,
+    lineHeight: 20,
   },
   awardText: {
     fontSize: 14,
-    color: "#858585",
+    color: "#333",
     marginBottom: 8,
     fontFamily: "Lexend Deca",
+    lineHeight: 20,
   },
   specialAwardTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#858585",
+    color: "#333",
     marginTop: 16,
     marginBottom: 8,
     fontFamily: "Lexend Deca",
+    lineHeight: 20,
   },
   rulesContainer: {
-    backgroundColor: "#fff",
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 8,
     borderRadius: 8,
+    paddingHorizontal: 0, // Consistent with other sections
+    marginHorizontal: 16,
+    marginBottom: 16, //Consistent Spacing
   },
   mainHeader: {
     fontSize: 18,
     fontWeight: "700",
     color: "#030303",
     marginBottom: 16,
+    paddingHorizontal: 16, //Consistent Spacing
     fontFamily: "Lexend Deca",
   },
   ruleText: {
     fontSize: 14,
-    color: "#858585",
+    color: "#333",
     marginBottom: 16,
     fontFamily: "Lexend Deca",
+    lineHeight: 20,
   },
   bulletPoint: {
     fontSize: 14,
-    color: "#858585",
+    color: "#333",
     marginLeft: 8,
     marginBottom: 8,
     fontFamily: "Lexend Deca",
+    lineHeight: 20,
+  },
+  noteContainer: {
+    backgroundColor: "#E5E5E5",
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "#FFA500",
+  },
+  noteText: {
+    fontSize: 14,
+    color: "#FF4433",
+    fontFamily: "Lexend Deca",
+    lineHeight: 20,
+    fontStyle: "italic",
+  },
+  noteButton: {
+    backgroundColor: "#fff",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    marginTop: 12,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#FFA500",
+  },
+  noteButtonText: {
+    color: "#FFA500",
+    fontSize: 14,
+    fontFamily: "Lexend Deca",
+    fontWeight: "500",
   },
   footer: {
     backgroundColor: "#fff",
-    padding: 16,
+    padding: 12,
     borderTopWidth: 1,
     borderTopColor: "#e5e7eb",
   },
   actionButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 16,
+    // marginBottom: 16,
   },
   actionButton: {
     backgroundColor: "#0a0a0a",
@@ -464,7 +597,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
   },
-  // Additional utility styles
   divider: {
     height: 1,
     backgroundColor: "#e5e7eb",
@@ -490,11 +622,11 @@ const styles = StyleSheet.create({
   mb16: {
     marginBottom: 16,
   },
-  px16: {
-    paddingHorizontal: 16,
-  },
   py16: {
     paddingVertical: 16,
+  },
+  animatedSection: {
+    overflow: "hidden",
   },
 });
 
