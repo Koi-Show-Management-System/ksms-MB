@@ -228,7 +228,9 @@ const TicketCheckin: React.FC = () => {
         <TouchableOpacity
           style={styles.backToTicketsButton}
           onPress={() => router.back()}>
-          <Text style={styles.backToTicketsText}>Back to My Tickets</Text>
+          <Text style={styles.backToTicketsText}>
+            Back to Competition Joined
+          </Text>
         </TouchableOpacity>
       </View>
     );

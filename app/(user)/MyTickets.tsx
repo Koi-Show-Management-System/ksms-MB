@@ -1,7 +1,6 @@
-// app/(user)/MyTickets.tsx
-import { router } from "expo-router";
-import React from "react";
+import React, { useState } from "react";
 import {
+  Dimensions,
   Image,
   ScrollView,
   StyleSheet,
@@ -9,172 +8,255 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
-interface TicketProps {
+// --- Event Card ---
+interface Event {
   id: string;
-  eventName: string;
+  title: string;
   date: string;
   time: string;
-  location: string;
   ticketType: string;
-  price: string;
+  status: "Checked-in" | "Ready" | "Upcoming" | "Past"; // More status options
   image: string;
 }
 
-const tickets: TicketProps[] = [
-  {
-    id: "1",
-    eventName: "Annual Koi Fish Competition",
-    date: "June 15, 2023",
-    time: "10:00 AM - 5:00 PM",
-    location: "Koi Garden Park",
-    ticketType: "VIP",
-    price: "$50.00",
-    image:
-      "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/group-4.png",
-  },
-  {
-    id: "2",
-    eventName: "Koi Fish Exhibition",
-    date: "July 22, 2023",
-    time: "9:00 AM - 4:00 PM",
-    location: "Aquatic Center",
-    ticketType: "Standard",
-    price: "$25.00",
-    image:
-      "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/group-5.png",
-  },
-  {
-    id: "3",
-    eventName: "International Koi Show",
-    date: "August 10, 2023",
-    time: "11:00 AM - 6:00 PM",
-    location: "Convention Center",
-    ticketType: "Premium",
-    price: "$40.00",
-    image:
-      "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/group-6.png",
-  },
-];
+interface EventCardProps {
+  event: Event;
+  onPress: (event: Event) => void;
+}
 
-const TicketCard: React.FC<{ ticket: TicketProps }> = ({ ticket }) => {
-  return (
-    <TouchableOpacity
-      style={styles.ticketCard}
-      onPress={() => {
-        // Navigate to TicketCheckin screen with ticket data
-        router.push({
-          pathname: "/(user)/TicketCheckin",
-          params: { ticketId: ticket.id },
-        });
-      }}>
-      <View style={styles.ticketImageContainer}>
-        <Image source={{ uri: ticket.image }} style={styles.ticketImage} />
-      </View>
-      <View style={styles.ticketContent}>
-        <Text style={styles.eventName}>{ticket.eventName}</Text>
-        <View style={styles.ticketDetails}>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Date:</Text>
-            <Text style={styles.detailValue}>{ticket.date}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Time:</Text>
-            <Text style={styles.detailValue}>{ticket.time}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Location:</Text>
-            <Text style={styles.detailValue}>{ticket.location}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Type:</Text>
-            <Text style={styles.detailValue}>{ticket.ticketType}</Text>
-          </View>
+const { width: screenWidth } = Dimensions.get("window");
+
+const EventCard: React.FC<EventCardProps> = ({ event, onPress }) => (
+  <TouchableOpacity
+    style={styles.eventCard}
+    onPress={() => onPress(event)}
+    activeOpacity={0.7}>
+    <Image source={{ uri: event.image }} style={styles.eventImage} />
+    <View style={styles.eventDetails}>
+      <Text style={styles.eventTitle}>{event.title}</Text>
+      <View style={styles.eventInfo}>
+        <View style={styles.infoColumn}>
+          <Text style={styles.infoText}>Date: {event.date}</Text>
+          <Text style={styles.infoText}>{event.ticketType}</Text>
         </View>
-        <View style={styles.ticketFooter}>
-          <Text style={styles.ticketPrice}>{ticket.price}</Text>
-          <View style={styles.viewTicketButton}>
-            <Text style={styles.viewTicketText}>View Ticket</Text>
-          </View>
+        <View style={styles.infoColumn}>
+          <Text style={styles.infoText}>Time: {event.time}</Text>
+          <Text
+            style={[
+              styles.infoText,
+              // Use a type assertion to tell TypeScript this is a valid key
+              styles[
+                event.status
+                  .toLowerCase()
+                  .replace("-", "") as keyof typeof styles
+              ] || {},
+            ]}>
+            {event.status}
+          </Text>
         </View>
       </View>
-    </TouchableOpacity>
-  );
-};
+    </View>
+  </TouchableOpacity>
+);
 
+// --- Main Component ---
 const MyTickets: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  const tabWidth = screenWidth / 2;
+  const translateX = useSharedValue(0);
+
+  const handleTabChange = (tab: "upcoming" | "past") => {
+    setActiveTab(tab);
+    translateX.value = withSpring(tab === "upcoming" ? 0 : tabWidth, {
+      damping: 20,
+      stiffness: 90,
+      mass: 1,
+    });
+  };
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+    width: tabWidth,
+  }));
+
+  // Sample data (replace with data fetched from API)
+  const allEvents: Event[] = [
+    {
+      id: "1",
+      title: "Koi Championship 2022",
+      date: "19/09/2022",
+      time: "20:00",
+      ticketType: "Regular Ticket",
+      status: "Checked-in",
+      image:
+        "https://dashboard.codeparrot.ai/api/image/Z7_gZDHFtJnMrSZ1/group-3.png",
+    },
+    {
+      id: "2",
+      title: "Autumn Koi Fest 2025",
+      date: "21/09/2025",
+      time: "11:00",
+      ticketType: "VIP Ticket",
+      status: "Ready",
+      image:
+        "https://dashboard.codeparrot.ai/api/image/Z7_gZDHFtJnMrSZ1/group-7.png",
+    },
+    {
+      id: "3",
+      title: "Autumn Koi Fest 2025",
+      date: "22/09/2025",
+      time: "20:00",
+      ticketType: "Regular Ticket",
+      status: "Ready",
+      image:
+        "https://dashboard.codeparrot.ai/api/image/Z7_gZDHFtJnMrSZ1/group-8.png",
+    },
+    {
+      id: "4",
+      title: "Summer Koi Contest 2023",
+      date: "23/09/2023",
+      time: "20:00",
+      ticketType: "VIP Ticket",
+      status: "Checked-in",
+      image:
+        "https://dashboard.codeparrot.ai/api/image/Z7_gZDHFtJnMrSZ1/group-9.png",
+    },
+    {
+      id: "5",
+      title: "Spring Koi Show 2024",
+      date: "2024-04-15",
+      time: "10:00",
+      ticketType: "General Admission",
+      status: "Upcoming",
+      image: "https://example.com/koi_show_spring.jpg",
+    },
+    {
+      id: "6",
+      title: "Koi Breeders Meeting",
+      date: "2023-08-20",
+      time: "14:00",
+      ticketType: "Regular Ticket",
+      status: "Past",
+      image: "https://example.com/koi_breeders.jpg",
+    },
+  ];
+
+  const upcomingEvents = allEvents.filter(
+    (event) => event.status === "Upcoming" || event.status === "Ready"
+  );
+  const pastEvents = allEvents.filter(
+    (event) => event.status === "Checked-in" || event.status === "Past"
+  );
+  const displayedEvents =
+    activeTab === "upcoming" ? upcomingEvents : pastEvents;
+
+  const handleEventPress = (event: Event) => {
+    // Navigate to an event details screen
+    // Example:
+    // navigation.navigate('EventDetails', { event });
+    console.log("Event pressed:", event); // Log for now
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame.png",
-            }}
-            style={styles.backIcon}
-          />
-          <Text style={styles.backText}>Back</Text>
+          onPress={() => {
+            /* Navigate to Home */
+          }}>
+          <Text style={styles.homeText}>Home</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Tickets</Text>
+        <View style={styles.headerRightSection}>
+          <TouchableOpacity
+            onPress={() => {
+              /* Navigate to profile */
+            }}
+            style={styles.headerIconButton}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z7_gZDHFtJnMrSZ1/group-12.png",
+              }}
+              style={styles.headerProfileIcon}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.tabContainer}>
+        <TouchableOpacity
+          style={styles.tab}
+          onPress={() => handleTabChange("upcoming")}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "upcoming" && styles.activeTabText,
+            ]}>
+            Upcoming Event
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.tab}
+          onPress={() => handleTabChange("past")}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "past" && styles.activeTabText,
+            ]}>
+            Past Event
+          </Text>
+        </TouchableOpacity>
+        <Animated.View style={[styles.indicator, indicatorStyle]} />
+        <View style={styles.bottomBorder} />
       </View>
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollViewContent}>
-        {tickets.length > 0 ? (
-          tickets.map((ticket) => (
-            <TicketCard key={ticket.id} ticket={ticket} />
-          ))
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/empty-tickets.png",
-              }}
-              style={styles.emptyIcon}
-            />
-            <Text style={styles.emptyText}>No Tickets Found</Text>
-            <Text style={styles.emptySubtext}>
-              You haven't purchased any tickets yet
-            </Text>
-            <TouchableOpacity
-              style={styles.browseButton}
-              onPress={() => router.push("/(tabs)/shows/KoiShows")}>
-              <Text style={styles.browseButtonText}>Browse Events</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        contentContainerStyle={styles.scrollViewContent}
+        style={styles.eventList}>
+        {displayedEvents.map((event) => (
+          <EventCard key={event.id} event={event} onPress={handleEventPress} />
+        ))}
       </ScrollView>
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/(tabs)/home/homepage")}>
+          style={styles.footerItem}
+          onPress={() => {
+            /* Navigate to Home */
+          }}>
           <Image
             source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame-2.png",
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7_gZDHFtJnMrSZ1/frame.png",
             }}
             style={styles.footerIcon}
           />
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/(user)/Notification")}>
+          style={styles.footerItem}
+          onPress={() => {
+            /* Navigate to Notifications */
+          }}>
           <Image
             source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame-4.png",
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7_gZDHFtJnMrSZ1/frame-2.png",
             }}
             style={styles.footerIcon}
           />
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/(tabs)/home/UserMenu")}>
+          style={styles.footerItem}
+          onPress={() => {
+            /* Navigate to Tickets (Current Screen) */
+          }}>
           <Image
             source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame-3.png",
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7_gZDHFtJnMrSZ1/frame-3.png",
             }}
             style={styles.footerIcon}
           />
@@ -187,177 +269,181 @@ const MyTickets: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#fff",
   },
+  // Header Styles
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    height: 70,
-    backgroundColor: "#FFFFFF",
-    marginTop: 40,
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  backIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 8,
-  },
-  backText: {
-    fontFamily: "Poppins",
-    fontSize: 16,
-    fontWeight: "400",
-    color: "#000000",
-  },
-  headerTitle: {
-    flex: 1,
-    fontFamily: "Poppins",
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#000000",
-    textAlign: "center",
-    marginRight: 44, // To center the title accounting for the back button
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollViewContent: {
-    padding: 16,
-  },
-  ticketCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    overflow: "hidden",
-  },
-  ticketImageContainer: {
-    height: 120,
     width: "100%",
-    backgroundColor: "#f0f0f0",
-  },
-  ticketImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  ticketContent: {
-    padding: 16,
-  },
-  eventName: {
-    fontFamily: "Poppins",
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#000000",
-    marginBottom: 8,
-  },
-  ticketDetails: {
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: "row",
-    marginBottom: 4,
-  },
-  detailLabel: {
-    fontFamily: "Poppins",
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#666666",
-    width: 80,
-  },
-  detailValue: {
-    flex: 1,
-    fontFamily: "Poppins",
-    fontSize: 14,
-    color: "#333333",
-  },
-  ticketFooter: {
+    height: 60,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-    paddingTop: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "transparent", // Or your desired background
+    marginTop: 20,
   },
-  ticketPrice: {
+  homeText: {
+    fontFamily: "Poppins",
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#030303",
+  },
+  headerTitle: {
     fontFamily: "Poppins",
     fontSize: 18,
     fontWeight: "700",
-    color: "#4A90E2",
+    color: "#030303",
+    flex: 1, // Add this to center the title
+    textAlign: "center", // Center the text
   },
-  viewTicketButton: {
-    backgroundColor: "#4A90E2",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  headerRightSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16, // Consistent gap
+  },
+  headerIconButton: {
+    padding: 4,
+  },
+  headerIcon: {
+    width: 28, // Consistent size
+    height: 28,
+  },
+  headerProfileIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
   },
-  viewTicketText: {
-    fontFamily: "Poppins",
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FFFFFF",
+  // Tab Styles
+  tabContainer: {
+    flexDirection: "row",
+    height: 50,
+    position: "relative",
   },
-  emptyContainer: {
+  tab: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 32,
-    marginTop: 80,
+    paddingVertical: 15,
   },
-  emptyIcon: {
-    width: 100,
-    height: 100,
-    marginBottom: 24,
-  },
-  emptyText: {
-    fontFamily: "Poppins",
-    fontSize: 20,
+  tabText: {
+    fontFamily: "Lexend Deca",
+    fontSize: 16,
     fontWeight: "700",
-    color: "#333333",
+    color: "#666",
+    opacity: 0.5,
+  },
+  activeTabText: {
+    color: "#000",
+    opacity: 1,
+  },
+  indicator: {
+    height: 2,
+    backgroundColor: "#000000",
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    borderRadius: 1,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+    elevation: 3,
+  },
+  bottomBorder: {
+    width: "100%",
+    height: 1,
+    backgroundColor: "#E5E5E5",
+    position: "absolute",
+    bottom: 0,
+  },
+
+  // ScrollView and Event List Styles
+  eventList: {
+    flex: 1,
+    width: "100%",
+  },
+  scrollViewContent: {
+    alignItems: "center",
+    paddingBottom: 20,
+  },
+
+  // Event Card Styles
+  eventCard: {
+    flexDirection: "row",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5E5",
+    width: "90%", // Responsive width
+    backgroundColor: "#fff", // White background
+    marginVertical: 8, // Space between cards
+    borderRadius: 8,
+    shadowColor: "#000", // Shadow for a card-like appearance
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  eventImage: {
+    width: 104,
+    height: 104, // Increased height
+    borderRadius: 8,
+  },
+  eventDetails: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  eventTitle: {
+    fontFamily: "Poppins",
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#000",
     marginBottom: 8,
   },
-  emptySubtext: {
-    fontFamily: "Poppins",
-    fontSize: 16,
-    color: "#666666",
-    textAlign: "center",
-    marginBottom: 24,
+  eventInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
-  browseButton: {
-    backgroundColor: "#4A90E2",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
+  infoColumn: {
+    flexDirection: "column",
+    gap: 8,
   },
-  browseButtonText: {
-    fontFamily: "Poppins",
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
+  infoText: {
+    fontFamily: "Lexend Deca",
+    fontSize: 12,
+    color: "#000",
   },
+  // Status styles
+  checkedin: {
+    color: "green",
+  },
+  ready: {
+    color: "blue",
+  },
+  upcoming: {
+    color: "orange",
+  },
+  past: {
+    color: "grey",
+  },
+  // Footer styles
   footer: {
+    height: 70,
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    height: 70,
     borderTopWidth: 1,
     borderTopColor: "#E5E5E5",
     backgroundColor: "#FFFFFF",
   },
-  navItem: {
-    padding: 10,
+  footerItem: {
+    padding: 12,
   },
   footerIcon: {
     width: 28,
     height: 28,
-    resizeMode: "contain",
   },
 });
 

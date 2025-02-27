@@ -258,26 +258,23 @@ const MyCompetitions: React.FC = () => {
       ? competitions
       : competitions.filter((comp) => comp.status === activeFilter);
 
-  // Handle competition press
+  // Handle competition press// Handle competition press
   const handleCompetitionPress = (competition: CompetitionData) => {
-    if (competition.status === "completed") {
-      // Navigate to ParticipateResult screen with competition ID
+    if (
+      competition.status === "completed" ||
+      competition.status === "ongoing"
+    ) {
+      // Navigate to ParticipateResult for both completed and ongoing competitions
       router.push({
         pathname: "/(user)/ParticipateResult",
         params: { competitionId: competition.id },
       });
     } else if (competition.status === "upcoming") {
-      // Maybe navigate to registration or details page
-      Alert.alert(
-        "Upcoming Competition",
-        "This competition hasn't started yet."
-      );
-    } else {
-      // For ongoing competitions
-      Alert.alert(
-        "Ongoing Competition",
-        "Results will be available once the competition is completed."
-      );
+      // Navigate to TicketCheckin for upcoming competitions
+      router.push({
+        pathname: "/(user)/TicketCheckin",
+        params: { competitionId: competition.id },
+      });
     }
   };
 

@@ -38,24 +38,19 @@ const UserMenu: React.FC<UserMenuProps> = ({
     //   label: "Transactions",
     //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     // },
-    // {
-    //   id: "mytickets",
-    //   label: "My Tickets",
-    //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
-    // },
-    // {
-    //   id: "profile",
-    //   label: "User Profile",
-    //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
-    // },
     {
-      id: "competitionsjoined",
-      label: "Competitions Joined",
+      id: "mytickets",
+      label: "My Tickets",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     },
     {
-      id: "participateresult",
-      label: "Participate Result",
+      id: "profile",
+      label: "User Profile",
+      icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
+    },
+    {
+      id: "competitionsjoined",
+      label: "Competitions Joined",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     },
   ];
@@ -87,9 +82,6 @@ const UserMenu: React.FC<UserMenuProps> = ({
         break;
       case "competitionsjoined":
         router.push("/(user)/CompetitionJoined");
-        break;
-      case "participateresult":
-        router.push("/(user)/ParticipateResult");
         break;
       // default:
       //   // Handle default case or mykoi route
