@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import React, { useState } from "react";
 import {
   Dimensions,
@@ -155,12 +156,20 @@ const MyTickets: React.FC = () => {
   );
   const displayedEvents =
     activeTab === "upcoming" ? upcomingEvents : pastEvents;
-
   const handleEventPress = (event: Event) => {
-    // Navigate to an event details screen
-    // Example:
-    // navigation.navigate('EventDetails', { event });
-    console.log("Event pressed:", event); // Log for now
+    // Navigate to ShowTickets with event data
+    router.push({
+      pathname: "/(user)/ShowTickets",
+      params: {
+        showName: event.title,
+        dateTime: `${event.date}, ${event.time}`,
+        venue: "Venue info", // Not available in event data, use placeholder
+        ticketType: event.ticketType,
+        ticketNumber: event.id,
+        buyerName: "User Name", // Not available in event data, use placeholder
+        qrCodeUrl: event.image, // Use event image for QR code or replace with a static QR image
+      },
+    });
   };
 
   return (

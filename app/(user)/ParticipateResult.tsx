@@ -1,4 +1,5 @@
 // ParticipateResult.tsx
+import { router } from "expo-router";
 import React from "react";
 import {
   Image,
@@ -55,8 +56,30 @@ const FishDetailsCard: React.FC<FishDetailsCardProps> = ({ fishDetails }) => {
 
         <Text style={styles.detailText}>Ranking: {fishDetails.ranking}</Text>
 
-        <TouchableOpacity style={styles.shareButton}>
-          <Text style={styles.shareButtonText}>Share Results</Text>
+        <TouchableOpacity
+          style={styles.shareButton}
+          onPress={() =>
+            router.push({
+              pathname: "/(user)/FishStatus",
+              params: {
+                fishName: fishDetails.name,
+                fishImage: fishDetails.image,
+                breed: fishDetails.breed,
+                size: fishDetails.size,
+                category: fishDetails.category,
+                status: fishDetails.awarded ? "Awarded" : "Not Awarded",
+                prize: fishDetails.awarded ? fishDetails.awardTitle : undefined,
+                award: fishDetails.awarded ? fishDetails.awardTitle : undefined,
+                score: 75, // Add default score or pass from your data
+                coloration: 25, // Add default values or pass from your data
+                shape: 20,
+                pattern: 15,
+                fishSize: 15,
+                comments: ["Beautiful coloration, unique pattern."],
+              },
+            })
+          }>
+          <Text style={styles.shareButtonText}>View Detail</Text>
         </TouchableOpacity>
       </View>
     </View>

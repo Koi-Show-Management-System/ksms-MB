@@ -18,21 +18,21 @@ const UserMenu: React.FC<UserMenuProps> = ({
       label: "My Koi",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame.png",
     },
-    {
-      id: "cart",
-      label: "Cart",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-2.png",
-    },
+    // {
+    //   id: "cart",
+    //   label: "Cart",
+    //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-2.png",
+    // },
     {
       id: "notification",
       label: "Notification",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-3.png",
     },
-    {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-4.png",
-    },
+    // {
+    //   id: "dashboard",
+    //   label: "Dashboard",
+    //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-4.png",
+    // },
     // {
     //   id: "transactions",
     //   label: "Transactions",
