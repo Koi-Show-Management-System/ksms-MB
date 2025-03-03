@@ -7,7 +7,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
+import { login } from "../../services/authService";
 
 interface SignInProps {
   onSignIn?: () => void;
@@ -16,7 +18,7 @@ interface SignInProps {
 
 const SignIn: React.FC<SignInProps> = ({
   onSignIn = () => {
-    router.push("../testpage");
+    router.push("/(tabs)/home/homepage");
   },
   onSignUp = () => {
     router.push("/(auth)/signUp");
@@ -24,6 +26,35 @@ const SignIn: React.FC<SignInProps> = ({
 }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      setErrorMessage("Please enter both email and password");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      await login(email, password);
+
+      console.log("Login successful");
+
+      // Navigate to home page
+      router.push("/(tabs)/home/homepage");
+    } catch (error: any) {
+      const message =
+        error.response?.data?.message ||
+        "Login failed. Please check your credentials.";
+      setErrorMessage(message);
+      console.error("Login failed:", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -38,6 +69,10 @@ const SignIn: React.FC<SignInProps> = ({
       <Text style={styles.subtitle}>Join the Koi community today!</Text>
 
       <View style={styles.formContainer}>
+        {errorMessage ? (
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        ) : null}
+
         <Text style={styles.label}>Email address *</Text>
         <View style={styles.inputContainer}>
           <TextInput
@@ -46,6 +81,7 @@ const SignIn: React.FC<SignInProps> = ({
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
+            autoCapitalize="none"
           />
           <Image
             source={{
@@ -73,10 +109,15 @@ const SignIn: React.FC<SignInProps> = ({
         </View>
 
         <TouchableOpacity
-          style={styles.joinButton}
-          onPress={onSignIn}
+          style={[styles.joinButton, isLoading && styles.joinButtonDisabled]}
+          onPress={handleSignIn}
+          disabled={isLoading}
           activeOpacity={0.8}>
-          <Text style={styles.joinButtonText}>Join now</Text>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.joinButtonText}>Join now</Text>
+          )}
         </TouchableOpacity>
 
         <View style={styles.signupContainer}>
@@ -184,6 +225,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#030303",
+  },
+  errorText: {
+    color: "#FF3B30",
+    fontFamily: "Poppins",
+    fontSize: 14,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  joinButtonDisabled: {
+    backgroundColor: "#888888",
   },
 });
 

@@ -1,4 +1,4 @@
-// _layout.tsx (0-39)
+// app/_layout.tsx
 import {
   DarkTheme,
   DefaultTheme,
@@ -10,7 +10,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import "react-native-reanimated";
-
+import { BackButtonHandler } from "../components/BackButtonHandler";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -34,6 +34,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <BackButtonHandler />
       <Stack initialRouteName="index">
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />

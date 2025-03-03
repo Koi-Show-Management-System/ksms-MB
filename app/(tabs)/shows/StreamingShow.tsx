@@ -96,74 +96,88 @@ interface CommentType {
   content: string;
   isVerified?: boolean;
 }
-const CommentsSection: React.FC = () => {
-  const [comments, setComments] = useState<CommentType[]>([
-    {
-      id: "1",
-      author: "Brody Waluyo",
-      content: "Nice Koi !!!",
-      isVerified: false,
-    },
-    {
-      id: "2",
-      author: "Johnny Christ",
-      content: "Best Koi ever",
-      isVerified: false,
-    },
-    {
-      id: "3",
-      author: "Felicia Rodrigez",
-      content: "Hope Konawa win",
-      isVerified: true,
-    },
-    {
-      id: "4",
-      author: "Patrick Lil Uzi",
-      content: "Vote for Uchiha!!!!",
-      isVerified: true,
-    },
-  ]);
 
-  const scrollViewRef = useRef<ScrollView>(null);
+// Create an interface for the ref methods
+interface CommentsSectionRef {
+  addComment: (comment: CommentType) => void;
+}
 
-  // Function to add a new comment
-  const addComment = useCallback((newComment: CommentType) => {
-    setComments((prevComments) => [newComment, ...prevComments]);
-  }, []);
+// Convert CommentsSection to use forwardRef
+const CommentsSection = React.forwardRef<CommentsSectionRef, {}>(
+  (props, ref) => {
+    const [comments, setComments] = useState<CommentType[]>([
+      {
+        id: "1",
+        author: "Brody Waluyo",
+        content: "Nice Koi !!!",
+        isVerified: false,
+      },
+      {
+        id: "2",
+        author: "Johnny Christ",
+        content: "Best Koi ever",
+        isVerified: false,
+      },
+      {
+        id: "3",
+        author: "Felicia Rodrigez",
+        content: "Hope Konawa win",
+        isVerified: true,
+      },
+      {
+        id: "4",
+        author: "Patrick Lil Uzi",
+        content: "Vote for Uchiha!!!!",
+        isVerified: true,
+      },
+    ]);
 
-  useEffect(() => {
-    // Scroll to the bottom when new comments are added, with a slight delay
-    const timeoutId = setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100); // Adjust the delay as needed
+    const scrollViewRef = useRef<ScrollView>(null);
 
-    return () => clearTimeout(timeoutId); // Clear timeout on unmount or if comments change before timeout fires
-  }, [comments]);
+    // Function to add a new comment
+    const addComment = useCallback((newComment: CommentType) => {
+      setComments((prevComments) => [newComment, ...prevComments]);
+    }, []);
 
-  return (
-    <View style={styles.commentsContainer}>
-      <ScrollView ref={scrollViewRef} style={styles.commentsScrollContainer}>
-        {comments.map((comment) => (
-          <View key={comment.id} style={styles.commentContainer}>
-            <View style={styles.commentHeader}>
-              <Text
-                style={[
-                  styles.commentAuthorText,
-                  comment.isVerified && styles.commentVerifiedAuthor,
-                ]}>
-                {comment.author}
-              </Text>
-              {comment.isVerified && (
-                <View style={styles.commentVerifiedBadge} />
-              )}
+    // Expose methods to the parent component through the ref
+    React.useImperativeHandle(ref, () => ({
+      addComment,
+    }));
+
+    useEffect(() => {
+      // Scroll to the bottom when new comments are added, with a slight delay
+      const timeoutId = setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100); // Adjust the delay as needed
+
+      return () => clearTimeout(timeoutId); // Clear timeout on unmount or if comments change before timeout fires
+    }, [comments]);
+
+    return (
+      <View style={styles.commentsContainer}>
+        <ScrollView ref={scrollViewRef} style={styles.commentsScrollContainer}>
+          {comments.map((comment) => (
+            <View key={comment.id} style={styles.commentContainer}>
+              <View style={styles.commentHeader}>
+                <Text
+                  style={[
+                    styles.commentAuthorText,
+                    comment.isVerified && styles.commentVerifiedAuthor,
+                  ]}>
+                  {comment.author}
+                </Text>
+                {comment.isVerified && (
+                  <View style={styles.commentVerifiedBadge} />
+                )}
+              </View>
+              <Text style={styles.commentText}>{comment.content}</Text>
             </View>
-            <Text style={styles.commentText}>{comment.content}</Text>
-          </View>
-        ))}
-      </ScrollView>
-    </View>
-  );
-};
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+);
 
 // --- Action Buttons Component ---
 interface ActionButtonsProps {
@@ -268,7 +282,7 @@ const CommentInput: React.FC<CommentInputProps> = ({ onSubmit }) => {
 const StreamingShow: React.FC = () => {
   const { width, height } = useWindowDimensions(); // Get screen dimensions
   const [viewerCount, setViewerCount] = useState(1826); // Example state for viewer count
-  const commentsSectionRef = useRef<CommentsSection>(null);
+  const commentsSectionRef = useRef<CommentsSectionRef>(null);
 
   const handleCommentSubmit = (newCommentText: string) => {
     const newComment: CommentType = {
