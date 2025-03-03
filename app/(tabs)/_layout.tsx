@@ -1,42 +1,31 @@
-// _layout.tsx
-// No changes needed if homepage is already defined as shown in the given `_layout.tsx` file
-import { Tabs } from "expo-router";
+// app/(tabs)/_layout.tsx
+import { Stack } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
 
-import { HapticTab } from "@/components/HapticTab";
-import { IconSymbol } from "@/components/ui/IconSymbol";
-import TabBarBackground from "@/components/ui/TabBarBackground";
-import { Colors } from "@/constants/Colors";
-import { useColorScheme } from "@/hooks/useColorScheme";
-
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <Tabs
+    <Stack
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: "absolute",
-          },
-          default: {},
-        }),
+        animation: Platform.OS === "ios" ? "default" : "fade",
+        gestureEnabled: true,
+        gestureDirection: "horizontal",
       }}>
-      <Tabs.Screen
+      <Stack.Screen
         name="home"
         options={{
-          title: "home",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
-          ),
+          headerShown: false,
+          headerBackVisible: true,
         }}
       />
-    </Tabs>
+      <Stack.Screen
+        name="shows"
+        options={{
+          headerShown: false,
+          headerBackVisible: true,
+        }}
+      />
+    </Stack>
   );
 }

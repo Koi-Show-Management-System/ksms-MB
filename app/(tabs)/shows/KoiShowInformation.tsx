@@ -334,7 +334,9 @@ const KoiShowInformation: React.FC<KoiShowInformationProps> = ({
   const renderFooter = () => (
     <View style={styles.footer}>
       <View style={styles.actionButtons}>
-        <TouchableOpacity style={styles.actionButton}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push("/(tabs)/shows/koiRegistration")}>
           <Text style={styles.buttonText}>Register for events</Text>
         </TouchableOpacity>
         <TouchableOpacity

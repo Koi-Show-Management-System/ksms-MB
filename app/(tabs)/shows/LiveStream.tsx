@@ -1,4 +1,5 @@
 // livestream.tsx
+import { router } from "expo-router";
 import React from "react";
 import {
   Dimensions,
@@ -122,7 +123,7 @@ const App: React.FC = () => {
   const [isChatActive, setIsChatActive] = React.useState(false);
 
   const handleWatchLivePress = () => {
-    alert("Starting Live Stream (Placeholder)");
+    router.push("/(tabs)/shows/StreamingShow");
   };
 
   const handleChatPress = () => {

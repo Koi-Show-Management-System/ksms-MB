@@ -18,24 +18,39 @@ const UserMenu: React.FC<UserMenuProps> = ({
       label: "My Koi",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame.png",
     },
-    {
-      id: "cart",
-      label: "Cart",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-2.png",
-    },
+    // {
+    //   id: "cart",
+    //   label: "Cart",
+    //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-2.png",
+    // },
     {
       id: "notification",
       label: "Notification",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-3.png",
     },
+    // {
+    //   id: "dashboard",
+    //   label: "Dashboard",
+    //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-4.png",
+    // },
+    // {
+    //   id: "transactions",
+    //   label: "Transactions",
+    //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
+    // },
     {
-      id: "dashboard",
-      label: "Dashboard",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-4.png",
+      id: "mytickets",
+      label: "My Tickets",
+      icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     },
     {
-      id: "transactions",
-      label: "Transactions",
+      id: "profile",
+      label: "User Profile",
+      icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
+    },
+    {
+      id: "competitionsjoined",
+      label: "Competitions Joined",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     },
   ];
@@ -56,12 +71,18 @@ const UserMenu: React.FC<UserMenuProps> = ({
       // case "cart":
       //   router.push("/(user)/Cart");
       //   break;
-      // case "dashboard":
-      //   router.push("/(user)/Dashboard");
-      //   break;
-      // case "transactions":
-      //   router.push("/(user)/Transactions");
-      //   break;
+      case "profile":
+        router.push("/(user)/UserProfile");
+        break;
+      case "transactions":
+        router.push("/(user)/Transactions");
+        break;
+      case "mytickets":
+        router.push("/(user)/MyTickets");
+        break;
+      case "competitionsjoined":
+        router.push("/(user)/CompetitionJoined");
+        break;
       // default:
       //   // Handle default case or mykoi route
       //   router.push("/(user)/MyKoi");
