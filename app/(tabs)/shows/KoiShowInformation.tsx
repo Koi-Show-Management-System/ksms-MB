@@ -1,393 +1,146 @@
 // KoiShowInformation.tsx
 
-import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import {
-  Image,
-  ScrollView,
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Typography,
+} from "@mui/material";
+import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
-import Header from "../../../components/Header"; // Sửa import này
+import { getKoiShowById } from "../../../services/showService";
 
-interface EventDetails {
-  description: string[];
-  date: string;
-  location: string[];
-}
-
-interface KoiShowInformationProps {
-  title?: string;
-  images?: string[];
-  eventDetails?: EventDetails;
-}
-
-const KoiShowInformation: React.FC<KoiShowInformationProps> = ({
-  title = "Koi Show Spring 2025",
-  images = [
-    "https://images.unsplash.com/photo-1552118830-98feacab238f?q=80&w=1964&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    "https://images.unsplash.com/photo-1660654581211-b365ba90464a?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    "https://plus.unsplash.com/premium_photo-1713399247260-3b9c33e244ec?q=80&w=2068&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    "https://plus.unsplash.com/premium_photo-1663962975595-c99565fe3ccf?q=80&w=1965&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-  ],
-  eventDetails = {
-    description: [
-      "Join us for the annual Koi Show, a spectacular event showcasing the most exquisite koi fish.",
-      "Participate in competitions, attend workshops, and enjoy a vibrant community of enthusiasts.",
-    ],
-    date: "April 15-17, 2025, 9 AM - 6 PM",
-    location: ["Sakura Gardens, 123 Blossom Lane, Tokyo"],
-  },
-}) => {
+const KoiShowInformation = ({ id }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [expandedSections, setExpandedSections] = useState<{
-    [key: string]: boolean;
-  }>({
-    eventDetails: false,
-    awards: false,
-    rules: false,
-    enteringKoi: false,
-  });
+  const [showData, setShowData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Add animation values for each section
-  const eventDetailsHeight = useSharedValue(0);
-  const awardsHeight = useSharedValue(0);
-  const rulesHeight = useSharedValue(0);
-  const enteringKoiHeight = useSharedValue(0);
+  // Remove the expandedSections state as MUI Accordion manages its own state
 
-  const springConfig = {
-    damping: 18, // Slightly adjusted for a smoother feel
-    stiffness: 120, // Slightly adjusted
-    mass: 0.6, // Slightly adjusted
-  };
-
-  const toggleSection = (section: string) => {
-    setExpandedSections((prev) => {
-      const newValue = !prev[section];
-      // Fine-tuned heights for your content.  *IMPORTANT*
-      const heights = {
-        eventDetails: 220, // Reduced a bit
-        awards: 200, // Reduced a bit
-        rules: 190, // Reduced a bit
-        enteringKoi: 190, // Reduced a bit
-      };
-
-      const targetHeight = heights[section as keyof typeof heights];
-
-      switch (section) {
-        case "eventDetails":
-          eventDetailsHeight.value = withSpring(
-            newValue ? targetHeight : 0,
-            springConfig
-          );
-          break;
-        case "awards":
-          awardsHeight.value = withSpring(
-            newValue ? targetHeight : 0,
-            springConfig
-          );
-          break;
-        case "rules":
-          rulesHeight.value = withSpring(
-            newValue ? targetHeight : 0,
-            springConfig
-          );
-          break;
-        case "enteringKoi":
-          enteringKoiHeight.value = withSpring(
-            newValue ? targetHeight : 0,
-            springConfig
-          );
-          break;
+  // Fetch show data
+  useEffect(() => {
+    const fetchShowData = async () => {
+      try {
+        setLoading(true);
+        const data = await getKoiShowById(id);
+        setShowData(data);
+        setError("");
+      } catch (err) {
+        console.error("Failed to fetch show details:", err);
+        setError("Failed to load show details. Please try again.");
+      } finally {
+        setLoading(false);
       }
-      return { ...prev, [section]: newValue };
-    });
-  };
+    };
 
-  const createSectionStyle = useCallback(
-    (heightValue: Animated.SharedValue<number>) =>
-      useAnimatedStyle(() => ({
-        height: heightValue.value,
-        opacity: heightValue.value > 0 ? 1 : 0,
-        overflow: "hidden",
-        paddingHorizontal: 16,
-        paddingBottom: heightValue.value > 0 ? 16 : 0,
-        backgroundColor: "#E5E5E5", // Updated background color
-      })),
-    []
-  );
+    if (id) {
+      fetchShowData();
+    } else {
+      setError("No show ID provided");
+      setLoading(false);
+    }
+  }, [id]);
 
-  const eventDetailsStyle = createSectionStyle(eventDetailsHeight);
-  const awardsStyle = createSectionStyle(awardsHeight);
-  const rulesStyle = createSectionStyle(rulesHeight);
-  const enteringKoiStyle = createSectionStyle(enteringKoiHeight);
-
-  const AnimatedArrow = ({ isExpanded }: { isExpanded: boolean }) => {
-    const rotateAnimation = useSharedValue(0);
-
-    useEffect(() => {
-      rotateAnimation.value = withSpring(isExpanded ? 90 : 0, springConfig);
-    }, [isExpanded]);
-
-    const animatedStyle = useAnimatedStyle(() => {
-      return {
-        transform: [{ rotate: `${rotateAnimation.value}deg` }],
-      };
-    });
-
+  // If loading, show loading indicator
+  if (loading) {
     return (
-      <Animated.Image
-        source={{
-          uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-6.png",
-        }}
-        style={[styles.arrow, animatedStyle]}
-      />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text style={styles.loadingText}>Loading show details...</Text>
+      </View>
     );
-  };
+  }
 
-  const renderEventDetails = () => (
-    <Animated.View style={[styles.sectionContent, eventDetailsStyle]}>
-      {eventDetails.description.map((text, index) => (
-        <Text key={index} style={styles.descriptionText}>
-          {text}
-        </Text>
-      ))}
-      <Text style={styles.dateText}>Date & Time: {eventDetails.date}</Text>
-      {eventDetails.location.map((text, index) => (
-        <Text key={index} style={styles.locationText}>
-          {text}
-        </Text>
-      ))}
-    </Animated.View>
-  );
-
-  const renderAwardsContent = () => (
-    <Animated.View style={[styles.sectionContent, awardsStyle]}>
-      <Text style={styles.awardText}>
-        Awards will be announced during virtual award ceremony!
-      </Text>
-      <Text style={styles.awardText}>
-        No Koi can win more than one award, except for special awards.
-      </Text>
-      <Text style={styles.specialAwardTitle}>Special Awards & Prizes:</Text>
-      <Text style={styles.awardText}>• Supreme Kokugyo Prize</Text>
-      <Text style={styles.awardText}>• Judge's Award</Text>
-    </Animated.View>
-  );
-
-  const renderRulesContent = () => (
-    <Animated.View style={[styles.sectionContent, rulesStyle]}>
-      <Text style={styles.ruleText}>
-        Please review and submit the necessary information with the form online:
-      </Text>
-      <Text style={styles.bulletPoint}>
-        • Koi Name - Does your koi have a name?
-      </Text>
-      <Text style={styles.bulletPoint}>
-        • Koi Description - Write a description about this koi
-      </Text>
-      <Text style={styles.bulletPoint}>
-        • Approximate Size and Size category
-      </Text>
-    </Animated.View>
-  );
-
-  const renderEnteringKoiContent = () => (
-    <Animated.View style={[styles.sectionContent, enteringKoiStyle]}>
-      <Text style={styles.ruleText}>
-        Please review and submit the necessary information with the form online:
-      </Text>
-      <Text style={styles.bulletPoint}>
-        • Koi Name - Does your koi have a name?
-      </Text>
-      <Text style={styles.bulletPoint}>
-        • Koi Description - Write a description about this koi
-      </Text>
-      <Text style={styles.bulletPoint}>
-        • Approximate Size and Size category
-      </Text>
-    </Animated.View>
-  );
-
-  const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      {/* Carousel */}
-      <View style={styles.carouselContainer}>
-        <Image
-          source={{ uri: images[currentImageIndex] }}
-          style={styles.carouselImage}
-        />
-        <View style={styles.carouselControls}>
-          <TouchableOpacity
-            onPress={() =>
-              setCurrentImageIndex((prev) =>
-                prev === 0 ? images.length - 1 : prev - 1
-              )
-            }
-            style={styles.carouselButton}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame.png",
-              }}
-              style={styles.carouselButtonImage}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() =>
-              setCurrentImageIndex((prev) => (prev + 1) % images.length)
-            }
-            style={styles.carouselButton}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-2.png",
-              }}
-              style={styles.carouselButtonImage}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Title and Event Details */}
-      <Text style={styles.title}>{title}</Text>
-
-      <View style={[styles.sectionContainer, { backgroundColor: "#E5E5E5" }]}>
+  // If error, show error message
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity
-          style={styles.sectionHeader}
-          onPress={() => toggleSection("eventDetails")}>
-          <Text style={styles.sectionTitle}>Event Details</Text>
-          <AnimatedArrow isExpanded={expandedSections.eventDetails} />
-        </TouchableOpacity>
-        {renderEventDetails()}
-      </View>
-
-      <View style={[styles.sectionContainer, { backgroundColor: "#E5E5E5" }]}>
-        <TouchableOpacity
-          style={styles.sectionHeader}
-          onPress={() => toggleSection("awards")}>
-          <Text style={styles.sectionTitle}>Awards</Text>
-          <AnimatedArrow isExpanded={expandedSections.awards} />
-        </TouchableOpacity>
-        {renderAwardsContent()}
-      </View>
-    </View>
-  );
-
-  const renderRules = () => (
-    <View style={styles.rulesContainer}>
-      <Text style={styles.mainHeader}>Official Koi Show Rules</Text>
-
-      <View
-        style={[
-          styles.sectionContainer,
-          { backgroundColor: "rgba(245, 245, 245, 1)" },
-        ]}>
-        <TouchableOpacity
-          style={styles.sectionHeader}
-          onPress={() => toggleSection("rules")}>
-          <Text style={styles.sectionTitle}>Rules & Regulations</Text>
-          <AnimatedArrow isExpanded={expandedSections.rules} />
-        </TouchableOpacity>
-        {expandedSections.rules && renderRulesContent()}
-      </View>
-
-      <View
-        style={[
-          styles.sectionContainer,
-          { backgroundColor: "rgba(245, 245, 245, 1)" },
-        ]}>
-        <TouchableOpacity
-          style={styles.sectionHeader}
-          onPress={() => toggleSection("enteringKoi")}>
-          <Text style={styles.sectionTitle}>Entering Koi In Show</Text>
-          <AnimatedArrow isExpanded={expandedSections.enteringKoi} />
-        </TouchableOpacity>
-        {expandedSections.enteringKoi && renderEnteringKoiContent()}
-      </View>
-    </View>
-  );
-
-  const renderNote = () => (
-    <View style={styles.noteContainer}>
-      <Text style={styles.noteText}>
-        Please carefully read the competition rules before registering, such as
-        requirements for photos/videos, participation conditions, etc.
-      </Text>
-
-      <TouchableOpacity
-        style={styles.noteButton}
-        // onPress={navigateToRegistration}
-      >
-        <Text style={styles.noteButtonText}>
-          Read the full details of all rules and regulations
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderFooter = () => (
-    <View style={styles.footer}>
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push("/(tabs)/shows/koiRegistration")}>
-          <Text style={styles.buttonText}>Register for events</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push("/(tabs)/shows/BuyTickets")}>
-          <Text style={styles.buttonText}>Purchase tickets</Text>
+          style={styles.backButton}
+          onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Go Back</Text>
         </TouchableOpacity>
       </View>
-
-      {/* <View style={styles.navbar}>
-        <TouchableOpacity>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-3.png",
-            }}
-            style={styles.navIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-5.png",
-            }}
-            style={styles.navIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z5uP-4IayXWIU-OE/frame-4.png",
-            }}
-            style={styles.navIcon}
-          />
-        </TouchableOpacity>
-      </View> */}
-    </View>
-  );
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <Header title="Home" description="" />
-      <ScrollView style={styles.scrollView}>
-        {renderHeader()}
-        {renderRules()}
-        {renderNote()}
-      </ScrollView>
-      {renderFooter()}
-    </View>
+    <div className="koi-show-container">
+      {/* Other content like show title, images, etc. */}
+
+      {/* Event Details Section */}
+      <Accordion>
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls="event-details-content"
+          id="event-details-header">
+          <Typography fontWeight="bold">Event Details</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography>
+            {/* Display event details from showData */}
+            {showData?.eventDetails || "No details available"}
+          </Typography>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Awards Section */}
+      <Accordion>
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls="awards-content"
+          id="awards-header">
+          <Typography fontWeight="bold">Awards</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography>
+            {showData?.awards || "No award information available"}
+          </Typography>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Rules & Regulations Section */}
+      <Accordion>
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls="rules-content"
+          id="rules-header">
+          <Typography fontWeight="bold">Rules & Regulations</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography>{showData?.showRules || "No rules available"}</Typography>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Entering Koi Section */}
+      <Accordion>
+        <AccordionSummary
+          expandIcon={<ExpandMoreIcon />}
+          aria-controls="entering-koi-content"
+          id="entering-koi-header">
+          <Typography fontWeight="bold">Entering Koi in Show</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography>
+            {showData?.enteringKoi || "No information available"}
+          </Typography>
+        </AccordionDetails>
+      </Accordion>
+    </div>
   );
 };
 
+// Add these new styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -629,6 +382,41 @@ const styles = StyleSheet.create({
   },
   animatedSection: {
     overflow: "hidden",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#666",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#ff0000",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  backButton: {
+    backgroundColor: "#0a0a0a",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 4,
+  },
+  backButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    textAlign: "center",
   },
 });
 

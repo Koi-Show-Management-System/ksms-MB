@@ -1,6 +1,10 @@
-import { router } from "expo-router"; // Import the router
-import React from "react";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { router } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Dimensions,
+  FlatList,
   Image,
   SafeAreaView,
   ScrollView,
@@ -10,83 +14,262 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Header from "../../../components/Header";
+import { getKoiShows, KoiShow } from "../../../services/showService";
 
-const HomePage: React.FC = () => {
-  const handleShowPress = () => {
-    router.push("/(tabs)/shows/KoiShowInformation");
+const { width } = Dimensions.get("window");
+const CARD_WIDTH = width * 0.8;
+
+const Homepage: React.FC = () => {
+  const [shows, setShows] = useState<KoiShow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState("");
+  const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+  const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
+
+  // Group shows by status
+  const activeShows = shows.filter((show) => show.status === "active");
+  const upcomingShows = shows.filter((show) => show.status === "upcoming");
+  const plannedShows = shows.filter((show) => show.status === "planned");
+  const completedShows = shows.filter((show) => show.status === "completed");
+
+  useEffect(() => {
+    fetchShows();
+  }, []);
+
+  const fetchShows = async () => {
+    try {
+      setLoading(true);
+      const data = await getKoiShows(page, 10);
+      setShows(data.items || []);
+      setTotalPages(data.totalPages || 1);
+      setError("");
+    } catch (err) {
+      console.error("Failed to fetch shows:", err);
+      setError("Failed to load shows. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleShowPress = (show: KoiShow) => {
+    // Navigate to show details
+    router.push({
+      pathname: "/(tabs)/shows/KoiShowInformation",
+      params: { id: show.id },
+    });
+  };
+
+  // Format date function to avoid errors
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      console.error("Invalid date format:", dateString);
+      return "N/A";
+    }
+  };
+
+  // Add viewability change handler
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems.length > 0) {
+      setCurrentHeroIndex(viewableItems[0].index);
+    }
+  }).current;
+
+  // Render a carousel for shows
+  const renderShowCarousel = (statusShows: KoiShow[], title: string) => {
+    if (statusShows.length === 0 && !loading) return null;
+
+    return (
+      <View style={styles.featuredShows}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#000" />
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
+            {statusShows.map((show) => (
+              <TouchableOpacity
+                key={show.id}
+                style={styles.showCard}
+                onPress={() => handleShowPress(show)}>
+                <View style={styles.imageContainer}>
+                  <Image
+                    source={{
+                      uri:
+                        show.imgUrl && show.imgUrl.startsWith("http")
+                          ? show.imgUrl
+                          : show.imgUrl
+                          ? `https://api.ksms.news/${show.imgUrl}`
+                          : "https://images.unsplash.com/photo-1583130879269-ab3b9c83538e?q=80&w=1170",
+                    }}
+                    style={styles.showImage}
+                    defaultSource={require("../../../assets/images/test_image.png")}
+                  />
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusText}>{show.status}</Text>
+                  </View>
+                </View>
+                <View style={styles.showDetails}>
+                  <Text style={styles.showName} numberOfLines={1}>
+                    {show.name || "Unnamed Show"}
+                  </Text>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="calendar-outline" size={14} color="#666" />
+                    <Text style={styles.showDate}>
+                      {formatDate(show.startDate)} - {formatDate(show.endDate)}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Ionicons name="location-outline" size={14} color="#666" />
+                    <Text style={styles.showLocation} numberOfLines={1}>
+                      {show.location || "TBA"}
+                    </Text>
+                  </View>
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.registrationFee}>
+                      {show.registrationFee.toLocaleString()} VND
+                    </Text>
+                    <View style={styles.participantInfo}>
+                      <Ionicons name="people-outline" size={14} color="#666" />
+                      <Text style={styles.participantText}>
+                        {show.minParticipants}-{show.maxParticipants}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View>
+    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <Header title="Koi Show Hub" description="" />
-
       <ScrollView style={styles.scrollView}>
-        {/* Hero Section */}
+        {/* Dynamic Hero Section with Show Data */}
         <View style={styles.heroSection}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/assets/Z4FqGAIBBLnlud7h",
-            }}
-            style={styles.heroImage}
-          />
-          <View style={styles.heroContent}>
-            <Text style={styles.heroTitle}>Title goes here</Text>
-            <Text style={styles.heroDescription}>
-              This is a sample description text about the event or topic. It
-              provides a brief overview and entices the reader to learn more.
-            </Text>
-            <View style={styles.heroButtonContainer}>
-              <TouchableOpacity style={styles.heroButton}>
-                <Text style={styles.heroButtonText}>Register</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.heroButton}>
-                <Text style={styles.heroButtonText}>Buy Ticket</Text>
-              </TouchableOpacity>
+          {loading ? (
+            <View style={styles.loadingHero}>
+              <ActivityIndicator size="large" color="#FFF" />
             </View>
-          </View>
+          ) : shows.length > 0 ? (
+            <>
+              <FlatList
+                ref={flatListRef}
+                data={shows}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                onViewableItemsChanged={onViewableItemsChanged}
+                viewabilityConfig={viewabilityConfig}
+                renderItem={({ item: show }) => (
+                  <View style={[styles.heroSlide, { width }]}>
+                    <Image
+                      source={{
+                        uri:
+                          show.imgUrl && show.imgUrl.startsWith("http")
+                            ? show.imgUrl
+                            : show.imgUrl
+                            ? `https://api.ksms.news/${show.imgUrl}`
+                            : "https://images.unsplash.com/photo-1583130879269-ab3b9c83538e?q=80&w=2070&auto=format&fit=crop",
+                      }}
+                      style={styles.heroImage}
+                      defaultSource={require("../../../assets/images/test_image.png")}
+                    />
+                    <View style={styles.heroContent}>
+                      <Text style={styles.heroTitle}>{show.name}</Text>
+                      <Text style={styles.heroDescription} numberOfLines={2}>
+                        {show.description}
+                      </Text>
+                      <View style={styles.heroButtonContainer}>
+                        <TouchableOpacity
+                          style={styles.heroButton}
+                          onPress={() => handleShowPress(show)}>
+                          <Text style={styles.heroButtonText}>Details</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.heroButton}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/(tabs)/shows/Registration",
+                              params: { id: show.id },
+                            })
+                          }>
+                          <Text style={styles.heroButtonText}>Register</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                )}
+                keyExtractor={(item) => item.id}
+              />
+
+              {/* Pagination Dots */}
+              <View style={styles.paginationContainer}>
+                {shows.slice(0, 5).map((_, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.paginationDot,
+                      index === currentHeroIndex && styles.paginationDotActive,
+                    ]}
+                    onPress={() => {
+                      flatListRef.current?.scrollToIndex({
+                        index,
+                        animated: true,
+                      });
+                    }}
+                  />
+                ))}
+              </View>
+            </>
+          ) : (
+            <View style={styles.noShowsContainer}>
+              <Text style={styles.noShowsText}>No shows available</Text>
+            </View>
+          )}
         </View>
 
-        {/* Featured Shows */}
-        <View style={styles.featuredShows}>
-          <Text style={styles.sectionTitle}>Featured Shows</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {["1", "2", "3", "4"].map((id) => (
-              <TouchableOpacity
-                key={id}
-                style={styles.showCard}
-                onPress={handleShowPress}>
-                <Image
-                  source={{
-                    uri: `https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D`,
-                  }}
-                  style={styles.showImage}
-                />
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Quick Access */}
+        {/* Quick Access Section */}
         <View style={styles.quickAccess}>
           <Text style={styles.sectionTitle}>Quick Access</Text>
           <View style={styles.quickAccessButtons}>
             {[
-              { text: "Mua vé", icon: "Z4FRHgIBBLnlud6X" },
-              { text: "Lịch thi đấu", icon: "Z4FRHgIBBLnlud6Y" },
-              { text: "Bình chọn", icon: "Z4FRHgIBBLnlud6Z" },
-              { text: "More Shows", icon: "Z4FRHgIBBLnlud6Z" }, // This is the button we'll modify
+              {
+                text: "Shows",
+                icon: "Z4FRHgIBBLnlud6X",
+                route: "/(tabs)/shows/KoiShowsPage",
+              },
+              {
+                text: "Register",
+                icon: "Z4FRHgIBBLnlud6Y",
+                route: "/(tabs)/shows/Registration",
+              },
+              {
+                text: "Judge",
+                icon: "Z4FRHgIBBLnlud6Z",
+                route: "/(tabs)/judges",
+              },
+              {
+                text: "Profile",
+                icon: "Z4FRHgIBBLnlud6Z",
+                route: "/(tabs)/user/UserProfile",
+              },
             ].map((item, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.quickAccessButton}
-                // Add onPress to the "More Shows" button
-                onPress={
-                  item.text === "More Shows"
-                    ? () => router.push("/(tabs)/shows/KoiShows")
-                    : undefined
-                }>
+                onPress={() => router.push(item.route)}>
                 <Image
                   source={{
                     uri: `https://dashboard.codeparrot.ai/api/assets/${item.icon}`,
@@ -99,53 +282,23 @@ const HomePage: React.FC = () => {
           </View>
         </View>
 
-        {/* Upcoming Livestream */}
-        <View style={styles.quickAccess}>
-          <Text style={styles.sectionTitle}>Upcoming Livestream</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.streamContainer}>
-              {[
-                {
-                  image:
-                    "https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-                  title: "Golden Koi Show",
-                  time: "Now Streaming",
-                },
-                {
-                  image:
-                    "https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-                  title: "Rainbow Koi Pavilion",
-                  time: "Upcoming",
-                },
-                {
-                  image:
-                    "https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-                  title: "Rainbow Koi Pavilion",
-                  time: "Upcoming",
-                },
-                {
-                  image:
-                    "https://images.unsplash.com/photo-1627223330558-8fc1d94595b0?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-                  title: "Rainbow Koi Pavilion",
-                  time: "Upcoming",
-                },
-              ].map((stream, index) => (
-                <View key={index} style={styles.streamCard}>
-                  <Image
-                    source={{
-                      uri: `${stream.image}`,
-                    }}
-                    style={styles.streamImage}
-                  />
-                  <View style={styles.streamTextContainer}>
-                    <Text style={styles.streamTitle}>{stream.title}</Text>
-                    <Text style={styles.streamTime}>{stream.time}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
+        {/* Error message display */}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        {/* Featured Shows - All Shows */}
+        {renderShowCarousel(shows, "Featured Shows")}
+
+        {/* Active Shows */}
+        {renderShowCarousel(activeShows, "Active Shows")}
+
+        {/* Upcoming Shows */}
+        {renderShowCarousel(upcomingShows, "Upcoming Shows")}
+
+        {/* Planned Shows */}
+        {renderShowCarousel(plannedShows, "Planned Shows")}
+
+        {/* Completed Shows */}
+        {renderShowCarousel(completedShows, "Past Shows")}
 
         {/* News and Blogs */}
         <View style={styles.newsAndBlogs}>
@@ -248,7 +401,6 @@ const styles = StyleSheet.create({
   },
   heroButtonContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
   },
   heroButton: {
     width: 84,
@@ -257,11 +409,18 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 10,
   },
   heroButtonText: {
     fontFamily: "Roboto",
     fontSize: 14,
     color: "#000000",
+  },
+
+  // Quick Access styles
+  quickAccess: {
+    padding: 16,
+    alignItems: "center",
   },
   sectionTitle: {
     fontSize: 24,
@@ -269,31 +428,7 @@ const styles = StyleSheet.create({
     color: "#030303",
     marginBottom: 16,
     fontWeight: "400",
-  },
-  sectionTitleWhite: {
-    fontSize: 24,
-    fontFamily: "Roboto",
-    color: "#FFFFFF",
-    marginBottom: 16,
-    fontWeight: "400",
-  },
-  featuredShows: {
-    marginVertical: 20,
-    alignItems: "center",
-  },
-  showCard: {
-    marginHorizontal: 8,
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  showImage: {
-    width: 172,
-    height: 172,
-    backgroundColor: "#f0f0f0",
-  },
-  quickAccess: {
-    padding: 16,
-    alignItems: "center",
+    alignSelf: "flex-start",
   },
   quickAccessButtons: {
     flexDirection: "row",
@@ -319,49 +454,18 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     textAlign: "center",
   },
-  upcomingLivestream: {
-    padding: 16,
-  },
-  streamContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  streamCard: {
-    width: 150,
-    height: 162,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 8,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    marginHorizontal: 8,
-  },
-  streamImage: {
-    width: "100%",
-    height: 104,
-    resizeMode: "cover",
-  },
-  streamTextContainer: {
-    padding: 8,
-  },
-  streamTitle: {
-    fontFamily: "Poppins",
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#030303",
-  },
-  streamTime: {
-    fontFamily: "Poppins",
-    fontSize: 12,
-    color: "#666666",
-    marginTop: 2,
-  },
+
+  // News and Blog styles
   newsAndBlogs: {
     padding: 16,
     backgroundColor: "#000000",
+  },
+  sectionTitleWhite: {
+    fontSize: 24,
+    fontFamily: "Roboto",
+    color: "#FFFFFF",
+    marginBottom: 16,
+    fontWeight: "400",
   },
   searchContainer: {
     marginBottom: 16,
@@ -416,27 +520,147 @@ const styles = StyleSheet.create({
     color: "#E5E5E5",
     lineHeight: 21,
   },
-  footer: {
-    width: "100%",
-    height: 70,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#E5E5E5",
+
+  // Existing show carousel styles
+  featuredShows: {
+    marginTop: 20,
+    marginBottom: 10,
+    paddingLeft: 10,
   },
-  footerNavigation: {
+  showCard: {
+    width: CARD_WIDTH,
+    marginRight: 15,
+    marginLeft: 5,
+    marginVertical: 8,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    elevation: 5,
+    overflow: "hidden",
+    borderWidth: 0.5,
+    borderColor: "#eeeeee",
+  },
+  imageContainer: {
+    position: "relative",
+    width: "100%",
+    height: 160,
+  },
+  showImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  statusBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 20,
+  },
+  statusText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+    textTransform: "uppercase",
+  },
+  showDetails: {
+    padding: 14,
+  },
+  showName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 8,
+    color: "#222",
+  },
+  infoRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
     alignItems: "center",
+    marginBottom: 6,
+  },
+  showDate: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 6,
+  },
+  showLocation: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 6,
     flex: 1,
   },
-  footerIconContainer: {
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: "#eee",
+  },
+  registrationFee: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#FF9500",
+  },
+  participantInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  participantText: {
+    fontSize: 12,
+    color: "#666",
+    marginLeft: 4,
+  },
+  loadingContainer: {
+    height: 220,
+    justifyContent: "center",
+    alignItems: "center",
+    width: CARD_WIDTH,
+  },
+  errorText: {
+    color: "red",
+    textAlign: "center",
+    marginTop: 15,
     padding: 10,
   },
-  footerIcon: {
-    width: 24,
-    height: 24,
-    resizeMode: "contain",
+  loadingHero: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  heroSlide: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  paginationContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 10,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FFF",
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: "#FFA500",
+  },
+  noShowsContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  noShowsText: {
+    color: "#FFF",
+    fontSize: 16,
   },
 });
 
-export default HomePage;
+export default Homepage;

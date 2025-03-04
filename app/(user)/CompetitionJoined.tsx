@@ -357,7 +357,7 @@ const MyCompetitions: React.FC = () => {
           </Text>
           <TouchableOpacity
             style={styles.browseButton}
-            onPress={() => router.push("/(tabs)/shows/KoiShows")}>
+            onPress={() => router.push("/(tabs)/shows/KoiShowsPage")}>
             <Text style={styles.browseButtonText}>Browse Competitions</Text>
           </TouchableOpacity>
         </View>

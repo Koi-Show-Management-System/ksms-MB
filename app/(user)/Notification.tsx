@@ -27,7 +27,7 @@ enum NotificationType {
 
 // Define valid routes for type checking
 type ValidRoute =
-  | "/(tabs)/shows/KoiShows"
+  | "/(tabs)/shows/KoiShowsPage"
   | "/(tabs)/shows/koiRegistration"
   | "/(tabs)/shows/BuyTickets"
   | "/(tabs)/shows/AwardScreen"
@@ -177,7 +177,7 @@ const Notifications: React.FC = () => {
       type: NotificationType.EVENT,
       date: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
       isRead: false,
-      actionUrl: "/(tabs)/shows/KoiShows",
+      actionUrl: "/(tabs)/shows/KoiShowsPage",
     },
     {
       id: "2",
