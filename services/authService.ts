@@ -1,6 +1,5 @@
-// services/authService.ts
-import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from './api';
 
 // Define interface for login response
 interface LoginResponseData {
@@ -54,4 +53,23 @@ export const logout = async () => {
 export const isAuthenticated = async () => {
   const token = await AsyncStorage.getItem('userToken');
   return !!token;
+};
+
+// Register function
+export const register = async (email: string, password: string, username: string, fullName: string) => {
+  try {
+    const response = await api.post('/api/v1/auth/register', {
+      email,
+      password,
+      username,
+      fullName
+    });
+    
+    // Return the response since we don't need to save anything
+    // The API returns { data: null, statusCode: 201, message: "Register account successfully" }
+    return response.data;
+  } catch (error) {
+    console.error('Registration error:', error);
+    throw error;
+  }
 };

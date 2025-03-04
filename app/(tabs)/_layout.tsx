@@ -12,20 +12,8 @@ export default function TabLayout() {
         gestureEnabled: true,
         gestureDirection: "horizontal",
       }}>
-      <Stack.Screen
-        name="home"
-        options={{
-          headerShown: false,
-          headerBackVisible: true,
-        }}
-      />
-      <Stack.Screen
-        name="shows"
-        options={{
-          headerShown: false,
-          headerBackVisible: true,
-        }}
-      />
+      <Stack.Screen name="home" options={{ headerShown: false }} />
+      <Stack.Screen name="shows" options={{ headerShown: false }} />
     </Stack>
   );
 }
