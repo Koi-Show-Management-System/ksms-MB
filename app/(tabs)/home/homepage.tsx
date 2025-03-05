@@ -30,9 +30,9 @@ const Homepage: React.FC = () => {
   const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
 
   // Group shows by status
-  const activeShows = shows.filter((show) => show.status === "active");
+  const publishedShows = shows.filter((show) => show.status === "published");
   const upcomingShows = shows.filter((show) => show.status === "upcoming");
-  const plannedShows = shows.filter((show) => show.status === "planned");
+  const pendingShows = shows.filter((show) => show.status === "pending");
   const completedShows = shows.filter((show) => show.status === "completed");
 
   useEffect(() => {
@@ -55,7 +55,6 @@ const Homepage: React.FC = () => {
   };
 
   const handleShowPress = (show: KoiShow) => {
-    // Navigate to show details
     router.push({
       pathname: "/(tabs)/shows/KoiShowInformation",
       params: { id: show.id },
@@ -106,9 +105,7 @@ const Homepage: React.FC = () => {
                       uri:
                         show.imgUrl && show.imgUrl.startsWith("http")
                           ? show.imgUrl
-                          : show.imgUrl
-                          ? `https://api.ksms.news/${show.imgUrl}`
-                          : "https://images.unsplash.com/photo-1583130879269-ab3b9c83538e?q=80&w=1170",
+                          : "https://ugc.futurelearn.com/uploads/images/d5/6d/d56d20b4-1072-48c0-b832-deecf6641d49.jpg",
                     }}
                     style={styles.showImage}
                     defaultSource={require("../../../assets/images/test_image.png")}
@@ -288,17 +285,14 @@ const Homepage: React.FC = () => {
         {/* Featured Shows - All Shows */}
         {renderShowCarousel(shows, "Featured Shows")}
 
-        {/* Active Shows */}
-        {renderShowCarousel(activeShows, "Active Shows")}
+        {/* Published Shows */}
+        {renderShowCarousel(publishedShows, "Published Shows")}
 
         {/* Upcoming Shows */}
         {renderShowCarousel(upcomingShows, "Upcoming Shows")}
 
-        {/* Planned Shows */}
-        {renderShowCarousel(plannedShows, "Planned Shows")}
-
-        {/* Completed Shows */}
-        {renderShowCarousel(completedShows, "Past Shows")}
+        {/* Pending Shows */}
+        {renderShowCarousel(pendingShows, "Pending Shows")}
 
         {/* News and Blogs */}
         <View style={styles.newsAndBlogs}>
