@@ -1,10 +1,11 @@
-import { router } from "expo-router";
-import React, { useCallback, useState } from "react";
+import * as Linking from "expo-linking";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  Image,
+  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,53 +13,83 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import WebView from "react-native-webview";
+import {
+  createTicketOrder,
+  getUserPaymentInfo,
+  OrderItem,
+} from "../../../services/paymentService";
+import { getKoiShowById } from "../../../services/showService";
 
 // Interfaces
-interface Ticket {
+interface TicketType {
   id: string;
-  title: string;
-  description: string;
+  name: string;
   price: number;
-  image: string;
+  availableQuantity: number;
 }
 
-// Constants
-const TICKET_OPTIONS: Ticket[] = [
-  {
-    id: "basic",
-    title: "Basic Pass",
-    description: "Access to basic areas",
-    price: 45,
-    image:
-      "https://dashboard.codeparrot.ai/api/image/Z7OvhKWN819FoZi3/group.png",
-  },
-  {
-    id: "vip",
-    title: "VIP Pass",
-    description: "Access to VIP areas",
-    price: 75,
-    image:
-      "https://dashboard.codeparrot.ai/api/image/Z7OvhKWN819FoZi3/group-3.png",
-  },
-  {
-    id: "exhibition",
-    title: "Exhibition Pass",
-    description: "Access to exhibition areas",
-    price: 15,
-    image:
-      "https://dashboard.codeparrot.ai/api/image/Z7OvhKWN819FoZi3/group-5.png",
-  },
-];
+interface OrderItem {
+  ticketTypeId: string;
+  quantity: number;
+}
 
 const { width } = Dimensions.get("window");
 
 const BuyTickets: React.FC = () => {
-  // State
+  // Get the show ID from route params
+  const params = useLocalSearchParams();
+  const showId = params.showId as string;
+
+  // States
+  const [ticketOptions, setTicketOptions] = useState<TicketType[]>([]);
   const [selectedTickets, setSelectedTickets] = useState<
     Record<string, number>
   >({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showName, setShowName] = useState("");
+
+  // Payment modal states
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [paymentTimeoutId, setPaymentTimeoutId] =
+    useState<NodeJS.Timeout | null>(null);
+
+  // Fetch ticket types for this show
+  useEffect(() => {
+    const fetchShowDetails = async () => {
+      try {
+        setIsLoading(true);
+        const showData = await getKoiShowById(showId);
+        setShowName(showData.name);
+
+        if (showData.ticketTypes) {
+          setTicketOptions(showData.ticketTypes);
+        } else {
+          setError("No tickets available for this event");
+        }
+      } catch (err) {
+        console.error("Failed to fetch show details:", err);
+        setError("Failed to load ticket information. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (showId) {
+      fetchShowDetails();
+    }
+  }, [showId]);
+
+  useEffect(() => {
+    return () => {
+      if (paymentTimeoutId) {
+        clearTimeout(paymentTimeoutId);
+      }
+    };
+  }, [paymentTimeoutId]);
 
   // Handlers
   const handleTicketSelect = useCallback((ticketId: string) => {
@@ -82,15 +113,15 @@ const BuyTickets: React.FC = () => {
   );
 
   const calculateTotal = useCallback(() => {
-    return TICKET_OPTIONS.reduce((total, ticket) => {
+    return ticketOptions.reduce((total, ticket) => {
       return total + (selectedTickets[ticket.id] || 0) * ticket.price;
     }, 0);
-  }, [selectedTickets]);
+  }, [selectedTickets, ticketOptions]);
 
   const handleAction = useCallback(
     async (type: "cart" | "pay") => {
       try {
-        setIsLoading(true);
+        setIsSubmitting(true);
         setError(null);
 
         const total = calculateTotal();
@@ -99,92 +130,119 @@ const BuyTickets: React.FC = () => {
           return;
         }
 
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (type === "cart") {
+          // Handle add to cart logic
+          Alert.alert("Success", "Tickets added to cart successfully");
+        } else if (type === "pay") {
+          // Prepare order items for API
+          const listOrder: OrderItem[] = [];
 
-        Alert.alert(
-          "Success",
-          type === "cart"
-            ? "Tickets added to cart successfully"
-            : `Payment processed successfully. Total: $${total}`
-        );
+          Object.keys(selectedTickets).forEach((ticketId) => {
+            if (selectedTickets[ticketId] > 0) {
+              listOrder.push({
+                ticketTypeId: ticketId,
+                quantity: selectedTickets[ticketId],
+              });
+            }
+          });
 
-        if (type === "pay") {
-          router.push("../../../(payments)/ticketsPayment");
+          try {
+            // Get user information for payment
+            const { fullName, email } = await getUserPaymentInfo();
+
+            // Create payment order using the service
+            const response = await createTicketOrder({
+              listOrder,
+              fullName,
+              email,
+            });
+
+            // Handle successful response
+            if (response?.data?.url) {
+              setPaymentUrl(response.data.url);
+              setPaymentModalVisible(true);
+
+              // Set payment timeout (15 minutes)
+              const paymentTimeout = setTimeout(() => {
+                if (paymentModalVisible) {
+                  setPaymentModalVisible(false);
+                  Alert.alert(
+                    "Payment Session Expired",
+                    "Your payment session has expired. Please try again."
+                  );
+                }
+              }, 15 * 60 * 1000);
+
+              // Store the timeout ID to clear it if component unmounts or payment completes
+              setPaymentTimeoutId(paymentTimeout);
+            } else {
+              Alert.alert(
+                "Error",
+                "Payment processing failed. Please try again."
+              );
+            }
+          } catch (error: any) {
+            const errorMessage =
+              error.response?.data?.message ||
+              "Payment processing failed. Please try again.";
+
+            // Handle 401 error specifically
+            if (error.response?.status === 401) {
+              Alert.alert(
+                "Authentication Required",
+                "Please sign in to purchase tickets.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Sign In",
+                    onPress: () => router.push("/(auth)/signIn"),
+                  },
+                ]
+              );
+            } else {
+              Alert.alert("Payment Error", errorMessage);
+            }
+          }
         }
-      } catch (err) {
-        setError(type === "cart" ? "Failed to add to cart" : "Payment failed");
+      } catch (err: any) {
+        console.error("Payment error:", err);
+        setError(
+          err?.response?.data?.message ||
+            (type === "cart" ? "Failed to add to cart" : "Payment failed")
+        );
       } finally {
-        setIsLoading(false);
+        setIsSubmitting(false);
       }
     },
-    [calculateTotal]
-  );
-
-  // Header Component
-  const Header = () => (
-    <View style={styles.header}>
-      <TouchableOpacity style={styles.homeButton}>
-        <Text style={styles.homeText}>Home</Text>
-      </TouchableOpacity>
-      <View style={styles.headerIcons}>
-        <TouchableOpacity style={styles.iconButton}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7OvhKWN819FoZi3/frame.png",
-            }}
-            style={styles.searchIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7OvhKWN819FoZi3/group-4.png",
-            }}
-            style={styles.profileIcon}
-          />
-        </TouchableOpacity>
-      </View>
-    </View>
+    [calculateTotal, selectedTickets]
   );
 
   // Ticket Item Component
-  const TicketItem = ({ ticket }: { ticket: Ticket }) => (
+  const TicketItem = ({ ticket }: { ticket: TicketType }) => (
     <TouchableOpacity
       style={styles.ticketItem}
       onPress={() => handleTicketSelect(ticket.id)}>
-      <Image source={{ uri: ticket.image }} style={styles.ticketImage} />
       <View style={styles.ticketInfo}>
-        <Text style={styles.ticketTitle}>{ticket.title}</Text>
-        <Text style={styles.ticketDescription}>{ticket.description}</Text>
+        <Text style={styles.ticketTitle}>{ticket.name}</Text>
+        <Text style={styles.ticketDescription}>
+          Available: {ticket.availableQuantity}
+        </Text>
       </View>
-      <Text style={styles.ticketPrice}>${ticket.price}</Text>
+      <Text style={styles.ticketPrice}>
+        {ticket.price.toLocaleString("vi-VN")} VNĐ
+      </Text>
     </TouchableOpacity>
-  );
-
-  // Court Diagram Component
-  const CourtDiagram = () => (
-    <View style={styles.courtContainer}>
-      <Text style={styles.sectionTitle}>Court Diagram</Text>
-      <Image
-        source={{
-          uri: "https://dashboard.codeparrot.ai/api/image/Z7OvhKWN819FoZi3/group-2.png",
-        }}
-        style={styles.courtImage}
-        resizeMode="contain"
-      />
-    </View>
   );
 
   // Selected Tickets Component
   const SelectedTickets = () => (
     <View style={styles.selectedContainer}>
       <Text style={styles.sectionTitle}>Selected Tickets</Text>
-      {TICKET_OPTIONS.map((ticket) =>
+      {ticketOptions.map((ticket) =>
         selectedTickets[ticket.id] ? (
           <View key={ticket.id} style={styles.selectedRow}>
             <Text style={styles.selectedText}>
-              {ticket.title} - ${ticket.price}
+              {ticket.name} - {ticket.price.toLocaleString("vi-VN")} VNĐ
             </Text>
             <View style={styles.quantityControls}>
               <TouchableOpacity
@@ -212,42 +270,131 @@ const BuyTickets: React.FC = () => {
           </View>
         ) : null
       )}
-      <Text style={styles.totalText}>Total: ${calculateTotal()}</Text>
+      <Text style={styles.totalText}>
+        Total: {calculateTotal().toLocaleString("vi-VN")} VNĐ
+      </Text>
     </View>
   );
 
-  // Action Buttons Component
-  const ActionButtons = () => (
-    <View style={styles.actionButtons}>
-      <TouchableOpacity
-        style={[styles.actionButton, isLoading && styles.disabledButton]}
-        onPress={() => handleAction("cart")}
-        disabled={isLoading}>
-        <Text style={styles.actionButtonText}>Add To Cart</Text>
+  // Header Component
+  const Header = () => (
+    <View style={styles.header}>
+      <TouchableOpacity style={styles.homeButton} onPress={() => router.back()}>
+        <Text style={styles.homeText}>Back</Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.actionButton, isLoading && styles.disabledButton]}
-        onPress={() => handleAction("pay")}
-        disabled={isLoading}>
-        <Text style={styles.actionButtonText}>Pay</Text>
-      </TouchableOpacity>
+      <Text style={styles.headerTitle}>{showName}</Text>
     </View>
   );
 
-  // Footer Component
-  const Footer = () => (
-    <View style={styles.footer}>
-      {["frame-6", "frame-8", "frame-7"].map((frame, index) => (
-        <TouchableOpacity key={index} style={styles.footerButton}>
-          <Image
-            source={{
-              uri: `https://dashboard.codeparrot.ai/api/image/Z7OvhKWN819FoZi3/${frame}.png`,
+  // Payment Modal Component
+
+  const PaymentModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={false}
+      visible={paymentModalVisible}
+      onRequestClose={() => setPaymentModalVisible(false)}>
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Complete Payment</Text>
+          <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
+            <Text style={styles.closeButton}>Close</Text>
+          </TouchableOpacity>
+        </View>
+        {paymentUrl ? (
+          <WebView
+            source={{ uri: paymentUrl }}
+            style={styles.webView}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <View style={styles.loadingWebView}>
+                <ActivityIndicator size="large" color="#0000ff" />
+              </View>
+            )}
+            onNavigationStateChange={(navState) => {
+              console.log("Navigation URL:", navState.url);
+              
+              try {
+                // Check if this is our custom scheme deep link
+                if (navState.url.includes('ksms://app/')) {
+                  setPaymentModalVisible(false);
+                  
+                  // Clear the payment timeout
+                  if (paymentTimeoutId) {
+                    clearTimeout(paymentTimeoutId);
+                    setPaymentTimeoutId(null);
+                  }
+                  
+                  // Parse status parameter from URL
+                  const urlObj = new URL(navState.url);
+                  const status = urlObj.searchParams.get('status') || '';
+                  const isSuccess = navState.url.includes('/success');
+                  
+                  // Navigate to appropriate screen
+                  if (isSuccess) {
+                    router.push({
+                      pathname: "/(payments)/PaymentSuccess",
+                      params: { status }
+                    });
+                  } else {
+                    router.push({
+                      pathname: "/(payments)/PaymentFailed", 
+                      params: { status }
+                    });
+                  }
+                  
+                  return false; // Prevent default navigation
+                }
+                
+                // Handle web URLs (your current approach)
+                if (navState.url.includes('ksms.news/app/') || 
+                    navState.url.includes('localhost:5173/')) {
+                  setPaymentModalVisible(false);
+                  
+                  // Clear the payment timeout
+                  if (paymentTimeoutId) {
+                    clearTimeout(paymentTimeoutId);
+                    setPaymentTimeoutId(null);
+                  }
+                  
+                  const isSuccess = navState.url.includes('/success');
+                  
+                  // Try to extract status from URL if present
+                  let status = '';
+                  try {
+                    const urlObj = new URL(navState.url);
+                    status = urlObj.searchParams.get('status') || '';
+                  } catch (e) {
+                    console.log("Error parsing URL parameters:", e);
+                  }
+                  
+                  // Navigate based on success/failure path
+                  if (isSuccess) {
+                    router.push({
+                      pathname: "/(payments)/PaymentSuccess",
+                      params: { status }
+                    });
+                  } else {
+                    router.push({
+                      pathname: "/(payments)/PaymentFailed",
+                      params: { status }
+                    });
+                  }
+                  
+                  return false;
+                }
+              } catch (e) {
+                console.error("Error handling navigation:", e);
+              }
             }}
-            style={styles.footerIcon}
           />
-        </TouchableOpacity>
-      ))}
-    </View>
+        ) : (
+          <View style={styles.loadingWebView}>
+            <ActivityIndicator size="large" color="#0000ff" />
+          </View>
+        )}
+      </SafeAreaView>
+    </Modal>
   );
 
   return (
@@ -258,13 +405,6 @@ const BuyTickets: React.FC = () => {
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
-        {TICKET_OPTIONS.map((ticket) => (
-          <TicketItem key={ticket.id} ticket={ticket} />
-        ))}
-
-        <CourtDiagram />
-        <SelectedTickets />
-
         {isLoading ? (
           <ActivityIndicator
             size="large"
@@ -272,16 +412,52 @@ const BuyTickets: React.FC = () => {
             style={styles.loader}
           />
         ) : (
-          <ActionButtons />
+          <>
+            {ticketOptions.map((ticket) => (
+              <TicketItem key={ticket.id} ticket={ticket} />
+            ))}
+
+            {Object.keys(selectedTickets).length > 0 && <SelectedTickets />}
+
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  (isSubmitting || Object.keys(selectedTickets).length === 0) &&
+                    styles.disabledButton,
+                ]}
+                onPress={() => handleAction("cart")}
+                disabled={
+                  isSubmitting || Object.keys(selectedTickets).length === 0
+                }>
+                <Text style={styles.actionButtonText}>Add To Cart</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  (isSubmitting || Object.keys(selectedTickets).length === 0) &&
+                    styles.disabledButton,
+                ]}
+                onPress={() => handleAction("pay")}
+                disabled={
+                  isSubmitting || Object.keys(selectedTickets).length === 0
+                }>
+                <Text style={styles.actionButtonText}>
+                  {isSubmitting ? "Processing..." : "Pay Now"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
         )}
       </ScrollView>
-      <Footer />
+
+      {/* Payment Modal */}
+      <PaymentModal />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  // Container styles
   container: {
     flex: 1,
     backgroundColor: "#fff",
@@ -290,24 +466,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#030303",
-    marginVertical: 20,
-    fontFamily: "Roboto",
-  },
-  errorText: {
-    color: "red",
-    marginBottom: 16,
-    textAlign: "center",
-    fontSize: 14,
-  },
-  loader: {
-    marginVertical: 20,
-  },
-
-  // Header styles
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -331,29 +489,25 @@ const styles = StyleSheet.create({
     color: "#030303",
     fontFamily: "Roboto",
   },
-  headerIcons: {
-    flexDirection: "row",
-    alignItems: "center",
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#030303",
+    flex: 1,
+    textAlign: "center",
+    marginRight: 40,
   },
-  iconButton: {
-    padding: 8,
-    marginLeft: 16,
+  pageTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#030303",
+    marginVertical: 20,
+    fontFamily: "Roboto",
   },
-  searchIcon: {
-    width: 13,
-    height: 13,
-    resizeMode: "contain",
-  },
-  profileIcon: {
-    width: 40,
-    height: 40,
-    resizeMode: "contain",
-  },
-
-  // Ticket styles
   ticketItem: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
     marginBottom: 16,
     backgroundColor: "#fff",
@@ -364,12 +518,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  ticketImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 16,
-  },
   ticketInfo: {
     flex: 1,
   },
@@ -378,39 +526,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#030303",
     marginBottom: 4,
-    fontFamily: "Roboto",
   },
   ticketDescription: {
     fontSize: 14,
     color: "#858585",
-    fontFamily: "Roboto",
   },
   ticketPrice: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
-    color: "#030303",
-    fontFamily: "Roboto",
+    color: "#e74c3c",
   },
-
-  // Court diagram styles
-  courtContainer: {
-    alignItems: "center",
-    marginVertical: 20,
-    padding: 16,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  courtImage: {
-    width: width - 64,
-    height: 166,
-  },
-
-  // Selected tickets styles
   selectedContainer: {
     padding: 16,
     backgroundColor: "#f0f0f0",
@@ -426,7 +551,6 @@ const styles = StyleSheet.create({
   selectedText: {
     fontSize: 14,
     color: "#030303",
-    fontFamily: "Roboto",
   },
   quantityControls: {
     flexDirection: "row",
@@ -446,14 +570,12 @@ const styles = StyleSheet.create({
     color: "#030303",
     minWidth: 20,
     textAlign: "center",
-    fontFamily: "Roboto",
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "700",
     color: "#030303",
     marginBottom: 16,
-    fontFamily: "Roboto",
   },
   totalText: {
     fontSize: 20,
@@ -461,21 +583,17 @@ const styles = StyleSheet.create({
     color: "#030303",
     marginTop: 16,
     textAlign: "right",
-    fontFamily: "Roboto",
   },
-
-  // Action buttons styles
   actionButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: 16,
-    marginBottom: 20,
+    marginVertical: 20,
   },
   actionButton: {
     width: (width - 52) / 2,
-    height: 36,
+    height: 48,
     backgroundColor: "#0A0A0A",
-    borderRadius: 18,
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -484,29 +602,55 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  errorText: {
+    color: "red",
+    marginBottom: 16,
+    textAlign: "center",
     fontSize: 14,
-    fontFamily: "Roboto",
-    fontWeight: "400",
+  },
+  loader: {
+    marginVertical: 30,
   },
 
-  // Footer styles
-  footer: {
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+  },
+  modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    justifyContent: "space-between",
     alignItems: "center",
-    height: 70,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#E5E5E5",
-    paddingHorizontal: 20,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5E5",
+    backgroundColor: "#FFFFFF",
   },
-  footerButton: {
-    padding: 12,
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#030303",
   },
-  footerIcon: {
-    width: 24,
-    height: 24,
-    resizeMode: "contain",
+  closeButton: {
+    fontSize: 16,
+    color: "#3498db",
+    fontWeight: "600",
+  },
+  webView: {
+    flex: 1,
+  },
+  loadingWebView: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.8)",
   },
 });
 

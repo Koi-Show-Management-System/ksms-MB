@@ -1,7 +1,13 @@
+import { initURLHandling } from "@/services/urlHandlerService";
 import { Stack } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 
 export default function PaymentsLayout() {
+  useEffect(() => {
+    const cleanup = initURLHandling();
+    return cleanup;
+  }, []);
+
   return (
     <Stack
       screenOptions={{
@@ -20,3 +26,4 @@ export default function PaymentsLayout() {
     </Stack>
   );
 }
+

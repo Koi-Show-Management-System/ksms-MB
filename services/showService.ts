@@ -1,6 +1,16 @@
 import api from "./api";
 
 // Types for Koi Shows
+export interface ShowStatus {
+  id: string;
+  koiShowId: string;
+  statusName: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+}
+
 export interface KoiShow {
   id: string;
   name: string;
@@ -16,12 +26,14 @@ export interface KoiShow {
   hasGrandChampion: boolean;
   hasBestInShow: boolean;
   imgUrl: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  showStatuses: ShowStatus[];
   registrationFee: number;
-  status: string; // "upcoming", "planned", "active", "completed"
-  showStatuses: any[];
 }
 
-interface KoiShowResponse {
+interface ShowResponse {
   data: {
     size: number;
     page: number;
@@ -34,14 +46,12 @@ interface KoiShowResponse {
 }
 
 // Fetch shows with pagination
-export const getKoiShows = async (page = 1, size = 10) => {
+export const getKoiShows = async (page: number = 1, size: number = 10): Promise<ShowResponse['data']> => {
   try {
-    const response = await api.get<KoiShowResponse>(
-      `/api/v1/koi-show/paged?page=${page}&size=${size}`
-    );
+    const response = await api.get<ShowResponse>(`/api/v1/koi-show/paged?page=${page}&size=${size}`);
     return response.data.data;
   } catch (error) {
-    console.error("Error fetching Koi shows:", error);
+    console.error('Error fetching koi shows:', error);
     throw error;
   }
 };
@@ -49,10 +59,10 @@ export const getKoiShows = async (page = 1, size = 10) => {
 // Fetch a single show by ID
 export const getKoiShowById = async (id: string): Promise<KoiShow> => {
   try {
-    const response = await api.get<{data: KoiShow, statusCode: number, message: string}>(`/api/v1/koi-show/${id}`);
+    const response = await api.get<{ data: KoiShow }>(`/api/v1/koi-show/${id}`);
     return response.data.data;
   } catch (error) {
-    console.error(`Error fetching Koi show with ID ${id}:`, error);
+    console.error('Error fetching koi show details:', error);
     throw error;
   }
 };

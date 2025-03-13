@@ -218,36 +218,50 @@ const KoiShowInformation: React.FC = () => {
                     color="#3498db"
                   />
                   <View>
-                    <Text style={styles.detailLabel}>Hạn đăng ký</Text>
+                    <Text style={styles.detailLabel}>Thời lượng</Text>
                     <Text style={styles.detailValue}>
-                      {formatDate(showData?.registrationDeadline || "")}
+                      {/* Existing time duration content */}
                     </Text>
                   </View>
                 </View>
+              </View>
 
-                <View style={styles.detailItem}>
-                  <MaterialIcons name="people" size={20} color="#3498db" />
-                  <View>
-                    <Text style={styles.detailLabel}>Số lượng tham gia</Text>
-                    <Text style={styles.detailValue}>
-                      {showData?.minParticipants} - {showData?.maxParticipants}{" "}
-                      người
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailItem}>
-                  <MaterialIcons
-                    name="attach-money"
-                    size={20}
-                    color="#3498db"
-                  />
-                  <View>
-                    <Text style={styles.detailLabel}>Phí đăng ký</Text>
-                    <Text style={styles.detailValue}>
-                      {showData?.registrationFee?.toLocaleString("vi-VN")} VNĐ
-                    </Text>
-                  </View>
+              {/* Add Ticket Types Section */}
+              <View style={styles.fullWidthSection}>
+                <MaterialIcons
+                  name="confirmation-number"
+                  size={20}
+                  color="#3498db"
+                />
+                <View>
+                  <Text style={styles.detailLabel}>Loại vé</Text>
+                  {showData?.ticketTypes && showData.ticketTypes.length > 0 ? (
+                    <ScrollView
+                      horizontal={true}
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.ticketsCarouselContainer}>
+                      {showData.ticketTypes.map((ticket) => (
+                        <View key={ticket.id} style={styles.ticketCard}>
+                          <Text style={styles.ticketName}>{ticket.name}</Text>
+                          <Text style={styles.ticketPrice}>
+                            {ticket.price.toLocaleString("vi-VN")} VNĐ
+                          </Text>
+                          <View style={styles.ticketAvailability}>
+                            <MaterialIcons
+                              name="event-seat"
+                              size={16}
+                              color="#3498db"
+                            />
+                            <Text style={styles.ticketQuantity}>
+                              Còn {ticket.availableQuantity} vé
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <Text style={styles.emptyText}>Chưa có thông tin vé</Text>
+                  )}
                 </View>
               </View>
             </View>
@@ -824,6 +838,73 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  fullWidthSection: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+    paddingHorizontal: 10,
+    width: "100%",
+  },
+  ticketTypeContainer: {
+    marginTop: 8,
+  },
+  ticketTypeItem: {
+    backgroundColor: "#f0f8ff",
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  ticketName: {
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  ticketPrice: {
+    color: "#e74c3c",
+    fontWeight: "bold",
+  },
+  ticketQuantity: {
+    color: "#7f8c8d",
+    fontSize: 14,
+  },
+  ticketsCarouselContainer: {
+    paddingVertical: 10,
+    paddingRight: 16,
+  },
+  ticketCard: {
+    backgroundColor: "#f0f8ff",
+    borderRadius: 12,
+    padding: 16,
+    marginRight: 12,
+    width: 180,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#e1ecf4",
+  },
+  ticketName: {
+    fontWeight: "bold",
+    fontSize: 16,
+    marginBottom: 8,
+    color: "#2c3e50",
+  },
+  ticketPrice: {
+    color: "#e74c3c",
+    fontWeight: "bold",
+    fontSize: 18,
+    marginBottom: 10,
+  },
+  ticketAvailability: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  ticketQuantity: {
+    marginLeft: 5,
+    color: "#7f8c8d",
+    fontSize: 14,
   },
 });
 

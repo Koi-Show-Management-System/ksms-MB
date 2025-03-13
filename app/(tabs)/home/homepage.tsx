@@ -32,7 +32,6 @@ const Homepage: React.FC = () => {
   // Group shows by status
   const publishedShows = shows.filter((show) => show.status === "published");
   const upcomingShows = shows.filter((show) => show.status === "upcoming");
-  const pendingShows = shows.filter((show) => show.status === "pending");
   const completedShows = shows.filter((show) => show.status === "completed");
 
   useEffect(() => {
@@ -43,12 +42,11 @@ const Homepage: React.FC = () => {
     try {
       setLoading(true);
       const data = await getKoiShows(page, 10);
-      setShows(data.items || []);
-      setTotalPages(data.totalPages || 1);
-      setError("");
-    } catch (err) {
-      console.error("Failed to fetch shows:", err);
-      setError("Failed to load shows. Please try again.");
+      setShows(data.items);
+      setTotalPages(data.totalPages);
+    } catch (error) {
+      console.error("Failed to fetch koi shows:", error);
+      setError("Không thể tải danh sách cuộc thi. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -72,81 +70,165 @@ const Homepage: React.FC = () => {
   };
 
   // Add viewability change handler
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
+  const onViewableItemsChanged = useRef(({ 
+    viewableItems 
+  }: {
+    viewableItems: Array<{
+      index: number | null;
+      item: KoiShow;
+      key: string;
+      isViewable: boolean;
+    }>;
+  }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index !== null) {
       setCurrentHeroIndex(viewableItems[0].index);
     }
   }).current;
+
+  // Quick access routes
+  const quickAccessRoutes = [
+    {
+      text: "Shows",
+      icon: "Z4FRHgIBBLnlud6X",
+      route: "/(tabs)/shows/KoiShowsPage"
+    },
+    {
+      text: "Register",
+      icon: "Z4FRHgIBBLnlud6Y",
+      route: "/(tabs)/shows/koiRegistration"
+    },
+    {
+      text: "Judge",
+      icon: "Z4FRHgIBBLnlud6Z",
+      route: "/(tabs)/judges"
+    },
+    {
+      text: "Profile",
+      icon: "Z4FRHgIBBLnlud6Z",
+      route: "/(tabs)/user/UserProfile"
+    }
+  ];
+
+  // Update the registration button press handler
+  const handleRegistrationPress = (show: KoiShow) => {
+    router.push({
+      pathname: "/(tabs)/shows/koiRegistration" as const,
+      params: { id: show.id }
+    });
+  };
+
+  // Update the quick access button rendering
+  const renderQuickAccessButtons = () => (
+    <View style={styles.quickAccessButtons}>
+      {quickAccessRoutes.map((item, index) => (
+        <TouchableOpacity
+          key={index}
+          style={styles.quickAccessButton}
+          onPress={() => router.push(item.route as any)}>
+          <Image
+            source={{
+              uri: `https://dashboard.codeparrot.ai/api/assets/${item.icon}`,
+            }}
+            style={styles.quickAccessIcon}
+          />
+          <Text style={styles.quickAccessText}>{item.text}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
+  // Update the registration fee display
+  const renderRegistrationFee = (show: KoiShow) => {
+    const fee = show.registrationFee || 0;
+    return (
+      <Text style={styles.registrationFee}>
+        {fee.toLocaleString()} VND
+      </Text>
+    );
+  };
 
   // Render a carousel for shows
   const renderShowCarousel = (statusShows: KoiShow[], title: string) => {
     if (statusShows.length === 0 && !loading) return null;
 
     return (
-      <View style={styles.featuredShows}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#000" />
-          </View>
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
-            {statusShows.map((show) => (
-              <TouchableOpacity
-                key={show.id}
-                style={styles.showCard}
-                onPress={() => handleShowPress(show)}>
-                <View style={styles.imageContainer}>
-                  <Image
-                    source={{
-                      uri:
-                        show.imgUrl && show.imgUrl.startsWith("http")
-                          ? show.imgUrl
-                          : "https://ugc.futurelearn.com/uploads/images/d5/6d/d56d20b4-1072-48c0-b832-deecf6641d49.jpg",
-                    }}
-                    style={styles.showImage}
-                    defaultSource={require("../../../assets/images/test_image.png")}
-                  />
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>{show.status}</Text>
-                  </View>
-                </View>
-                <View style={styles.showDetails}>
-                  <Text style={styles.showName} numberOfLines={1}>
-                    {show.name || "Unnamed Show"}
-                  </Text>
-                  <View style={styles.infoRow}>
-                    <Ionicons name="calendar-outline" size={14} color="#666" />
-                    <Text style={styles.showDate}>
-                      {formatDate(show.startDate)} - {formatDate(show.endDate)}
-                    </Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Ionicons name="location-outline" size={14} color="#666" />
-                    <Text style={styles.showLocation} numberOfLines={1}>
-                      {show.location || "TBA"}
-                    </Text>
-                  </View>
-                  <View style={styles.cardFooter}>
-                    <Text style={styles.registrationFee}>
-                      {show.registrationFee.toLocaleString()} VND
-                    </Text>
-                    <View style={styles.participantInfo}>
-                      <Ionicons name="people-outline" size={14} color="#666" />
-                      <Text style={styles.participantText}>
-                        {show.minParticipants}-{show.maxParticipants}
-                      </Text>
+      <>
+        <View style={styles.featuredShows}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#000" />
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
+              {statusShows.map((show) => (
+                <TouchableOpacity
+                  key={show.id}
+                  style={styles.showCard}
+                  onPress={() => handleShowPress(show)}>
+                  <View style={styles.imageContainer}>
+                    <Image
+                      source={{
+                        uri:
+                          show.imgUrl && show.imgUrl.startsWith("http")
+                            ? show.imgUrl
+                            : "https://ugc.futurelearn.com/uploads/images/d5/6d/d56d20b4-1072-48c0-b832-deecf6641d49.jpg",
+                      }}
+                      style={styles.showImage}
+                      defaultSource={require("../../../assets/images/test_image.png")}
+                    />
+                    <View style={styles.statusBadge}>
+                      <Text style={styles.statusText}>{show.status}</Text>
                     </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
-      </View>
+                  <View style={styles.showDetails}>
+                    <Text style={styles.showName} numberOfLines={1}>
+                      {show.name || "Unnamed Show"}
+                    </Text>
+                    <View style={styles.infoRow}>
+                      <Ionicons
+                        name="calendar-outline"
+                        size={14}
+                        color="#666"
+                      />
+                      <Text style={styles.showDate}>
+                        {formatDate(show.startDate)} -{" "}
+                        {formatDate(show.endDate)}
+                      </Text>
+                    </View>
+                    <View style={styles.infoRow}>
+                      <Ionicons
+                        name="location-outline"
+                        size={14}
+                        color="#666"
+                      />
+                      <Text style={styles.showLocation} numberOfLines={1}>
+                        {show.location || "TBA"}
+                      </Text>
+                    </View>
+                    <View style={styles.cardFooter}>
+                      {renderRegistrationFee(show)}
+                      <View style={styles.participantInfo}>
+                        <Ionicons
+                          name="people-outline"
+                          size={14}
+                          color="#666"
+                        />
+                        <Text style={styles.participantText}>
+                          {show.minParticipants}-{show.maxParticipants}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      </>
     );
   };
 
@@ -176,9 +258,7 @@ const Homepage: React.FC = () => {
                         uri:
                           show.imgUrl && show.imgUrl.startsWith("http")
                             ? show.imgUrl
-                            : show.imgUrl
-                            ? `https://api.ksms.news/${show.imgUrl}`
-                            : "https://images.unsplash.com/photo-1583130879269-ab3b9c83538e?q=80&w=2070&auto=format&fit=crop",
+                            : "https://images.unsplash.com/photo-1616989161881-6c788f319bd7?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
                       }}
                       style={styles.heroImage}
                       defaultSource={require("../../../assets/images/test_image.png")}
@@ -196,12 +276,7 @@ const Homepage: React.FC = () => {
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.heroButton}
-                          onPress={() =>
-                            router.push({
-                              pathname: "/(tabs)/shows/Registration",
-                              params: { id: show.id },
-                            })
-                          }>
+                          onPress={() => handleRegistrationPress(show)}>
                           <Text style={styles.heroButtonText}>Register</Text>
                         </TouchableOpacity>
                       </View>
@@ -240,43 +315,7 @@ const Homepage: React.FC = () => {
         {/* Quick Access Section */}
         <View style={styles.quickAccess}>
           <Text style={styles.sectionTitle}>Quick Access</Text>
-          <View style={styles.quickAccessButtons}>
-            {[
-              {
-                text: "Shows",
-                icon: "Z4FRHgIBBLnlud6X",
-                route: "/(tabs)/shows/KoiShowsPage",
-              },
-              {
-                text: "Register",
-                icon: "Z4FRHgIBBLnlud6Y",
-                route: "/(tabs)/shows/Registration",
-              },
-              {
-                text: "Judge",
-                icon: "Z4FRHgIBBLnlud6Z",
-                route: "/(tabs)/judges",
-              },
-              {
-                text: "Profile",
-                icon: "Z4FRHgIBBLnlud6Z",
-                route: "/(tabs)/user/UserProfile",
-              },
-            ].map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.quickAccessButton}
-                onPress={() => router.push(item.route)}>
-                <Image
-                  source={{
-                    uri: `https://dashboard.codeparrot.ai/api/assets/${item.icon}`,
-                  }}
-                  style={styles.quickAccessIcon}
-                />
-                <Text style={styles.quickAccessText}>{item.text}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {renderQuickAccessButtons()}
         </View>
 
         {/* Error message display */}
@@ -290,9 +329,6 @@ const Homepage: React.FC = () => {
 
         {/* Upcoming Shows */}
         {renderShowCarousel(upcomingShows, "Upcoming Shows")}
-
-        {/* Pending Shows */}
-        {renderShowCarousel(pendingShows, "Pending Shows")}
 
         {/* News and Blogs */}
         <View style={styles.newsAndBlogs}>
