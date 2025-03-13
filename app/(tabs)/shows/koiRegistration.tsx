@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -33,6 +34,48 @@ interface MediaItem {
   // For local files
   fileUri?: string;
 }
+
+// Skeleton Component
+const Skeleton = ({ width, height, style }: { width: number | string; height: number; style?: any }) => {
+  const animatedValue = new Animated.Value(0);
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(animatedValue, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animatedValue, {
+          toValue: 0,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const opacity = animatedValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          backgroundColor: "#E2E8F0",
+          opacity,
+          borderRadius: 4,
+        },
+        style,
+      ]}
+    />
+  );
+};
 
 const KoiRegistrationScreen: React.FC = () => {
   // Get showId from route params
@@ -69,6 +112,9 @@ const KoiRegistrationScreen: React.FC = () => {
     category: ''
   });
 
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [isLoadingCategory, setIsLoadingCategory] = useState(false);
+
   // Fetch koi profiles when component mounts
   useEffect(() => {
     loadKoiProfiles();
@@ -93,32 +139,96 @@ const KoiRegistrationScreen: React.FC = () => {
   // Fetch koi profile details when a profile is selected
   const handleKoiSelection = async (id: string) => {
     try {
+      setIsLoadingProfile(true);
       setLoading(true);
+      
+      // Lấy thông tin profile
       const response = await getKoiProfileById(id);
       const profile = response.data;
-      setSelectedKoiProfile(profile);
+      
+      // Cập nhật tất cả state cùng lúc
+      await Promise.all([
+        new Promise<void>(resolve => {
+          setSelectedKoiProfile(profile);
+          resolve();
+        }),
+        new Promise<void>(resolve => {
+          setKoiName(profile.name);
+          resolve();
+        }),
+        new Promise<void>(resolve => {
+          setKoiSize(profile.size.toString());
+          resolve();
+        }),
+        new Promise<void>(resolve => {
+          setKoiVariety(profile.variety.name);
+          resolve();
+        }),
+        new Promise<void>(resolve => {
+          setKoiDescription(profile.bloodline || "");
+          resolve();
+        }),
+        new Promise<void>(resolve => {
+          setMediaItems(
+            profile.koiMedia.map((media) => ({
+              id: media.id,
+              mediaUrl: media.mediaUrl,
+              mediaType: media.mediaType,
+            }))
+          );
+          resolve();
+        })
+      ]);
 
-      // Populate form fields with profile data
-      setKoiName(profile.name);
-      setKoiSize(profile.size.toString());
-      setKoiVariety(profile.variety.name);
-      setKoiDescription(profile.bloodline || "");
+      // Đợi state cập nhật xong
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Kiểm tra lại state trước khi gọi API
+      if (!profile || !showId) {
+        console.log('Missing required data after state update:', { profile, showId });
+        return;
+      }
 
-      // Initialize media items from profile
-      setMediaItems(
-        profile.koiMedia.map((media) => ({
-          id: media.id,
-          mediaUrl: media.mediaUrl,
-          mediaType: media.mediaType,
-        }))
+      // Tìm category phù hợp
+      setIsLoadingCategory(true);
+      setProcessingStep("Đang tìm category phù hợp...");
+      
+      console.log('Finding suitable category with params:', {
+        showId,
+        varietyId: profile.variety.id,
+        size: profile.size
+      });
+      
+      const categoryResponse = await findSuitableCategory(
+        showId,
+        profile.variety.id,
+        profile.size.toString()
       );
+      
+      console.log('Category API Response:', categoryResponse);
+      
+      if (!categoryResponse || !categoryResponse.data) {
+        console.log('No category data received');
+        setFormErrors(prev => ({ 
+          ...prev, 
+          category: 'Không tìm thấy category phù hợp' 
+        }));
+        return;
+      }
 
+      const category = categoryResponse.data;
+      setSelectedCategory(category);
+      setFormErrors(prev => ({ ...prev, category: '' }));
+      
       setIsDropdownOpen(false);
     } catch (error) {
       console.error("Failed to fetch koi profile details:", error);
-      Alert.alert("Error", "Failed to load koi details. Please try again.");
+      Alert.alert("Lỗi", "Không thể tải thông tin koi. Vui lòng thử lại.");
     } finally {
+      setIsLoadingProfile(false);
+      setIsLoadingCategory(false);
       setLoading(false);
+      setProcessingStep("");
     }
   };
 
@@ -363,11 +473,6 @@ const KoiRegistrationScreen: React.FC = () => {
       return;
     }
 
-    if (!koiSize) {
-      Alert.alert("Required", "Please enter koi size");
-      return;
-    }
-
     if (!selectedCategory) {
       console.log('Missing category:', { selectedCategory, koiSize });
       Alert.alert("Error", "Could not find suitable category for your koi");
@@ -412,24 +517,47 @@ const KoiRegistrationScreen: React.FC = () => {
         }))
       });
 
-      // Add media files
-      mediaItems.forEach((item, index) => {
-        if (item.isNew && item.fileUri) {
-          if (item.mediaType === 'Image') {
-            formData.append('RegistrationImages', {
-              uri: item.fileUri,
-              type: 'image/jpeg',
-              name: `image_${index}.jpg`
-            } as any);
+      // Xử lý media files
+      for (const item of mediaItems) {
+        try {
+          if (item.isNew && item.fileUri) {
+            // Nếu là file mới được thêm vào
+            if (item.mediaType === 'Image') {
+              formData.append('RegistrationImages', {
+                uri: item.fileUri,
+                type: 'image/jpeg',
+                name: `image_${item.id}.jpg`
+              } as any);
+            } else {
+              formData.append('RegistrationVideos', {
+                uri: item.fileUri,
+                type: 'video/mp4',
+                name: `video_${item.id}.mp4`
+              } as any);
+            }
           } else {
-            formData.append('RegistrationVideos', {
-              uri: item.fileUri,
-              type: 'video/mp4',
-              name: `video_${index}.mp4`
-            } as any);
+            // Nếu là file từ profile, tải về và chuyển đổi thành file
+            const response = await fetch(item.mediaUrl);
+            const blob = await response.blob();
+            
+            if (item.mediaType === 'Image') {
+              formData.append('RegistrationImages', {
+                uri: item.mediaUrl,
+                type: 'image/jpeg',
+                name: `image_${item.id}.jpg`
+              } as any);
+            } else {
+              formData.append('RegistrationVideos', {
+                uri: item.mediaUrl,
+                type: 'video/mp4',
+                name: `video_${item.id}.mp4`
+              } as any);
+            }
           }
+        } catch (error) {
+          console.error(`Error processing media item ${item.id}:`, error);
         }
-      });
+      }
 
       // Log FormData contents
       console.log('FormData contents:', {
@@ -561,6 +689,34 @@ const KoiRegistrationScreen: React.FC = () => {
     );
   };
 
+  // Render skeleton loading states
+  const renderSkeleton = () => {
+    if (!isLoadingProfile) return null;
+
+    return (
+      <View style={styles.section}>
+        <Skeleton width="100%" height={50} style={styles.skeletonInput} />
+        <Skeleton width="100%" height={50} style={styles.skeletonInput} />
+        <Skeleton width="100%" height={50} style={styles.skeletonInput} />
+        <Skeleton width="100%" height={120} style={styles.skeletonInput} />
+      </View>
+    );
+  };
+
+  // Render category skeleton
+  const renderCategorySkeleton = () => {
+    if (!isLoadingCategory) return null;
+
+    return (
+      <View style={styles.categoryInfo}>
+        <Skeleton width={200} height={24} style={styles.skeletonTitle} />
+        <Skeleton width="100%" height={20} style={styles.skeletonText} />
+        <Skeleton width="100%" height={20} style={styles.skeletonText} />
+        <Skeleton width="100%" height={20} style={styles.skeletonText} />
+      </View>
+    );
+  };
+
   return (
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
@@ -628,7 +784,8 @@ const KoiRegistrationScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>Select your Koi</Text>
             <TouchableOpacity
               style={styles.dropdown}
-              onPress={() => setIsDropdownOpen(!isDropdownOpen)}>
+              onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+              disabled={isLoadingProfile}>
               <Text style={styles.dropdownText}>
                 {selectedKoiProfile ? selectedKoiProfile.name : "Select a Koi"}
               </Text>
@@ -651,59 +808,63 @@ const KoiRegistrationScreen: React.FC = () => {
           </View>
 
           {/* Koi Details */}
-          <View style={styles.section}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Koi Entry Title</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Your Koi Name"
-                placeholderTextColor="#94a3b8"
-                value={koiName}
-                onChangeText={setKoiName}
-              />
-            </View>
+          {isLoadingProfile ? (
+            renderSkeleton()
+          ) : (
+            <View style={styles.section}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Koi Entry Title</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Your Koi Name"
+                  placeholderTextColor="#94a3b8"
+                  value={koiName}
+                  onChangeText={setKoiName}
+                />
+              </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Koi Size</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Size in cm"
-                placeholderTextColor="#94a3b8"
-                value={koiSize}
-                onChangeText={setKoiSize}
-                onBlur={() => handleSizeChange(koiSize)}
-                keyboardType="numeric"
-              />
-              {formErrors.size ? (
-                <Text style={styles.errorText}>{formErrors.size}</Text>
-              ) : null}
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Koi Size</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Size in cm"
+                  placeholderTextColor="#94a3b8"
+                  value={koiSize}
+                  onChangeText={setKoiSize}
+                  onBlur={() => handleSizeChange(koiSize)}
+                  keyboardType="numeric"
+                />
+                {formErrors.size ? (
+                  <Text style={styles.errorText}>{formErrors.size}</Text>
+                ) : null}
+              </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Koi Variety</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Variety"
-                placeholderTextColor="#94a3b8"
-                value={koiVariety}
-                onChangeText={setKoiVariety}
-                editable={false}
-              />
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Koi Variety</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Variety"
+                  placeholderTextColor="#94a3b8"
+                  value={koiVariety}
+                  onChangeText={setKoiVariety}
+                  editable={false}
+                />
+              </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Koi Description</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                multiline={true}
-                numberOfLines={4}
-                placeholder="Enter description"
-                placeholderTextColor="#94a3b8"
-                value={koiDescription}
-                onChangeText={setKoiDescription}
-              />
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Koi Description</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  multiline={true}
+                  numberOfLines={4}
+                  placeholder="Enter description"
+                  placeholderTextColor="#94a3b8"
+                  value={koiDescription}
+                  onChangeText={setKoiDescription}
+                />
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Media Management Section */}
           <View style={styles.section}>
@@ -727,7 +888,11 @@ const KoiRegistrationScreen: React.FC = () => {
           </View>
 
           {/* Category Info */}
-          {renderCategoryInfo()}
+          {isLoadingCategory ? (
+            renderCategorySkeleton()
+          ) : (
+            renderCategoryInfo()
+          )}
 
           {/* Agreement Section */}
           <View style={styles.section}>
@@ -1249,6 +1414,15 @@ const styles = StyleSheet.create({
     fontFamily: "Roboto",
     fontSize: 12,
     marginTop: 4,
+  },
+  skeletonInput: {
+    marginBottom: 16,
+  },
+  skeletonTitle: {
+    marginBottom: 12,
+  },
+  skeletonText: {
+    marginBottom: 8,
   },
 });
 
