@@ -31,12 +31,6 @@ export interface KoiProfile {
   updatedAt: string | null;
 }
 
-interface Variety {
-  id: string;
-  name: string;
-  description: string;
-}
-
 interface KoiProfileResponse {
   data: KoiProfile;
   statusCode: number;
@@ -90,3 +84,40 @@ export const getKoiProfileById = async (id: string): Promise<KoiProfileResponse>
     throw error;
   }
 };
+
+// Interface khai báo trước khi sử dụng
+export interface Variety {
+  id: string;
+  name: string;
+  description: string;
+}
+
+// Get varieties
+export const getVarieties = async () => {
+  try {
+    console.log('Calling getVarieties API');
+    const response = await api.get('/api/v1/variety/get-page?page=1&size=50');
+    console.log('Variety API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching varieties:', error);
+    throw error;
+  }
+}
+
+// Create new koi profile
+export const createKoiProfile = async (formData: FormData) => {
+  try {
+    console.log('Creating new koi profile with form data');
+    const response = await api.post('/api/v1/koi-profile/create', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    console.log('Create koi profile API response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating koi profile:', error);
+    throw error;
+  }
+}

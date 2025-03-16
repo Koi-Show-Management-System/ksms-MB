@@ -8,9 +8,9 @@ export interface CompetitionCategory {
   description: string;
   maxEntries: number;
   registrationFee: number;
-  startTime: string;
-  endTime: string;
-  varieties: any[];
+  startTime: string | null;
+  endTime: string | null;
+  varieties: string[];
   status: string;
   createdAt: string;
   updatedAt: string | null;
@@ -67,6 +67,24 @@ export const createRegistration = async (
     return response.data;
   } catch (error) {
     console.error('Error creating registration:', error);
+    throw error;
+  }
+};
+
+export const getCompetitionCategories = async (showId: string, page: number = 1, size: number = 10) => {
+  try {
+    console.log('Calling getCompetitionCategories API with showId:', showId);
+    const response = await api.get('/api/v1/competition-category/get-page', {
+      params: {
+        showId,
+        page,
+        size
+      }
+    });
+    console.log('Competition categories response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching competition categories:', error);
     throw error;
   }
 }; 

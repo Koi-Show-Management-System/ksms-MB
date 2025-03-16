@@ -1,7 +1,7 @@
 import { Video, ResizeMode } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,10 +19,19 @@ import {
 } from "react-native";
 import {
   KoiProfile,
+  Variety,
   getKoiProfileById,
   getKoiProfiles,
+  getVarieties,
+  createKoiProfile
 } from "../../../services/koiProfileService";
-import { findSuitableCategory, createRegistration } from "../../../services/registrationService";
+import { 
+  findSuitableCategory, 
+  createRegistration,
+  getCompetitionCategories,
+  CompetitionCategory
+} from "../../../services/registrationService";
+import { getKoiShowById } from "../../../services/showService";
 
 // Media item for registration
 interface MediaItem {
@@ -82,6 +91,10 @@ const KoiRegistrationScreen: React.FC = () => {
   const params = useLocalSearchParams();
   const showId = params.showId as string;
 
+  // Refs để theo dõi giá trị thực tế của state
+  const profileRef = useRef<KoiProfile | null>(null);
+  const showIdRef = useRef<string>(showId);
+
   // Basic form states
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
@@ -106,6 +119,11 @@ const KoiRegistrationScreen: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [processingStep, setProcessingStep] = useState<string>("");
 
+  // Categories state
+  const [categories, setCategories] = useState<CompetitionCategory[]>([]);
+  const [showCategories, setShowCategories] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
+
   // Form validation states
   const [formErrors, setFormErrors] = useState({
     size: '',
@@ -115,10 +133,108 @@ const KoiRegistrationScreen: React.FC = () => {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingCategory, setIsLoadingCategory] = useState(false);
 
-  // Fetch koi profiles when component mounts
+  // New profile creation states
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [varieties, setVarieties] = useState<Variety[]>([]);
+  const [selectedVariety, setSelectedVariety] = useState<Variety | null>(null);
+  const [isVarietyDropdownOpen, setIsVarietyDropdownOpen] = useState(false);
+  const [newKoiName, setNewKoiName] = useState("");
+  const [newKoiSize, setNewKoiSize] = useState("");
+  const [newKoiAge, setNewKoiAge] = useState("");
+  const [newKoiGender, setNewKoiGender] = useState("Đực");
+  const [newKoiBloodline, setNewKoiBloodline] = useState("");
+  const [newKoiMedia, setNewKoiMedia] = useState<MediaItem[]>([]);
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+  const [isGenderDropdownOpen, setIsGenderDropdownOpen] = useState(false);
+
+  // Thêm các state và hàm để cho phép chọn hạng mục thủ công
+  const [manualCategorySelection, setManualCategorySelection] = useState(false);
+
+  // Thêm state cho thông tin cuộc thi
+  const [showInfo, setShowInfo] = useState({
+    name: "",
+    location: "",
+    date: "",
+    description: "",
+    imgUrl: null as string | null
+  });
+
+  // Đảm bảo khi state cập nhật, refs cũng cập nhật theo
+  useEffect(() => {
+    profileRef.current = selectedKoiProfile;
+  }, [selectedKoiProfile]);
+
+  useEffect(() => {
+    showIdRef.current = showId;
+  }, [showId]);
+
+  // Fetch koi profiles and categories when component mounts
   useEffect(() => {
     loadKoiProfiles();
+    loadVarieties();
+    loadCategories();
+    loadShowInfo();
   }, []);
+
+  // Kiểm tra showId khi component được mount
+  useEffect(() => {
+    if (!showId) {
+      Alert.alert(
+        "Lỗi",
+        "Không tìm thấy thông tin cuộc thi. Vui lòng quay lại và thử lại.",
+        [
+          {
+            text: "Quay lại",
+            onPress: () => router.back()
+          }
+        ]
+      );
+    }
+  }, [showId]);
+
+  // Thêm hàm để tải thông tin cuộc thi từ API
+  const loadShowInfo = async () => {
+    if (!showId) return;
+    
+    try {
+      setLoading(true);
+      setProcessingStep("Đang tải thông tin cuộc thi...");
+      
+      const response = await getKoiShowById(showId);
+      if (response) {
+        // Format date range
+        const startDate = new Date(response.startDate);
+        const endDate = new Date(response.endDate);
+        const formattedStartDate = startDate.toLocaleDateString('vi-VN');
+        const formattedEndDate = endDate.toLocaleDateString('vi-VN');
+        
+        setShowInfo({
+          name: response.name || "Cuộc Thi Koi",
+          location: response.location || "Chưa có thông tin",
+          date: `${formattedStartDate} - ${formattedEndDate}`,
+          description: response.description || "Chưa có mô tả chi tiết",
+          imgUrl: response.imgUrl || null
+        });
+        
+        console.log('Loaded show info:', {
+          name: response.name,
+          imgUrl: response.imgUrl
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch show information:", error);
+      // Fallback to default values if API fails
+      setShowInfo({
+        name: "Cuộc Thi Koi",
+        location: "Không có thông tin",
+        date: "Không có thông tin",
+        description: "Không có thông tin chi tiết",
+        imgUrl: null
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadKoiProfiles = async () => {
     try {
@@ -128,11 +244,140 @@ const KoiRegistrationScreen: React.FC = () => {
     } catch (error) {
       console.error("Failed to fetch koi profiles:", error);
       Alert.alert(
-        "Error",
-        "Failed to load your koi profiles. Please try again."
+        "Lỗi",
+        "Không thể tải danh sách koi. Vui lòng thử lại."
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load varieties for new koi profile
+  const loadVarieties = async () => {
+    try {
+      const response = await getVarieties();
+      setVarieties(response.data?.items || []);
+    } catch (error) {
+      console.error("Failed to fetch varieties:", error);
+      Alert.alert(
+        "Lỗi",
+        "Không thể tải danh sách giống koi. Vui lòng thử lại."
+      );
+    }
+  };
+
+  // Load competition categories
+  const loadCategories = async () => {
+    try {
+      if (!showId) {
+        console.error("Missing showId for loadCategories");
+        return;
+      }
+      
+      setProcessingStep("Đang tải danh sách hạng mục...");
+      const response = await getCompetitionCategories(showId);
+      if (response && response.data && response.data.items) {
+        setCategories(response.data.items);
+        console.log(`Loaded ${response.data.items.length} categories`);
+      } else {
+        console.error("Invalid response format in loadCategories:", response);
+      }
+    } catch (error) {
+      console.error("Failed to fetch competition categories:", error);
+    } finally {
+      setProcessingStep("");
+    }
+  };
+
+  // Hàm chọn hạng mục thủ công
+  const handleManualCategorySelection = (category: CompetitionCategory) => {
+    // Không còn cần thiết - phân loại chỉ tự động
+    console.log("Manual category selection is disabled");
+  };
+
+  // Hàm riêng để tìm category phù hợp
+  const findCategory = async (varietyId: string, size: string) => {
+    if (!showIdRef.current) {
+      console.log('Missing showId for finding category');
+      setSelectedCategory(null); // Reset khi không có showId
+      setFormErrors(prev => ({ 
+        ...prev, 
+        category: 'Không tìm thấy ID cuộc thi, vui lòng thử lại sau.' 
+      }));
+      return null;
+    }
+
+    try {
+      setIsLoadingCategory(true);
+      setProcessingStep("Đang tìm hạng mục phù hợp...");
+      
+      console.log('Finding suitable category with params:', {
+        showId: showIdRef.current,
+        varietyId,
+        size
+      });
+      
+      const categoryResponse = await findSuitableCategory(
+        showIdRef.current,
+        varietyId,
+        size
+      );
+      
+      console.log('Category API Response:', categoryResponse);
+      
+      if (!categoryResponse || !categoryResponse.data) {
+        console.log('No category data received');
+        // Reset selected category
+        setSelectedCategory(null);
+        setFormErrors(prev => ({ 
+          ...prev, 
+          category: 'Không tìm thấy hạng mục phù hợp với kích thước và giống Koi của bạn.' 
+        }));
+        
+        Alert.alert(
+          "Không tìm thấy hạng mục phù hợp",
+          "Không có hạng mục nào phù hợp với kích thước và giống Koi này. Vui lòng chọn Koi khác hoặc điều chỉnh kích thước.",
+          [{ text: "Đã hiểu" }]
+        );
+        
+        return null;
+      }
+
+      const category = categoryResponse.data;
+      setSelectedCategory(category);
+      setFormErrors(prev => ({ ...prev, category: '' }));
+      return category;
+    } catch (error: any) {
+      console.error("Failed to find suitable category:", error);
+      
+      // Reset selected category
+      setSelectedCategory(null);
+      
+      // Hiển thị thông báo chi tiết hơn về lỗi
+      let errorMessage = 'Lỗi khi tìm hạng mục phù hợp, vui lòng thử lại sau.';
+      
+      // Nếu là lỗi 400 - Không tìm thấy hạng mục phù hợp
+      if (error.response && error.response.status === 400) {
+        errorMessage = 'Không tìm thấy hạng mục phù hợp với kích thước và giống Koi của bạn.';
+        console.error('Error response:', error.response.data);
+        
+        // Hiển thị thông báo cho người dùng
+        Alert.alert(
+          "Không tìm thấy hạng mục phù hợp",
+          "Không có hạng mục nào phù hợp với kích thước và giống Koi này. Vui lòng chọn Koi khác hoặc điều chỉnh kích thước.",
+          [{ text: "Đã hiểu" }]
+        );
+      }
+      
+      setFormErrors(prev => ({ 
+        ...prev, 
+        category: errorMessage
+      }));
+      
+      return null;
+    } finally {
+      setIsLoadingCategory(false);
+      setProcessingStep("");
     }
   };
 
@@ -141,111 +386,86 @@ const KoiRegistrationScreen: React.FC = () => {
     try {
       setIsLoadingProfile(true);
       setLoading(true);
+      setProcessingStep("Đang tải thông tin koi...");
+      
+      // Reset selectedCategory mỗi khi chọn profile mới
+      setSelectedCategory(null);
+      setShowCategories(false);
       
       // Lấy thông tin profile
       const response = await getKoiProfileById(id);
+      if (!response || !response.data) {
+        throw new Error("Không thể tải thông tin koi");
+      }
+      
       const profile = response.data;
       
-      // Cập nhật tất cả state cùng lúc
-      await Promise.all([
-        new Promise<void>(resolve => {
-          setSelectedKoiProfile(profile);
-          resolve();
-        }),
-        new Promise<void>(resolve => {
-          setKoiName(profile.name);
-          resolve();
-        }),
-        new Promise<void>(resolve => {
-          setKoiSize(profile.size.toString());
-          resolve();
-        }),
-        new Promise<void>(resolve => {
-          setKoiVariety(profile.variety.name);
-          resolve();
-        }),
-        new Promise<void>(resolve => {
-          setKoiDescription(profile.bloodline || "");
-          resolve();
-        }),
-        new Promise<void>(resolve => {
-          setMediaItems(
-            profile.koiMedia.map((media) => ({
-              id: media.id,
-              mediaUrl: media.mediaUrl,
-              mediaType: media.mediaType,
-            }))
-          );
-          resolve();
-        })
-      ]);
-
-      // Đợi state cập nhật xong
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Kiểm tra lại state trước khi gọi API
-      if (!profile || !showId) {
-        console.log('Missing required data after state update:', { profile, showId });
-        return;
-      }
-
-      // Tìm category phù hợp
-      setIsLoadingCategory(true);
-      setProcessingStep("Đang tìm category phù hợp...");
-      
-      console.log('Finding suitable category with params:', {
-        showId,
-        varietyId: profile.variety.id,
-        size: profile.size
-      });
-      
-      const categoryResponse = await findSuitableCategory(
-        showId,
-        profile.variety.id,
-        profile.size.toString()
+      // Cập nhật state và ref đồng thời
+      profileRef.current = profile;
+      setSelectedKoiProfile(profile);
+      setKoiName(profile.name);
+      setKoiSize(profile.size.toString());
+      setKoiVariety(profile.variety.name);
+      setKoiDescription(profile.bloodline);
+      setMediaItems(
+        profile.koiMedia.map((media: any) => ({
+          id: media.id,
+          mediaUrl: media.mediaUrl,
+          mediaType: media.mediaType,
+        }))
       );
       
-      console.log('Category API Response:', categoryResponse);
-      
-      if (!categoryResponse || !categoryResponse.data) {
-        console.log('No category data received');
-        setFormErrors(prev => ({ 
-          ...prev, 
-          category: 'Không tìm thấy category phù hợp' 
-        }));
-        return;
-      }
-
-      const category = categoryResponse.data;
-      setSelectedCategory(category);
-      setFormErrors(prev => ({ ...prev, category: '' }));
-      
       setIsDropdownOpen(false);
+      
+      // Sử dụng trực tiếp profile object thay vì dựa vào state đã được cập nhật
+      const category = await findCategory(profile.variety.id, profile.size.toString());
+      if (category) {
+        // Tự động mở danh sách hạng mục để người dùng có thể xem hạng mục đã được chọn
+        setShowCategories(true);
+      }
+      
     } catch (error) {
       console.error("Failed to fetch koi profile details:", error);
+      // Reset selectedCategory khi có lỗi xảy ra
+      setSelectedCategory(null);
       Alert.alert("Lỗi", "Không thể tải thông tin koi. Vui lòng thử lại.");
     } finally {
       setIsLoadingProfile(false);
-      setIsLoadingCategory(false);
       setLoading(false);
-      setProcessingStep("");
     }
   };
 
   const handleSizeChange = async (size: string) => {
-    setKoiSize(size);
+    // Loại bỏ ký tự không phải số và dấu chấm
+    const cleanSize = size.replace(/[^\d.]/g, '');
+    
+    // Giới hạn chỉ có một dấu chấm
+    const parts = cleanSize.split('.');
+    let validSize = parts[0];
+    if (parts.length > 1) {
+      validSize += '.' + parts[1];
+    }
+    
+    setKoiSize(validSize);
     setFormErrors(prev => ({ ...prev, size: '' }));
     
-    if (!selectedKoiProfile || !showId) {
-      console.log('Missing required data:', { selectedKoiProfile, showId });
+    // Sử dụng ref để lấy giá trị hiện tại của profile
+    const currentProfile = profileRef.current;
+    
+    if (!currentProfile) {
+      console.log('Missing profile for size change:', { currentProfile, size });
+      // Reset selectedCategory khi không có profile
+      setSelectedCategory(null);
       return;
     }
 
     // Validate size
-    const sizeNumber = parseFloat(size);
+    const sizeNumber = parseFloat(validSize);
     if (isNaN(sizeNumber) || sizeNumber <= 0) {
-      console.log('Invalid size:', size);
-      setFormErrors(prev => ({ ...prev, size: 'Please enter a valid size' }));
+      console.log('Invalid size:', validSize);
+      setFormErrors(prev => ({ ...prev, size: 'Vui lòng nhập kích thước hợp lệ' }));
+      // Reset selectedCategory khi size không hợp lệ
+      setSelectedCategory(null);
       return;
     }
 
@@ -254,93 +474,24 @@ const KoiRegistrationScreen: React.FC = () => {
       console.log('Size out of range:', sizeNumber);
       setFormErrors(prev => ({ 
         ...prev, 
-        size: 'Size must be between 15 and 75 cm' 
+        size: 'Kích thước phải từ 15 đến 75 cm' 
       }));
+      // Reset selectedCategory khi size ngoài phạm vi cho phép
+      setSelectedCategory(null);
       return;
     }
     
-    try {
-      setLoading(true);
-      setProcessingStep("Finding suitable category...");
-      
-      console.log('Finding suitable category with params:', {
-        showId,
-        varietyId: selectedKoiProfile.variety.id,
-        size: sizeNumber
-      });
-      
-      const response = await findSuitableCategory(
-        showId,
-        selectedKoiProfile.variety.id,
-        sizeNumber.toString()
-      );
-      
-      console.log('API Response:', response);
-      
-      // Kiểm tra response có đúng format không
-      if (!response) {
-        console.log('No response from API');
-        setFormErrors(prev => ({ 
-          ...prev, 
-          category: 'No response from server' 
-        }));
-        return;
-      }
-
-      // Kiểm tra response.data có tồn tại không
-      if (!response.data) {
-        console.log('No data in response:', response);
-        setFormErrors(prev => ({ 
-          ...prev, 
-          category: 'No category data received' 
-        }));
-        return;
-      }
-
-      // Kiểm tra các trường bắt buộc của category
-      const category = response.data;
-      if (!category.id || !category.name || !category.sizeMin || !category.sizeMax) {
-        console.log('Invalid category data:', category);
-        setFormErrors(prev => ({ 
-          ...prev, 
-          category: 'Invalid category data received' 
-        }));
-        return;
-      }
-
-      // Kiểm tra size có nằm trong khoảng của category không
-      if (sizeNumber < category.sizeMin || sizeNumber > category.sizeMax) {
-        console.log('Size not in category range:', {
-          size: sizeNumber,
-          min: category.sizeMin,
-          max: category.sizeMax
-        });
-        setFormErrors(prev => ({ 
-          ...prev, 
-          category: `Size must be between ${category.sizeMin} and ${category.sizeMax} cm` 
-        }));
-        return;
-      }
-
-      // Nếu tất cả đều hợp lệ, set category
-      console.log('Setting selected category:', category);
-      setSelectedCategory(category);
-      setFormErrors(prev => ({ ...prev, category: '' }));
-
-    } catch (error: any) {
-      console.error("Failed to find suitable category:", error);
-      console.error("Error details:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      setFormErrors(prev => ({ 
-        ...prev, 
-        category: error.response?.data?.message || 'No suitable category found for this size' 
-      }));
-    } finally {
-      setLoading(false);
-      setProcessingStep("");
+    // Gọi hàm tìm category
+    setLoading(true);
+    const category = await findCategory(currentProfile.variety.id, sizeNumber.toString());
+    setLoading(false);
+    
+    // Nếu tìm thấy hạng mục phù hợp, tự động mở danh sách hạng mục
+    if (category) {
+      setShowCategories(true);
+    } else {
+      // Nếu không tìm thấy hạng mục phù hợp, đảm bảo reset selectedCategory
+      setSelectedCategory(null);
     }
   };
 
@@ -459,30 +610,29 @@ const KoiRegistrationScreen: React.FC = () => {
   const handleSubmit = async () => {
     // Validation
     if (!isChecked) {
-      Alert.alert("Required", "Please accept the rules to continue");
+      Alert.alert("Cần xác nhận", "Vui lòng chấp nhận điều khoản để tiếp tục");
       return;
     }
 
     if (!selectedKoiProfile) {
-      Alert.alert("Required", "Please select a koi profile");
+      Alert.alert("Cần lựa chọn", "Vui lòng chọn hoặc tạo một koi profile");
       return;
     }
 
     if (!showId) {
-      Alert.alert("Error", "Show ID is missing. Please go back and try again.");
+      Alert.alert("Lỗi", "ID cuộc thi không tồn tại. Vui lòng quay lại và thử lại.");
       return;
     }
 
     if (!selectedCategory) {
-      console.log('Missing category:', { selectedCategory, koiSize });
-      Alert.alert("Error", "Could not find suitable category for your koi");
+      Alert.alert("Lỗi", "Không tìm thấy hạng mục phù hợp cho koi của bạn");
       return;
     }
 
     if (mediaItems.length === 0) {
       Alert.alert(
-        "Required",
-        "At least one image or video is required for registration"
+        "Cần media",
+        "Cần ít nhất một hình ảnh hoặc video để đăng ký"
       );
       return;
     }
@@ -490,7 +640,7 @@ const KoiRegistrationScreen: React.FC = () => {
     try {
       setLoading(true);
       setUploadProgress(0);
-      setProcessingStep("Preparing registration...");
+      setProcessingStep("Đang chuẩn bị đăng ký...");
 
       // Create form data
       const formData = new FormData();
@@ -518,6 +668,12 @@ const KoiRegistrationScreen: React.FC = () => {
       });
 
       // Xử lý media files
+      setProcessingStep("Đang xử lý media...");
+      
+      // Lưu số lượng media để tính tiến trình
+      const totalMediaItems = mediaItems.length;
+      let processedItems = 0;
+      
       for (const item of mediaItems) {
         try {
           if (item.isNew && item.fileUri) {
@@ -536,24 +692,57 @@ const KoiRegistrationScreen: React.FC = () => {
               } as any);
             }
           } else {
-            // Nếu là file từ profile, tải về và chuyển đổi thành file
-            const response = await fetch(item.mediaUrl);
-            const blob = await response.blob();
-            
-            if (item.mediaType === 'Image') {
-              formData.append('RegistrationImages', {
-                uri: item.mediaUrl,
-                type: 'image/jpeg',
-                name: `image_${item.id}.jpg`
-              } as any);
-            } else {
-              formData.append('RegistrationVideos', {
-                uri: item.mediaUrl,
-                type: 'video/mp4',
-                name: `video_${item.id}.mp4`
-              } as any);
+            try {
+              // Nếu là file từ profile, tải về và chuyển đổi thành file
+              setProcessingStep(`Đang tải ${item.mediaType.toLowerCase()} từ profile...`);
+              
+              const response = await fetch(item.mediaUrl);
+              if (!response.ok) {
+                throw new Error(`Failed to fetch media: ${response.status} ${response.statusText}`);
+              }
+              
+              const blob = await response.blob();
+              
+              if (item.mediaType === 'Image') {
+                formData.append('RegistrationImages', {
+                  uri: item.mediaUrl,
+                  type: 'image/jpeg',
+                  name: `image_${item.id}.jpg`
+                } as any);
+              } else {
+                formData.append('RegistrationVideos', {
+                  uri: item.mediaUrl,
+                  type: 'video/mp4',
+                  name: `video_${item.id}.mp4`
+                } as any);
+              }
+            } catch (mediaError) {
+              console.error(`Error processing media from profile (${item.id}):`, mediaError);
+              Alert.alert(
+                "Cảnh báo",
+                `Không thể tải ${item.mediaType === 'Image' ? 'ảnh' : 'video'} từ profile. Bạn có muốn tiếp tục mà không có nó không?`,
+                [
+                  { 
+                    text: "Hủy đăng ký", 
+                    style: "cancel",
+                    onPress: () => {
+                      setLoading(false);
+                      setProcessingStep("");
+                      setUploadProgress(0);
+                    }
+                  },
+                  { text: "Tiếp tục", onPress: () => console.log("Continuing without media") }
+                ]
+              );
+              // Vẫn tiếp tục với các item khác nếu người dùng chọn "Tiếp tục"
+              continue;
             }
           }
+          
+          // Cập nhật tiến trình
+          processedItems++;
+          setUploadProgress((processedItems / totalMediaItems) * 50); // Dành 50% cho xử lý media
+          
         } catch (error) {
           console.error(`Error processing media item ${item.id}:`, error);
         }
@@ -571,14 +760,19 @@ const KoiRegistrationScreen: React.FC = () => {
       });
 
       // Submit registration
-      setProcessingStep("Creating registration...");
+      setProcessingStep("Đang tạo đăng ký...");
+      setUploadProgress(60);
+      
       const response = await createRegistration(formData);
       console.log('Registration response:', response);
+      
+      setUploadProgress(100);
+      setProcessingStep("Đăng ký thành công!");
 
       // Success alert and navigation
       Alert.alert(
-        "Registration Successful",
-        "Your koi has been registered for the competition.",
+        "Đăng ký thành công",
+        "Koi của bạn đã được đăng ký tham gia cuộc thi.",
         [
           {
             text: "OK",
@@ -587,10 +781,10 @@ const KoiRegistrationScreen: React.FC = () => {
         ]
       );
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("Đăng ký thất bại", error);
       Alert.alert(
-        "Registration Failed",
-        "Could not complete registration. Please try again."
+        "Đăng ký thất bại",
+        "Không thể hoàn tất đăng ký. Vui lòng thử lại."
       );
     } finally {
       setLoading(false);
@@ -602,17 +796,36 @@ const KoiRegistrationScreen: React.FC = () => {
   // Render dropdown items for koi selection
   const renderKoiDropdownItems = () => {
     if (koiProfiles.length === 0) {
-      return <Text style={styles.dropdownText}>No koi profiles available</Text>;
+      return <Text style={styles.dropdownText}>Không có hồ sơ koi nào</Text>;
     }
 
-    return koiProfiles.map((profile) => (
-      <TouchableOpacity
-        key={profile.id}
-        style={styles.dropdownItem}
-        onPress={() => handleKoiSelection(profile.id)}>
-        <Text style={styles.dropdownItemText}>{profile.name}</Text>
-      </TouchableOpacity>
-    ));
+    return (
+      <ScrollView nestedScrollEnabled={true} style={{maxHeight: 200}}>
+        {koiProfiles.map((profile) => (
+          <TouchableOpacity
+            key={profile.id}
+            style={styles.dropdownItem}
+            onPress={() => handleKoiSelection(profile.id)}>
+            <View style={styles.dropdownItemContent}>
+              {profile.koiMedia && profile.koiMedia.length > 0 && profile.koiMedia[0].mediaType === "Image" ? (
+                <Image 
+                  source={{ uri: profile.koiMedia[0].mediaUrl }} 
+                  style={styles.dropdownItemImage}
+                />
+              ) : (
+                <View style={styles.dropdownItemImagePlaceholder}>
+                  <Text style={styles.dropdownItemImagePlaceholderText}>Koi</Text>
+                </View>
+              )}
+              <View style={styles.dropdownItemDetails}>
+                <Text style={styles.dropdownItemName}>{profile.name}</Text>
+                <Text style={styles.dropdownItemInfo}>{profile.variety.name}, {profile.size}cm</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    );
   };
 
   // Render media item for the list
@@ -648,7 +861,7 @@ const KoiRegistrationScreen: React.FC = () => {
         <TouchableOpacity
           style={styles.removeButton}
           onPress={() => handleRemoveMedia(item.id)}>
-          <Text style={styles.removeButtonText}>Remove</Text>
+          <Text style={styles.removeButtonText}>Xóa</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -659,32 +872,63 @@ const KoiRegistrationScreen: React.FC = () => {
     if (mediaItems.length === 0) {
       return (
         <Text style={styles.noMediaText}>
-          No media items. Please add images or videos.
+          Chưa có ảnh hoặc video. Vui lòng thêm.
         </Text>
       );
     }
 
     return (
       <View style={styles.mediaList}>
-        {mediaItems.map(item => (
-          <View key={item.id}>
-            {renderMediaItem({ item })}
-          </View>
-        ))}
+        <FlatList
+          data={mediaItems}
+          renderItem={renderMediaItem}
+          keyExtractor={(item) => item.id}
+          scrollEnabled={false}
+          ListFooterComponent={<View style={{ height: 10 }} />}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        />
       </View>
     );
   };
 
   // Render category info
   const renderCategoryInfo = () => {
-    if (!selectedCategory) return null;
+    if (!selectedCategory) {
+      // Hiển thị lỗi nếu không tìm thấy hạng mục phù hợp và có thông báo lỗi
+      if (formErrors.category) {
+        return (
+          <View style={styles.categoryInfoError}>
+            <Text style={styles.categoryTitleError}>Thông báo</Text>
+            <Text style={styles.categoryErrorText}>{formErrors.category}</Text>
+            <View style={styles.categoryErrorTips}>
+              <Text style={styles.categoryErrorTipsText}>Gợi ý: Bạn có thể điều chỉnh kích thước Koi để tìm hạng mục phù hợp khác.</Text>
+            </View>
+          </View>
+        );
+      }
+      return null;
+    }
     
     return (
       <View style={styles.categoryInfo}>
-        <Text style={styles.categoryTitle}>Selected Category</Text>
-        <Text>Name: {selectedCategory.name}</Text>
-        <Text>Size Range: {selectedCategory.sizeMin} - {selectedCategory.sizeMax} cm</Text>
-        <Text>Registration Fee: ${selectedCategory.registrationFee}</Text>
+        <Text style={styles.categoryTitle}>Hạng Mục Phù Hợp</Text>
+        <View style={styles.categoryContent}>
+          <View style={styles.categoryRow}>
+            <Text style={styles.categoryLabel}>Tên hạng mục:</Text>
+            <Text style={styles.categoryValue}>{selectedCategory.name}</Text>
+          </View>
+          <View style={styles.categoryRow}>
+            <Text style={styles.categoryLabel}>Kích thước:</Text>
+            <Text style={styles.categoryValue}>{selectedCategory.sizeMin} - {selectedCategory.sizeMax} cm</Text>
+          </View>
+          <View style={styles.categoryRow}>
+            <Text style={styles.categoryLabel}>Phí đăng ký:</Text>
+            <Text style={styles.categoryValueFee}>{selectedCategory.registrationFee.toLocaleString('vi-VN')} đ</Text>
+          </View>
+          <View style={styles.categorySuitableIndicator}>
+            <Text style={styles.categorySuitableText}>✓ Phù hợp với Koi của bạn</Text>
+          </View>
+        </View>
       </View>
     );
   };
@@ -713,6 +957,704 @@ const KoiRegistrationScreen: React.FC = () => {
         <Skeleton width="100%" height={20} style={styles.skeletonText} />
         <Skeleton width="100%" height={20} style={styles.skeletonText} />
         <Skeleton width="100%" height={20} style={styles.skeletonText} />
+      </View>
+    );
+  };
+
+  // Handle adding images for new koi profile
+  const handleAddNewImage = async () => {
+    try {
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert(
+          "Yêu cầu quyền truy cập",
+          "Vui lòng cho phép truy cập thư viện ảnh để tải lên hình ảnh."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const newId = `new-image-${Date.now()}`;
+
+        setNewKoiMedia((prevItems) => [
+          ...prevItems,
+          {
+            id: newId,
+            mediaUrl: asset.uri,
+            mediaType: "Image",
+            isNew: true,
+            fileUri: asset.uri,
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      Alert.alert("Lỗi", "Không thể thêm hình ảnh. Vui lòng thử lại.");
+    }
+  };
+
+  // Handle adding videos for new koi profile
+  const handleAddNewVideo = async () => {
+    try {
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (permissionResult.granted === false) {
+        Alert.alert(
+          "Yêu cầu quyền truy cập",
+          "Vui lòng cho phép truy cập thư viện ảnh để tải lên video."
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true,
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const newId = `new-video-${Date.now()}`;
+
+        setNewKoiMedia((prevItems) => [
+          ...prevItems,
+          {
+            id: newId,
+            mediaUrl: asset.uri,
+            mediaType: "Video",
+            isNew: true,
+            fileUri: asset.uri,
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error picking video:", error);
+      Alert.alert("Lỗi", "Không thể thêm video. Vui lòng thử lại.");
+    }
+  };
+
+  // Handle removing media for new koi profile
+  const handleRemoveNewMedia = (id: string) => {
+    Alert.alert(
+      "Xóa",
+      "Bạn có chắc chắn muốn xóa mục này?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: () => {
+            setNewKoiMedia((prevItems) =>
+              prevItems.filter((item) => item.id !== id)
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  // Validate new profile data
+  const validateNewProfile = () => {
+    // Tạo một object chứa lỗi
+    const errors: { [key: string]: string } = {};
+    let isValid = true;
+    
+    if (!selectedVariety) {
+      errors.variety = "Vui lòng chọn giống koi";
+      isValid = false;
+    }
+    
+    if (!newKoiName.trim()) {
+      errors.name = "Vui lòng nhập tên koi";
+      isValid = false;
+    }
+    
+    const size = parseFloat(newKoiSize);
+    if (isNaN(size) || size <= 0) {
+      errors.size = "Kích thước phải là số dương";
+      isValid = false;
+    } else if (size < 15 || size > 75) {
+      errors.size = "Kích thước phải từ 15 đến 75 cm";
+      isValid = false;
+    }
+    
+    const age = parseInt(newKoiAge);
+    if (isNaN(age) || age <= 0) {
+      errors.age = "Tuổi phải là số nguyên dương";
+      isValid = false;
+    }
+    
+    if (!newKoiGender) {
+      errors.gender = "Vui lòng chọn giới tính koi";
+      isValid = false;
+    }
+    
+    if (!newKoiBloodline.trim()) {
+      errors.bloodline = "Vui lòng nhập dòng máu koi";
+      isValid = false;
+    }
+    
+    if (newKoiMedia.length === 0) {
+      errors.media = "Vui lòng thêm ít nhất một ảnh hoặc video";
+      isValid = false;
+    }
+    
+    // Nếu có lỗi, hiển thị cảnh báo với thông tin cụ thể
+    if (!isValid) {
+      // Tạo thông báo lỗi từ object errors
+      const errorMessages = Object.values(errors).join('\n');
+      Alert.alert("Thông tin không hợp lệ", errorMessages);
+    }
+    
+    return isValid;
+  };
+
+  // Create new koi profile
+  const handleCreateProfile = async () => {
+    if (!validateNewProfile()) return;
+    
+    try {
+      setIsCreatingProfile(true);
+      setLoading(true);
+      setProcessingStep("Đang tạo hồ sơ koi mới...");
+      
+      // Create form data
+      const formData = new FormData();
+      formData.append('VarietyId', selectedVariety!.id);
+      formData.append('Name', newKoiName);
+      formData.append('Size', newKoiSize);
+      formData.append('Age', newKoiAge);
+      formData.append('Gender', newKoiGender);
+      formData.append('Bloodline', newKoiBloodline);
+      formData.append('Status', 'Active');
+      
+      // Add media files
+      for (const item of newKoiMedia) {
+        if (item.fileUri) {
+          if (item.mediaType === 'Image') {
+            formData.append('KoiImages', {
+              uri: item.fileUri,
+              type: 'image/jpeg',
+              name: `image_${item.id}.jpg`
+            } as any);
+          } else {
+            formData.append('KoiVideos', {
+              uri: item.fileUri,
+              type: 'video/mp4',
+              name: `video_${item.id}.mp4`
+            } as any);
+          }
+        }
+      }
+      
+      // Create profile
+      console.log('Calling createKoiProfile API with form data');
+      const response = await createKoiProfile(formData);
+      console.log('Created profile:', response);
+      
+      if (response.data) {
+        const profile = response.data;
+        
+        // Cập nhật cả ref và state
+        profileRef.current = profile;
+        
+        // Cập nhật state với dữ liệu từ profile
+        setSelectedKoiProfile(profile);
+        setKoiName(profile.name);
+        setKoiSize(profile.size.toString());
+        setKoiVariety(profile.variety?.name || '');
+        setKoiDescription(profile.bloodline || '');
+        
+        // Kiểm tra trước khi cập nhật media
+        if (profile.koiMedia && Array.isArray(profile.koiMedia)) {
+          setMediaItems(
+            profile.koiMedia.map((media: any) => ({
+              id: media.id,
+              mediaUrl: media.mediaUrl,
+              mediaType: media.mediaType,
+            }))
+          );
+        }
+        
+        // Đợi state cập nhật (tăng thời gian đợi)
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Log state sau khi cập nhật
+        console.log('Updated profile ref:', profileRef.current);
+        console.log('Updated size:', profile.size.toString());
+        console.log('Updated variety:', profile.variety.id);
+        
+        // Tìm category phù hợp cho profile mới
+        setProcessingStep("Đang tìm category phù hợp...");
+        setIsLoadingCategory(true);
+        
+        console.log('Calling findSuitableCategory with params:', {
+          koiShowId: showIdRef.current,
+          varietyId: profile.variety.id,
+          size: profile.size.toString()
+        });
+        
+        try {
+          const categoryResponse = await findSuitableCategory(
+            showIdRef.current,
+            profile.variety.id,
+            profile.size.toString()
+          );
+          
+          console.log('Category response for new profile:', categoryResponse);
+          
+          if (categoryResponse && categoryResponse.data) {
+            setSelectedCategory(categoryResponse.data);
+            setFormErrors(prev => ({ ...prev, category: '' }));
+          } else {
+            console.log('No suitable category found for new profile');
+            setFormErrors(prev => ({ 
+              ...prev, 
+              category: 'Không tìm thấy category phù hợp cho koi mới' 
+            }));
+          }
+        } catch (categoryError: any) {
+          console.error('Error finding category for new profile:', categoryError);
+          if (categoryError.response) {
+            console.error('Error response:', categoryError.response.data);
+          }
+          setFormErrors(prev => ({ 
+            ...prev, 
+            category: 'Lỗi khi tìm category phù hợp cho koi mới' 
+          }));
+        } finally {
+          setIsLoadingCategory(false);
+        }
+        
+        // Reset new profile form
+        setShowCreateForm(false);
+        setSelectedVariety(null);
+        setNewKoiName("");
+        setNewKoiSize("");
+        setNewKoiAge("");
+        setNewKoiGender("Đực");
+        setNewKoiBloodline("");
+        setNewKoiMedia([]);
+        
+        Alert.alert(
+          "Thành công",
+          "Đã tạo hồ sơ koi mới. Bạn có thể tiếp tục đăng ký thi đấu."
+        );
+      }
+    } catch (error) {
+      console.error("Error creating koi profile:", error);
+      Alert.alert(
+        "Lỗi",
+        "Không thể tạo hồ sơ koi. Vui lòng thử lại."
+      );
+    } finally {
+      setIsCreatingProfile(false);
+      setLoading(false);
+      setProcessingStep("");
+    }
+  };
+
+  // Toggle show create form
+  const toggleCreateForm = () => {
+    setShowCreateForm(!showCreateForm);
+    if (!showCreateForm && varieties.length === 0) {
+      loadVarieties();
+    }
+  };
+
+  // Render dropdown items for variety selection
+  const renderVarietyDropdownItems = () => {
+    if (varieties.length === 0) {
+      return <Text style={styles.dropdownText}>Không có dữ liệu</Text>;
+    }
+
+    return (
+      <ScrollView nestedScrollEnabled={true} style={{maxHeight: 200}}>
+        {varieties.map((variety) => (
+          <TouchableOpacity
+            key={variety.id}
+            style={styles.dropdownItem}
+            onPress={() => {
+              setSelectedVariety(variety);
+              setIsVarietyDropdownOpen(false);
+            }}>
+            <Text style={styles.dropdownText}>{variety.name}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    );
+  };
+
+  // Render dropdown items for gender selection
+  const renderGenderDropdownItems = () => {
+    const genders = ["Đực", "Cái"];
+    return (
+      <ScrollView nestedScrollEnabled={true}>
+        {genders.map((gender) => (
+          <TouchableOpacity
+            key={gender}
+            style={styles.dropdownItem}
+            onPress={() => {
+              setNewKoiGender(gender);
+              setIsGenderDropdownOpen(false);
+            }}>
+            <Text style={styles.dropdownText}>{gender}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    );
+  };
+
+  // Render new koi media list
+  const renderNewKoiMediaList = () => {
+    if (newKoiMedia.length === 0) {
+      return (
+        <Text style={styles.noMediaText}>
+          Chưa có ảnh hoặc video. Vui lòng thêm.
+        </Text>
+      );
+    }
+
+    return (
+      <View style={styles.mediaList}>
+        <FlatList
+          data={newKoiMedia}
+          renderItem={({ item }) => (
+            <View key={item.id} style={styles.mediaItemContainer}>
+              <TouchableOpacity
+                style={styles.mediaThumbnail}
+                onPress={() => handlePreviewMedia(item)}>
+                {item.mediaType === "Image" ? (
+                  <Image
+                    source={{ uri: item.mediaUrl }}
+                    style={styles.mediaThumbnailImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.videoThumbnailContainer}>
+                    <Image
+                      source={{ uri: item.mediaUrl }}
+                      style={styles.mediaThumbnailImage}
+                      resizeMode={ResizeMode.CONTAIN}
+                    />
+                    <View style={styles.videoPlayIconOverlay}>
+                      <Text style={styles.videoPlayIcon}>▶</Text>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.mediaItemDetails}>
+                <Text style={styles.mediaItemType}>{item.mediaType}</Text>
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => handleRemoveNewMedia(item.id)}>
+                  <Text style={styles.removeButtonText}>Xóa</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+          keyExtractor={(item) => item.id}
+          scrollEnabled={false}
+          ListFooterComponent={<View style={{ height: 10 }} />}
+          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
+        />
+      </View>
+    );
+  };
+
+  // Render create koi profile form
+  const renderCreateProfileForm = () => {
+    if (!showCreateForm) return null;
+
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Tạo hồ sơ Koi mới</Text>
+        
+        {/* Variety Selection */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Giống Koi</Text>
+          <TouchableOpacity
+            style={styles.dropdown}
+            onPress={() => setIsVarietyDropdownOpen(!isVarietyDropdownOpen)}
+            disabled={isCreatingProfile}>
+            <Text style={styles.dropdownText}>
+              {selectedVariety ? selectedVariety.name : "Chọn giống Koi"}
+            </Text>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z6I0Rqvsm-LWpeaP/frame-7.png",
+              }}
+              style={styles.dropdownIcon}
+            />
+          </TouchableOpacity>
+          
+          {isVarietyDropdownOpen && (
+            <View style={styles.dropdownMenu}>
+              {renderVarietyDropdownItems()}
+            </View>
+          )}
+          
+          {selectedVariety && (
+            <Text style={styles.descriptionText}>{selectedVariety.description}</Text>
+          )}
+        </View>
+        
+        {/* Name */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Tên Koi</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nhập tên Koi"
+            placeholderTextColor="#94a3b8"
+            value={newKoiName}
+            onChangeText={setNewKoiName}
+            editable={!isCreatingProfile}
+          />
+        </View>
+        
+        {/* Size */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Kích thước (cm)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nhập kích thước"
+            placeholderTextColor="#94a3b8"
+            value={newKoiSize}
+            onChangeText={setNewKoiSize}
+            keyboardType="numeric"
+            editable={!isCreatingProfile}
+          />
+        </View>
+        
+        {/* Age */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Tuổi</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nhập tuổi"
+            placeholderTextColor="#94a3b8"
+            value={newKoiAge}
+            onChangeText={setNewKoiAge}
+            keyboardType="numeric"
+            editable={!isCreatingProfile}
+          />
+        </View>
+        
+        {/* Gender */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Giới tính</Text>
+          <TouchableOpacity
+            style={styles.dropdown}
+            onPress={() => setIsGenderDropdownOpen(!isGenderDropdownOpen)}
+            disabled={isCreatingProfile}>
+            <Text style={styles.dropdownText}>{newKoiGender}</Text>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z6I0Rqvsm-LWpeaP/frame-7.png",
+              }}
+              style={styles.dropdownIcon}
+            />
+          </TouchableOpacity>
+          
+          {isGenderDropdownOpen && (
+            <View style={styles.dropdownMenu}>
+              {renderGenderDropdownItems()}
+            </View>
+          )}
+        </View>
+        
+        {/* Bloodline */}
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Dòng máu</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Nhập dòng máu"
+            placeholderTextColor="#94a3b8"
+            value={newKoiBloodline}
+            onChangeText={setNewKoiBloodline}
+            editable={!isCreatingProfile}
+          />
+        </View>
+        
+        {/* Media Gallery */}
+        <View style={styles.mediaSection}>
+          <Text style={styles.label}>Thư viện ảnh/video</Text>
+          
+          {renderNewKoiMediaList()}
+          
+          <View style={styles.mediaButtonsContainer}>
+            <TouchableOpacity
+              style={styles.mediaButton}
+              onPress={handleAddNewImage}
+              disabled={isCreatingProfile}>
+              <Text style={styles.mediaButtonText}>Thêm ảnh</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.mediaButton}
+              onPress={handleAddNewVideo}
+              disabled={isCreatingProfile}>
+              <Text style={styles.mediaButtonText}>Thêm video</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[
+            styles.createButton,
+            isCreatingProfile && styles.submitButtonDisabled,
+          ]}
+          onPress={handleCreateProfile}
+          disabled={isCreatingProfile}>
+          <Text style={styles.createButtonText}>
+            {isCreatingProfile ? "Đang xử lý..." : "Tạo hồ sơ Koi"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // Render banner
+  const renderBanner = () => {
+    if (!showBanner) return null;
+    
+    // Hiển thị skeleton loader khi đang tải
+    if (!showInfo.name) {
+      return (
+        <View style={styles.bannerContainer}>
+          <View style={styles.bannerImageSkeleton}>
+            <Skeleton width="100%" height={200} />
+          </View>
+        </View>
+      );
+    }
+    
+    // Sử dụng hình ảnh mặc định nếu không có imgUrl từ API
+    const bannerImageSource = showInfo.imgUrl 
+      ? { uri: showInfo.imgUrl } 
+      : { uri: "https://images.pexels.com/photos/219794/pexels-photo-219794.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" };
+    
+    return (
+      <View style={styles.bannerContainer}>
+        <Image
+          source={bannerImageSource}
+          style={styles.bannerImage}
+          resizeMode="cover"
+        />
+        <View style={styles.bannerOverlay}>
+          <View style={styles.bannerContent}>
+            <Text style={styles.bannerTitle}>{showInfo.name}</Text>
+            <Text style={styles.bannerSubtitle}>{showInfo.location}</Text>
+            <Text style={styles.bannerDate}>{showInfo.date}</Text>
+            <Text style={styles.bannerDescription}>{showInfo.description}</Text>
+            
+            <TouchableOpacity 
+              style={styles.bannerButton}
+              onPress={() => setShowCategories(!showCategories)}
+            >
+              <Text style={styles.bannerButtonText}>
+                {showCategories ? "Ẩn hạng mục" : "Xem hạng mục"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  // Render categories list - Thay đổi thành cuộn ngang
+  const renderCategories = () => {
+    if (!showCategories || categories.length === 0) return null;
+    
+    return (
+      <View style={styles.categoriesContainer}>
+        <View style={styles.categoriesHeader}>
+          <Text style={styles.categoriesTitle}>Các Hạng Mục Thi Đấu</Text>
+          <Text style={styles.categoriesSubtitle}>
+            Tự động chọn hạng mục phù hợp theo kích thước và giống Koi
+          </Text>
+        </View>
+        
+        <FlatList
+          data={categories}
+          keyExtractor={(item) => item.id}
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          renderItem={({ item: category }) => {
+            // Kiểm tra xem hạng mục có phải là hạng mục được chọn không
+            const isSelected = selectedCategory && selectedCategory.id === category.id;
+            
+            return (
+              <View 
+                style={[
+                  styles.categoryCard,
+                  isSelected && styles.categoryCardSelected
+                ]}
+              >
+                <View style={styles.categoryHeader}>
+                  <Text style={styles.categoryName}>{category.name}</Text>
+                </View>
+                
+                <View style={styles.categoryFeeContainer}>
+                  <Text style={styles.categoryFeeLabel}>Phí:</Text>
+                  <Text style={styles.categoryFee}>{category.registrationFee.toLocaleString('vi-VN')} đ</Text>
+                </View>
+                
+                <View style={styles.categoryDetailsContainer}>
+                  <View style={styles.categoryDetailItem}>
+                    <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
+                    <Text style={styles.categoryDetailValue}>{category.sizeMin} - {category.sizeMax} cm</Text>
+                  </View>
+                  
+                  <View style={styles.categoryDetailItem}>
+                    <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
+                    <Text style={styles.categoryDetailValue}>{category.maxEntries} Koi</Text>
+                  </View>
+                </View>
+                
+                {category.description && (
+                  <Text style={styles.categoryDescription}>{category.description}</Text>
+                )}
+                
+                {category.varieties && category.varieties.length > 0 && (
+                  <View style={styles.varietiesContainer}>
+                    <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
+                    <View style={styles.varietiesList}>
+                      {category.varieties.map((variety, index) => (
+                        <View key={index} style={styles.varietyTag}>
+                          <Text style={styles.varietyTagText}>{variety}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+                
+                {isSelected && (
+                  <View style={styles.selectedBadge}>
+                    <Text style={styles.selectedBadgeText}>Đã chọn</Text>
+                  </View>
+                )}
+              </View>
+            );
+          }}
+          ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+          contentContainerStyle={{ paddingBottom: 16 }}
+        />
       </View>
     );
   };
@@ -747,10 +1689,8 @@ const KoiRegistrationScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Title Section */}
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>Register for Koi Competition</Text>
-        </View>
+        {/* Banner */}
+        {renderBanner()}
 
         {/* Loading Overlay */}
         {loading && (
@@ -758,7 +1698,7 @@ const KoiRegistrationScreen: React.FC = () => {
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#5664F5" />
               <Text style={styles.loadingText}>
-                {processingStep || "Loading..."}
+                {processingStep || "Đang tải..."}
               </Text>
               {uploadProgress > 0 && (
                 <View style={styles.progressContainer}>
@@ -773,21 +1713,34 @@ const KoiRegistrationScreen: React.FC = () => {
                   )}%`}</Text>
                 </View>
               )}
+              {uploadProgress === 100 && (
+                <View style={styles.successIndicator}>
+                  <Text style={styles.successText}>✓</Text>
+                </View>
+              )}
             </View>
           </View>
         )}
 
         {/* Main Content */}
         <View style={styles.mainContent}>
+          {/* Title Section */}
+          <View style={styles.titleSection}>
+            <Text style={styles.title}>Đăng ký Koi tham gia thi đấu</Text>
+          </View>
+
+          {/* Categories List */}
+          {renderCategories()}
+
           {/* Koi Selection */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Select your Koi</Text>
+            <Text style={styles.sectionTitle}>Chọn Koi của bạn</Text>
             <TouchableOpacity
               style={styles.dropdown}
               onPress={() => setIsDropdownOpen(!isDropdownOpen)}
               disabled={isLoadingProfile}>
               <Text style={styles.dropdownText}>
-                {selectedKoiProfile ? selectedKoiProfile.name : "Select a Koi"}
+                {selectedKoiProfile ? selectedKoiProfile.name : "Chọn một Koi"}
               </Text>
               <Image
                 source={{
@@ -804,138 +1757,158 @@ const KoiRegistrationScreen: React.FC = () => {
               </View>
             )}
 
-            <Text style={styles.addNewText}>Or add new Koi</Text>
-          </View>
-
-          {/* Koi Details */}
-          {isLoadingProfile ? (
-            renderSkeleton()
-          ) : (
-            <View style={styles.section}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Koi Entry Title</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Your Koi Name"
-                  placeholderTextColor="#94a3b8"
-                  value={koiName}
-                  onChangeText={setKoiName}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Koi Size</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Size in cm"
-                  placeholderTextColor="#94a3b8"
-                  value={koiSize}
-                  onChangeText={setKoiSize}
-                  onBlur={() => handleSizeChange(koiSize)}
-                  keyboardType="numeric"
-                />
-                {formErrors.size ? (
-                  <Text style={styles.errorText}>{formErrors.size}</Text>
-                ) : null}
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Koi Variety</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Variety"
-                  placeholderTextColor="#94a3b8"
-                  value={koiVariety}
-                  onChangeText={setKoiVariety}
-                  editable={false}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Koi Description</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  multiline={true}
-                  numberOfLines={4}
-                  placeholder="Enter description"
-                  placeholderTextColor="#94a3b8"
-                  value={koiDescription}
-                  onChangeText={setKoiDescription}
-                />
-              </View>
-            </View>
-          )}
-
-          {/* Media Management Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Media Gallery</Text>
-
-            {renderMediaList()}
-
-            <View style={styles.mediaButtonsContainer}>
-              <TouchableOpacity
-                style={styles.mediaButton}
-                onPress={handleAddImage}>
-                <Text style={styles.mediaButtonText}>Add Image</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.mediaButton}
-                onPress={handleAddVideo}>
-                <Text style={styles.mediaButtonText}>Add Video</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Category Info */}
-          {isLoadingCategory ? (
-            renderCategorySkeleton()
-          ) : (
-            renderCategoryInfo()
-          )}
-
-          {/* Agreement Section */}
-          <View style={styles.section}>
-            <View style={styles.rulesContainer}>
-              <Text style={styles.rulesText}>
-                Read the full details of all rules and regulations
-              </Text>
-            </View>
-
-            <View style={styles.agreementContainer}>
-              <TouchableOpacity
-                style={styles.checkbox}
-                onPress={() => setIsChecked(!isChecked)}>
-                {isChecked && <Text style={styles.checkmark}>✓</Text>}
-              </TouchableOpacity>
-
-              <Text style={styles.termsText}>
-                By clicking register, you confirm that you have read and will
-                comply with our rules.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                (!isChecked ||
-                  !selectedKoiProfile ||
-                  loading ||
-                  mediaItems.length === 0) &&
-                  styles.submitButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={
-                !isChecked ||
-                !selectedKoiProfile ||
-                loading ||
-                mediaItems.length === 0
-              }>
-              <Text style={styles.submitText}>
-                {loading ? "Processing..." : "Submit Registration"}
+            <TouchableOpacity onPress={toggleCreateForm}>
+              <Text style={styles.addNewText}>
+                {showCreateForm ? "Ẩn form tạo Koi mới" : "Hoặc tạo Koi mới"}
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* Create Profile Form */}
+          {renderCreateProfileForm()}
+
+          {/* Koi Details - only show if a profile is selected and create form is hidden */}
+          {selectedKoiProfile && !showCreateForm && (
+            <>
+              {isLoadingProfile ? (
+                renderSkeleton()
+              ) : (
+                <View style={styles.section}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Tên Koi</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Tên Koi của bạn"
+                      placeholderTextColor="#94a3b8"
+                      value={koiName}
+                      onChangeText={setKoiName}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Kích thước Koi</Text>
+                    <View style={styles.formRow}>
+                      <View style={styles.sizeInputContainer}>
+                        <TextInput
+                          style={styles.sizeInput}
+                          placeholder="Nhập kích thước"
+                          placeholderTextColor="#94a3b8"
+                          value={koiSize}
+                          onChangeText={setKoiSize}
+                          onBlur={() => handleSizeChange(koiSize)}
+                          keyboardType="numeric"
+                        />
+                        <View style={styles.sizeUnit}>
+                          <Text style={styles.sizeUnitText}>cm</Text>
+                        </View>
+                      </View>
+                    </View>
+                    {formErrors.size ? (
+                      <Text style={styles.errorText}>{formErrors.size}</Text>
+                    ) : (
+                      <Text style={styles.sizeHint}>Kích thước hợp lệ: 15-75 cm</Text>
+                    )}
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Giống Koi</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Giống"
+                      placeholderTextColor="#94a3b8"
+                      value={koiVariety}
+                      onChangeText={setKoiVariety}
+                      editable={false}
+                    />
+                  </View>
+
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Mô tả Koi</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      multiline={true}
+                      numberOfLines={4}
+                      placeholder="Nhập mô tả"
+                      placeholderTextColor="#94a3b8"
+                      value={koiDescription}
+                      onChangeText={setKoiDescription}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Media Management Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Thư viện ảnh/video</Text>
+                {renderMediaList()}
+                <View style={styles.mediaButtonsContainer}>
+                  <TouchableOpacity
+                    style={styles.mediaButton}
+                    onPress={handleAddImage}>
+                    <Text style={styles.mediaButtonText}>Thêm ảnh</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.mediaButton}
+                    onPress={handleAddVideo}>
+                    <Text style={styles.mediaButtonText}>Thêm video</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Category Info */}
+              {isLoadingCategory ? (
+                renderCategorySkeleton()
+              ) : (
+                renderCategoryInfo()
+              )}
+            </>
+          )}
+
+          {/* Agreement Section - only show if a profile is selected */}
+          {selectedKoiProfile && (
+            <View style={styles.section}>
+              <View style={styles.rulesContainer}>
+                <Text style={styles.rulesText}>
+                  Read the full details of all rules and regulations
+                </Text>
+              </View>
+
+              <View style={styles.agreementContainer}>
+                <TouchableOpacity
+                  style={styles.checkbox}
+                  onPress={() => setIsChecked(!isChecked)}>
+                  {isChecked && <Text style={styles.checkmark}>✓</Text>}
+                </TouchableOpacity>
+
+                <Text style={styles.termsText}>
+                  By clicking register, you confirm that you have read and will
+                  comply with our rules.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  (!isChecked ||
+                    !selectedKoiProfile ||
+                    loading ||
+                    mediaItems.length === 0) &&
+                    styles.submitButtonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={
+                  !isChecked ||
+                  !selectedKoiProfile ||
+                  loading ||
+                  mediaItems.length === 0
+                }>
+                <Text style={styles.submitText}>
+                  {loading ? "Processing..." : "Submit Registration"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Media Preview Modal */}
@@ -1017,8 +1990,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#FFFFFF",
     height: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
   },
   leftSection: {
     flexDirection: "row",
@@ -1051,26 +2026,34 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   titleSection: {
-    padding: 16,
+    padding: 20,
     alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F0F0F0",
+    marginBottom: 16,
   },
   title: {
     fontFamily: "Lexend Deca",
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "700",
-    color: "#030303",
+    color: "#000000",
   },
   mainContent: {
-    padding: 16,
+    paddingHorizontal: 16,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   sectionTitle: {
     fontFamily: "Lexend Deca",
     fontSize: 18,
     fontWeight: "600",
-    color: "#030303",
+    color: "#000000",
     marginBottom: 12,
   },
   dropdown: {
@@ -1080,9 +2063,9 @@ const styles = StyleSheet.create({
     height: 50,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: "#D0D3F5",
+    borderColor: "#E5E7EB",
     borderRadius: 8,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#FFFFFF",
   },
   dropdownText: {
     fontFamily: "Roboto",
@@ -1100,7 +2083,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#FFFFFF",
     maxHeight: 200,
-    overflow: "scroll",
     zIndex: 1000,
   },
   dropdownItem: {
@@ -1108,10 +2090,44 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#F0F0F0",
   },
-  dropdownItemText: {
+  dropdownItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dropdownItemImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  dropdownItemImagePlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  dropdownItemImagePlaceholderText: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  dropdownItemDetails: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  dropdownItemName: {
     fontFamily: "Roboto",
     fontSize: 14,
+    fontWeight: '500',
     color: "#030303",
+  },
+  dropdownItemInfo: {
+    fontFamily: "Roboto",
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 2,
   },
   addNewText: {
     fontFamily: "Roboto",
@@ -1121,25 +2137,25 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   label: {
     fontFamily: "Roboto",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "500",
-    color: "#030303",
+    color: "#000000",
     marginBottom: 8,
   },
   input: {
     height: 50,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: "#D0D3F5",
+    borderColor: "#E5E7EB",
     borderRadius: 8,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#FFFFFF",
     fontFamily: "Roboto",
     fontSize: 14,
-    color: "#030303",
+    color: "#000000",
   },
   textArea: {
     height: 120,
@@ -1162,10 +2178,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 12,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#E5E7EB",
     borderRadius: 8,
     marginBottom: 12,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#FFFFFF",
   },
   mediaThumbnail: {
     width: 80,
@@ -1223,11 +2239,11 @@ const styles = StyleSheet.create({
   mediaButtonsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: 12,
   },
   mediaButton: {
     flex: 1,
-    height: 44,
+    height: 42,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#5664F5",
@@ -1290,17 +2306,19 @@ const styles = StyleSheet.create({
   agreementContainer: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 20,
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   checkbox: {
     width: 20,
     height: 20,
-    borderWidth: 1,
-    borderColor: "#D0D3F5",
+    borderWidth: 2,
+    borderColor: "#5664F5",
     borderRadius: 4,
-    marginRight: 8,
+    marginRight: 12,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#FFFFFF",
   },
   checkmark: {
     color: "#5664F5",
@@ -1313,11 +2331,12 @@ const styles = StyleSheet.create({
     color: "#030303",
   },
   submitButton: {
-    height: 50,
+    height: 48,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 8,
     backgroundColor: "#5664F5",
+    marginTop: 8,
   },
   submitButtonDisabled: {
     backgroundColor: "#A0A0A0",
@@ -1359,14 +2378,11 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     padding: 20,
-    borderRadius: 10,
+    borderRadius: 8,
     backgroundColor: "white",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
     minWidth: 200,
   },
   loadingText: {
@@ -1393,20 +2409,34 @@ const styles = StyleSheet.create({
     color: "#333",
     textAlign: "center",
   },
+  successIndicator: {
+    marginTop: 10,
+    width: 40,
+    height: 40, 
+    borderRadius: 20,
+    backgroundColor: "#22C55E",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  successText: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
   // Category info styles
   categoryInfo: {
     padding: 16,
-    borderWidth: 1,
-    borderColor: "#D0D3F5",
     borderRadius: 8,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#FFFFFF",
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   categoryTitle: {
     fontFamily: "Lexend Deca",
     fontSize: 18,
     fontWeight: "600",
-    color: "#030303",
+    color: "#000000",
     marginBottom: 12,
   },
   errorText: {
@@ -1423,6 +2453,402 @@ const styles = StyleSheet.create({
   },
   skeletonText: {
     marginBottom: 8,
+  },
+  // New styles for the creation form
+  descriptionText: {
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  mediaSection: {
+    marginTop: 16,
+  },
+  createButton: {
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 8,
+    backgroundColor: "#22C55E",
+    marginTop: 20,
+  },
+  createButtonText: {
+    fontFamily: "Poppins",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  bannerContainer: {
+    position: "relative",
+    height: 200,
+  },
+  bannerImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  bannerOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  bannerContent: {
+    padding: 16,
+  },
+  bannerTitle: {
+    fontFamily: "Lexend Deca",
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginBottom: 10,
+  },
+  bannerSubtitle: {
+    fontFamily: "Roboto",
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#FFFFFF",
+  },
+  bannerDate: {
+    fontFamily: "Roboto",
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#FFFFFF",
+  },
+  bannerDescription: {
+    fontFamily: "Roboto",
+    fontSize: 14,
+    color: "#FFFFFF",
+  },
+  bannerButton: {
+    padding: 10,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 6,
+    marginTop: 12,
+  },
+  bannerButtonText: {
+    fontFamily: "Poppins",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#5664F5",
+  },
+  categoriesContainer: {
+    marginBottom: 24,
+    paddingHorizontal: 16,
+  },
+  categoriesHeader: {
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: "#5664F5",
+    paddingLeft: 10,
+  },
+  categoriesTitle: {
+    fontFamily: "Lexend Deca",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#000000",
+    marginBottom: 4,
+  },
+  categoryCard: {
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    width: 270,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginVertical: 4,
+  },
+  categoryCardSelected: {
+    borderColor: "#5664F5",
+    borderWidth: 2,
+    backgroundColor: "#F9FAFF",
+  },
+  categoryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  categoryName: {
+    fontFamily: "Lexend Deca",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
+  },
+  categoryFeeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: '#FEF2F2',
+    padding: 8,
+    borderRadius: 6,
+  },
+  categoryFeeLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#991B1B',
+    marginRight: 4,
+  },
+  categoryFee: {
+    fontFamily: "Roboto",
+    fontSize: 16,
+    color: "#EF4444",
+    fontWeight: "600",
+  },
+  categoryDescription: {
+    fontFamily: "Roboto",
+    fontSize: 14,
+    color: "#333333",
+    marginBottom: 10,
+  },
+  categoryDetailsContainer: {
+    backgroundColor: '#F9FAFB',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  categoryDetailItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  categoryDetailLabel: {
+    fontSize: 13,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  categoryDetailValue: {
+    fontSize: 13,
+    color: '#000000',
+    fontWeight: '500',
+  },
+  varietiesContainer: {
+    marginTop: 8,
+  },
+  varietiesTitle: {
+    fontFamily: "Lexend Deca",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#030303",
+    marginBottom: 4,
+  },
+  varietiesList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  varietyTag: {
+    padding: 6,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 4,
+    marginRight: 6,
+    marginBottom: 6,
+    backgroundColor: "#F9FAFB",
+  },
+  varietyTagText: {
+    fontFamily: "Roboto",
+    fontSize: 13,
+    color: "#000000",
+  },
+  selectionModeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  selectionModeLabel: {
+    fontFamily: "Roboto",
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#030303",
+    marginRight: 8,
+  },
+  selectionModeOptions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  selectionModeOption: {
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#D0D3F5",
+    borderRadius: 4,
+    marginRight: 4,
+  },
+  selectionModeOptionActive: {
+    backgroundColor: "#5664F5",
+    borderColor: "#5664F5",
+  },
+  selectionModeOptionText: {
+    fontFamily: "Roboto",
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#64748B",
+  },
+  selectionModeOptionTextActive: {
+    color: "#FFFFFF",
+  },
+  selectedBadge: {
+    padding: 6,
+    backgroundColor: "#5664F5",
+    borderRadius: 4,
+    marginTop: 12,
+    alignItems: "center",
+  },
+  selectedBadgeText: {
+    fontFamily: "Roboto",
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#FFFFFF",
+  },
+  categoryInfoError: {
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#EF4444",
+    borderRadius: 8,
+    backgroundColor: "#FEF2F2",
+    marginBottom: 16,
+  },
+  categoryTitleError: {
+    fontFamily: "Lexend Deca",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#B91C1C",
+    marginBottom: 12,
+  },
+  categoryErrorText: {
+    fontFamily: "Roboto",
+    fontSize: 14,
+    color: "#B91C1C",
+    marginBottom: 12,
+  },
+  manualSelectionButton: {
+    backgroundColor: "#5664F5",
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  manualSelectionButtonText: {
+    fontFamily: "Roboto",
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#FFFFFF",
+  },
+  bannerImageSkeleton: {
+    width: "100%",
+    height: 200,
+    backgroundColor: "#E2E8F0",
+  },
+  categorySelectionInfo: {
+    fontSize: 14,
+    color: "#64748B",
+    fontStyle: "italic",
+    marginBottom: 16,
+    backgroundColor: "#f0f9ff",
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#3498db",
+  },
+  categoryContent: {
+    marginTop: 10,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  categoryLabel: {
+    color: '#64748B',
+    fontSize: 14,
+    fontFamily: 'Roboto',
+  },
+  categoryValue: {
+    color: '#000000',
+    fontSize: 14,
+    fontWeight: '500',
+    fontFamily: 'Roboto',
+  },
+  categoryValueFee: {
+    color: '#EF4444',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'Roboto',
+  },
+  categorySuitableIndicator: {
+    backgroundColor: '#ECFDF5',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 12,
+    alignItems: 'center',
+    borderLeftWidth: 3,
+    borderLeftColor: '#10B981',
+  },
+  categorySuitableText: {
+    color: '#16A34A',
+    fontWeight: '500',
+    fontSize: 14,
+  },
+  categoriesSubtitle: {
+    color: '#64748B',
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  categoryErrorTips: {
+    backgroundColor: '#FEF9C3', 
+    padding: 10,
+    borderRadius: 6,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FBBF24',
+  },
+  categoryErrorTipsText: {
+    color: '#92400E',
+    fontSize: 12,
+  },
+  formRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  sizeInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    overflow: 'hidden',
+    width: '60%',
+    height: 38,
+  },
+  sizeInput: {
+    flex: 1,
+    height: 38,
+    paddingHorizontal: 10,
+    fontFamily: "Roboto",
+    fontSize: 13,
+    color: "#000000",
+  },
+  sizeUnit: {
+    backgroundColor: '#F3F4F6',
+    height: '100%',
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+  },
+  sizeUnitText: {
+    color: '#4B5563',
+    fontWeight: '500',
+    fontSize: 12,
+  },
+  sizeHint: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
 
