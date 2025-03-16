@@ -9,7 +9,7 @@ export default function ShowsLayout() {
         gestureEnabled: true,
         gestureDirection: "horizontal",
       }}>
-      <Stack.Screen name="KoiShows" options={{ headerShown: false }} />
+      <Stack.Screen name="KoiShowsPage" options={{ headerShown: false }} />
       <Stack.Screen
         name="KoiShowInformation"
         options={{ headerShown: false }}

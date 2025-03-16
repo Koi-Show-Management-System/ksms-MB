@@ -17,7 +17,7 @@ import Animated, {
 
 const { width: screenWidth } = Dimensions.get("window");
 
-const KoiShows: React.FC = () => {
+const KoiShowsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   const tabWidth = screenWidth / 2;
   const translateX = useSharedValue(0);
@@ -299,4 +299,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default KoiShows;
+export default KoiShowsPage;

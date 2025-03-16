@@ -1,4 +1,4 @@
-// app/(user)/MyTickets.tsx
+// app/(user)/MyOrders.tsx
 import { router } from "expo-router";
 import React from "react";
 import {
@@ -117,7 +117,7 @@ const CompetitionTicket: React.FC = () => {
           />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Tickets</Text>
+        <Text style={styles.headerTitle}>My Orders</Text>
       </View>
 
       <ScrollView
@@ -141,7 +141,7 @@ const CompetitionTicket: React.FC = () => {
             </Text>
             <TouchableOpacity
               style={styles.browseButton}
-              onPress={() => router.push("/(tabs)/shows/KoiShows")}>
+              onPress={() => router.push("/(tabs)/shows/KoiShowsPage")}>
               <Text style={styles.browseButtonText}>Browse Events</Text>
             </TouchableOpacity>
           </View>

@@ -1,41 +1,47 @@
 // services/api.ts
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-// Create axios instance with base URL
 const api = axios.create({
   baseURL: 'https://api.ksms.news',
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'text/plain'
+    'Accept': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,PATCH,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
   },
-  timeout: 10000 // 10 seconds timeout
+  withCredentials: false
 });
 
-// Request interceptor for adding authorization token
+// Add request interceptor to add auth token
 api.interceptors.request.use(
   async (config) => {
-    const token = await AsyncStorage.getItem('userToken');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    } catch (error) {
+      return Promise.reject(error);
     }
-    return config;
   },
   (error) => {
     return Promise.reject(error);
   }
 );
 
-// Response interceptor for handling common errors
+// Add response interceptor to handle errors
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    // Handle specific error status codes
+  (response) => response,
+  async (error) => {
     if (error.response?.status === 401) {
-      // Handle unauthorized error (token expired)
-      // Could redirect to login or refresh token
+      // Handle unauthorized error (e.g., clear token and redirect to login)
+      await AsyncStorage.removeItem('userToken');
+      // You might want to add navigation logic here
     }
     return Promise.reject(error);
   }
