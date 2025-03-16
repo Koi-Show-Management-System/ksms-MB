@@ -9,18 +9,96 @@ import {
   Text,
   TouchableOpacity,
   View,
+  FlatList,
 } from "react-native";
 import { getKoiShowById, KoiShow } from "../../../services/showService";
+import { CompetitionCategory, getCompetitionCategories } from "../../../services/registrationService";
+
+// Skeleton Component
+const SkeletonLoader = () => {
+  return (
+    <ScrollView style={styles.scrollView}>
+      {/* Banner Skeleton */}
+      <View style={[styles.bannerContainer, styles.skeletonBanner]} />
+
+      {/* Title Skeleton */}
+      <View style={styles.titleContainer}>
+        <View style={styles.skeletonTitle} />
+        <View style={styles.quickInfoContainer}>
+          <View style={styles.quickInfoItem}>
+            <View style={styles.skeletonIcon} />
+            <View style={styles.skeletonText} />
+          </View>
+          <View style={styles.quickInfoItem}>
+            <View style={styles.skeletonIcon} />
+            <View style={styles.skeletonText} />
+          </View>
+        </View>
+      </View>
+
+      {/* Event Details Section Skeleton */}
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeaderContent}>
+            <View style={styles.skeletonIcon} />
+            <View style={[styles.skeletonText, { width: 120 }]} />
+          </View>
+        </View>
+        <View style={styles.sectionContent}>
+          <View style={[styles.skeletonText, { width: '100%', height: 80 }]} />
+          <View style={styles.detailsGrid}>
+            <View style={styles.detailItem}>
+              <View style={styles.skeletonIcon} />
+              <View>
+                <View style={[styles.skeletonText, { width: 100 }]} />
+                <View style={[styles.skeletonText, { width: 150 }]} />
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Categories Section Skeleton */}
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeaderContent}>
+            <View style={styles.skeletonIcon} />
+            <View style={[styles.skeletonText, { width: 120 }]} />
+          </View>
+        </View>
+        <View style={styles.sectionContent}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {[1, 2, 3].map((item) => (
+              <View key={item} style={[styles.categoryCard, styles.skeletonCard]}>
+                <View style={[styles.skeletonText, { width: '80%', height: 20 }]} />
+                <View style={[styles.skeletonText, { width: '60%', height: 16 }]} />
+                <View style={[styles.skeletonText, { width: '40%', height: 16 }]} />
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+
+      {/* Footer Skeleton */}
+      <View style={styles.footer}>
+        <View style={[styles.actionButton, styles.skeletonButton]} />
+        <View style={[styles.actionButton, styles.skeletonButton]} />
+      </View>
+    </ScrollView>
+  );
+};
 
 const KoiShowInformation: React.FC = () => {
   const params = useLocalSearchParams();
   const id = params.id as string;
 
   const [showData, setShowData] = useState<KoiShow | null>(null);
+  const [categories, setCategories] = useState<CompetitionCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedSections, setExpandedSections] = useState({
     eventDetails: true, // Open by default
+    categories: true, // Open categories section by default
     awards: false,
     rules: false,
     timeline: false, // Renamed from enteringKoi
@@ -34,6 +112,9 @@ const KoiShowInformation: React.FC = () => {
         const data = await getKoiShowById(id);
         setShowData(data);
         setError("");
+        
+        // Sau khi lấy dữ liệu cuộc thi, lấy danh sách hạng mục
+        await fetchCategories(id);
       } catch (err) {
         console.error("Failed to fetch show details:", err);
         setError("Failed to load show details. Please try again.");
@@ -49,6 +130,22 @@ const KoiShowInformation: React.FC = () => {
       setLoading(false);
     }
   }, [id]);
+  
+  // Fetch categories
+  const fetchCategories = async (showId: string) => {
+    try {
+      const response = await getCompetitionCategories(showId);
+      if (response && response.data && response.data.items) {
+        setCategories(response.data.items);
+        console.log(`Loaded ${response.data.items.length} categories`);
+      } else {
+        console.error("Invalid response format in fetchCategories:", response);
+      }
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+      // Vẫn hiển thị thông tin show ngay cả khi không lấy được hạng mục
+    }
+  };
 
   // Toggle section expansion
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -98,14 +195,52 @@ const KoiShowInformation: React.FC = () => {
     );
   };
 
-  // If loading, show loading indicator
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
-        <Text style={styles.loadingText}>Đang tải thông tin sự kiện...</Text>
+  // Add this function to render categories
+  const renderCategoryItem = ({ item }: { item: CompetitionCategory }) => (
+    <View style={styles.categoryCard}>
+      <View style={styles.categoryHeader}>
+        <Text style={styles.categoryName}>{item.name}</Text>
       </View>
-    );
+      
+      <View style={styles.categoryFeeContainer}>
+        <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
+        <Text style={styles.categoryFee}>{item.registrationFee.toLocaleString('vi-VN')} đ</Text>
+      </View>
+      
+      <View style={styles.categoryDetailsContainer}>
+        <View style={styles.categoryDetailItem}>
+          <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
+          <Text style={styles.categoryDetailValue}>{item.sizeMin} - {item.sizeMax} cm</Text>
+        </View>
+        
+        <View style={styles.categoryDetailItem}>
+          <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
+          <Text style={styles.categoryDetailValue}>{item.maxEntries} Koi</Text>
+        </View>
+      </View>
+      
+      {item.description && (
+        <Text style={styles.categoryDescription}>{item.description}</Text>
+      )}
+      
+      {item.varieties && item.varieties.length > 0 && (
+        <View style={styles.varietiesContainer}>
+          <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
+          <View style={styles.varietiesList}>
+            {item.varieties.map((variety, index) => (
+              <View key={index} style={styles.varietyTag}>
+                <Text style={styles.varietyTagText}>{variety}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+    </View>
+  );
+
+  // Replace loading condition with Skeleton
+  if (loading) {
+    return <SkeletonLoader />;
   }
 
   // If error, show error message
@@ -159,11 +294,11 @@ const KoiShowInformation: React.FC = () => {
           <Text style={styles.title}>{showData?.name}</Text>
           <View style={styles.quickInfoContainer}>
             <View style={styles.quickInfoItem}>
-              <MaterialIcons name="location-on" size={18} color="#3498db" />
+              <MaterialIcons name="location-on" size={18} color="#000000" />
               <Text style={styles.quickInfoText}>{showData?.location}</Text>
             </View>
             <View style={styles.quickInfoItem}>
-              <MaterialIcons name="date-range" size={18} color="#3498db" />
+              <MaterialIcons name="date-range" size={18} color="#000000" />
               <Text style={styles.quickInfoText}>
                 {formatDate(showData?.startDate || "")} -{" "}
                 {formatDate(showData?.endDate || "")}
@@ -181,7 +316,7 @@ const KoiShowInformation: React.FC = () => {
             ]}
             onPress={() => toggleSection("eventDetails")}>
             <View style={styles.sectionHeaderContent}>
-              <MaterialIcons name="info-outline" size={22} color="#3498db" />
+              <MaterialIcons name="info-outline" size={22} color="#000000" />
               <Text style={styles.sectionTitle}>Chi tiết sự kiện</Text>
             </View>
             <MaterialIcons
@@ -189,7 +324,7 @@ const KoiShowInformation: React.FC = () => {
                 expandedSections.eventDetails ? "expand-less" : "expand-more"
               }
               size={24}
-              color="#3498db"
+              color="#000000"
             />
           </TouchableOpacity>
 
@@ -242,8 +377,8 @@ const KoiShowInformation: React.FC = () => {
                       contentContainerStyle={styles.ticketsCarouselContainer}>
                       {showData.ticketTypes.map((ticket) => (
                         <View key={ticket.id} style={styles.ticketCard}>
-                          <Text style={styles.ticketName}>{ticket.name}</Text>
-                          <Text style={styles.ticketPrice}>
+                          <Text style={styles.ticketNameDetail}>{ticket.name}</Text>
+                          <Text style={styles.ticketPriceDetail}>
                             {ticket.price.toLocaleString("vi-VN")} VNĐ
                           </Text>
                           <View style={styles.ticketAvailability}>
@@ -252,7 +387,7 @@ const KoiShowInformation: React.FC = () => {
                               size={16}
                               color="#3498db"
                             />
-                            <Text style={styles.ticketQuantity}>
+                            <Text style={styles.ticketQuantityDetail}>
                               Còn {ticket.availableQuantity} vé
                             </Text>
                           </View>
@@ -268,19 +403,64 @@ const KoiShowInformation: React.FC = () => {
           )}
         </View>
 
+        {/* Categories Section - New Section */}
+        <View style={styles.sectionContainer}>
+          <TouchableOpacity
+            style={[
+              styles.sectionHeader,
+              expandedSections.categories && styles.sectionHeaderExpanded,
+            ]}
+            onPress={() => toggleSection("categories")}>
+            <View style={styles.sectionHeaderContent}>
+              <MaterialIcons name="category" size={22} color="#000000" />
+              <Text style={styles.sectionTitle}>Hạng mục thi đấu</Text>
+            </View>
+            <MaterialIcons
+              name={
+                expandedSections.categories ? "expand-less" : "expand-more"
+              }
+              size={24}
+              color="#000000"
+            />
+          </TouchableOpacity>
+
+          {expandedSections.categories && (
+            <View style={styles.sectionContent}>
+              {categories.length > 0 ? (
+                <FlatList
+                  data={categories}
+                  renderItem={renderCategoryItem}
+                  keyExtractor={(item) => item.id}
+                  horizontal={true}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoriesContainer}
+                  ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+                />
+              ) : (
+                <View style={styles.emptyStateContainer}>
+                  <MaterialIcons name="category" size={48} color="#d1d5db" />
+                  <Text style={styles.emptyStateText}>
+                    Chưa có hạng mục thi đấu nào được thêm vào cuộc thi này
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
         {/* Rules & Regulations Section */}
         <View style={styles.sectionContainer}>
           <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => toggleSection("rules")}>
             <View style={styles.sectionHeaderContent}>
-              <MaterialIcons name="gavel" size={22} color="#3498db" />
+              <MaterialIcons name="gavel" size={22} color="#000000" />
               <Text style={styles.sectionTitle}>Quy định & Điều lệ</Text>
             </View>
             <MaterialIcons
               name={expandedSections.rules ? "expand-less" : "expand-more"}
               size={24}
-              color="#3498db"
+              color="#000000"
             />
           </TouchableOpacity>
 
@@ -311,13 +491,13 @@ const KoiShowInformation: React.FC = () => {
             style={styles.sectionHeader}
             onPress={() => toggleSection("awards")}>
             <View style={styles.sectionHeaderContent}>
-              <MaterialIcons name="star" size={22} color="#3498db" />
+              <MaterialIcons name="star" size={22} color="#000000" />
               <Text style={styles.sectionTitle}>Tiêu chí đánh giá</Text>
             </View>
             <MaterialIcons
               name={expandedSections.awards ? "expand-less" : "expand-more"}
               size={24}
-              color="#3498db"
+              color="#000000"
             />
           </TouchableOpacity>
 
@@ -374,13 +554,13 @@ const KoiShowInformation: React.FC = () => {
             style={styles.sectionHeader}
             onPress={() => toggleSection("timeline")}>
             <View style={styles.sectionHeaderContent}>
-              <MaterialIcons name="timeline" size={22} color="#3498db" />
+              <MaterialIcons name="timeline" size={22} color="#000000" />
               <Text style={styles.sectionTitle}>Lịch trình sự kiện</Text>
             </View>
             <MaterialIcons
               name={expandedSections.timeline ? "expand-less" : "expand-more"}
               size={24}
-              color="#3498db"
+              color="#000000"
             />
           </TouchableOpacity>
 
@@ -490,7 +670,7 @@ const KoiShowInformation: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f6fa",
+    backgroundColor: "#f2f2f2",
   },
   scrollView: {
     flex: 1,
@@ -505,7 +685,7 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   placeholderBanner: {
-    backgroundColor: "#3498db",
+    backgroundColor: "#000000",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -520,7 +700,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
   statusBadge: {
-    backgroundColor: "#3498db",
+    backgroundColor: "#000000",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
@@ -532,9 +712,10 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     padding: 16,
-    backgroundColor: "white",
+    backgroundColor: "#ffffff",
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
+    marginBottom: 8,
   },
   title: {
     fontSize: 24,
@@ -556,8 +737,8 @@ const styles = StyleSheet.create({
     color: "#7f8c8d",
   },
   sectionContainer: {
-    backgroundColor: "white",
-    borderRadius: 8,
+    backgroundColor: "#e9e9e9",
+    borderRadius: 10,
     marginHorizontal: 16,
     marginVertical: 8,
     overflow: "hidden",
@@ -566,7 +747,7 @@ const styles = StyleSheet.create({
       width: 0,
       height: 1,
     },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.1,
     shadowRadius: 1.0,
     elevation: 1,
   },
@@ -575,9 +756,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#e9e9e9",
     borderBottomWidth: 0,
-    borderBottomColor: "#e5e7eb",
+    borderBottomColor: "#dadada",
   },
   sectionHeaderExpanded: {
     borderBottomWidth: 1,
@@ -589,11 +770,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#2c3e50",
+    color: "#000000",
     marginLeft: 8,
   },
   sectionContent: {
     padding: 16,
+    backgroundColor: "#f0f0f0",
   },
   descriptionText: {
     fontSize: 14,
@@ -632,7 +814,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#3498db",
+    backgroundColor: "#000000",
     color: "white",
     textAlign: "center",
     lineHeight: 24,
@@ -655,7 +837,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#3498db",
+    backgroundColor: "#000000",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -674,11 +856,13 @@ const styles = StyleSheet.create({
   },
   awardInfoContainer: {
     marginTop: 16,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#ffffff",
     padding: 12,
     borderRadius: 8,
     flexDirection: "row",
     justifyContent: "space-around",
+    borderWidth: 1,
+    borderColor: "#dadada",
   },
   awardInfoItem: {
     flexDirection: "row",
@@ -692,6 +876,7 @@ const styles = StyleSheet.create({
   },
   timelineContainer: {
     paddingLeft: 8,
+    backgroundColor: "#f0f0f0",
   },
   timelineItemContainer: {
     flexDirection: "row",
@@ -717,13 +902,13 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: "#bdc3c7",
+    backgroundColor: "#aaaaaa",
     borderWidth: 2,
-    borderColor: "#95a5a6",
+    borderColor: "#888888",
   },
   timelineDotActive: {
-    backgroundColor: "#3498db",
-    borderColor: "#2980b9",
+    backgroundColor: "#000000",
+    borderColor: "#000000",
     width: 16,
     height: 16,
     borderRadius: 8,
@@ -731,50 +916,59 @@ const styles = StyleSheet.create({
   timelineLine: {
     width: 2,
     flex: 1,
-    backgroundColor: "#bdc3c7",
+    backgroundColor: "#aaaaaa",
     marginTop: 2,
   },
   timelineRightColumn: {
     flex: 1,
   },
   timelineContent: {
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#ffffff",
     padding: 12,
     borderRadius: 8,
     borderLeftWidth: 3,
-    borderLeftColor: "#bdc3c7",
+    borderLeftColor: "#c0c0c0",
   },
   timelineContentActive: {
-    backgroundColor: "#e8f4fd",
-    borderLeftColor: "#3498db",
+    backgroundColor: "#f8f8f8",
+    borderLeftColor: "#000000",
   },
   timelineTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#2c3e50",
+    color: "#000000",
     marginBottom: 4,
   },
   timelineTitleActive: {
-    color: "#2980b9",
+    color: "#000000",
     fontWeight: "700",
   },
   timelineStatus: {
     fontSize: 12,
-    color: "#7f8c8d",
+    color: "#666666",
   },
   timelineStatusActive: {
-    color: "#3498db",
+    color: "#000000",
     fontWeight: "500",
   },
   emptyStateContainer: {
-    alignItems: "center",
-    padding: 24,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: "#f0f0f0",
   },
   emptyStateText: {
     marginTop: 8,
-    color: "#95a5a6",
     fontSize: 14,
-    textAlign: "center",
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  emptyText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   footer: {
     backgroundColor: "#ffffff",
@@ -792,10 +986,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ticketButton: {
-    backgroundColor: "#3498db",
+    backgroundColor: "#000000",
   },
   registerButton: {
-    backgroundColor: "#2ecc71",
+    backgroundColor: '#000000',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
   },
   buttonText: {
     color: "#ffffff",
@@ -807,7 +1004,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f6fa",
+    backgroundColor: "#f2f2f2",
   },
   loadingText: {
     marginTop: 16,
@@ -829,7 +1026,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   backButton: {
-    backgroundColor: "#3498db",
+    backgroundColor: "#000000",
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -855,22 +1052,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
   },
-  ticketName: {
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  ticketPrice: {
-    color: "#e74c3c",
-    fontWeight: "bold",
-  },
-  ticketQuantity: {
-    color: "#7f8c8d",
-    fontSize: 14,
-  },
-  ticketsCarouselContainer: {
-    paddingVertical: 10,
-    paddingRight: 16,
-  },
   ticketCard: {
     backgroundColor: "#f0f8ff",
     borderRadius: 12,
@@ -885,13 +1066,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e1ecf4",
   },
-  ticketName: {
+  ticketNameDetail: {
     fontWeight: "bold",
     fontSize: 16,
     marginBottom: 8,
     color: "#2c3e50",
   },
-  ticketPrice: {
+  ticketPriceDetail: {
     color: "#e74c3c",
     fontWeight: "bold",
     fontSize: 18,
@@ -901,10 +1082,166 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  ticketQuantity: {
+  ticketQuantityDetail: {
     marginLeft: 5,
     color: "#7f8c8d",
     fontSize: 14,
+  },
+  ticketsCarouselContainer: {
+    paddingVertical: 10,
+    paddingRight: 16,
+  },
+  categoriesContainer: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  categoryCard: {
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    width: 270,
+    borderWidth: 1,
+    borderColor: "#dadada",
+    marginVertical: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  categoryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  categoryName: {
+    fontFamily: "Lexend Deca",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
+  },
+  categoryFeeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: '#FEF2F2',
+    padding: 8,
+    borderRadius: 6,
+  },
+  categoryFeeLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#991B1B',
+    marginRight: 4,
+  },
+  categoryFee: {
+    fontFamily: "Roboto",
+    fontSize: 16,
+    color: "#EF4444",
+    fontWeight: "600",
+  },
+  categoryDescription: {
+    fontFamily: "Roboto",
+    fontSize: 14,
+    color: "#333333",
+    marginBottom: 10,
+  },
+  categoryDetailsContainer: {
+    backgroundColor: '#F9FAFB',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  categoryDetailItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  categoryDetailLabel: {
+    fontSize: 13,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  categoryDetailValue: {
+    fontSize: 13,
+    color: '#000000',
+    fontWeight: '500',
+  },
+  varietiesContainer: {
+    marginTop: 8,
+  },
+  varietiesTitle: {
+    fontFamily: "Lexend Deca",
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#000000",
+    marginBottom: 4,
+  },
+  varietiesList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  varietyTag: {
+    padding: 6,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 4,
+    marginRight: 6,
+    marginBottom: 6,
+    backgroundColor: "#F9FAFB",
+  },
+  varietyTagText: {
+    fontFamily: "Roboto",
+    fontSize: 13,
+    color: "#000000",
+  },
+  bottomButtonContainer: {
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  registerButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  // Skeleton styles
+  skeletonBanner: {
+    backgroundColor: '#e0e0e0',
+  },
+  skeletonTitle: {
+    height: 24,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginBottom: 8,
+    width: '80%',
+  },
+  skeletonIcon: {
+    width: 24,
+    height: 24,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 12,
+  },
+  skeletonText: {
+    height: 16,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginLeft: 8,
+    width: 120,
+  },
+  skeletonCard: {
+    backgroundColor: '#f5f5f5',
+    marginRight: 12,
+    padding: 16,
+    width: 270,
+    height: 180,
+    justifyContent: 'space-between',
+  },
+  skeletonButton: {
+    backgroundColor: '#e0e0e0',
+    height: 48,
   },
 });
 

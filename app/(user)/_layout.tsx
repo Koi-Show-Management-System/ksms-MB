@@ -11,8 +11,9 @@ export default function userLayout() {
       <Stack.Screen name="CompetitionTicket" options={{ headerShown: false }} />
       <Stack.Screen name="Transactions" options={{ headerShown: false }} />
       <Stack.Screen name="UserProfile" options={{ headerShown: false }} />
-      <Stack.Screen name="MyTickets" options={{ headerShown: false }} />
+      <Stack.Screen name="MyOrders" options={{ headerShown: false }} />
       <Stack.Screen name="CompetitionJoined" options={{ headerShown: false }} />
+      <Stack.Screen name="OrderDetail" options={{ headerShown: false }} />
     </Stack>
   );
 }

@@ -15,9 +15,82 @@ import {
   View,
 } from "react-native";
 import { getKoiShows, KoiShow } from "../../../services/showService";
+import Header from "../../../components/Header";
+import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width * 0.8;
+
+// Skeleton components for loading states
+const SkeletonBox = ({ width, height, style }: { width: string | number; height: string | number; style?: any }) => (
+  <View
+    style={[
+      {
+        width,
+        height,
+        backgroundColor: "#E0E0E0",
+        borderRadius: 8,
+        overflow: "hidden",
+      },
+      style,
+    ]}
+  >
+    <View
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: "#F5F5F5",
+        transform: [{ translateX: -width }],
+        opacity: 0.5,
+      }}
+    />
+  </View>
+);
+
+const HeroSkeleton = () => (
+  <View style={styles.heroSection}>
+    <SkeletonBox width="100%" height={253} />
+  </View>
+);
+
+const ShowCardSkeleton = () => (
+  <View style={[styles.showCard, { backgroundColor: "#F8F8F8" }]}>
+    <SkeletonBox width="100%" height={160} style={{ marginBottom: 12 }} />
+    <View style={{ padding: 14 }}>
+      <SkeletonBox width="80%" height={20} style={{ marginBottom: 12 }} />
+      <SkeletonBox width="60%" height={16} style={{ marginBottom: 8 }} />
+      <SkeletonBox width="70%" height={16} style={{ marginBottom: 12 }} />
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          marginTop: 8,
+        }}
+      >
+        <SkeletonBox width="40%" height={16} />
+        <SkeletonBox width="30%" height={16} />
+      </View>
+    </View>
+  </View>
+);
+
+const CarouselSkeleton = ({ title }: { title: string }) => (
+  <View style={styles.featuredShows}>
+    <Text style={styles.sectionTitle}>{title}</Text>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}
+    >
+      {[1, 2, 3].map((item) => (
+        <ShowCardSkeleton key={item} />
+      ))}
+    </ScrollView>
+  </View>
+);
 
 const Homepage: React.FC = () => {
   const [shows, setShows] = useState<KoiShow[]>([]);
@@ -89,22 +162,22 @@ const Homepage: React.FC = () => {
   const quickAccessRoutes = [
     {
       text: "Shows",
-      icon: "Z4FRHgIBBLnlud6X",
+      icon: "trophy-outline" as const,
       route: "/(tabs)/shows/KoiShowsPage"
     },
     {
       text: "Register",
-      icon: "Z4FRHgIBBLnlud6Y",
+      icon: "create-outline" as const,
       route: "/(tabs)/shows/koiRegistration"
     },
     {
       text: "Judge",
-      icon: "Z4FRHgIBBLnlud6Z",
+      icon: "star-outline" as const,
       route: "/(tabs)/judges"
     },
     {
       text: "Profile",
-      icon: "Z4FRHgIBBLnlud6Z",
+      icon: "person-outline" as const,
       route: "/(tabs)/user/UserProfile"
     }
   ];
@@ -125,12 +198,7 @@ const Homepage: React.FC = () => {
           key={index}
           style={styles.quickAccessButton}
           onPress={() => router.push(item.route as any)}>
-          <Image
-            source={{
-              uri: `https://dashboard.codeparrot.ai/api/assets/${item.icon}`,
-            }}
-            style={styles.quickAccessIcon}
-          />
+          <Ionicons name={item.icon} size={22} color="#FFFFFF" />
           <Text style={styles.quickAccessText}>{item.text}</Text>
         </TouchableOpacity>
       ))}
@@ -156,9 +224,14 @@ const Homepage: React.FC = () => {
         <View style={styles.featuredShows}>
           <Text style={styles.sectionTitle}>{title}</Text>
           {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#000" />
-            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
+              {[1, 2, 3].map((item) => (
+                <ShowCardSkeleton key={item} />
+              ))}
+            </ScrollView>
           ) : (
             <ScrollView
               horizontal
@@ -179,6 +252,10 @@ const Homepage: React.FC = () => {
                       }}
                       style={styles.showImage}
                       defaultSource={require("../../../assets/images/test_image.png")}
+                    />
+                    <LinearGradient
+                      colors={['transparent', 'rgba(0,0,0,0.7)']}
+                      style={styles.imageGradient}
                     />
                     <View style={styles.statusBadge}>
                       <Text style={styles.statusText}>{show.status}</Text>
@@ -233,14 +310,13 @@ const Homepage: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+      <Header title="KSMS" description="" />
+      <ScrollView style={[styles.scrollView, { backgroundColor: "#FFFFFF" }]}>
         {/* Dynamic Hero Section with Show Data */}
         <View style={styles.heroSection}>
           {loading ? (
-            <View style={styles.loadingHero}>
-              <ActivityIndicator size="large" color="#FFF" />
-            </View>
+            <HeroSkeleton />
           ) : shows.length > 0 ? (
             <>
               <FlatList
@@ -263,6 +339,10 @@ const Homepage: React.FC = () => {
                       style={styles.heroImage}
                       defaultSource={require("../../../assets/images/test_image.png")}
                     />
+                    <LinearGradient
+                      colors={['transparent', 'rgba(0,0,0,0.8)']}
+                      style={styles.heroGradient}
+                    />
                     <View style={styles.heroContent}>
                       <Text style={styles.heroTitle}>{show.name}</Text>
                       <Text style={styles.heroDescription} numberOfLines={2}>
@@ -272,12 +352,12 @@ const Homepage: React.FC = () => {
                         <TouchableOpacity
                           style={styles.heroButton}
                           onPress={() => handleShowPress(show)}>
-                          <Text style={styles.heroButtonText}>Details</Text>
+                          <Text style={styles.heroButtonText}>Chi tiết</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={styles.heroButton}
+                          style={[styles.heroButton, styles.registerButton]}
                           onPress={() => handleRegistrationPress(show)}>
-                          <Text style={styles.heroButtonText}>Register</Text>
+                          <Text style={styles.registerButtonText}>Đăng ký</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -307,14 +387,14 @@ const Homepage: React.FC = () => {
             </>
           ) : (
             <View style={styles.noShowsContainer}>
-              <Text style={styles.noShowsText}>No shows available</Text>
+              <Text style={styles.noShowsText}>Không có cuộc thi nào</Text>
             </View>
           )}
         </View>
 
         {/* Quick Access Section */}
         <View style={styles.quickAccess}>
-          <Text style={styles.sectionTitle}>Quick Access</Text>
+          <Text style={styles.sectionTitle}>Truy cập nhanh</Text>
           {renderQuickAccessButtons()}
         </View>
 
@@ -322,69 +402,83 @@ const Homepage: React.FC = () => {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {/* Featured Shows - All Shows */}
-        {renderShowCarousel(shows, "Featured Shows")}
+        {loading ? (
+          <CarouselSkeleton title="Cuộc thi nổi bật" />
+        ) : (
+          renderShowCarousel(shows, "Cuộc thi nổi bật")
+        )}
 
         {/* Published Shows */}
-        {renderShowCarousel(publishedShows, "Published Shows")}
+        {loading ? (
+          <CarouselSkeleton title="Cuộc thi đã đăng ký" />
+        ) : (
+          renderShowCarousel(publishedShows, "Cuộc thi đã đăng ký")
+        )}
 
         {/* Upcoming Shows */}
-        {renderShowCarousel(upcomingShows, "Upcoming Shows")}
+        {loading ? (
+          <CarouselSkeleton title="Cuộc thi sắp tới" />
+        ) : (
+          renderShowCarousel(upcomingShows, "Cuộc thi sắp tới")
+        )}
 
         {/* News and Blogs */}
         <View style={styles.newsAndBlogs}>
-          <Text style={styles.sectionTitleWhite}>News & Blogs</Text>
+          <Text style={styles.sectionTitleWhite}>Tin tức & Bài viết</Text>
           <View style={styles.searchContainer}>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for a show"
+              placeholder="Tìm kiếm bài viết"
               placeholderTextColor="#E1E1E1"
             />
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/assets/Z4FRJgIBBLnlud6d",
-              }}
-              style={styles.searchIcon}
-            />
+            <Ionicons name="search-outline" size={18} color="#E1E1E1" />
           </View>
           <View style={styles.articles}>
-            {[
-              {
-                image:
-                  "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                title: "How to breed Koi",
-                description:
-                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris convallis libero nibh...",
-              },
-              {
-                image:
-                  "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                title: "Koi Fish Care Tips",
-                description:
-                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris convallis libero nibh...",
-              },
-              {
-                image:
-                  "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                title: "Koi Pond Maintenance",
-                description:
-                  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris convallis libero nibh...",
-              },
-            ].map((article, index) => (
-              <View key={index} style={styles.articleCard}>
-                <Image
-                  source={{
-                    uri: article.image,
-                  }}
-                  style={styles.articleImage}
-                />
-                <View style={styles.articleContent}>
-                  <Text style={styles.articleTitle}>{article.title}</Text>
-                  <Text style={styles.articleDescription}>
-                    {article.description}
-                  </Text>
+            {loading ? (
+              // Skeleton for articles
+              [1, 2].map((index) => (
+                <View key={index} style={styles.articleCard}>
+                  <SkeletonBox width="100%" height={120} />
+                  <View style={{ padding: 10 }}>
+                    <SkeletonBox width="90%" height={18} style={{ marginBottom: 8 }} />
+                    <SkeletonBox width="100%" height={12} style={{ marginBottom: 4 }} />
+                    <SkeletonBox width="80%" height={12} />
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))
+            ) : (
+              [
+                {
+                  image:
+                    "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                  title: "Cách nuôi cá Koi",
+                  description:
+                    "Những mẹo hữu ích giúp bạn nuôi cá Koi khỏe mạnh và phát triển tốt...",
+                },
+                {
+                  image:
+                    "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                  title: "Mẹo chăm sóc cá Koi",
+                  description:
+                    "Các phương pháp chăm sóc cá Koi đúng cách để cá luôn đẹp và khỏe mạnh...",
+                },
+              ].map((article, index) => (
+                <View key={index} style={styles.articleCard}>
+                  <Image
+                    source={{
+                      uri: article.image,
+                    }}
+                    style={styles.articleImage}
+                  />
+                  <View style={styles.articleContent}>
+                    <Text style={styles.articleTitle}>{article.title}</Text>
+                    <Text style={styles.articleDescription}>
+                      {article.description}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
           </View>
         </View>
       </ScrollView>
@@ -399,6 +493,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flexGrow: 1,
+    backgroundColor: "#FFFFFF",
   },
   heroSection: {
     width: "100%",
@@ -410,6 +505,13 @@ const styles = StyleSheet.create({
     height: "100%",
     position: "absolute",
   },
+  heroGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 160,
+  },
   heroContent: {
     position: "absolute",
     bottom: 20,
@@ -418,46 +520,68 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontFamily: "Red Hat Display",
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "700",
     color: "#FFFFFF",
     marginBottom: 10,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3
   },
   heroDescription: {
     fontFamily: "Poppins",
     fontSize: 14,
-    color: "#E5E5E5",
+    color: "#F5F5F5",
     marginBottom: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0.5, height: 0.5 },
+    textShadowRadius: 2
   },
   heroButtonContainer: {
     flexDirection: "row",
   },
   heroButton: {
-    width: 84,
-    height: 36,
+    width: 100,
+    height: 40,
     backgroundColor: "#FFFFFF",
-    borderRadius: 18,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  registerButton: {
+    backgroundColor: "#FFA500",
   },
   heroButtonText: {
     fontFamily: "Roboto",
     fontSize: 14,
+    fontWeight: "600",
     color: "#000000",
+  },
+  registerButtonText: {
+    fontFamily: "Roboto",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 
   // Quick Access styles
   quickAccess: {
     padding: 16,
     alignItems: "center",
+    marginVertical: 10,
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: "Roboto",
     color: "#030303",
     marginBottom: 16,
-    fontWeight: "400",
+    fontWeight: "600",
     alignSelf: "flex-start",
   },
   quickAccessButtons: {
@@ -468,34 +592,45 @@ const styles = StyleSheet.create({
   quickAccessButton: {
     alignItems: "center",
     backgroundColor: "#FFA500",
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 12,
+    padding: 14,
+    paddingVertical: 16,
     flex: 1,
     marginHorizontal: 5,
+    shadowColor: "#FFA50070",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 3,
   },
   quickAccessIcon: {
-    width: 20,
-    height: 20,
-    marginBottom: 4,
+    width: 24,
+    height: 24,
+    marginBottom: 8,
   },
   quickAccessText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: "Roboto",
+    fontWeight: "500",
     color: "#FFFFFF",
     textAlign: "center",
+    marginTop: 6,
   },
 
   // News and Blog styles
   newsAndBlogs: {
     padding: 16,
-    backgroundColor: "#000000",
+    backgroundColor: "#333333",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    marginTop: 20,
   },
   sectionTitleWhite: {
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: "Roboto",
     color: "#FFFFFF",
     marginBottom: 16,
-    fontWeight: "400",
+    fontWeight: "600",
   },
   searchContainer: {
     marginBottom: 16,
@@ -504,9 +639,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#E1E1E1",
-    borderRadius: 4,
-    backgroundColor: "#333333",
-    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "#444444",
+    paddingHorizontal: 12,
   },
   searchInput: {
     flex: 1,
@@ -526,48 +661,54 @@ const styles = StyleSheet.create({
   },
   articleCard: {
     width: "48%",
-    backgroundColor: "#1a1a1a",
-    borderRadius: 8,
+    backgroundColor: "#444444",
+    borderRadius: 12,
     marginBottom: 16,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   articleImage: {
     width: "100%",
     height: 120,
   },
   articleContent: {
-    padding: 10,
+    padding: 12,
   },
   articleTitle: {
     fontFamily: "Poppins-Bold",
-    fontSize: 16,
+    fontSize: 15,
     color: "#FFFFFF",
     marginBottom: 8,
+    fontWeight: "600",
   },
   articleDescription: {
     fontFamily: "Poppins-Regular",
-    fontSize: 14,
+    fontSize: 13,
     color: "#E5E5E5",
-    lineHeight: 21,
+    lineHeight: 18,
   },
 
-  // Existing show carousel styles
+  // Enhanced show carousel styles
   featuredShows: {
-    marginTop: 20,
-    marginBottom: 10,
-    paddingLeft: 10,
+    marginTop: 16,
+    marginBottom: 16,
+    paddingLeft: 16,
   },
   showCard: {
     width: CARD_WIDTH,
     marginRight: 15,
     marginLeft: 5,
     marginVertical: 8,
-    borderRadius: 12,
+    borderRadius: 16,
     backgroundColor: "#fff",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.16,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
     elevation: 5,
     overflow: "hidden",
     borderWidth: 0.5,
@@ -578,6 +719,13 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 160,
   },
+  imageGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 80,
+  },
   showImage: {
     width: "100%",
     height: "100%",
@@ -587,9 +735,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 10,
     right: 10,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: "#FFA500",
     borderRadius: 20,
   },
   statusText: {
@@ -599,10 +747,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   showDetails: {
-    padding: 14,
+    padding: 16,
   },
   showName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "bold",
     marginBottom: 8,
     color: "#222",
@@ -627,15 +775,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 0.5,
     borderTopColor: "#eee",
   },
   registrationFee: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "bold",
-    color: "#FF9500",
+    color: "#FFA500",
   },
   participantInfo: {
     flexDirection: "row",
@@ -670,22 +818,29 @@ const styles = StyleSheet.create({
   paginationContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 10,
+    position: "absolute",
+    bottom: 10,
+    left: 0,
+    right: 0,
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#FFF",
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
     marginHorizontal: 4,
   },
   paginationDotActive: {
     backgroundColor: "#FFA500",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   noShowsContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
   noShowsText: {
     color: "#FFF",

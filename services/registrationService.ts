@@ -30,6 +30,15 @@ interface CreateRegistrationResponse {
   message: string;
 }
 
+interface CheckoutRegistrationResponse {
+  data: {
+    message: string;
+    url: string;
+  };
+  statusCode: number;
+  message: string;
+}
+
 export const findSuitableCategory = async (
   koiShowId: string,
   varietyId: string,
@@ -67,6 +76,18 @@ export const createRegistration = async (
     return response.data;
   } catch (error) {
     console.error('Error creating registration:', error);
+    throw error;
+  }
+};
+
+export const checkoutRegistration = async (
+  registrationId: string
+): Promise<CheckoutRegistrationResponse> => {
+  try {
+    const response = await api.post(`/api/v1/registration/checkout/${registrationId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error checking out registration:', error);
     throw error;
   }
 };

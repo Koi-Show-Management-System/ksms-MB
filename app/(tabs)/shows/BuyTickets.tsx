@@ -17,7 +17,7 @@ import WebView from "react-native-webview";
 import {
   createTicketOrder,
   getUserPaymentInfo,
-  OrderItem,
+  OrderItem as PaymentOrderItem,
 } from "../../../services/paymentService";
 import { getKoiShowById } from "../../../services/showService";
 
@@ -135,7 +135,7 @@ const BuyTickets: React.FC = () => {
           Alert.alert("Success", "Tickets added to cart successfully");
         } else if (type === "pay") {
           // Prepare order items for API
-          const listOrder: OrderItem[] = [];
+          const listOrder: PaymentOrderItem[] = [];
 
           Object.keys(selectedTickets).forEach((ticketId) => {
             if (selectedTickets[ticketId] > 0) {

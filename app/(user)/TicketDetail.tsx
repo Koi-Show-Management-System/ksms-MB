@@ -105,7 +105,7 @@ const ImportantNotes: React.FC = () => (
 );
 
 // --- Main Component ---
-const ShowTickets: React.FC = () => {
+const TicketDetail: React.FC = () => {
   // Get params from URL
   const params = useLocalSearchParams();
 
@@ -371,4 +371,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ShowTickets;
+export default TicketDetail;

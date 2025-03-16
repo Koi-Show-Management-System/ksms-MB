@@ -11,6 +11,13 @@ export interface ShowStatus {
   isActive: boolean;
 }
 
+interface TicketType {
+  id: string;
+  name: string;
+  price: number;
+  availableQuantity: number;
+}
+
 export interface KoiShow {
   id: string;
   name: string;
@@ -31,6 +38,9 @@ export interface KoiShow {
   updatedAt: string;
   showStatuses: ShowStatus[];
   registrationFee: number;
+  ticketTypes?: TicketType[];
+  showRules?: string[];
+  criteria?: string[];
 }
 
 interface ShowResponse {

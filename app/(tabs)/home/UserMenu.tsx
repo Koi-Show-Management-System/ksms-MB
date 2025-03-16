@@ -39,8 +39,8 @@ const UserMenu: React.FC<UserMenuProps> = ({
     //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     // },
     {
-      id: "mytickets",
-      label: "My Tickets",
+      id: "myorders",
+      label: "My Orders",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     },
     {
@@ -77,8 +77,8 @@ const UserMenu: React.FC<UserMenuProps> = ({
       case "transactions":
         router.push("/(user)/Transactions");
         break;
-      case "mytickets":
-        router.push("/(user)/MyTickets");
+      case "myorders":
+        router.push("/(user)/MyOrders");
         break;
       case "competitionsjoined":
         router.push("/(user)/CompetitionJoined");

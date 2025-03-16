@@ -1,22 +1,33 @@
+import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 import { Video, ResizeMode } from "expo-av";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
+import * as MediaLibrary from "expo-media-library";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Animated,
-  Dimensions,
-  FlatList,
+  Alert,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
+  FlatList,
+  Dimensions,
 } from "react-native";
+import WebView from "react-native-webview";
 import {
   KoiProfile,
   Variety,
@@ -25,11 +36,12 @@ import {
   getVarieties,
   createKoiProfile
 } from "../../../services/koiProfileService";
-import { 
-  findSuitableCategory, 
+import {
+  findSuitableCategory,
   createRegistration,
   getCompetitionCategories,
-  CompetitionCategory
+  CompetitionCategory,
+  checkoutRegistration,
 } from "../../../services/registrationService";
 import { getKoiShowById } from "../../../services/showService";
 
@@ -86,6 +98,128 @@ const Skeleton = ({ width, height, style }: { width: number | string; height: nu
   );
 };
 
+// PaymentModal component
+const PaymentModal = ({ 
+  visible, 
+  paymentUrl, 
+  onClose, 
+  paymentTimeoutId,
+  setPaymentTimeoutId
+}: { 
+  visible: boolean; 
+  paymentUrl: string | null; 
+  onClose: () => void;
+  paymentTimeoutId: NodeJS.Timeout | null;
+  setPaymentTimeoutId: React.Dispatch<React.SetStateAction<NodeJS.Timeout | null>>;
+}) => (
+  <Modal
+    animationType="slide"
+    transparent={false}
+    visible={visible}
+    onRequestClose={onClose}>
+    <SafeAreaView style={styles.modalContainer}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Hoàn tất thanh toán</Text>
+        <TouchableOpacity onPress={onClose}>
+          <Text style={styles.closeButton}>Đóng</Text>
+        </TouchableOpacity>
+      </View>
+      {paymentUrl ? (
+        <WebView
+          source={{ uri: paymentUrl }}
+          style={styles.webView}
+          startInLoadingState={true}
+          renderLoading={() => (
+            <View style={styles.loadingWebView}>
+              <ActivityIndicator size="large" color="#0000ff" />
+            </View>
+          )}
+          onNavigationStateChange={(navState) => {
+            console.log("Navigation URL:", navState.url);
+            
+            try {
+              // Check if this is our custom scheme deep link
+              if (navState.url.includes('ksms://app/')) {
+                onClose();
+                
+                // Clear the payment timeout
+                if (paymentTimeoutId) {
+                  clearTimeout(paymentTimeoutId);
+                  setPaymentTimeoutId(null);
+                }
+                
+                // Parse status parameter from URL
+                const urlObj = new URL(navState.url);
+                const status = urlObj.searchParams.get('status') || '';
+                const isSuccess = navState.url.includes('/success');
+                
+                // Navigate to appropriate screen
+                if (isSuccess) {
+                  router.push({
+                    pathname: "/(payments)/PaymentSuccess",
+                    params: { status }
+                  });
+                } else {
+                  router.push({
+                    pathname: "/(payments)/PaymentFailed", 
+                    params: { status }
+                  });
+                }
+                
+                return false; // Prevent default navigation
+              }
+              
+              // Handle web URLs
+              if (navState.url.includes('ksms.news/app/') || 
+                  navState.url.includes('localhost:5173/')) {
+                onClose();
+                
+                // Clear the payment timeout
+                if (paymentTimeoutId) {
+                  clearTimeout(paymentTimeoutId);
+                  setPaymentTimeoutId(null);
+                }
+                
+                const isSuccess = navState.url.includes('/success');
+                
+                // Try to extract status from URL if present
+                let status = '';
+                try {
+                  const urlObj = new URL(navState.url);
+                  status = urlObj.searchParams.get('status') || '';
+                } catch (e) {
+                  console.log("Error parsing URL parameters:", e);
+                }
+                
+                // Navigate based on success/failure path
+                if (isSuccess) {
+                  router.push({
+                    pathname: "/(payments)/PaymentSuccess",
+                    params: { status }
+                  });
+                } else {
+                  router.push({
+                    pathname: "/(payments)/PaymentFailed",
+                    params: { status }
+                  });
+                }
+                
+                return false;
+              }
+            } catch (e) {
+              console.error("Error handling navigation:", e);
+            }
+          }}
+        />
+      ) : (
+        <View style={styles.loadingWebView}>
+          <ActivityIndicator size="large" color="#0000ff" />
+        </View>
+      )}
+    </SafeAreaView>
+  </Modal>
+);
+
 const KoiRegistrationScreen: React.FC = () => {
   // Get showId from route params
   const params = useLocalSearchParams();
@@ -121,7 +255,7 @@ const KoiRegistrationScreen: React.FC = () => {
 
   // Categories state
   const [categories, setCategories] = useState<CompetitionCategory[]>([]);
-  const [showCategories, setShowCategories] = useState(false);
+  const [showCategories, setShowCategories] = useState(true);
   const [showBanner, setShowBanner] = useState(true);
 
   // Form validation states
@@ -132,6 +266,11 @@ const KoiRegistrationScreen: React.FC = () => {
 
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isLoadingCategory, setIsLoadingCategory] = useState(false);
+
+  // Payment states
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [paymentTimeoutId, setPaymentTimeoutId] = useState<NodeJS.Timeout | null>(null);
 
   // New profile creation states
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -147,8 +286,6 @@ const KoiRegistrationScreen: React.FC = () => {
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [isGenderDropdownOpen, setIsGenderDropdownOpen] = useState(false);
 
-  // Thêm các state và hàm để cho phép chọn hạng mục thủ công
-  const [manualCategorySelection, setManualCategorySelection] = useState(false);
 
   // Thêm state cho thông tin cuộc thi
   const [showInfo, setShowInfo] = useState({
@@ -289,11 +426,6 @@ const KoiRegistrationScreen: React.FC = () => {
     }
   };
 
-  // Hàm chọn hạng mục thủ công
-  const handleManualCategorySelection = (category: CompetitionCategory) => {
-    // Không còn cần thiết - phân loại chỉ tự động
-    console.log("Manual category selection is disabled");
-  };
 
   // Hàm riêng để tìm category phù hợp
   const findCategory = async (varietyId: string, size: string) => {
@@ -336,7 +468,7 @@ const KoiRegistrationScreen: React.FC = () => {
         
         Alert.alert(
           "Không tìm thấy hạng mục phù hợp",
-          "Không có hạng mục nào phù hợp với kích thước và giống Koi này. Vui lòng chọn Koi khác hoặc điều chỉnh kích thước.",
+          "Không có hạng mục nào phù hợp với kích thước và giống Koi này. Vui lòng chọn Koi khác hoặc điều chỉnh kích thước hoặc chọn giống loài khác.",
           [{ text: "Đã hiểu" }]
         );
         
@@ -763,23 +895,64 @@ const KoiRegistrationScreen: React.FC = () => {
       setProcessingStep("Đang tạo đăng ký...");
       setUploadProgress(60);
       
-      const response = await createRegistration(formData);
-      console.log('Registration response:', response);
+      const registerResponse = await createRegistration(formData);
+      console.log('Registration response:', registerResponse);
+      
+      setUploadProgress(80);
+      setProcessingStep("Đăng ký thành công, đang chuẩn bị thanh toán...");
+
+      // Tiến hành thanh toán sau khi đăng ký thành công
+      if (registerResponse?.data?.id) {
+        try {
+          const registrationId = registerResponse.data.id;
+          
+          // Gọi API thanh toán
+          const checkoutResponse = await checkoutRegistration(registrationId);
+          console.log('Checkout response:', checkoutResponse);
+          
+          if (checkoutResponse?.data?.url) {
+            // Hiển thị modal thanh toán với URL nhận được
+            setPaymentUrl(checkoutResponse.data.url);
+            setPaymentModalVisible(true);
+            
+            // Đặt timeout cho phiên thanh toán (15 phút)
+            const paymentTimeout = setTimeout(() => {
+              if (paymentModalVisible) {
+                setPaymentModalVisible(false);
+                Alert.alert(
+                  "Phiên thanh toán hết hạn",
+                  "Phiên thanh toán của bạn đã hết hạn. Vui lòng thử lại."
+                );
+              }
+            }, 15 * 60 * 1000);
+            
+            // Lưu ID timeout để có thể xóa nếu cần
+            setPaymentTimeoutId(paymentTimeout);
+          } else {
+            throw new Error('Không nhận được URL thanh toán');
+          }
+        } catch (paymentError) {
+          console.error('Payment error:', paymentError);
+          Alert.alert(
+            "Lỗi thanh toán",
+            "Không thể khởi tạo thanh toán. Vui lòng thử lại sau."
+          );
+        }
+      } else {
+        // Nếu không có ID đăng ký, hiển thị thông báo thành công nhưng không thanh toán
+        Alert.alert(
+          "Đăng ký thành công",
+          "Koi của bạn đã được đăng ký tham gia cuộc thi, nhưng không thể khởi tạo thanh toán.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.push("/(tabs)/shows/ConfirmRegister"),
+            },
+          ]
+        );
+      }
       
       setUploadProgress(100);
-      setProcessingStep("Đăng ký thành công!");
-
-      // Success alert and navigation
-      Alert.alert(
-        "Đăng ký thành công",
-        "Koi của bạn đã được đăng ký tham gia cuộc thi.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.push("/(tabs)/shows/ConfirmRegister"),
-          },
-        ]
-      );
     } catch (error) {
       console.error("Đăng ký thất bại", error);
       Alert.alert(
@@ -1659,6 +1832,15 @@ const KoiRegistrationScreen: React.FC = () => {
     );
   };
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (paymentTimeoutId) {
+        clearTimeout(paymentTimeoutId);
+      }
+    };
+  }, [paymentTimeoutId]);
+
   return (
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
@@ -1943,35 +2125,15 @@ const KoiRegistrationScreen: React.FC = () => {
           </View>
         </Modal>
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <View style={styles.iconContainer}>
-            <TouchableOpacity style={styles.iconWrapper}>
-              <Image
-                source={{
-                  uri: "https://dashboard.codeparrot.ai/api/image/Z6I0Rqvsm-LWpeaP/frame-4.png",
-                }}
-                style={styles.footerIcon}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconWrapper}>
-              <Image
-                source={{
-                  uri: "https://dashboard.codeparrot.ai/api/image/Z6I0Rqvsm-LWpeaP/frame-6.png",
-                }}
-                style={styles.footerIcon}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconWrapper}>
-              <Image
-                source={{
-                  uri: "https://dashboard.codeparrot.ai/api/image/Z6I0Rqvsm-LWpeaP/frame-5.png",
-                }}
-                style={styles.footerIcon}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Payment Modal */}
+        <PaymentModal
+          visible={paymentModalVisible}
+          paymentUrl={paymentUrl}
+          onClose={() => setPaymentModalVisible(false)}
+          paymentTimeoutId={paymentTimeoutId}
+          setPaymentTimeoutId={setPaymentTimeoutId}
+        />
+
       </View>
     </ScrollView>
   );
@@ -2849,6 +3011,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5E5",
+    backgroundColor: "#FFFFFF",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#030303",
+  },
+  closeButton: {
+    fontSize: 16,
+    color: "#3498db",
+    fontWeight: "600",
+  },
+  webView: {
+    flex: 1,
+  },
+  loadingWebView: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.8)",
   },
 });
 
