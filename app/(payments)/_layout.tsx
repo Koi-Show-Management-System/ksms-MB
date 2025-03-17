@@ -15,7 +15,6 @@ export default function PaymentsLayout() {
         gestureEnabled: true,
         gestureDirection: "horizontal",
       }}>
-      <Stack.Screen name="ticketsPayment" options={{ headerShown: false }} />
       {/* <Stack.Screen
         name="UserMenu"
         options={{

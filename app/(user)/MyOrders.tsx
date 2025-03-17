@@ -132,7 +132,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
       
       <View style={styles.viewDetailContainer}>
         <Text style={styles.viewDetailText}>Xem chi tiết</Text>
-        <Ionicons name="chevron-forward" size={18} color="#666" />
+        <Ionicons name="chevron-forward" size={18} color="#FFA500" />
       </View>
     </TouchableOpacity>
   );
@@ -271,12 +271,7 @@ const MyOrders: React.FC = () => {
     }
 
     if (orders.length === 0) {
-      return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="receipt-outline" size={64} color="#CCCCCC" />
-          <Text style={styles.emptyText}>Bạn chưa có đơn hàng nào</Text>
-        </View>
-      );
+      return renderEmptyState();
     }
 
     return (
@@ -294,6 +289,7 @@ const MyOrders: React.FC = () => {
             refreshing={refreshing}
             onRefresh={handleRefresh}
             colors={['#FFA500']}
+            tintColor="#FFA500"
           />
         }
         onEndReached={handleLoadMore}
@@ -320,8 +316,21 @@ const MyOrders: React.FC = () => {
         <Ionicons name="receipt-outline" size={80} color="#CCCCCC" />
         <Text style={styles.emptyText}>Không có đơn hàng nào</Text>
         <Text style={styles.emptySubtext}>
-          Đơn hàng của bạn sẽ được hiển thị ở đây sau khi bạn mua vé
+          {activeTab === "all" 
+            ? "Đơn hàng của bạn sẽ được hiển thị ở đây sau khi bạn mua vé"
+            : activeTab === "pending" 
+            ? "Bạn không có đơn hàng nào đang chờ thanh toán"
+            : activeTab === "paid"
+            ? "Bạn không có đơn hàng nào đã thanh toán"
+            : "Bạn không có đơn hàng nào đã hủy"
+          }
         </Text>
+        <TouchableOpacity
+          style={styles.browseButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.browseButtonText}>Quay lại trang chủ</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -340,18 +349,11 @@ const MyOrders: React.FC = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}>
-          <Text style={styles.homeText}>Trở về</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Đơn hàng của tôi</Text>
-        <View style={styles.headerRightSection}>
-          <TouchableOpacity
-            onPress={() => router.push("/(user)/UserProfile")}
-            style={styles.headerIconButton}>
-            <Ionicons name="person-circle-outline" size={28} color="#000000" />
-          </TouchableOpacity>
-        </View>
+        <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.tabContainer}>
@@ -449,7 +451,7 @@ const styles = StyleSheet.create({
   // Tab Styles
   tabContainer: {
     flexDirection: "row",
-    height: 50,
+    height: 55,
     position: "relative",
   },
   tab: {
@@ -459,23 +461,22 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
   },
   tabText: {
-    fontFamily: "Lexend Deca",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 14,
+    fontWeight: "600",
     color: "#666",
     opacity: 0.5,
   },
   activeTabText: {
-    color: "#000",
+    color: "#FFA500",
     opacity: 1,
   },
   indicator: {
-    height: 2,
+    height: 3,
     backgroundColor: "#FFA500",
     position: "absolute",
     bottom: 0,
     left: 0,
-    borderRadius: 1,
+    borderRadius: 1.5,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -546,39 +547,57 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
+  browseButton: {
+    backgroundColor: "#FFA500",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  browseButtonText: {
+    color: "white",
+    fontWeight: "bold",
+  },
 
   // ScrollView and Order List Styles
   scrollViewContent: {
+    paddingVertical: 16,
+    paddingHorizontal: 12,
     alignItems: "center",
-    paddingVertical: 10,
+    flexGrow: 1, // Đảm bảo nội dung bao phủ hết chiều cao khi ít item
   },
   listHeader: {
-    marginBottom: 8,
+    width: '100%',
+    marginBottom: 12,
+    paddingHorizontal: 8,
   },
   listHeaderText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666666',
     textAlign: 'center',
+    fontWeight: '500',
   },
   footerLoader: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
+    width: '100%',
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#666666',
     marginLeft: 8,
+    fontWeight: '500',
   },
 
   // New OrderCard styles
   orderCard: {
-    width: "90%",
+    width: "94%",
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginVertical: 10,
     elevation: 2,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
@@ -589,42 +608,42 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 14,
   },
   orderShowName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "bold",
     color: "#000000",
     flex: 1,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
     marginLeft: 8,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#FFFFFF",
     fontWeight: "bold",
   },
   orderDetailContainer: {
     borderTopWidth: 1,
     borderTopColor: "#F0F0F0",
-    paddingTop: 12,
+    paddingTop: 14,
   },
   orderInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 10,
   },
   orderLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#666666",
   },
   orderValue: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#333333",
     fontWeight: "500",
   },
@@ -637,14 +656,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#F0F0F0",
   },
   viewDetailText: {
-    fontSize: 14,
-    color: "#666666",
+    fontSize: 15,
+    color: "#FFA500",
+    fontWeight: "500",
     marginRight: 4,
   },
 });

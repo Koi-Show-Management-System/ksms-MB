@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 // --- Event Details Component ---
 interface EventDetailsProps {
@@ -26,21 +27,11 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   <View style={styles.eventDetailsContainer}>
     <Text style={styles.eventTitle}>{showName}</Text>
     <View style={styles.eventInfoRow}>
-      <Image
-        source={{
-          uri: "https://dashboard.codeparrot.ai/api/image/Z7_lKMjn7nbGWzhY/calendar-2.png",
-        }}
-        style={styles.eventIcon}
-      />
+      <Ionicons name="calendar-outline" size={16} color="#666666" style={styles.eventIcon} />
       <Text style={styles.eventInfoText}>{dateTime}</Text>
     </View>
     <View style={styles.eventInfoRow}>
-      <Image
-        source={{
-          uri: "https://dashboard.codeparrot.ai/api/image/Z7_lKMjn7nbGWzhY/map-pin.png",
-        }}
-        style={styles.eventIcon}
-      />
+      <Ionicons name="location-outline" size={16} color="#666666" style={styles.eventIcon} />
       <Text style={styles.eventInfoText}>{venue}</Text>
     </View>
   </View>
@@ -49,16 +40,107 @@ const EventDetails: React.FC<EventDetailsProps> = ({
 // --- QR Code Section Component ---
 interface QRCodeSectionProps {
   qrCodeUrl: string;
+  onProcessedUrl?: (url: string) => void; // Callback khi URL đã được xử lý
 }
 
-const QRCodeSection: React.FC<QRCodeSectionProps> = ({ qrCodeUrl }) => (
-  <View style={styles.qrCodeContainer}>
-    <Text style={styles.sectionTitle}>Show this at the entrance</Text>
-    <View style={styles.qrImageContainer}>
-      <Image source={{ uri: qrCodeUrl }} style={styles.qrImage} />
+const QRCodeSection: React.FC<QRCodeSectionProps> = ({ qrCodeUrl, onProcessedUrl }) => {
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [hasError, setHasError] = React.useState(false);
+  const [finalUrl, setFinalUrl] = React.useState(qrCodeUrl);
+
+  // Xử lý URL khi component mount hoặc URL thay đổi
+  React.useEffect(() => {
+    if (!qrCodeUrl) {
+      setHasError(true);
+      return;
+    }
+
+    // Kiểm tra lại URL Firebase Storage
+    if (qrCodeUrl.includes('firebasestorage.googleapis.com')) {
+      try {
+        // Đảm bảo URL được encode đúng
+        const pathStartIndex = qrCodeUrl.indexOf('.com/o/');
+        if (pathStartIndex !== -1) {
+          // Chỉ xử lý nếu URL chưa được encode đúng
+          if (!qrCodeUrl.includes('%2F') && qrCodeUrl.includes('/o/') && qrCodeUrl.substring(pathStartIndex + 7).includes('/')) {
+            const urlPrefix = qrCodeUrl.substring(0, pathStartIndex + 7); // Đến .com/o/
+            let urlPath = qrCodeUrl.substring(pathStartIndex + 7);
+            
+            // Tách query params
+            const queryParamsIndex = urlPath.indexOf('?');
+            let queryParams = '';
+            
+            if (queryParamsIndex !== -1) {
+              queryParams = urlPath.substring(queryParamsIndex);
+              urlPath = urlPath.substring(0, queryParamsIndex);
+            }
+            
+            // Encode đường dẫn
+            const encodedPath = urlPath.replace(/\//g, '%2F');
+            const newUrl = urlPrefix + encodedPath + queryParams;
+            
+            console.log("QRCodeSection - URL được encode: ", newUrl);
+            setFinalUrl(newUrl);
+            // Gọi callback nếu có
+            if (onProcessedUrl) {
+              onProcessedUrl(newUrl);
+            }
+          } else if (onProcessedUrl) {
+            // Vẫn gọi callback với URL hiện tại nếu không cần xử lý
+            onProcessedUrl(qrCodeUrl);
+          }
+        } else if (onProcessedUrl) {
+          onProcessedUrl(qrCodeUrl);
+        }
+      } catch (error) {
+        console.error("Lỗi khi xử lý URL Firebase:", error);
+        if (onProcessedUrl) {
+          onProcessedUrl(qrCodeUrl);
+        }
+      }
+    } else if (onProcessedUrl) {
+      onProcessedUrl(qrCodeUrl);
+    }
+  }, [qrCodeUrl, onProcessedUrl]);
+
+  return (
+    <View style={styles.qrCodeContainer}>
+      <Text style={styles.sectionTitle}>Quét mã này tại lối vào</Text>
+      <View style={styles.qrImageContainer}>
+        {isLoading && (
+          <View style={styles.qrLoading}>
+            <Text style={styles.loadingText}>Đang tải...</Text>
+          </View>
+        )}
+        {hasError && (
+          <View style={styles.qrError}>
+            <Ionicons name="warning-outline" size={32} color="#FF3B30" />
+            <Text style={styles.errorText}>Không thể tải mã QR</Text>
+          </View>
+        )}
+        <Image 
+          source={{ uri: finalUrl }}
+          style={styles.qrImage} 
+          resizeMode="contain"
+          onLoadStart={() => {
+            setIsLoading(true);
+            console.log("Bắt đầu tải QR với URL:", finalUrl.substring(0, 50) + "...");
+          }}
+          onLoad={() => {
+            setIsLoading(false);
+            console.log("Tải QR thành công");
+          }}
+          onError={(e) => {
+            setIsLoading(false);
+            setHasError(true);
+            console.error("Lỗi khi tải mã QR:", e.nativeEvent.error);
+          }}
+        />
+      </View>
+      <Text style={styles.qrSubText}>Vui lòng đảm bảo mã QR được hiển thị rõ ràng khi quét</Text>
     </View>
-  </View>
-);
+  );
+};
 
 // --- Ticket Info Component ---
 interface TicketInfoProps {
@@ -74,17 +156,17 @@ const TicketInfo: React.FC<TicketInfoProps> = ({
 }) => (
   <View style={styles.ticketInfoContainer}>
     <View style={styles.ticketInfoRow}>
-      <Text style={styles.ticketLabel}>Ticket Type</Text>
+      <Text style={styles.ticketLabel}>Loại vé</Text>
       <Text style={styles.ticketValue}>{ticketType}</Text>
     </View>
     <View style={styles.infoSeparator} />
     <View style={styles.ticketInfoRow}>
-      <Text style={styles.ticketLabel}>Ticket Number</Text>
+      <Text style={styles.ticketLabel}>Mã vé</Text>
       <Text style={styles.ticketValue}>{ticketNumber}</Text>
     </View>
     <View style={styles.infoSeparator} />
     <View style={styles.ticketInfoRow}>
-      <Text style={styles.ticketLabel}>Buyer</Text>
+      <Text style={styles.ticketLabel}>Người mua</Text>
       <Text style={styles.ticketValue}>{buyerName}</Text>
     </View>
   </View>
@@ -93,12 +175,14 @@ const TicketInfo: React.FC<TicketInfoProps> = ({
 // --- Important Notes Component ---
 const ImportantNotes: React.FC = () => (
   <View style={styles.notesContainer}>
-    <Text style={styles.sectionTitle}>Important Notes</Text>
+    <Text style={styles.sectionTitle}>Lưu ý quan trọng</Text>
     <View style={styles.notesBox}>
       <Text style={styles.notesText}>
-        • Please show this ticket at the entrance{"\n"}• Each ticket is valid
-        for one person only{"\n"}• No entry after event start time{"\n"}• Lost
-        tickets cannot be replaced{"\n"}• No refunds or exchanges
+        • Vui lòng xuất trình vé này tại lối vào{"\n"}
+        • Mỗi vé chỉ có giá trị cho một người{"\n"}
+        • Không được vào sau khi sự kiện đã bắt đầu{"\n"}
+        • Vé bị mất không được thay thế{"\n"}
+        • Không hoàn tiền hoặc đổi vé
       </Text>
     </View>
   </View>
@@ -108,18 +192,86 @@ const ImportantNotes: React.FC = () => (
 const TicketDetail: React.FC = () => {
   // Get params from URL
   const params = useLocalSearchParams();
+  const [expandedQR, setExpandedQR] = React.useState(false);
+  const [processedQrUrl, setProcessedQrUrl] = React.useState<string | null>(null);
+
+  // Xử lý qrCodeUrl
+  const qrCodeUrl = React.useMemo(() => {
+    const url = params.qrCodeUrl as string;
+    if (!url) return null;
+    
+    // Log để debug
+    console.log("QR Code URL từ params:", url.substring(0, 50) + (url.length > 50 ? "..." : ""));
+    
+    // Xử lý lại URL để đảm bảo mã hóa đúng
+    let processedUrl = url;
+    
+    // Kiểm tra nếu là URL Firebase Storage
+    if (url && url.includes('firebasestorage.googleapis.com')) {
+      // Đảm bảo các ký tự / trong đường dẫn được mã hóa thành %2F
+      const pathStartIndex = url.indexOf('.com/o/');
+      if (pathStartIndex !== -1) {
+        // Lấy phần trước và sau của đường dẫn
+        const urlPrefix = url.substring(0, pathStartIndex + 7); // .com/o/
+        let urlPath = url.substring(pathStartIndex + 7);
+        
+        // Tách phần đường dẫn và query params (nếu có)
+        const queryParamsIndex = urlPath.indexOf('?');
+        let queryParams = '';
+        
+        if (queryParamsIndex !== -1) {
+          queryParams = urlPath.substring(queryParamsIndex);
+          urlPath = urlPath.substring(0, queryParamsIndex);
+        }
+        
+        // Kiểm tra xem đường dẫn đã được mã hóa chưa
+        if (!urlPath.includes('%2F') && urlPath.includes('/')) {
+          // Mã hóa đúng đường dẫn (thay thế / bằng %2F)
+          const encodedPath = urlPath.replace(/\//g, '%2F');
+          
+          // Tạo lại URL hoàn chỉnh
+          processedUrl = urlPrefix + encodedPath + queryParams;
+          console.log("TicketDetail - URL sau khi encode:", processedUrl);
+        }
+      }
+    }
+    
+    return processedUrl;
+  }, [params.qrCodeUrl]);
 
   // Use params or default values
   const eventData = {
-    showName: (params.showName as string) || "Koi Fish Competition",
-    dateTime: (params.dateTime as string) || "10th Oct 2023, 10:00 AM",
-    venue: (params.venue as string) || "Tokyo Dome",
-    qrCodeUrl:
-      (params.qrCodeUrl as string) ||
-      "https://dashboard.codeparrot.ai/api/image/Z7_lKMjn7nbGWzhY/group-2.png",
-    ticketType: (params.ticketType as string) || "VIP",
+    showName: (params.showName as string) || "Cuộc thi cá Koi",
+    dateTime: (params.dateTime as string) || "10/10/2023, 10:00",
+    venue: (params.venue as string) || "Trung tâm triển lãm",
+    qrCodeUrl: qrCodeUrl || "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=example",
+    ticketType: (params.ticketType as string) || "Vé VIP",
     ticketNumber: (params.ticketNumber as string) || "1234567890",
-    buyerName: (params.buyerName as string) || "Akira Yamamoto",
+    buyerName: (params.buyerName as string) || "Nguyễn Văn A",
+  };
+
+  // Component hiển thị QR phóng to
+  const ExpandedQRView = () => (
+    <TouchableOpacity
+      style={styles.expandedQRContainer}
+      activeOpacity={0.9}
+      onPress={() => setExpandedQR(false)}
+    >
+      <View style={styles.expandedQRContent}>
+        <Image 
+          source={{ uri: processedQrUrl || eventData.qrCodeUrl }} 
+          style={styles.expandedQRImage}
+          resizeMode="contain"
+        />
+        <Text style={styles.expandedQRText}>Nhấn để đóng</Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Handler khi URL đã được xử lý
+  const handleProcessedQrUrl = (url: string) => {
+    console.log("URL QR đã xử lý:", url.substring(0, 50) + "...");
+    setProcessedQrUrl(url);
   };
 
   return (
@@ -129,15 +281,10 @@ const TicketDetail: React.FC = () => {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7_lKMjn7nbGWzhY/chevron-left.png",
-            }}
-            style={styles.backIcon}
-          />
-          <Text style={styles.backText}>Back</Text>
+          <Ionicons name="chevron-back" size={24} color="#000000" style={styles.backIcon} />
+          <Text style={styles.backText}>Quay lại</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ticket Details</Text>
+        <Text style={styles.headerTitle}>Chi tiết vé</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -151,7 +298,16 @@ const TicketDetail: React.FC = () => {
           venue={eventData.venue}
         />
 
-        <QRCodeSection qrCodeUrl={eventData.qrCodeUrl} />
+        <TouchableOpacity 
+          activeOpacity={0.8}
+          onPress={() => setExpandedQR(true)}
+        >
+          <QRCodeSection 
+            qrCodeUrl={eventData.qrCodeUrl} 
+            onProcessedUrl={handleProcessedQrUrl}
+          />
+          <Text style={styles.tapToExpandText}>Nhấn vào mã QR để phóng to</Text>
+        </TouchableOpacity>
 
         <TicketInfo
           ticketType={eventData.ticketType}
@@ -160,16 +316,9 @@ const TicketDetail: React.FC = () => {
         />
 
         <ImportantNotes />
-
-        {/* Add Cancel Button */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => console.log("Cancel ticket")}>
-            <Text style={styles.cancelButtonText}>Cancel Ticket</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
+
+      {expandedQR && <ExpandedQRView />}
     </SafeAreaView>
   );
 };
@@ -184,7 +333,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: 50,
+    paddingBottom: 12,
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
@@ -194,35 +344,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   backIcon: {
-    width: 24,
-    height: 24,
+    marginRight: 4,
   },
   backText: {
     fontSize: 16,
     fontWeight: "500",
     color: "#000000",
-    marginLeft: 4,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: "#000000",
-    fontFamily: "Poppins",
   },
   placeholder: {
-    width: 60, // To balance the back button width
+    width: 80, // To balance the back button width
   },
   scrollView: {
     flex: 1,
   },
   scrollViewContent: {
+    padding: 16,
     paddingBottom: 40, // Add bottom padding to ensure content isn't cut off
   },
   eventDetailsContainer: {
     backgroundColor: "#FFFFFF",
     padding: 16,
-    marginTop: 16,
-    marginHorizontal: 16,
+    marginBottom: 16,
     borderRadius: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -235,7 +382,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#000000",
     marginBottom: 12,
-    fontFamily: "Poppins",
   },
   eventInfoRow: {
     flexDirection: "row",
@@ -243,20 +389,16 @@ const styles = StyleSheet.create({
     marginVertical: 6,
   },
   eventIcon: {
-    width: 16,
-    height: 16,
     marginRight: 8,
   },
   eventInfoText: {
     fontSize: 14,
     color: "#4A4A4A",
-    fontFamily: "Lexend Deca",
   },
   qrCodeContainer: {
     backgroundColor: "#FFFFFF",
     padding: 16,
-    marginTop: 16,
-    marginHorizontal: 16,
+    marginBottom: 16,
     borderRadius: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -270,12 +412,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#000000",
     marginBottom: 16,
-    fontFamily: "Poppins",
   },
   qrImageContainer: {
-    width: 200,
-    height: 200,
-    padding: 8,
+    width: 220,
+    height: 220,
+    padding: 10,
     backgroundColor: "#FFFFFF",
     borderRadius: 8,
     alignItems: "center",
@@ -285,17 +426,52 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: "#EEEEEE",
   },
   qrImage: {
-    width: "100%",
-    height: "100%",
+    width: 200,
+    height: 200,
     borderRadius: 4,
+  },
+  qrLoading: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    zIndex: 1,
+  },
+  qrError: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    zIndex: 1,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#FF3B30',
+  },
+  qrSubText: {
+    fontSize: 12,
+    color: '#757575',
+    marginTop: 12,
+    textAlign: 'center',
   },
   ticketInfoContainer: {
     backgroundColor: "#FFFFFF",
     padding: 16,
-    marginTop: 16,
-    marginHorizontal: 16,
+    marginBottom: 16,
     borderRadius: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -311,13 +487,11 @@ const styles = StyleSheet.create({
   ticketLabel: {
     fontSize: 14,
     color: "#757575",
-    fontFamily: "Lexend Deca",
   },
   ticketValue: {
     fontSize: 14,
     fontWeight: "600",
     color: "#212121",
-    fontFamily: "Lexend Deca",
   },
   infoSeparator: {
     height: 1,
@@ -326,8 +500,7 @@ const styles = StyleSheet.create({
   notesContainer: {
     backgroundColor: "#FFFFFF",
     padding: 16,
-    marginTop: 16,
-    marginHorizontal: 16,
+    marginBottom: 16,
     borderRadius: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -344,30 +517,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     color: "#4A4A4A",
-    fontFamily: "Lexend Deca",
   },
-  footer: {
-    padding: 16,
-    marginVertical: 16,
+  tapToExpandText: {
+    fontSize: 12,
+    color: "#666666",
+    textAlign: "center",
+    marginTop: -12,
+    marginBottom: 16,
+    fontStyle: "italic",
+  },
+  expandedQRContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
     alignItems: "center",
+    zIndex: 1000,
   },
-  cancelButton: {
-    width: "90%", // Slightly narrower width for better appearance
-    backgroundColor: "#FF3B30",
-    padding: 16,
-    borderRadius: 8,
+  expandedQRContent: {
+    backgroundColor: "#FFFFFF",
+    padding: 20,
+    borderRadius: 12,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    width: "80%",
   },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    fontFamily: "Poppins",
+  expandedQRImage: {
+    width: 280,
+    height: 280,
+    marginBottom: 16,
+  },
+  expandedQRText: {
+    fontSize: 14,
+    color: "#666666",
+    fontWeight: "500",
   },
 });
 
