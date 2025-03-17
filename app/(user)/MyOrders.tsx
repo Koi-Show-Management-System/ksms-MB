@@ -21,6 +21,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../../services/api";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 // --- Interface Definitions ---
 interface OrderItem {
@@ -53,6 +55,12 @@ interface OrderCardProps {
   order: OrderItem;
   onPress: (order: OrderItem) => void;
 }
+
+type RootStackParamList = {
+  OrderDetail: { orderId: string };
+};
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'OrderDetail'>;
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -96,29 +104,31 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
   };
 
   const status = order.orderStatus || order.status || "";
-  const showName = order.koiShow?.name || "Cuộc thi CA";
   const orderDate = order.orderDate || order.date;
+  const orderId = order.id ? order.id.slice(0, 8).toUpperCase() : "N/A";
+
+  const navigation = useNavigation<NavigationProp>();
+  
+  const handleViewDetail = () => {
+    navigation.navigate('OrderDetail', { orderId: order.id });
+  };
 
   return (
     <TouchableOpacity
       style={styles.orderCard}
-      onPress={() => onPress(order)}
+      onPress={handleViewDetail}
       activeOpacity={0.7}>
       <View style={styles.orderHeader}>
-        <Text style={styles.orderShowName} numberOfLines={1}>
-          {showName}
-        </Text>
+        <View style={styles.orderIdContainer}>
+          <Text style={styles.orderIdLabel}>Mã đơn hàng</Text>
+          <Text style={styles.orderId}>{orderId}</Text>
+        </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) }]}>
           <Text style={styles.statusText}>{getStatusText(status)}</Text>
         </View>
       </View>
       
-      <View style={styles.orderDetailContainer}>
-        <View style={styles.orderInfo}>
-          <Text style={styles.orderLabel}>Mã đơn hàng:</Text>
-          <Text style={styles.orderValue}>{order.id.substring(0, 8).toUpperCase()}</Text>
-        </View>
-        
+      <View style={styles.orderDetailContainer}>        
         <View style={styles.orderInfo}>
           <Text style={styles.orderLabel}>Ngày đặt:</Text>
           <Text style={styles.orderValue}>{formatDate(orderDate)}</Text>
@@ -149,7 +159,7 @@ const MyOrders: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   
-  const tabWidth = screenWidth / 4; // 4 tabs now
+  const tabWidth = screenWidth / 4; 
   const translateX = useSharedValue(0);
 
   useEffect(() => {
@@ -295,6 +305,7 @@ const MyOrders: React.FC = () => {
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
+        ItemSeparatorComponent={() => <View style={{height: 8}} />}
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <Text style={styles.listHeaderText}>
@@ -561,10 +572,8 @@ const styles = StyleSheet.create({
 
   // ScrollView and Order List Styles
   scrollViewContent: {
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    flexGrow: 1, // Đảm bảo nội dung bao phủ hết chiều cao khi ít item
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   listHeader: {
     width: '100%',
@@ -593,11 +602,11 @@ const styles = StyleSheet.create({
 
   // New OrderCard styles
   orderCard: {
-    width: "94%",
+    width: "100%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 10,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
     elevation: 2,
     shadowColor: "#000000",
     shadowOffset: { width: 0, height: 1 },
@@ -607,65 +616,76 @@ const styles = StyleSheet.create({
   orderHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
+    alignItems: "flex-start",
+    marginBottom: 12,
   },
-  orderShowName: {
-    fontSize: 17,
-    fontWeight: "bold",
-    color: "#000000",
+  orderIdContainer: {
     flex: 1,
   },
+  orderIdLabel: {
+    fontSize: 13,
+    color: "#666666",
+    marginBottom: 2,
+  },
+  orderId: {
+    fontSize: 16,
+    color: "#000000",
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
     marginLeft: 8,
   },
   statusText: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#FFFFFF",
-    fontWeight: "bold",
+    fontWeight: "600",
   },
   orderDetailContainer: {
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-    paddingTop: 14,
+    borderTopWidth: 0.5,
+    borderTopColor: "#E0E0E0",
+    paddingTop: 12,
+    paddingBottom: 4,
   },
   orderInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   orderLabel: {
-    fontSize: 15,
+    fontSize: 13,
     color: "#666666",
   },
   orderValue: {
-    fontSize: 15,
+    fontSize: 13,
     color: "#333333",
     fontWeight: "500",
+    marginLeft: 8,
   },
   orderAmount: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#FFA500",
-    fontWeight: "bold",
+    fontWeight: "600",
+    marginLeft: 8,
   },
   viewDetailContainer: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: "#E0E0E0",
   },
   viewDetailText: {
-    fontSize: 15,
+    fontSize: 13,
     color: "#FFA500",
     fontWeight: "500",
-    marginRight: 4,
+    marginRight: 2,
   },
 });
 
