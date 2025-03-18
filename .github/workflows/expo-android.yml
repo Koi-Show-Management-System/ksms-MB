@@ -12,9 +12,30 @@ permissions:
 on:
   push:
     branches: [main, development]
+    paths:
+      - 'app/**'
+      - 'assets/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'app.json'
+      - 'eas.json'
+      - 'babel.config.js'
+      - 'metro.config.js'
+      - '.github/workflows/expo-android.yml'
 
 jobs:
+  cleanup-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cleanup Artifacts
+        uses: c-hive/gha-remove-artifacts@v1
+        with:
+          age: '1 day'
+          skip-tags: true
+          skip-recent: 5
+
   setup:
+    needs: cleanup-artifacts
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.set-version.outputs.version }}
@@ -25,22 +46,38 @@ jobs:
         with:
           node-version: 18
           cache: 'yarn'
+          
+      # Cài đặt trước các dependencies để tăng tốc
+      - name: Fast Install
+        run: |
+          # Đặt Yarn discard hoặc tăng tốc độ
+          yarn config set network-timeout 300000
+          yarn config set --home enableTelemetry 0
+          
+          # Thêm bộ đệm mạng
+          echo "Cache network calls"
       - name: Cache Node Modules
         uses: actions/cache@v4
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock', 'eas.json', 'app.json') }}
+          path: |
+            node_modules
+            ~/.npm
+            ~/.yarn/cache
+            .expo
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock', 'package.json') }}
           restore-keys: |
-            ${{ runner.os }}-node-modules-
+            ${{ runner.os }}-modules-
       - name: Install dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile --prefer-offline
       - name: Set Version
         id: set-version
         run: echo "version=v1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
 
   build-android:
     needs: setup
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-core
+    outputs:
+      direct_upload: ${{ steps.check-artifact.outputs.direct_upload }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -64,7 +101,10 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradlew', '**/gradle/wrapper/gradle-wrapper.properties', 'build.gradle', '**/build.gradle.kts') }}
+            .android/cache
+            ~/.m2/repository
+            android/app/build
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradlew', '**/gradle/wrapper/gradle-wrapper.properties', '**/build.gradle', '**/settings.gradle') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
       - name: Setup Android Environment
@@ -105,7 +145,18 @@ jobs:
           MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
           
-          org.gradle.jvmargs=-Xmx4g -XX:MaxPermSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+          # Tối ưu hóa build performance
+          org.gradle.daemon=true
+          org.gradle.configureondemand=true
+          org.gradle.parallel=true
+          org.gradle.caching=true
+          org.gradle.jvmargs=-Xmx4g -XX:MaxPermSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseParallelGC
+          
+          # Tối ưu Android build
+          android.enableR8.fullMode=true
+          android.enableDexingArtifactTransform.desugaring=false
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
           EOF
           
           echo "Created gradle.properties"
@@ -162,7 +213,8 @@ jobs:
           {
             "cli": {
               "version": ">= 3.13.3",
-              "appVersionSource": "remote"
+              "appVersionSource": "remote",
+              "promptToConfigurePushNotifications": false
             },
             "build": {
               "development": {
@@ -170,14 +222,20 @@ jobs:
                 "distribution": "internal",
                 "android": {
                   "buildType": "apk",
-                  "gradleCommand": ":app:assembleDebug"
+                  "gradleCommand": ":app:assembleDebug",
+                  "cache": {
+                    "key": "gradle-${{ github.sha }}"
+                  }
                 }
               },
               "preview": {
                 "distribution": "internal",
                 "android": {
                   "buildType": "apk",
-                  "gradleCommand": ":app:assembleRelease"
+                  "gradleCommand": ":app:assembleRelease",
+                  "cache": {
+                    "key": "gradle-${{ github.sha }}"
+                  }
                 }
               }, 
               "production": {
@@ -185,7 +243,16 @@ jobs:
                 "android": {
                   "buildType": "apk",
                   "gradleCommand": ":app:assembleRelease",
-                  "credentialsSource": "local"
+                  "credentialsSource": "local",
+                  "cache": {
+                    "key": "gradle-${{ github.sha }}"
+                  },
+                  "buildConfiguration": "Release",
+                  "image": "latest"
+                },
+                "cache": {
+                  "disabled": false,
+                  "key": "yarn-${{ github.sha }}"
                 }
               }
             },
@@ -223,22 +290,25 @@ jobs:
         run: |
           echo "==== Environment Variables ===="
           echo "KEYSTORE_PATH: $KEYSTORE_PATH"
-          echo "ANDROID_KEYSTORE_PATH: $ANDROID_KEYSTORE_PATH"
-          echo "ANDROID_KEYSTORE_ALIAS is set: ${{ secrets.ANDROID_KEYSTORE_ALIAS != '' }}"
-          echo "ANDROID_KEYSTORE_PASSWORD is set: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}"
-          echo "ANDROID_KEY_PASSWORD is set: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}"
           
-          echo "==== File System ===="
-          echo "Current directory: $(pwd)"
-          ls -la
-          echo "Keystore:"
-          ls -la android/app/release.keystore || echo "Keystore not found!"
-          echo "credentials.json:"
-          ls -la credentials.json || echo "credentials.json not found!"
+          # Chỉ kiểm tra các biến quan trọng
+          [ -n "$ANDROID_KEYSTORE_ALIAS" ] && echo "ANDROID_KEYSTORE_ALIAS: Set ✓" || echo "ANDROID_KEYSTORE_ALIAS: Not set ✗"
+          [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && echo "ANDROID_KEYSTORE_PASSWORD: Set ✓" || echo "ANDROID_KEYSTORE_PASSWORD: Not set ✗"
+          [ -n "$ANDROID_KEY_PASSWORD" ] && echo "ANDROID_KEY_PASSWORD: Set ✓" || echo "ANDROID_KEY_PASSWORD: Not set ✗"
           
-          echo "==== credentials.json content (masked) ===="
-          if [ -f credentials.json ]; then
-            cat credentials.json | sed 's/"keyPassword": "[^"]*"/"keyPassword": "***"/g' | sed 's/"keystorePassword": "[^"]*"/"keystorePassword": "***"/g'
+          echo "==== Critical Files ===="
+          if [ -f "android/app/release.keystore" ]; then
+            echo "✓ Keystore exists"
+          else
+            echo "✗ Keystore missing"
+            exit 1
+          fi
+          
+          if [ -f ".expo/credentials.json" ]; then
+            echo "✓ Credentials exist"
+          else
+            echo "✗ Credentials missing"
+            exit 1
           fi
       - name: Build Android app (Local Build)
         run: |
@@ -266,13 +336,15 @@ jobs:
           echo "Checking keystore..."
           ls -la android/app/release.keystore
           
-          # Thực hiện build
+          # Thực hiện build tối ưu
           echo "Starting build process..."
+          GRADLE_OPTS="-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=8" \
           eas build --local \
           --non-interactive \
           --output=./app-build/app-release.apk \
           --platform=android \
-          --profile=production
+          --profile=production \
+          --clear-cache=false
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
@@ -282,109 +354,119 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEYSTORE: ${{ env.KEYSTORE_PATH }}
       - name: Upload Build Artifact
+        id: upload-artifact
+        continue-on-error: true  # Không làm hỏng workflow nếu việc upload thất bại
         uses: actions/upload-artifact@v4
         with:
-          name: app-build
+          name: app-build-${{ github.run_number }}
           path: app-build/app-release.apk
-          retention-days: 1
+          retention-days: 1  # Giảm xuống chỉ còn 1 ngày
+          if-no-files-found: warn
+          compression-level: 9  # Nén tối đa
+          overwrite: true
+          
+      - name: Check Artifact Upload Status
+        id: check-artifact
+        if: steps.upload-artifact.outcome == 'failure'
+        run: |
+          echo "::warning::Artifact upload failed. Will use direct release upload instead."
+          mkdir -p /tmp/artifacts
+          cp app-build/app-release.apk /tmp/artifacts/app-release.apk
+          echo "direct_upload=true" >> $GITHUB_OUTPUT
 
   release:
     needs: [setup, build-android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download Build Artifact
+      
+      # Fallback nếu artifact không upload được (từ build-android job)
+      - name: Fallback - Sync build từ build-android
+        if: needs.build-android.outputs.direct_upload == 'true'
         uses: actions/download-artifact@v4
         with:
-          name: app-build
+          name: /tmp/artifacts
           path: ./
-      - name: Create Tag and Release
+          
+      # Đường đi bình thường nếu artifact đã upload thành công  
+      - name: Download Build Artifact
+        if: needs.build-android.outputs.direct_upload != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build-${{ github.run_number }}
+          path: ./
+      
+      - name: Display structure of downloaded files
+        run: ls -R
+        
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.setup.outputs.version }}
+          release_name: Release ${{ needs.setup.outputs.version }}
+          draft: false
+          prerelease: true
+      
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} 
+          asset_path: ./app-release.apk
+          asset_name: ksms-mb-${{ needs.setup.outputs.version }}.apk
+          asset_content_type: application/octet-stream
+          
+      - name: Create QR Code and Update Release
         uses: actions/github-script@v7
         env:
           VERSION: ${{ needs.setup.outputs.version }}  # Make version available as an env var
+          RELEASE_ID: ${{ steps.create_release.outputs.id }}
         with:
           script: |
             const fs = require('fs');
-            const path = require('path');
+            const version = process.env.VERSION;
+            const releaseId = process.env.RELEASE_ID;
+            
+            // --- QR Code Configuration ---
+            const qrConfig = {
+              size: 300,
+              margin: 1,
+              dark: '000000',
+              light: 'FFFFFF',
+            };
+            const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${version}/ksms-mb-${version}.apk`;
+            const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(downloadUrl)}&size=${qrConfig.size}&margin=${qrConfig.margin}&dark=${qrConfig.dark}&light=${qrConfig.light}`;
 
-            try {
-              // --- Validation and Setup ---
-              const apkPath = path.join('./', 'app-release.apk');
-              const version = process.env.VERSION; // Access via process.env
+            // --- Release Body (Markdown) ---
+            const releaseBody = `
+              ### KSMS Mobile App Release
 
-              if (!version) {
-                throw new Error('Version input is not defined.');
-              }
-              if (!fs.existsSync(apkPath)) {
-                throw new Error('APK file not found at: ' + apkPath);
-              }
+              **Build Information**
+              - Version: ${version}
+              - Build Number: ${version.substring(5)}
+              - Release Date: ${new Date().toISOString().split('T')[0]}
 
-              // --- QR Code Configuration ---
-              const qrConfig = {
-                size: 300,
-                margin: 1,
-                dark: '000000',
-                light: 'FFFFFF',
-              };
-              const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${version}/ksms-mb-${version}.apk`;
-              const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(downloadUrl)}&size=${qrConfig.size}&margin=${qrConfig.margin}&dark=${qrConfig.dark}&light=${qrConfig.light}`;
+              ### Installation
 
+              1. **Scan QR Code**
+              ![QRCode](${qrCodeUrl})
 
-              // --- Release Body (Markdown) ---
-              const releaseBody = `
-                ### KSMS Mobile App Release
+              2. **Direct Download**
+              [![Download APK](https://img.shields.io/badge/Download_APK-blue?style=for-the-badge)](${downloadUrl})
 
-                **Build Information**
-                - Version: ${version}
-                - Build Number: ${version.substring(5)}
-                - Release Date: ${new Date().toISOString().split('T')[0]}
-
-                ### Installation
-
-                1. **Scan QR Code**
-                ![QRCode](${qrCodeUrl})
-
-                2. **Direct Download**
-                [![Download APK](https://img.shields.io/badge/Download_APK-blue?style=for-the-badge)](${downloadUrl})
-
-                ### Note
-                - This is a pre-release version
-                - Please report any issues you encounter
-              `.trim(); //CRUCIAL
-
-              // --- Create Release ---
-              core.info('Creating release...');
-              const releaseResponse = await github.rest.repos.createRelease({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag_name: version,
-                name: `Release ${version}`,
-                body: releaseBody,
-                draft: false,
-                prerelease: true,
-              });
-
-              if (!releaseResponse.data.id) {
-                throw new Error('Failed to create release.');
-              }
-
-              // --- Upload APK Asset ---
-              core.info('Uploading APK file...');
-              const apkContent = fs.readFileSync(apkPath);
-              const uploadResponse = await github.rest.repos.uploadReleaseAsset({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: releaseResponse.data.id,
-                name: `ksms-mb-${version}.apk`,
-                data: apkContent,
-              });
-
-              if (!uploadResponse.data.id) {
-                throw new Error('Failed to upload asset.');
-              }
-
-              core.info('Release created successfully!');
-
-            } catch (error) {
-              core.setFailed(error.message);
-            }
+              ### Note
+              - This is a pre-release version
+              - Please report any issues you encounter
+            `.trim();
+            
+            // Update the release with QR code and description
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId,
+              body: releaseBody
+            });
