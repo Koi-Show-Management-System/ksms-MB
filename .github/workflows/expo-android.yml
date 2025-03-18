@@ -1743,8 +1743,8 @@ jobs:
           QR_CODE_URL="https://quickchart.io/qr?text=$(urlencode "$LATEST_URL")&$QR_CONFIG"
           
           # Xóa tag cũ nếu tồn tại
-          git tag -d latest || true
-          git push --delete origin latest || true
+          git tag -d latest 2>/dev/null || true
+          git push --delete origin latest 2>/dev/null || true
           
           # Tạo tag mới
           git tag latest
@@ -1775,9 +1775,152 @@ jobs:
           - VPS link luôn trỏ đến phiên bản mới nhất
           EOL
           
-          # Sử dụng GitHub CLI để tạo release
-          gh release create latest \
-            --title "Latest Build (${BUILD_NUMBER})" \
-            --notes-file release_notes.md \
-            --target refs/heads/development \
-            --draft=false
+          # Tạo release: thử dùng gh CLI, nếu không có sẽ dùng API
+          if command -v gh &> /dev/null; then
+            echo "Tạo release sử dụng GitHub CLI..."
+            gh release create latest \
+              --title "Latest Build (${BUILD_NUMBER})" \
+              --notes-file release_notes.md \
+              --target refs/heads/development \
+              --draft=false
+          elif [ "${USE_CURL_FOR_RELEASE}" = "true" ]; then
+            echo "Tạo release sử dụng GitHub API với curl..."
+            API_URL="https://api.github.com/repos/${{ github.repository }}/releases"
+            TARGET_COMMITISH="development"
+            
+            # Đọc nội dung release notes
+            RELEASE_NOTES=$(cat release_notes.md)
+            
+            # Tạo JSON data
+            DATA=$(cat <<EOF
+            {
+              "tag_name": "latest",
+              "target_commitish": "${TARGET_COMMITISH}",
+              "name": "Latest Build (${BUILD_NUMBER})",
+              "body": ${RELEASE_NOTES@Q},
+              "draft": false,
+              "prerelease": false
+            }
+            EOF
+            )
+            
+            # Gửi request để tạo release
+            curl -X POST \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "$DATA" \
+              "${API_URL}"
+          else
+            echo "❌ Không thể tạo GitHub Release: GitHub CLI không được cài đặt và CURL không được cấu hình."
+            exit 1
+          fi
+
+      # Chuyển tệp APK sang thư mục web của VPS
+      - name: Copy APK to Web Directory
+        env:
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          echo "===== CHUYỂN TỆP APK SANG THƯ MỤC WEB ====="
+          
+          # Lấy thông tin từ bước build
+          APK_PATH="${{ needs.build-android.outputs.apk_path }}"
+          DIRECT_UPLOAD="${{ needs.build-android.outputs.direct_upload }}"
+          
+          # Nếu có chỉ định direct upload, bước này đã được thực hiện
+          if [ "$DIRECT_UPLOAD" = "true" ]; then
+            echo "✅ Đã upload APK trực tiếp trong bước build, bỏ qua bước này."
+            exit 0
+          fi
+          
+          # Kiểm tra file APK có tồn tại
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "❌ Không tìm thấy file APK: $APK_PATH"
+            exit 1
+          fi
+          
+          # Lấy tên file APK từ đường dẫn
+          APK_FILENAME=$(basename "$APK_PATH")
+          
+          # Đặt thư mục đích trên VPS
+          VPS_ARCHIVES_DIR="${{ secrets.VPS_STORAGE_PATH }}/archives"
+          VPS_PUBLIC_DIR="${{ secrets.VPS_STORAGE_PATH }}"
+          
+          # Tạo thư mục lưu trữ nếu chưa có
+          sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p $VPS_ARCHIVES_DIR"
+          
+          # Chuyển file APK sang thư mục archives trên VPS
+          echo "Đang chuyển $APK_PATH sang $VPS_ARCHIVES_DIR/$APK_FILENAME..."
+          sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no "$APK_PATH" ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:"$VPS_ARCHIVES_DIR/$APK_FILENAME"
+          
+          # Tạo link latest.apk
+          echo "Tạo link latest.apk trỏ đến $APK_FILENAME..."
+          sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd $VPS_PUBLIC_DIR && rm -f latest.apk && ln -sf archives/$APK_FILENAME latest.apk"
+          
+          # Kiểm tra lịch sử file
+          echo "Danh sách các phiên bản APK hiện có:"
+          sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "ls -lt $VPS_ARCHIVES_DIR | head -n 10"
+          
+          # Giữ lại 2 phiên bản gần nhất
+          echo "Dọn dẹp các phiên bản cũ, giữ lại 2 phiên bản gần nhất..."
+          sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd $VPS_ARCHIVES_DIR && ls -t | tail -n +3 | xargs -r rm -f"
+          
+          echo "===== HOÀN THÀNH CHUYỂN TỆP APK ====="
+          
+      # Cài đặt GitHub CLI
+      - name: Install GitHub CLI
+        run: |
+          echo "===== CÀI ĐẶT GITHUB CLI ====="
+          
+          # Kiểm tra xem gh đã được cài đặt chưa
+          if command -v gh &> /dev/null; then
+            echo "✅ GitHub CLI đã được cài đặt"
+          else
+            echo "⚠️ GitHub CLI chưa được cài đặt, đang cài đặt..."
+            
+            # Kiểm tra hệ điều hành
+            if [ -f /etc/os-release ]; then
+              . /etc/os-release
+              OS=$NAME
+            else
+              OS=$(uname -s)
+            fi
+            
+            # Cài đặt tùy theo hệ điều hành
+            case "$OS" in
+              *Ubuntu*|*Debian*)
+                type -p curl >/dev/null || sudo apt install curl -y
+                curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+                sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+                echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+                sudo apt update
+                sudo apt install gh -y
+                ;;
+              *CentOS*|*RHEL*|*Fedora*)
+                sudo dnf install 'dnf-command(config-manager)' -y
+                sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+                sudo dnf install gh -y
+                ;;
+              *Alpine*)
+                apk add gh
+                ;;
+              *)
+                # Phương pháp dự phòng: cài đặt từ script
+                echo "Hệ điều hành không được nhận diện, thử cài đặt bằng script..."
+                curl -fsSL https://cli.github.com/packages/github-cli-archive-keyring.gpg | sudo gpg --dearmor -o /usr/share/keyrings/github-cli-archive-keyring.gpg
+                echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/github-cli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+                sudo apt update
+                sudo apt install gh -y
+                ;;
+            esac
+            
+            # Xác minh cài đặt
+            if command -v gh &> /dev/null; then
+              echo "✅ Đã cài đặt GitHub CLI thành công"
+              gh --version
+            else
+              echo "❌ Không thể cài đặt GitHub CLI. Sử dụng cURL API thay thế."
+              echo "USE_CURL_FOR_RELEASE=true" >> $GITHUB_ENV
+            fi
+          fi
+          
+          echo "===== KẾT THÚC CÀI ĐẶT GITHUB CLI ====="
