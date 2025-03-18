@@ -1586,7 +1586,7 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           echo "===== BUILD APK VỚI EAS ====="
-          npx eas-cli build --platform android --profile preview --non-interactive --local --allow-non-interactive-creation
+          npx eas-cli build --platform android --profile preview --non-interactive --local
           
           # Tìm APK và đặt biến output
           APK_PATH=$(find $(pwd) -name "*.apk" -type f -print -quit)
