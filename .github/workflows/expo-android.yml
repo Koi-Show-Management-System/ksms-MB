@@ -67,6 +67,10 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradlew', '**/gradle/wrapper/gradle-wrapper.properties', 'build.gradle', '**/build.gradle.kts') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+      - name: Setup Keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > keystore.jks
+          echo "KEYSTORE_PATH=$(pwd)/keystore.jks" >> $GITHUB_ENV
       - name: Create eas.json
         run: |
           cat > eas.json << EOF
@@ -80,7 +84,15 @@ jobs:
                 "autoIncrement": true,
                 "android": {
                   "buildType": "apk",
-                  "gradleCommand": ":app:assembleRelease"
+                  "gradleCommand": ":app:assembleRelease",
+                  "credentialsSource": "local",
+                  "withoutCredentials": false
+                },
+                "env": {
+                  "ANDROID_KEYSTORE_PATH": "$(pwd)/keystore.jks",
+                  "ANDROID_KEYSTORE_ALIAS": "${{ secrets.ANDROID_KEYSTORE_ALIAS }}",
+                  "ANDROID_KEYSTORE_PASSWORD": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
+                  "ANDROID_KEY_PASSWORD": "${{ secrets.ANDROID_KEY_PASSWORD }}"
                 }
               }
             }
@@ -97,6 +109,10 @@ jobs:
           --profile=production
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
+          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
