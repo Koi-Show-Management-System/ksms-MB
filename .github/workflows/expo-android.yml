@@ -342,8 +342,7 @@ jobs:
           --non-interactive \
           --output=./app-build/app-release.apk \
           --platform=android \
-          --profile=production \
-          --clear-cache=false
+          --profile=production
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
