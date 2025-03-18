@@ -391,32 +391,89 @@ jobs:
           # Kiểm tra thư mục nguồn tồn tại
           if [ ! -d "$PERSISTENT_GRADLE_CACHES/caches" ]; then
             echo "⚠️ Thư mục nguồn không tồn tại: $PERSISTENT_GRADLE_CACHES/caches"
-            echo "Bỏ qua khôi phục gradle caches"
-            echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
-            echo "===== KẾT THÚC KHÔI PHỤC GRADLE CACHES ====="
-            exit 0
+            mkdir -p "$PERSISTENT_GRADLE_CACHES/caches"
+            echo "✅ Đã tạo thư mục nguồn mới"
           fi
           
           # Tạo thư mục .gradle nếu chưa tồn tại
-          mkdir -p "$HOME/.gradle"
-          
-          # Kiểm tra xem thư mục caches đã tồn tại chưa
-          if [ -d "$HOME/.gradle/caches" ]; then
-            echo "Sao lưu thư mục caches hiện tại"
-            mv $HOME/.gradle/caches $HOME/.gradle/caches.bak
+          if [ ! -d "$HOME/.gradle" ]; then
+            echo "Tạo thư mục $HOME/.gradle..."
+            mkdir -p "$HOME/.gradle"
           fi
           
-          # Tạo symlink từ persistent cache
-          echo "Tạo symlink từ $PERSISTENT_GRADLE_CACHES/caches đến $HOME/.gradle/caches"
-          ln -s "$PERSISTENT_GRADLE_CACHES/caches" $HOME/.gradle/caches
+          # Xử lý thư mục đích một cách cẩn thận
+          if [ -L "$HOME/.gradle/caches" ]; then
+            echo "Thư mục caches hiện tại là symlink, đang xóa..."
+            rm -f "$HOME/.gradle/caches"
+            if [ $? -ne 0 ]; then
+              echo "⚠️ Không thể xóa symlink hiện tại. Thử với quyền cao hơn..."
+              sudo rm -f "$HOME/.gradle/caches" || {
+                echo "❌ Không thể xóa symlink. Bỏ qua khôi phục caches."
+                echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+                exit 0
+              }
+            fi
+          elif [ -d "$HOME/.gradle/caches" ]; then
+            echo "Thư mục caches đã tồn tại, đang sao lưu..."
+            if [ -d "$HOME/.gradle/caches.bak" ]; then
+              echo "Xóa thư mục sao lưu cũ..."
+              rm -rf "$HOME/.gradle/caches.bak"
+            fi
+            echo "Di chuyển $HOME/.gradle/caches sang $HOME/.gradle/caches.bak"
+            mv "$HOME/.gradle/caches" "$HOME/.gradle/caches.bak"
+            if [ $? -ne 0 ]; then
+              echo "⚠️ Không thể di chuyển thư mục caches. Thử xóa..."
+              rm -rf "$HOME/.gradle/caches"
+              if [ $? -ne 0 ]; then
+                echo "⚠️ Không thể xóa thư mục. Thử với quyền cao hơn..."
+                sudo rm -rf "$HOME/.gradle/caches" || {
+                  echo "❌ Không thể xóa thư mục. Bỏ qua khôi phục caches."
+                  echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+                  exit 0
+                }
+              fi
+            fi
+          fi
           
-          # Kiểm tra xem caches có được khôi phục không
-          if [ -L "$HOME/.gradle/caches" ] && [ -d "$HOME/.gradle/caches" ]; then
-            echo "✅ Đã khôi phục gradle caches thành công bằng symlink"
+          # Thử kiểm tra xem thư mục đích đã được xóa chưa
+          if [ -e "$HOME/.gradle/caches" ]; then
+            echo "⚠️ Thư mục hoặc symlink vẫn tồn tại sau khi cố gắng xóa."
+            echo "Thử một cách tiếp cận khác..."
+            ls -la "$HOME/.gradle/"
+            
+            # Thử cách khác - tạo một tên thư mục tạm thời mới
+            echo "Sử dụng tên thư mục tạm thời..."
+            TEMP_CACHE_DIR="caches_$(date +%s)"
+            ln -sf "$PERSISTENT_GRADLE_CACHES/caches" "$HOME/.gradle/$TEMP_CACHE_DIR"
+            if [ $? -eq 0 ] && [ -L "$HOME/.gradle/$TEMP_CACHE_DIR" ]; then
+              echo "✅ Đã tạo symlink tạm thời. Di chuyển vào vị trí chính thức..."
+              mv -f "$HOME/.gradle/$TEMP_CACHE_DIR" "$HOME/.gradle/caches" || {
+                echo "❌ Không thể di chuyển symlink tạm thời. Dừng khôi phục caches."
+                echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+                exit 0
+              }
+            else
+              echo "❌ Không thể tạo symlink tạm thời. Dừng khôi phục caches."
+              echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+              exit 0
+            fi
+          else
+            # Tạo symlink với tùy chọn -f để ghi đè
+            echo "Tạo symlink từ $PERSISTENT_GRADLE_CACHES/caches đến $HOME/.gradle/caches"
+            ln -sf "$PERSISTENT_GRADLE_CACHES/caches" "$HOME/.gradle/caches"
+          fi
+          
+          # Kiểm tra kết quả
+          if [ -L "$HOME/.gradle/caches" ] && [ -d "$(readlink -f "$HOME/.gradle/caches" 2>/dev/null)" ]; then
+            echo "✅ Đã khôi phục gradle caches bằng symlink thành công"
             ls -la "$HOME/.gradle/caches" | head -n 5
             echo "GRADLE_CACHES_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục gradle caches bằng symlink"
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$PERSISTENT_GRADLE_CACHES"
+            echo "Kiểm tra quyền truy cập thư mục $HOME/.gradle:"
+            ls -la "$HOME/.gradle"
             echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
           fi
           
@@ -1085,50 +1142,105 @@ jobs:
           
           echo "===== KẾT THÚC KHÔI PHỤC GRADLE WRAPPER ====="
       
-      # Khôi phục gradle caches từ cache
-      - name: Restore Gradle Caches with Symlinks
-        if: env.GRADLE_CACHES_CACHE_EXISTS == 'true'
+      # Khôi phục Gradle caches
+      - name: Restore Gradle Caches using symlink
         run: |
-          echo "===== KHÔI PHỤC GRADLE CACHES BẰNG SYMLINK ====="
+          echo "===== KHÔI PHỤC GRADLE CACHES ====="
           
-          # Kiểm tra biến PERSISTENT_GRADLE_CACHES
-          if [ -z "$PERSISTENT_GRADLE_CACHES" ]; then
-            echo "⚠️ Biến PERSISTENT_GRADLE_CACHES chưa được thiết lập, đang thiết lập..."
-            PERSISTENT_CACHE="$HOME/persistent-cache"
-            PERSISTENT_GRADLE_CACHES="$PERSISTENT_CACHE/gradle-caches"
+          # Kiểm tra PERSISTENT_GRADLE_CACHES
+          if [ -z "${PERSISTENT_GRADLE_CACHES}" ]; then
+            PERSISTENT_GRADLE_CACHES="$HOME/persistent-cache/gradle-caches"
+            echo "PERSISTENT_GRADLE_CACHES chưa được thiết lập, đang thiết lập mặc định: $PERSISTENT_GRADLE_CACHES"
             mkdir -p "$PERSISTENT_GRADLE_CACHES"
-            echo "Đã thiết lập PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES"
+            echo "PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES" >> $GITHUB_ENV
           fi
           
           # Kiểm tra thư mục nguồn tồn tại
           if [ ! -d "$PERSISTENT_GRADLE_CACHES/caches" ]; then
             echo "⚠️ Thư mục nguồn không tồn tại: $PERSISTENT_GRADLE_CACHES/caches"
-            echo "Bỏ qua khôi phục gradle caches"
-            echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
-            echo "===== KẾT THÚC KHÔI PHỤC GRADLE CACHES ====="
-            exit 0
+            mkdir -p "$PERSISTENT_GRADLE_CACHES/caches"
+            echo "✅ Đã tạo thư mục nguồn mới"
           fi
           
           # Tạo thư mục .gradle nếu chưa tồn tại
-          mkdir -p "$HOME/.gradle"
-          
-          # Kiểm tra xem thư mục caches đã tồn tại chưa
-          if [ -d "$HOME/.gradle/caches" ]; then
-            echo "Sao lưu thư mục caches hiện tại"
-            mv $HOME/.gradle/caches $HOME/.gradle/caches.bak
+          if [ ! -d "$HOME/.gradle" ]; then
+            echo "Tạo thư mục $HOME/.gradle..."
+            mkdir -p "$HOME/.gradle"
           fi
           
-          # Tạo symlink từ persistent cache
-          echo "Tạo symlink từ $PERSISTENT_GRADLE_CACHES/caches đến $HOME/.gradle/caches"
-          ln -s "$PERSISTENT_GRADLE_CACHES/caches" $HOME/.gradle/caches
+          # Xử lý thư mục đích một cách cẩn thận
+          if [ -L "$HOME/.gradle/caches" ]; then
+            echo "Thư mục caches hiện tại là symlink, đang xóa..."
+            rm -f "$HOME/.gradle/caches"
+            if [ $? -ne 0 ]; then
+              echo "⚠️ Không thể xóa symlink hiện tại. Thử với quyền cao hơn..."
+              sudo rm -f "$HOME/.gradle/caches" || {
+                echo "❌ Không thể xóa symlink. Bỏ qua khôi phục caches."
+                echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+                exit 0
+              }
+            fi
+          elif [ -d "$HOME/.gradle/caches" ]; then
+            echo "Thư mục caches đã tồn tại, đang sao lưu..."
+            if [ -d "$HOME/.gradle/caches.bak" ]; then
+              echo "Xóa thư mục sao lưu cũ..."
+              rm -rf "$HOME/.gradle/caches.bak"
+            fi
+            echo "Di chuyển $HOME/.gradle/caches sang $HOME/.gradle/caches.bak"
+            mv "$HOME/.gradle/caches" "$HOME/.gradle/caches.bak"
+            if [ $? -ne 0 ]; then
+              echo "⚠️ Không thể di chuyển thư mục caches. Thử xóa..."
+              rm -rf "$HOME/.gradle/caches"
+              if [ $? -ne 0 ]; then
+                echo "⚠️ Không thể xóa thư mục. Thử với quyền cao hơn..."
+                sudo rm -rf "$HOME/.gradle/caches" || {
+                  echo "❌ Không thể xóa thư mục. Bỏ qua khôi phục caches."
+                  echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+                  exit 0
+                }
+              fi
+            fi
+          fi
           
-          # Kiểm tra xem caches có được khôi phục không
-          if [ -L "$HOME/.gradle/caches" ] && [ -d "$HOME/.gradle/caches" ]; then
-            echo "✅ Đã khôi phục gradle caches thành công bằng symlink"
+          # Thử kiểm tra xem thư mục đích đã được xóa chưa
+          if [ -e "$HOME/.gradle/caches" ]; then
+            echo "⚠️ Thư mục hoặc symlink vẫn tồn tại sau khi cố gắng xóa."
+            echo "Thử một cách tiếp cận khác..."
+            ls -la "$HOME/.gradle/"
+            
+            # Thử cách khác - tạo một tên thư mục tạm thời mới
+            echo "Sử dụng tên thư mục tạm thời..."
+            TEMP_CACHE_DIR="caches_$(date +%s)"
+            ln -sf "$PERSISTENT_GRADLE_CACHES/caches" "$HOME/.gradle/$TEMP_CACHE_DIR"
+            if [ $? -eq 0 ] && [ -L "$HOME/.gradle/$TEMP_CACHE_DIR" ]; then
+              echo "✅ Đã tạo symlink tạm thời. Di chuyển vào vị trí chính thức..."
+              mv -f "$HOME/.gradle/$TEMP_CACHE_DIR" "$HOME/.gradle/caches" || {
+                echo "❌ Không thể di chuyển symlink tạm thời. Dừng khôi phục caches."
+                echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+                exit 0
+              }
+            else
+              echo "❌ Không thể tạo symlink tạm thời. Dừng khôi phục caches."
+              echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+              exit 0
+            fi
+          else
+            # Tạo symlink với tùy chọn -f để ghi đè
+            echo "Tạo symlink từ $PERSISTENT_GRADLE_CACHES/caches đến $HOME/.gradle/caches"
+            ln -sf "$PERSISTENT_GRADLE_CACHES/caches" "$HOME/.gradle/caches"
+          fi
+          
+          # Kiểm tra kết quả
+          if [ -L "$HOME/.gradle/caches" ] && [ -d "$(readlink -f "$HOME/.gradle/caches" 2>/dev/null)" ]; then
+            echo "✅ Đã khôi phục gradle caches bằng symlink thành công"
             ls -la "$HOME/.gradle/caches" | head -n 5
             echo "GRADLE_CACHES_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục gradle caches bằng symlink"
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$PERSISTENT_GRADLE_CACHES"
+            echo "Kiểm tra quyền truy cập thư mục $HOME/.gradle:"
+            ls -la "$HOME/.gradle"
             echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
           fi
           
