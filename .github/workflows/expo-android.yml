@@ -671,6 +671,27 @@ jobs:
             JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
             echo "✅ Java đã được cài đặt: $JAVA_VERSION"
             
+            # Kiểm tra xem có phải Java 17 không
+            JAVA_MAJOR_VERSION=$(echo $JAVA_VERSION | cut -d. -f1)
+            if [ "$JAVA_MAJOR_VERSION" -lt "17" ]; then
+              echo "⚠️ Phiên bản Java hiện tại là $JAVA_VERSION, nhưng Android Gradle Plugin yêu cầu Java 17"
+              echo "Đang cài đặt OpenJDK 17..."
+              
+              # Cài đặt OpenJDK 17
+              sudo apt-get update
+              sudo apt-get install -y openjdk-17-jdk
+              
+              # Thiết lập JAVA_HOME
+              export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+              export PATH="$JAVA_HOME/bin:$PATH"
+              
+              # Kiểm tra lại Java
+              JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+              echo "✅ Đã cài đặt và kích hoạt Java 17: $JAVA_VERSION"
+            else
+              echo "✅ Java $JAVA_VERSION đã đáp ứng yêu cầu"
+            fi
+            
             # Thiết lập JAVA_HOME nếu chưa có
             if [ -z "$JAVA_HOME" ]; then
               echo "⚠️ JAVA_HOME chưa được thiết lập, đang tìm kiếm..."
@@ -704,14 +725,14 @@ jobs:
               echo "Tìm thấy thư mục JVM, đang kiểm tra các phiên bản Java..."
               ls -la /usr/lib/jvm
               
-              # Tìm kiếm thư mục java phổ biến
-              JAVA_DIRS=$(find /usr/lib/jvm -maxdepth 1 -name "*java*" -type d 2>/dev/null)
-              if [ ! -z "$JAVA_DIRS" ]; then
-                echo "Tìm thấy các thư mục Java:"
-                echo "$JAVA_DIRS"
+              # Ưu tiên tìm Java 17 trước
+              JAVA_17_DIRS=$(find /usr/lib/jvm -maxdepth 1 -name "*java-17*" -type d 2>/dev/null)
+              if [ ! -z "$JAVA_17_DIRS" ]; then
+                echo "Tìm thấy Java 17:"
+                echo "$JAVA_17_DIRS"
                 
-                # Thiết lập JAVA_HOME cho bản Java đầu tiên tìm được
-                JAVA_HOME=$(echo "$JAVA_DIRS" | head -n 1)
+                # Thiết lập JAVA_HOME cho Java 17
+                JAVA_HOME=$(echo "$JAVA_17_DIRS" | head -n 1)
                 echo "Đang thiết lập JAVA_HOME=$JAVA_HOME"
                 export JAVA_HOME="$JAVA_HOME"
                 export PATH="$JAVA_HOME/bin:$PATH"
@@ -719,7 +740,45 @@ jobs:
                 # Kiểm tra lại Java
                 if command -v java &> /dev/null; then
                   JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-                  echo "✅ Đã kích hoạt Java: $JAVA_VERSION"
+                  echo "✅ Đã kích hoạt Java 17: $JAVA_VERSION"
+                fi
+              else
+                # Tìm kiếm thư mục java phổ biến
+                JAVA_DIRS=$(find /usr/lib/jvm -maxdepth 1 -name "*java*" -type d 2>/dev/null)
+                if [ ! -z "$JAVA_DIRS" ]; then
+                  echo "Tìm thấy các thư mục Java khác:"
+                  echo "$JAVA_DIRS"
+                  
+                  # Thiết lập JAVA_HOME cho bản Java đầu tiên tìm được
+                  JAVA_HOME=$(echo "$JAVA_DIRS" | head -n 1)
+                  echo "Đang thiết lập JAVA_HOME=$JAVA_HOME"
+                  export JAVA_HOME="$JAVA_HOME"
+                  export PATH="$JAVA_HOME/bin:$PATH"
+                  
+                  # Kiểm tra lại Java
+                  if command -v java &> /dev/null; then
+                    JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+                    echo "✅ Đã kích hoạt Java: $JAVA_VERSION"
+                    
+                    # Kiểm tra xem có phải Java 17 không
+                    JAVA_MAJOR_VERSION=$(echo $JAVA_VERSION | cut -d. -f1)
+                    if [ "$JAVA_MAJOR_VERSION" -lt "17" ]; then
+                      echo "⚠️ Phiên bản Java hiện tại là $JAVA_VERSION, nhưng Android Gradle Plugin yêu cầu Java 17"
+                      echo "Đang cài đặt OpenJDK 17..."
+                      
+                      # Cài đặt OpenJDK 17
+                      sudo apt-get update
+                      sudo apt-get install -y openjdk-17-jdk
+                      
+                      # Thiết lập JAVA_HOME
+                      export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
+                      export PATH="$JAVA_HOME/bin:$PATH"
+                      
+                      # Kiểm tra lại Java
+                      JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+                      echo "✅ Đã cài đặt và kích hoạt Java 17: $JAVA_VERSION"
+                    fi
+                  fi
                 fi
               fi
             fi
@@ -727,18 +786,18 @@ jobs:
             # Nếu vẫn không tìm thấy Java, cài đặt mới
             if ! command -v java &> /dev/null; then
               echo "Đang cài đặt JDK..."
-              # Cài đặt OpenJDK 11 (phù hợp cho Android build)
+              # Cài đặt OpenJDK 17 (yêu cầu cho Android Gradle Plugin mới)
               sudo apt-get update
-              sudo apt-get install -y openjdk-11-jdk
+              sudo apt-get install -y openjdk-17-jdk
               
               # Thiết lập JAVA_HOME
-              export JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+              export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
               export PATH="$JAVA_HOME/bin:$PATH"
               
               # Kiểm tra lại Java
               if command -v java &> /dev/null; then
                 JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-                echo "✅ Đã cài đặt và kích hoạt Java: $JAVA_VERSION"
+                echo "✅ Đã cài đặt và kích hoạt Java 17: $JAVA_VERSION"
               else
                 echo "❌ Không thể cài đặt Java, đây là lỗi nghiêm trọng!"
                 exit 1
@@ -792,7 +851,14 @@ jobs:
           
           # Thực hiện build tối ưu
           echo "Starting build process..."
-          GRADLE_OPTS="-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=8 -Dorg.gradle.caching=true" \
+          # Thêm thiết lập JAVA_HOME vào gradle.properties nếu cần
+          if [ -f "android/gradle.properties" ]; then
+            echo "# Thêm đường dẫn JAVA_HOME" >> android/gradle.properties
+            echo "org.gradle.java.home=$JAVA_HOME" >> android/gradle.properties
+            echo "Đã thêm org.gradle.java.home=$JAVA_HOME vào gradle.properties"
+          fi
+          
+          GRADLE_OPTS="-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=8 -Dorg.gradle.caching=true -Dorg.gradle.java.home=$JAVA_HOME" \
           JAVA_HOME="$JAVA_HOME" \
           PATH="$JAVA_HOME/bin:$PATH" \
           eas build --local \
