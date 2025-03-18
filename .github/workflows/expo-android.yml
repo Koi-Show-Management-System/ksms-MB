@@ -12,12 +12,6 @@ permissions:
 on:
   push:
     branches: [main, development]
-    paths: 
-      - 'src/**'
-      - 'App.js'
-      - 'package.json'
-      - 'yarn.lock'
-      - 'eas.json'
 
 jobs:
   setup:
