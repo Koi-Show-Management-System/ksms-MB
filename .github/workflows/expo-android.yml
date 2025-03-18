@@ -1581,7 +1581,9 @@ jobs:
 
       # Trong job build-android, thêm lệnh build APK với EAS
       - name: Build APK với EAS
-        id: build
+        id: build-apk
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           echo "===== BUILD APK VỚI EAS ====="
           npx eas-cli build --platform android --profile preview --non-interactive --local
