@@ -1788,28 +1788,42 @@ jobs:
             API_URL="https://api.github.com/repos/${{ github.repository }}/releases"
             TARGET_COMMITISH="development"
             
-            # Đọc nội dung release notes
+            # Đọc nội dung release notes và escape cho JSON
             RELEASE_NOTES=$(cat release_notes.md)
+            # Escape các ký tự đặc biệt JSON
+            RELEASE_NOTES="${RELEASE_NOTES//\\/\\\\}"  # Escape backslashes
+            RELEASE_NOTES="${RELEASE_NOTES//\"/\\\"}"  # Escape double quotes
+            RELEASE_NOTES="${RELEASE_NOTES//$'\n'/\\n}"  # Escape newlines
+            RELEASE_NOTES="${RELEASE_NOTES//$'\r'/}"  # Remove carriage returns
+            RELEASE_NOTES="${RELEASE_NOTES//$'\t'/\\t}"  # Escape tabs
             
-            # Tạo JSON data
-            DATA=$(cat <<EOF
-            {
-              "tag_name": "latest",
-              "target_commitish": "${TARGET_COMMITISH}",
-              "name": "Latest Build (${BUILD_NUMBER})",
-              "body": ${RELEASE_NOTES@Q},
-              "draft": false,
-              "prerelease": false
-            }
-            EOF
-            )
+            # Tạo JSON data với cú pháp đơn giản hơn
+            JSON_DATA='{'
+            JSON_DATA+='"tag_name":"latest",'
+            JSON_DATA+='"target_commitish":"'"${TARGET_COMMITISH}"'",'
+            JSON_DATA+='"name":"Latest Build ('"${BUILD_NUMBER}"')",'
+            JSON_DATA+='"body":"'"${RELEASE_NOTES}"'",'
+            JSON_DATA+='"draft":false,'
+            JSON_DATA+='"prerelease":false'
+            JSON_DATA+='}'
             
-            # Gửi request để tạo release
-            curl -X POST \
+            echo "Gửi request tạo release đến GitHub API..."
+            HTTP_RESPONSE=$(curl -X POST \
               -H "Authorization: token ${GITHUB_TOKEN}" \
               -H "Accept: application/vnd.github.v3+json" \
-              -d "$DATA" \
-              "${API_URL}"
+              -H "Content-Type: application/json" \
+              -d "${JSON_DATA}" \
+              -s -w "%{http_code}" \
+              "${API_URL}")
+            
+            HTTP_STATUS="${HTTP_RESPONSE: -3}"
+            if [[ "$HTTP_STATUS" =~ ^2[0-9][0-9]$ ]]; then
+              echo "✅ Đã tạo release thành công với API."
+            else
+              echo "❌ Lỗi khi tạo release: HTTP status $HTTP_STATUS"
+              echo "Response: ${HTTP_RESPONSE:0:${#HTTP_RESPONSE}-3}"
+              exit 1
+            fi
           else
             echo "❌ Không thể tạo GitHub Release: GitHub CLI không được cài đặt và CURL không được cấu hình."
             exit 1
