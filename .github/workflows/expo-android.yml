@@ -1,4 +1,4 @@
-name: Optimized Local Build and Release (Latest Actions, Input Method)
+name: Optimized Local Build and Release (Latest Actions)
 
 permissions:
   contents: write
@@ -64,6 +64,8 @@ jobs:
           expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
@@ -73,7 +75,8 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradlew', '**/gradle/wrapper/gradle-wrapper.properties', 'build.gradle', '**/build.gradle.kts') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-      - name: Create eas.json
+      - name: Create eas.json (if not exists)
+        if: "!fileExists('eas.json')"
         run: |
           cat > eas.json << EOF
           {
@@ -84,9 +87,18 @@ jobs:
             "build": {
               "production": {
                 "autoIncrement": true,
+                "distribution": "internal",
                 "android": {
                   "buildType": "apk",
                   "gradleCommand": ":app:assembleRelease"
+                }
+              },
+              "development": {
+                "developmentClient": true,
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk",
+                  "gradleCommand": ":app:assembleDebug"
                 }
               }
             }
@@ -123,7 +135,7 @@ jobs:
       - name: Create Tag and Release
         uses: actions/github-script@v7
         env:
-          VERSION: ${{ needs.setup.outputs.version }}  # Make version available as an env var
+          VERSION: ${{ needs.setup.outputs.version }}  # Truyền version qua biến môi trường
         with:
           script: |
             const fs = require('fs');
@@ -132,7 +144,7 @@ jobs:
             try {
               // --- Validation and Setup ---
               const apkPath = path.join('./', 'app-release.apk');
-              const version = process.env.VERSION; // Access via process.env
+              const version = process.env.VERSION; // Lấy version từ biến môi trường
 
               if (!version) {
                 throw new Error('Version input is not defined.');
@@ -150,7 +162,6 @@ jobs:
               };
               const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${version}/ksms-mb-${version}.apk`;
               const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(downloadUrl)}&size=${qrConfig.size}&margin=${qrConfig.margin}&dark=${qrConfig.dark}&light=${qrConfig.light}`;
-
 
               // --- Release Body (Markdown) ---
               const releaseBody = `
@@ -172,7 +183,7 @@ jobs:
                 ### Note
                 - This is a pre-release version
                 - Please report any issues you encounter
-              `.trim(); //CRUCIAL
+              `.trim(); // CRUCIAL: .trim() để loại bỏ khoảng trắng thừa
 
               // --- Create Release ---
               core.info('Creating release...');
@@ -198,7 +209,7 @@ jobs:
                 repo: context.repo.repo,
                 release_id: releaseResponse.data.id,
                 name: `ksms-mb-${version}.apk`,
-                data: apkContent,
+                data: apkContent, // Sửa lỗi: sử dụng 'data: apkContent'
               });
 
               if (!uploadResponse.data.id) {
