@@ -247,7 +247,6 @@ jobs:
                   "cache": {
                     "key": "gradle-${{ github.sha }}"
                   },
-                  "buildConfiguration": "Release",
                   "image": "latest"
                 },
                 "cache": {
