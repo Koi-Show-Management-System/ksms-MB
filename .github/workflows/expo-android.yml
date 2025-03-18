@@ -343,6 +343,15 @@ jobs:
           --output=./app-build/app-release.apk \
           --platform=android \
           --profile=production
+
+          # Kiểm tra file APK đã được tạo chưa
+          if [ -f "app-build/app-release.apk" ]; then
+            echo "✅ Build thành công, file APK đã được tạo"
+            ls -l app-build/app-release.apk
+          else
+            echo "❌ Build thất bại, không tìm thấy file APK"
+            exit 1
+          fi
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
@@ -353,27 +362,40 @@ jobs:
           ANDROID_KEYSTORE: ${{ env.KEYSTORE_PATH }}
       - name: Upload Build Artifact
         id: upload-artifact
-        continue-on-error: true  # Không làm hỏng workflow nếu việc upload thất bại
+        if: success()  # Chỉ upload nếu build thành công
         uses: actions/upload-artifact@v4
         with:
           name: app-build-latest
           path: app-build/app-release.apk
-          retention-days: 1  # Giảm xuống chỉ còn 1 ngày
-          if-no-files-found: warn
-          compression-level: 9  # Nén tối đa
+          retention-days: 1
+          if-no-files-found: error  # Báo lỗi nếu không tìm thấy file
           overwrite: true
           
+      # Thêm bước xác minh artifact
+      - name: Verify Artifact Upload
+        run: |
+          echo "===== THÔNG TIN ARTIFACT ====="
+          echo "Kiểm tra file APK trước khi upload artifact:"
+          if [ -f "app-build/app-release.apk" ]; then
+            echo "✓ File APK tồn tại: app-build/app-release.apk"
+            ls -la app-build/app-release.apk
+            echo "Kích thước: $(du -h app-build/app-release.apk | cut -f1)"
+          else
+            echo "✗ KHÔNG tìm thấy file app-build/app-release.apk"
+            find . -name "*.apk" -type f
+            exit 1
+          fi
+          
       # Luôn lưu APK như một artifact phụ cho trường hợp khẩn cấp
-      - name: Upload Emergency Artifact (without compression)
+      - name: Upload Emergency Artifact
         id: upload-emergency-artifact
-        continue-on-error: true
+        if: success()  # Chỉ upload nếu build thành công
         uses: actions/upload-artifact@v4
         with:
           name: apk-emergency-latest
           path: app-build/app-release.apk
           retention-days: 1
-          if-no-files-found: warn
-          compression-level: 0  # Không nén để dễ download hơn
+          if-no-files-found: error
           overwrite: true
           
       - name: Check Artifact Upload Status
@@ -409,65 +431,57 @@ jobs:
             
             return artifacts.data.artifacts.length > 0;
       
-      - name: Download Emergency Artifact
-        id: download-emergency
-        if: needs.build-android.outputs.direct_upload == 'true'
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: apk-emergency-latest
-          path: ./
-          
-      - name: Download Regular Artifact
-        id: download-regular
-        if: |
-          needs.build-android.outputs.direct_upload == 'true' && 
-          steps.download-emergency.outcome == 'failure'
-        continue-on-error: true
+      - name: Download APK Artifact
+        id: download-artifact
         uses: actions/download-artifact@v4
         with:
           name: app-build-latest
-          path: ./
-          
-      - name: Download Latest Successful Artifact
-        if: |
-          needs.build-android.outputs.direct_upload == 'true' && 
-          steps.download-emergency.outcome == 'failure' && 
-          steps.download-regular.outcome == 'failure'
-        uses: dawidd6/action-download-artifact@v3
-        continue-on-error: true
-        with:
-          name: apk-emergency-latest
-          path: ./
-          workflow: expo-android.yml
-          workflow_conclusion: success
-          check_artifacts: true
-          search_artifacts: true
-          
-      - name: Verify Downloaded Artifact
-        if: needs.build-android.outputs.direct_upload == 'true'
-        run: |
-          echo "Kiểm tra các artifact đã tải xuống:"
-          
-          if [ -f "app-release.apk" ]; then
-            echo "✅ Tìm thấy app-release.apk"
-            ls -l app-release.apk
-          else
-            echo "❌ Không tìm thấy app-release.apk"
-          fi
-          
-          echo "Tìm kiếm các file APK trong thư mục hiện tại:"
-          find . -name "*.apk" -type f
-          
-          if ! find . -name "*.apk" -type f | grep -q .; then
-            echo "::warning::Không tìm thấy file APK nào sau khi tải artifact"
-            echo "::warning::Tạo file APK tạm thời để tiếp tục workflow (CHỈ DÙNG CHO MÔI TRƯỜNG TEST)"
-            echo "This is a placeholder APK" > app-release.apk
-          fi
+          path: ./release-assets/
       
-      - name: Display structure of downloaded files
-        run: ls -R
-        
+      - name: Verify APK Download
+        run: |
+          echo "===== KIỂM TRA FILE APK DOWNLOAD ====="
+          mkdir -p ./release-assets
+          
+          # Tìm kiếm APK trong thư mục release-assets
+          if [ -f "./release-assets/app-release.apk" ]; then
+            echo "✅ Tìm thấy APK tại ./release-assets/app-release.apk"
+            ls -la ./release-assets/app-release.apk
+            # Sao chép file về thư mục gốc để upload
+            cp ./release-assets/app-release.apk ./ksms-mb-latest.apk
+            echo "✅ Đã sao chép sang ./ksms-mb-latest.apk"
+          else
+            echo "❌ Không tìm thấy APK tại ./release-assets/app-release.apk"
+            
+            # Tìm kiếm trực tiếp mọi file APK
+            echo "Tìm kiếm tất cả file APK:"
+            find . -name "*.apk" -type f
+            
+            # Thử tải artifact khẩn cấp
+            echo "Thử tải artifact khẩn cấp..."
+            mkdir -p ./emergency
+            
+            # Sửa lỗi cú pháp - chạy lệnh download trực tiếp
+            echo "Tải artifact khẩn cấp..."
+            
+            # Tải artifact khẩn cấp
+            if ! [ -z "${{ github.run_id }}" ]; then
+              echo "Tải từ run ID hiện tại: ${{ github.run_id }}"
+              curl -L -o emergency-download.zip \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/apk-emergency-latest/zip" || true
+                
+              # Giải nén nếu tải thành công
+              if [ -f emergency-download.zip ]; then
+                unzip -o emergency-download.zip -d ./emergency/ || true
+              fi
+            fi
+          fi
+          
+          # Hiển thị tất cả các file trong thư mục hiện tại
+          echo "===== TẤT CẢ CÁC FILE TRONG THƯ MỤC HIỆN TẠI ====="
+          ls -la ./
+      
       - name: Check for existing release
         id: check_release
         uses: actions/github-script@v7
@@ -531,14 +545,14 @@ jobs:
       
       - name: Check Downloaded APK Exists
         run: |
-          if [ -f "./app-release.apk" ]; then
-            echo "✅ APK file found at ./app-release.apk"
-            ls -la ./app-release.apk
+          if [ -f "./ksms-mb-latest.apk" ]; then
+            echo "✅ APK file found at ./ksms-mb-latest.apk"
+            ls -la ./ksms-mb-latest.apk
           else
-            echo "❌ APK file NOT found at ./app-release.apk"
+            echo "❌ APK file NOT found at ./ksms-mb-latest.apk"
             echo "Trying to find APK in other locations..."
             find . -name "*.apk" -type f
-            echo "::error::APK file không tìm thấy. Kiểm tra lại các bước build và download"
+            echo "::error::Không tìm thấy APK để upload. Vui lòng kiểm tra lại quy trình download artifact."
             exit 1
           fi
       
@@ -548,7 +562,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} 
-          asset_path: ./app-release.apk
+          asset_path: ./ksms-mb-latest.apk
           asset_name: ksms-mb-latest.apk
           asset_content_type: application/octet-stream
           
