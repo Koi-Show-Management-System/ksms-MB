@@ -1850,27 +1850,41 @@ jobs:
           if [ -z "$APK_PATH" ]; then
             echo "⚠️ APK_PATH trống, đang tìm kiếm file APK trong các thư mục mặc định..."
             
-            # Các thư mục cần tìm kiếm
+            # Các thư mục cần tìm kiếm (thêm các thư mục đặc biệt cho Expo)
             SEARCH_DIRS=(
               "app/build/outputs/apk"
               "android/app/build/outputs/apk"
               "android/app/build/outputs/bundle"
               "$HOME/expo-project/android/app/build/outputs/apk"
               "$GITHUB_WORKSPACE/android/app/build/outputs/apk"
+              "$GITHUB_WORKSPACE/dist"
+              "$GITHUB_WORKSPACE/.expo-binary/android"
+              "$GITHUB_WORKSPACE/build"
+              "$GITHUB_WORKSPACE/output"
+              "$(pwd)"
             )
             
-            for DIR in "${SEARCH_DIRS[@]}"; do
-              echo "🔍 Tìm kiếm trong $DIR..."
-              if [ -d "$DIR" ]; then
-                # Tìm file APK gần đây nhất
-                FOUND_APK=$(find "$DIR" -name "*.apk" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
-                if [ -n "$FOUND_APK" ]; then
-                  echo "✅ Tìm thấy APK: $FOUND_APK"
-                  APK_PATH="$FOUND_APK"
-                  break
+            # Tìm kiếm sâu hơn
+            echo "🔍 Tìm kiếm toàn bộ workspace cho file APK..."
+            FOUND_APK=$(find "$GITHUB_WORKSPACE" -name "*.apk" -type f -print -quit 2>/dev/null)
+            if [ -n "$FOUND_APK" ]; then
+              echo "✅ Tìm thấy APK: $FOUND_APK"
+              APK_PATH="$FOUND_APK"
+            else
+              # Tìm kiếm trong các thư mục cụ thể
+              for DIR in "${SEARCH_DIRS[@]}"; do
+                echo "🔍 Tìm kiếm trong $DIR..."
+                if [ -d "$DIR" ]; then
+                  # Tìm file APK gần đây nhất
+                  FOUND_APK=$(find "$DIR" -name "*.apk" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
+                  if [ -n "$FOUND_APK" ]; then
+                    echo "✅ Tìm thấy APK: $FOUND_APK"
+                    APK_PATH="$FOUND_APK"
+                    break
+                  fi
                 fi
-              fi
-            done
+              done
+            fi
             
             if [ -z "$APK_PATH" ]; then
               echo "❌ Không tìm thấy file APK trong các thư mục mặc định"
