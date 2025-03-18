@@ -1846,40 +1846,111 @@ jobs:
             exit 0
           fi
           
+          # Kiểm tra APK_PATH có giá trị không
+          if [ -z "$APK_PATH" ]; then
+            echo "⚠️ APK_PATH trống, đang tìm kiếm file APK trong các thư mục mặc định..."
+            
+            # Các thư mục cần tìm kiếm
+            SEARCH_DIRS=(
+              "app/build/outputs/apk"
+              "android/app/build/outputs/apk"
+              "android/app/build/outputs/bundle"
+              "$HOME/expo-project/android/app/build/outputs/apk"
+              "$GITHUB_WORKSPACE/android/app/build/outputs/apk"
+            )
+            
+            for DIR in "${SEARCH_DIRS[@]}"; do
+              echo "🔍 Tìm kiếm trong $DIR..."
+              if [ -d "$DIR" ]; then
+                # Tìm file APK gần đây nhất
+                FOUND_APK=$(find "$DIR" -name "*.apk" -type f -printf "%T@ %p\n" 2>/dev/null | sort -nr | head -n1 | cut -d' ' -f2-)
+                if [ -n "$FOUND_APK" ]; then
+                  echo "✅ Tìm thấy APK: $FOUND_APK"
+                  APK_PATH="$FOUND_APK"
+                  break
+                fi
+              fi
+            done
+            
+            if [ -z "$APK_PATH" ]; then
+              echo "❌ Không tìm thấy file APK trong các thư mục mặc định"
+              echo "Vui lòng kiểm tra lại quy trình build"
+              echo "Danh sách các thư mục đã tìm kiếm:"
+              for DIR in "${SEARCH_DIRS[@]}"; do
+                echo "- $DIR"
+              done
+              exit 1
+            fi
+          fi
+          
           # Kiểm tra file APK có tồn tại
-          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
-            echo "❌ Không tìm thấy file APK: $APK_PATH"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "❌ Không tìm thấy file APK tại đường dẫn: $APK_PATH"
+            echo "Vui lòng kiểm tra lại đường dẫn file APK"
             exit 1
           fi
           
+          # Hiển thị thông tin file APK
+          echo "ℹ️ Thông tin file APK:"
+          echo "- Đường dẫn: $APK_PATH"
+          echo "- Kích thước: $(du -h "$APK_PATH" | cut -f1)"
+          echo "- Thời gian sửa đổi: $(stat -c '%y' "$APK_PATH")"
+          
           # Lấy tên file APK từ đường dẫn
           APK_FILENAME=$(basename "$APK_PATH")
+          echo "- Tên file: $APK_FILENAME"
           
           # Đặt thư mục đích trên VPS
           VPS_ARCHIVES_DIR="${{ secrets.VPS_STORAGE_PATH }}/archives"
           VPS_PUBLIC_DIR="${{ secrets.VPS_STORAGE_PATH }}"
           
+          echo "ℹ️ Thông tin VPS:"
+          echo "- Host: ${{ secrets.VPS_HOST }}"
+          echo "- User: ${{ secrets.VPS_USER }}"
+          echo "- Thư mục lưu trữ: $VPS_ARCHIVES_DIR"
+          echo "- Thư mục công khai: $VPS_PUBLIC_DIR"
+          
+          # Kiểm tra sshpass đã được cài đặt chưa
+          if ! command -v sshpass &> /dev/null; then
+            echo "⚠️ sshpass chưa được cài đặt, đang cài đặt..."
+            sudo apt-get update && sudo apt-get install -y sshpass
+          fi
+          
           # Tạo thư mục lưu trữ nếu chưa có
+          echo "📁 Tạo thư mục lưu trữ trên VPS..."
           sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p $VPS_ARCHIVES_DIR"
           
           # Chuyển file APK sang thư mục archives trên VPS
-          echo "Đang chuyển $APK_PATH sang $VPS_ARCHIVES_DIR/$APK_FILENAME..."
+          echo "📤 Đang chuyển $APK_PATH sang $VPS_ARCHIVES_DIR/$APK_FILENAME..."
           sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no "$APK_PATH" ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:"$VPS_ARCHIVES_DIR/$APK_FILENAME"
           
+          # Kiểm tra kết quả chuyển file
+          if [ $? -eq 0 ]; then
+            echo "✅ Đã chuyển file APK thành công"
+          else
+            echo "❌ Lỗi khi chuyển file APK"
+            exit 1
+          fi
+          
           # Tạo link latest.apk
-          echo "Tạo link latest.apk trỏ đến $APK_FILENAME..."
+          echo "🔗 Tạo link latest.apk trỏ đến $APK_FILENAME..."
           sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd $VPS_PUBLIC_DIR && rm -f latest.apk && ln -sf archives/$APK_FILENAME latest.apk"
           
           # Kiểm tra lịch sử file
-          echo "Danh sách các phiên bản APK hiện có:"
+          echo "📋 Danh sách các phiên bản APK hiện có:"
           sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "ls -lt $VPS_ARCHIVES_DIR | head -n 10"
           
           # Giữ lại 2 phiên bản gần nhất
-          echo "Dọn dẹp các phiên bản cũ, giữ lại 2 phiên bản gần nhất..."
+          echo "🧹 Dọn dẹp các phiên bản cũ, giữ lại 2 phiên bản gần nhất..."
           sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd $VPS_ARCHIVES_DIR && ls -t | tail -n +3 | xargs -r rm -f"
           
-          echo "===== HOÀN THÀNH CHUYỂN TỆP APK ====="
+          # Xác nhận thành công và hiển thị URL
+          echo "✅ APK đã được upload thành công và có thể truy cập tại:"
+          echo "- URL phiên bản này: http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/archives/$APK_FILENAME"
+          echo "- URL phiên bản mới nhất: http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/latest.apk"
           
+          echo "===== HOÀN THÀNH CHUYỂN TỆP APK ====="
+      
       # Cài đặt GitHub CLI
       - name: Install GitHub CLI
         run: |
