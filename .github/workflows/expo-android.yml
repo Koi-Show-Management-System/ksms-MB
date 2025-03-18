@@ -90,7 +90,9 @@ jobs:
             exit 1
           fi
           
-          echo "KEYSTORE_PATH=$(pwd)/keystore.jks" >> $GITHUB_ENV
+          # Đường dẫn tuyệt đối đến keystore
+          ABSOLUTE_KEYSTORE_PATH=$(realpath keystore.jks)
+          echo "KEYSTORE_PATH=$ABSOLUTE_KEYSTORE_PATH" >> $GITHUB_ENV
       - name: Verify Keystore
         run: |
           # Kiểm tra keystore tồn tại và có kích thước hợp lệ
@@ -122,34 +124,80 @@ jobs:
                 "android": {
                   "buildType": "apk",
                   "gradleCommand": ":app:assembleRelease",
-                  "credentialsSource": "local",
-                  "withoutCredentials": false
-                },
-                "env": {
-                  "ANDROID_KEYSTORE_PATH": "$(pwd)/keystore.jks",
-                  "ANDROID_KEYSTORE_ALIAS": "${{ secrets.ANDROID_KEYSTORE_ALIAS }}",
-                  "ANDROID_KEYSTORE_PASSWORD": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
-                  "ANDROID_KEY_PASSWORD": "${{ secrets.ANDROID_KEY_PASSWORD }}"
+                  "credentialsSource": "local"
                 }
               }
             }
           }
           EOF
+      - name: Create credentials.json
+        run: |
+          # Tạo thư mục .expo và lưu credentials
+          mkdir -p .expo
+          
+          # Format đúng cho credentials.json theo EAS build
+          cat > .expo/credentials.json << EOF
+          {
+            "android": {
+              "keystorePath": "${{ env.KEYSTORE_PATH }}",
+              "keystorePassword": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
+              "keyAlias": "${{ secrets.ANDROID_KEYSTORE_ALIAS }}",
+              "keyPassword": "${{ secrets.ANDROID_KEY_PASSWORD }}"
+            }
+          }
+          EOF
+          
+          # Tạo phiên bản credentials.json trong thư mục gốc (để đảm bảo)
+          cp .expo/credentials.json ./credentials.json
+          
+          # Kiểm tra file đã được tạo
+          ls -la .expo/credentials.json
+          ls -la credentials.json
+      - name: Debug environment
+        run: |
+          echo "==== Environment Variables ===="
+          echo "KEYSTORE_PATH: $KEYSTORE_PATH"
+          echo "ANDROID_KEYSTORE_PATH: $ANDROID_KEYSTORE_PATH"
+          echo "ANDROID_KEYSTORE_ALIAS is set: ${{ secrets.ANDROID_KEYSTORE_ALIAS != '' }}"
+          echo "ANDROID_KEYSTORE_PASSWORD is set: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}"
+          echo "ANDROID_KEY_PASSWORD is set: ${{ secrets.ANDROID_KEY_PASSWORD != '' }}"
+          
+          echo "==== File System ===="
+          echo "Current directory: $(pwd)"
+          ls -la
+          echo "Keystore:"
+          ls -la keystore.jks || echo "Keystore not found!"
+          echo "credentials.json:"
+          ls -la credentials.json || echo "credentials.json not found!"
+          
+          echo "==== credentials.json content (masked) ===="
+          if [ -f credentials.json ]; then
+            cat credentials.json | sed 's/"keyPassword": "[^"]*"/"keyPassword": "***"/g' | sed 's/"keystorePassword": "[^"]*"/"keystorePassword": "***"/g'
+          fi
       - name: Build Android app (Local Build)
         run: |
           rm -rf app-build
           mkdir -p app-build
+          
+          # Xem các biến môi trường EAS
+          echo "Checking EAS environment..."
+          eas diagnostics
+          
+          # Thực hiện build với verbose mode
           eas build --local \
           --non-interactive \
           --output=./app-build/app-release.apk \
           --platform=android \
-          --profile=production
+          --profile=production \
+          --verbose
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
           ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE: ${{ env.KEYSTORE_PATH }}
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
