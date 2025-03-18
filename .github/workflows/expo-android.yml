@@ -45,17 +45,39 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'yarn'
+          
+      # Kiểm tra và cài đặt Yarn nếu chưa có
+      - name: Setup Yarn
+        run: |
+          if ! command -v yarn &> /dev/null; then
+            echo "Yarn chưa được cài đặt, đang cài đặt..."
+            npm install -g yarn
+            # Xác minh cài đặt
+            yarn --version || {
+              echo "Không thể cài đặt yarn. Sử dụng npm thay thế."
+              echo "USE_NPM=true" >> $GITHUB_ENV
+            }
+          else
+            echo "Yarn đã được cài đặt: $(yarn --version)"
+          fi
           
       # Cài đặt trước các dependencies để tăng tốc
       - name: Fast Install
         run: |
-          # Đặt Yarn discard hoặc tăng tốc độ
-          yarn config set network-timeout 300000
-          yarn config set --home enableTelemetry 0
+          if [ "${USE_NPM:-false}" == "true" ]; then
+            # Sử dụng npm thay thế
+            npm config set fetch-timeout 300000
+            npm config set fund false
+            echo "Sử dụng npm thay thế yarn"
+          else
+            # Đặt Yarn discard hoặc tăng tốc độ
+            yarn config set network-timeout 300000
+            yarn config set --home enableTelemetry 0
+          fi
           
           # Thêm bộ đệm mạng
           echo "Cache network calls"
+          
       - name: Cache Node Modules
         uses: actions/cache@v4
         with:
@@ -64,11 +86,20 @@ jobs:
             ~/.npm
             ~/.yarn/cache
             .expo
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock', 'package.json') }}
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock', '**/package-lock.json', 'package.json') }}
           restore-keys: |
             ${{ runner.os }}-modules-
+            
       - name: Install dependencies
-        run: yarn install --frozen-lockfile --prefer-offline
+        run: |
+          if [ "${USE_NPM:-false}" == "true" ]; then
+            echo "Sử dụng npm để cài đặt dependencies..."
+            npm ci || npm install
+          else
+            echo "Sử dụng yarn để cài đặt dependencies..."
+            yarn install --frozen-lockfile --prefer-offline
+          fi
+          
       - name: Set Version
         id: set-version
         run: echo "version=latest" >> $GITHUB_OUTPUT
@@ -87,10 +118,73 @@ jobs:
         with:
           node-version: 18
           cache: 'yarn'
+          
+      # Kiểm tra và cài đặt Yarn nếu chưa có
+      - name: Setup Yarn
+        run: |
+          if ! command -v yarn &> /dev/null; then
+            echo "Yarn chưa được cài đặt, đang cài đặt..."
+            npm install -g yarn
+            # Xác minh cài đặt
+            yarn --version || {
+              echo "Không thể cài đặt yarn. Sử dụng npm thay thế."
+              echo "USE_NPM=true" >> $GITHUB_ENV
+            }
+          else
+            echo "Yarn đã được cài đặt: $(yarn --version)"
+          fi
+          
+      # Cài đặt trước các dependencies để tăng tốc
+      - name: Fast Install
+        run: |
+          if [ "${USE_NPM:-false}" == "true" ]; then
+            # Sử dụng npm thay thế
+            npm config set fetch-timeout 300000
+            npm config set fund false
+            echo "Sử dụng npm thay thế yarn"
+          else
+            # Đặt Yarn discard hoặc tăng tốc độ
+            yarn config set network-timeout 300000
+            yarn config set --home enableTelemetry 0
+          fi
+          
+          # Thêm bộ đệm mạng
+          echo "Cache network calls"
+      - name: Cache Node Modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            ~/.npm
+            ~/.yarn/cache
+            .expo
+          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock', '**/package-lock.json', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-modules-
       - name: Install dependencies
-        run: yarn install
+        run: |
+          if [ "${USE_NPM:-false}" == "true" ]; then
+            echo "Sử dụng npm để cài đặt dependencies..."
+            npm ci || npm install
+          else
+            echo "Sử dụng yarn để cài đặt dependencies..."
+            yarn install --frozen-lockfile --prefer-offline
+          fi
       - name: Install EAS CLI
-        run: yarn global add eas-cli
+        run: |
+          if [ "${USE_NPM:-false}" == "true" ]; then
+            echo "Sử dụng npm để cài đặt EAS CLI..."
+            npm install -g eas-cli
+          else
+            echo "Sử dụng yarn để cài đặt EAS CLI..."
+            yarn global add eas-cli
+          fi
+          
+          # Kiểm tra EAS CLI đã được cài đặt
+          eas --version || {
+            echo "::error::Không thể cài đặt eas-cli. Thử phương pháp khác..."
+            npm install -g eas-cli
+          }
       - name: Setup Expo
         uses: expo/expo-github-action@v8
         with:
