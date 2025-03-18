@@ -69,8 +69,45 @@ jobs:
             ${{ runner.os }}-gradle-
       - name: Setup Keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > keystore.jks
+          # Lưu base64 vào tệp trước khi giải mã
+          echo '${{ secrets.ANDROID_KEYSTORE_BASE64 }}' > keystore-base64.txt
+          
+          # Làm sạch tệp base64 (xóa khoảng trắng, xuống dòng không mong muốn)
+          tr -d '\n\r\t ' < keystore-base64.txt > keystore-base64-clean.txt
+          
+          # Giải mã base64 thành binary
+          base64 --decode keystore-base64-clean.txt > keystore.jks || {
+            echo "Failed to decode base64 keystore"
+            exit 1
+          }
+          
+          # Kiểm tra kích thước file keystore để xác nhận thành công
+          FILESIZE=$(stat -c%s "keystore.jks")
+          echo "Keystore size: $FILESIZE bytes"
+          
+          if [ "$FILESIZE" -eq 0 ]; then
+            echo "Error: Generated keystore is empty!"
+            exit 1
+          fi
+          
           echo "KEYSTORE_PATH=$(pwd)/keystore.jks" >> $GITHUB_ENV
+      - name: Verify Keystore
+        run: |
+          # Kiểm tra keystore tồn tại và có kích thước hợp lệ
+          if [ ! -f "keystore.jks" ]; then
+            echo "Error: Keystore file not found!"
+            exit 1
+          fi
+          
+          # Kiểm tra kích thước của keystore (phải > 0 bytes)
+          FILESIZE=$(stat -c%s "keystore.jks")
+          if [ "$FILESIZE" -eq 0 ]; then
+            echo "Error: Keystore file is empty!"
+            exit 1
+          fi
+          
+          echo "Keystore verification successful!"
+          echo "Keystore size: $FILESIZE bytes"
       - name: Create eas.json
         run: |
           cat > eas.json << EOF
