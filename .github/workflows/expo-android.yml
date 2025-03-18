@@ -378,6 +378,55 @@ jobs:
         run: |
           echo "===== LƯU CACHE SAU KHI BUILD ====="
           
+          # Kiểm tra và thiết lập GRADLE_HASH_DIR nếu chưa tồn tại
+          if [ -z "${GRADLE_HASH_DIR}" ]; then
+            echo "⚠️ GRADLE_HASH_DIR chưa được thiết lập, đang thiết lập..."
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_GRADLE="$PERSISTENT_CACHE/gradle"
+            
+            # Tạo thư mục persistent nếu chưa tồn tại
+            mkdir -p "$PERSISTENT_GRADLE"
+            
+            # Nếu chưa có GRADLE_HASH, tạo một hash mới dựa trên timestamp
+            if [ -z "${GRADLE_HASH}" ]; then
+              GRADLE_HASH=$(date +"%Y%m%d%H%M%S")
+              echo "Tạo GRADLE_HASH mới từ timestamp: $GRADLE_HASH"
+            fi
+            
+            # Thiết lập GRADLE_HASH_DIR
+            GRADLE_HASH_DIR="$PERSISTENT_GRADLE/$GRADLE_HASH"
+            echo "Đã thiết lập GRADLE_HASH_DIR=$GRADLE_HASH_DIR"
+          fi
+          
+          # Kiểm tra và thiết lập các biến thư mục persistent khác nếu cần
+          if [ -z "${PERSISTENT_GRADLE_WRAPPER}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_GRADLE_WRAPPER="$PERSISTENT_CACHE/gradle-wrapper"
+            mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
+            echo "Đã thiết lập PERSISTENT_GRADLE_WRAPPER=$PERSISTENT_GRADLE_WRAPPER"
+          fi
+          
+          if [ -z "${PERSISTENT_GRADLE_CACHES}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_GRADLE_CACHES="$PERSISTENT_CACHE/gradle-caches"
+            mkdir -p "$PERSISTENT_GRADLE_CACHES"
+            echo "Đã thiết lập PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES"
+          fi
+          
+          if [ -z "${PERSISTENT_M2}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_M2="$PERSISTENT_CACHE/m2"
+            mkdir -p "$PERSISTENT_M2"
+            echo "Đã thiết lập PERSISTENT_M2=$PERSISTENT_M2"
+          fi
+          
+          if [ -z "${PERSISTENT_NODE_MODULES}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_NODE_MODULES="$PERSISTENT_CACHE/node_modules"
+            mkdir -p "$PERSISTENT_NODE_MODULES"
+            echo "Đã thiết lập PERSISTENT_NODE_MODULES=$PERSISTENT_NODE_MODULES"
+          fi
+          
           # Lưu cache gradle nếu có thay đổi
           if [ -d "$HOME/.gradle" ] && [ ! -L "$HOME/.gradle" ]; then
             echo "Lưu cache Gradle..."
@@ -426,12 +475,20 @@ jobs:
           echo "Dọn dẹp các bản sao lưu..."
           rm -rf "$HOME/.gradle.bak" "$HOME/.gradle/wrapper.bak" "$HOME/.gradle/caches.bak" "$HOME/.m2/repository.bak"
           
-          # Dọn dẹp các cache cũ
-          echo "Dọn dẹp các cache cũ (giữ 5 cache mới nhất)..."
-          # Dọn node_modules cũ
-          find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
-          # Dọn gradle cũ
-          find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+          # Kiểm tra trước khi dọn dẹp cache cũ
+          if [ -d "$PERSISTENT_NODE_MODULES" ]; then
+            echo "Dọn dẹp các cache node_modules cũ (giữ 5 cache mới nhất)..."
+            find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+          else
+            echo "⚠️ Thư mục PERSISTENT_NODE_MODULES không tồn tại, bỏ qua bước dọn dẹp"
+          fi
+          
+          if [ -d "$PERSISTENT_GRADLE" ]; then
+            echo "Dọn dẹp các cache gradle cũ (giữ 5 cache mới nhất)..."
+            find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+          else
+            echo "⚠️ Thư mục PERSISTENT_GRADLE không tồn tại, bỏ qua bước dọn dẹp"
+          fi
           
           echo "===== KẾT THÚC LƯU CACHE ====="
       
@@ -785,6 +842,55 @@ jobs:
         run: |
           echo "===== LƯU CACHE SAU KHI BUILD ====="
           
+          # Kiểm tra và thiết lập GRADLE_HASH_DIR nếu chưa tồn tại
+          if [ -z "${GRADLE_HASH_DIR}" ]; then
+            echo "⚠️ GRADLE_HASH_DIR chưa được thiết lập, đang thiết lập..."
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_GRADLE="$PERSISTENT_CACHE/gradle"
+            
+            # Tạo thư mục persistent nếu chưa tồn tại
+            mkdir -p "$PERSISTENT_GRADLE"
+            
+            # Nếu chưa có GRADLE_HASH, tạo một hash mới dựa trên timestamp
+            if [ -z "${GRADLE_HASH}" ]; then
+              GRADLE_HASH=$(date +"%Y%m%d%H%M%S")
+              echo "Tạo GRADLE_HASH mới từ timestamp: $GRADLE_HASH"
+            fi
+            
+            # Thiết lập GRADLE_HASH_DIR
+            GRADLE_HASH_DIR="$PERSISTENT_GRADLE/$GRADLE_HASH"
+            echo "Đã thiết lập GRADLE_HASH_DIR=$GRADLE_HASH_DIR"
+          fi
+          
+          # Kiểm tra và thiết lập các biến thư mục persistent khác nếu cần
+          if [ -z "${PERSISTENT_GRADLE_WRAPPER}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_GRADLE_WRAPPER="$PERSISTENT_CACHE/gradle-wrapper"
+            mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
+            echo "Đã thiết lập PERSISTENT_GRADLE_WRAPPER=$PERSISTENT_GRADLE_WRAPPER"
+          fi
+          
+          if [ -z "${PERSISTENT_GRADLE_CACHES}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_GRADLE_CACHES="$PERSISTENT_CACHE/gradle-caches"
+            mkdir -p "$PERSISTENT_GRADLE_CACHES"
+            echo "Đã thiết lập PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES"
+          fi
+          
+          if [ -z "${PERSISTENT_M2}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_M2="$PERSISTENT_CACHE/m2"
+            mkdir -p "$PERSISTENT_M2"
+            echo "Đã thiết lập PERSISTENT_M2=$PERSISTENT_M2"
+          fi
+          
+          if [ -z "${PERSISTENT_NODE_MODULES}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_NODE_MODULES="$PERSISTENT_CACHE/node_modules"
+            mkdir -p "$PERSISTENT_NODE_MODULES"
+            echo "Đã thiết lập PERSISTENT_NODE_MODULES=$PERSISTENT_NODE_MODULES"
+          fi
+          
           # Lưu cache gradle nếu có thay đổi
           if [ -d "$HOME/.gradle" ] && [ ! -L "$HOME/.gradle" ]; then
             echo "Lưu cache Gradle..."
@@ -833,540 +939,26 @@ jobs:
           echo "Dọn dẹp các bản sao lưu..."
           rm -rf "$HOME/.gradle.bak" "$HOME/.gradle/wrapper.bak" "$HOME/.gradle/caches.bak" "$HOME/.m2/repository.bak"
           
-          # Dọn dẹp các cache cũ
-          echo "Dọn dẹp các cache cũ (giữ 5 cache mới nhất)..."
-          # Dọn node_modules cũ
-          find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
-          # Dọn gradle cũ
-          find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+          # Kiểm tra trước khi dọn dẹp cache cũ
+          if [ -d "$PERSISTENT_NODE_MODULES" ]; then
+            echo "Dọn dẹp các cache node_modules cũ (giữ 5 cache mới nhất)..."
+            find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+          else
+            echo "⚠️ Thư mục PERSISTENT_NODE_MODULES không tồn tại, bỏ qua bước dọn dẹp"
+          fi
+          
+          if [ -d "$PERSISTENT_GRADLE" ]; then
+            echo "Dọn dẹp các cache gradle cũ (giữ 5 cache mới nhất)..."
+            find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+          else
+            echo "⚠️ Thư mục PERSISTENT_GRADLE không tồn tại, bỏ qua bước dọn dẹp"
+          fi
           
           echo "===== KẾT THÚC LƯU CACHE ====="
       
-      - name: Install EAS CLI
-        run: |
-          echo "===== KIỂM TRA EAS CLI ====="
-          if command -v eas &> /dev/null; then
-            EAS_VERSION=$(eas --version)
-            echo "✅ EAS CLI đã được cài đặt: $EAS_VERSION"
-          else
-            echo "⚠️ EAS CLI chưa được cài đặt, đang cài đặt..."
-            
-            # Cài đặt EAS CLI theo hướng dẫn Expo (ưu tiên npm)
-            npm install -g eas-cli
-            
-            # Xác minh cài đặt
-            if command -v eas &> /dev/null; then
-              EAS_VERSION=$(eas --version)
-              echo "✅ Đã cài đặt EAS CLI thành công: $EAS_VERSION"
-            else
-              echo "❌ Không thể cài đặt EAS CLI. Kiểm tra lỗi npm."
-              exit 1
-            fi
-          fi
-          echo "===== KẾT THÚC KIỂM TRA EAS CLI ====="
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
-        with:
-          expo-version: latest
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-            .android/cache
-            ~/.m2/repository
-            android/app/build
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradlew', '**/gradle/wrapper/gradle-wrapper.properties', '**/build.gradle', '**/settings.gradle') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      - name: Setup Android Environment
-        run: |
-          echo "===== THIẾT LẬP MÔI TRƯỜNG ANDROID ====="
-          
-          # Kiểm tra xem thư mục android đã tồn tại chưa
-          if [ -d "android" ] && [ -f "android/gradle.properties" ]; then
-            echo "✅ Thư mục Android đã tồn tại và đã có cấu hình"
-          else
-            echo "⚠️ Cần tạo hoặc cập nhật thư mục Android..."
-            # Tạo thư mục android nếu chưa tồn tại
-            mkdir -p android
-          
-            # Tạo file gradle.properties với các cấu hình cần thiết
-            cat > android/gradle.properties << EOF
-            # Project-wide Gradle settings.
-            
-            # Android SDK
-            android.useAndroidX=true
-            android.enableJetifier=true
-            
-            # Version of flipper SDK to use with React Native
-            FLIPPER_VERSION=0.182.0
-            
-            # Use this property to specify which architecture you want to build.
-            # You can also override it from the CLI using
-            # ./gradlew <task> -PreactNativeArchitectures=x86_64
-            reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
-            
-            # Use this property to enable support to the new architecture.
-            # This will allow you to use TurboModules and the Fabric render in
-            # your application. You should enable this flag either if you want
-            # to write custom TurboModules/Fabric components OR use libraries that
-            # are providing them.
-            newArchEnabled=false
-            
-            # Use this property to enable or disable the Hermes JS engine.
-            # If set to false, you will be using JSC instead.
-            hermesEnabled=true
-            
-            # Keystore settings
-            MYAPP_UPLOAD_STORE_FILE=release.keystore
-            MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEYSTORE_ALIAS }}
-            MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-            MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
-            
-            # Tối ưu hóa build performance
-            org.gradle.daemon=true
-            org.gradle.configureondemand=true
-            org.gradle.parallel=true
-            org.gradle.caching=true
-            org.gradle.jvmargs=-Xmx4g -XX:MaxPermSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseParallelGC
-            
-            # Tối ưu Android build
-            android.enableR8.fullMode=true
-            android.enableDexingArtifactTransform.desugaring=false
-            android.useAndroidX=true
-            android.nonTransitiveRClass=true
-            EOF
-            
-            echo "Created gradle.properties"
-            ls -la android/gradle.properties
-          fi
-      - name: Setup Keystore
-        run: |
-          # Tạo thư mục android/app nếu chưa tồn tại
-          mkdir -p android/app
-          
-          # Lưu base64 vào tệp trước khi giải mã
-          echo '${{ secrets.ANDROID_KEYSTORE_BASE64 }}' > keystore-base64.txt
-          
-          # Làm sạch tệp base64 (xóa khoảng trắng, xuống dòng không mong muốn)
-          tr -d '\n\r\t ' < keystore-base64.txt > keystore-base64-clean.txt
-          
-          # Giải mã base64 thành binary
-          base64 --decode keystore-base64-clean.txt > android/app/release.keystore || {
-            echo "Failed to decode base64 keystore"
-            exit 1
-          }
-          
-          # Kiểm tra kích thước file keystore để xác nhận thành công
-          FILESIZE=$(stat -c%s "android/app/release.keystore")
-          echo "Keystore size: $FILESIZE bytes"
-          
-          if [ "$FILESIZE" -eq 0 ]; then
-            echo "Error: Generated keystore is empty!"
-            exit 1
-          fi
-          
-          # Đường dẫn tuyệt đối đến keystore
-          ABSOLUTE_KEYSTORE_PATH=$(realpath android/app/release.keystore)
-          echo "KEYSTORE_PATH=$ABSOLUTE_KEYSTORE_PATH" >> $GITHUB_ENV
-      - name: Verify Keystore
-        run: |
-          # Kiểm tra keystore tồn tại và có kích thước hợp lệ
-          if [ ! -f "android/app/release.keystore" ]; then
-            echo "Error: Keystore file not found!"
-            exit 1
-          fi
-          
-          # Kiểm tra kích thước của keystore (phải > 0 bytes)
-          FILESIZE=$(stat -c%s "android/app/release.keystore")
-          if [ "$FILESIZE" -eq 0 ]; then
-            echo "Error: Keystore file is empty!"
-            exit 1
-          fi
-          
-          echo "Keystore verification successful!"
-          echo "Keystore size: $FILESIZE bytes"
-      - name: Create eas.json
-        run: |
-          cat > eas.json << EOF
-          {
-            "cli": {
-              "version": ">= 3.13.3",
-              "appVersionSource": "remote",
-              "promptToConfigurePushNotifications": false
-            },
-            "build": {
-              "development": {
-                "developmentClient": true,
-                "distribution": "internal",
-                "android": {
-                  "buildType": "apk",
-                  "gradleCommand": ":app:assembleDebug",
-                  "cache": {
-                    "key": "gradle-${{ github.sha }}"
-                  }
-                }
-              },
-              "preview": {
-                "distribution": "internal",
-                "android": {
-                  "buildType": "apk",
-                  "gradleCommand": ":app:assembleRelease",
-                  "cache": {
-                    "key": "gradle-${{ github.sha }}"
-                  }
-                }
-              }, 
-              "production": {
-                "autoIncrement": true,
-                "android": {
-                  "buildType": "apk",
-                  "gradleCommand": ":app:assembleRelease",
-                  "credentialsSource": "local",
-                  "cache": {
-                    "key": "gradle-${{ github.sha }}"
-                  },
-                  "image": "latest"
-                },
-                "cache": {
-                  "disabled": false,
-                  "key": "yarn-${{ github.sha }}"
-                }
-              }
-            },
-            "submit": {
-              "production": {}
-            }
-          }
-          EOF
-      - name: Create credentials.json
-        run: |
-          # Tạo thư mục .expo và lưu credentials
-          mkdir -p .expo
-          
-          # Format đúng cho credentials.json theo EAS build
-          cat > .expo/credentials.json << EOF
-          {
-            "android": {
-              "keystore": {
-                "keystorePath": "${{ env.KEYSTORE_PATH }}",
-                "keystorePassword": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
-                "keyAlias": "${{ secrets.ANDROID_KEYSTORE_ALIAS }}",
-                "keyPassword": "${{ secrets.ANDROID_KEY_PASSWORD }}"
-              }
-            }
-          }
-          EOF
-          
-          # Tạo phiên bản credentials.json trong thư mục gốc (để đảm bảo)
-          cp .expo/credentials.json ./credentials.json
-          
-          # Kiểm tra file đã được tạo
-          ls -la .expo/credentials.json
-          ls -la credentials.json
-      - name: Debug environment
-        run: |
-          echo "==== Environment Variables ===="
-          echo "KEYSTORE_PATH: $KEYSTORE_PATH"
-          
-          # Chỉ kiểm tra các biến quan trọng
-          [ -n "$ANDROID_KEYSTORE_ALIAS" ] && echo "ANDROID_KEYSTORE_ALIAS: Set ✓" || echo "ANDROID_KEYSTORE_ALIAS: Not set ✗"
-          [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && echo "ANDROID_KEYSTORE_PASSWORD: Set ✓" || echo "ANDROID_KEYSTORE_PASSWORD: Not set ✗"
-          [ -n "$ANDROID_KEY_PASSWORD" ] && echo "ANDROID_KEY_PASSWORD: Set ✓" || echo "ANDROID_KEY_PASSWORD: Not set ✗"
-          
-          echo "==== Critical Files ===="
-          if [ -f "android/app/release.keystore" ]; then
-            echo "✓ Keystore exists"
-          else
-            echo "✗ Keystore missing"
-            exit 1
-          fi
-          
-          if [ -f ".expo/credentials.json" ]; then
-            echo "✓ Credentials exist"
-          else
-            echo "✗ Credentials missing"
-            exit 1
-          fi
-      - name: Build Android app (Local Build)
-        run: |
-          # Kiểm tra và cài đặt Java
-          echo "===== KIỂM TRA VÀ CÀI ĐẶT JAVA ====="
-          if command -v java &> /dev/null; then
-            JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-            echo "✅ Java đã được cài đặt: $JAVA_VERSION"
-            
-            # Kiểm tra xem có phải Java 17 không
-            JAVA_MAJOR_VERSION=$(echo $JAVA_VERSION | cut -d. -f1)
-            if [ "$JAVA_MAJOR_VERSION" -lt "17" ]; then
-              echo "⚠️ Phiên bản Java hiện tại là $JAVA_VERSION, nhưng Android Gradle Plugin yêu cầu Java 17"
-              echo "Đang cài đặt OpenJDK 17..."
-              
-              # Cài đặt OpenJDK 17
-              sudo apt-get update
-              sudo apt-get install -y openjdk-17-jdk
-              
-              # Thiết lập JAVA_HOME
-              export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
-              export PATH="$JAVA_HOME/bin:$PATH"
-              
-              # Kiểm tra lại Java
-              JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-              echo "✅ Đã cài đặt và kích hoạt Java 17: $JAVA_VERSION"
-            else
-              echo "✅ Java $JAVA_VERSION đã đáp ứng yêu cầu"
-            fi
-            
-            # Thiết lập JAVA_HOME nếu chưa có
-            if [ -z "$JAVA_HOME" ]; then
-              echo "⚠️ JAVA_HOME chưa được thiết lập, đang tìm kiếm..."
-              
-              # Tìm đường dẫn Java
-              JAVA_PATH=$(which java)
-              JAVA_BIN_DIR=$(dirname "$JAVA_PATH")
-              
-              if [[ "$JAVA_BIN_DIR" == */bin ]]; then
-                # Thiết lập JAVA_HOME là thư mục cha của bin
-                export JAVA_HOME="${JAVA_BIN_DIR%/bin}"
-                echo "✅ Đã thiết lập JAVA_HOME=$JAVA_HOME"
-              else
-                # Tìm kiếm trong các vị trí phổ biến
-                for dir in "/usr/lib/jvm/"*; do
-                  if [ -d "$dir" ] && [ -x "$dir/bin/java" ]; then
-                    export JAVA_HOME="$dir"
-                    echo "✅ Đã thiết lập JAVA_HOME=$JAVA_HOME từ thư mục phổ biến"
-                    break
-                  fi
-                done
-              fi
-            else
-              echo "✅ JAVA_HOME đã được thiết lập: $JAVA_HOME"
-            fi
-          else
-            echo "⚠️ Java chưa được cài đặt hoặc không có trong PATH"
-            
-            # Kiểm tra xem Java đã được cài đặt nhưng không có trong PATH
-            if [ -d "/usr/lib/jvm" ]; then
-              echo "Tìm thấy thư mục JVM, đang kiểm tra các phiên bản Java..."
-              ls -la /usr/lib/jvm
-              
-              # Ưu tiên tìm Java 17 trước
-              JAVA_17_DIRS=$(find /usr/lib/jvm -maxdepth 1 -name "*java-17*" -type d 2>/dev/null)
-              if [ ! -z "$JAVA_17_DIRS" ]; then
-                echo "Tìm thấy Java 17:"
-                echo "$JAVA_17_DIRS"
-                
-                # Thiết lập JAVA_HOME cho Java 17
-                JAVA_HOME=$(echo "$JAVA_17_DIRS" | head -n 1)
-                echo "Đang thiết lập JAVA_HOME=$JAVA_HOME"
-                export JAVA_HOME="$JAVA_HOME"
-                export PATH="$JAVA_HOME/bin:$PATH"
-                
-                # Kiểm tra lại Java
-                if command -v java &> /dev/null; then
-                  JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-                  echo "✅ Đã kích hoạt Java 17: $JAVA_VERSION"
-                fi
-              else
-                # Tìm kiếm thư mục java phổ biến
-                JAVA_DIRS=$(find /usr/lib/jvm -maxdepth 1 -name "*java*" -type d 2>/dev/null)
-                if [ ! -z "$JAVA_DIRS" ]; then
-                  echo "Tìm thấy các thư mục Java khác:"
-                  echo "$JAVA_DIRS"
-                  
-                  # Thiết lập JAVA_HOME cho bản Java đầu tiên tìm được
-                  JAVA_HOME=$(echo "$JAVA_DIRS" | head -n 1)
-                  echo "Đang thiết lập JAVA_HOME=$JAVA_HOME"
-                  export JAVA_HOME="$JAVA_HOME"
-                  export PATH="$JAVA_HOME/bin:$PATH"
-                  
-                  # Kiểm tra lại Java
-                  if command -v java &> /dev/null; then
-                    JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-                    echo "✅ Đã kích hoạt Java: $JAVA_VERSION"
-                    
-                    # Kiểm tra xem có phải Java 17 không
-                    JAVA_MAJOR_VERSION=$(echo $JAVA_VERSION | cut -d. -f1)
-                    if [ "$JAVA_MAJOR_VERSION" -lt "17" ]; then
-                      echo "⚠️ Phiên bản Java hiện tại là $JAVA_VERSION, nhưng Android Gradle Plugin yêu cầu Java 17"
-                      echo "Đang cài đặt OpenJDK 17..."
-                      
-                      # Cài đặt OpenJDK 17
-                      sudo apt-get update
-                      sudo apt-get install -y openjdk-17-jdk
-                      
-                      # Thiết lập JAVA_HOME
-                      export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
-                      export PATH="$JAVA_HOME/bin:$PATH"
-                      
-                      # Kiểm tra lại Java
-                      JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-                      echo "✅ Đã cài đặt và kích hoạt Java 17: $JAVA_VERSION"
-                    fi
-                  fi
-                fi
-              fi
-            fi
-            
-            # Nếu vẫn không tìm thấy Java, cài đặt mới
-            if ! command -v java &> /dev/null; then
-              echo "Đang cài đặt JDK..."
-              # Cài đặt OpenJDK 17 (yêu cầu cho Android Gradle Plugin mới)
-              sudo apt-get update
-              sudo apt-get install -y openjdk-17-jdk
-              
-              # Thiết lập JAVA_HOME
-              export JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64"
-              export PATH="$JAVA_HOME/bin:$PATH"
-              
-              # Kiểm tra lại Java
-              if command -v java &> /dev/null; then
-                JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
-                echo "✅ Đã cài đặt và kích hoạt Java 17: $JAVA_VERSION"
-              else
-                echo "❌ Không thể cài đặt Java, đây là lỗi nghiêm trọng!"
-                exit 1
-              fi
-            fi
-          fi
-          
-          # Hiển thị JAVA_HOME và thông tin phiên bản
-          echo "JAVA_HOME=$JAVA_HOME"
-          java -version
-          echo "===== KẾT THÚC THIẾT LẬP JAVA ====="
-          
-          # Tạo thư mục build
-          BUILD_DIRECTORY="$HOME/app-builds"
-          APP_DIRECTORY="$BUILD_DIRECTORY/ksms-app"
-          mkdir -p "$APP_DIRECTORY"
-          
-          # Tạo timestamp cho build này
-          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-          BUILD_NUMBER="${{ github.run_number }}"
-          
-          # Tạo thư mục cho lưu trữ APK
-          APK_STORAGE_DIR="$HOME/apk-storage"
-          mkdir -p "$APK_STORAGE_DIR/archives"
-          mkdir -p "$APK_STORAGE_DIR/versions"
-          
-          # Chuẩn bị thư mục build
-          rm -rf app-build
-          mkdir -p app-build
-          
-          # Xem các biến môi trường EAS
-          echo "Checking EAS environment..."
-          eas diagnostics
-          
-          # Kiểm tra cấu hình build
-          echo "Checking build configuration..."
-          cat eas.json
-          
-          # Kiểm tra credentials
-          echo "Checking credentials..."
-          if [ -f ".expo/credentials.json" ]; then
-            echo "Found .expo/credentials.json"
-            cat .expo/credentials.json | sed 's/"keyPassword": "[^"]*"/"keyPassword": "***"/g' | sed 's/"keystorePassword": "[^"]*"/"keystorePassword": "***"/g'
-          else
-            echo "No .expo/credentials.json found"
-          fi
-          
-          # Kiểm tra keystore
-          echo "Checking keystore..."
-          ls -la android/app/release.keystore
-          
-          # Thực hiện build tối ưu
-          echo "Starting build process..."
-          # Thêm thiết lập JAVA_HOME vào gradle.properties nếu cần
-          if [ -f "android/gradle.properties" ]; then
-            echo "# Thêm đường dẫn JAVA_HOME" >> android/gradle.properties
-            echo "org.gradle.java.home=$JAVA_HOME" >> android/gradle.properties
-            echo "Đã thêm org.gradle.java.home=$JAVA_HOME vào gradle.properties"
-          fi
-          
-          GRADLE_OPTS="-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=8 -Dorg.gradle.caching=true -Dorg.gradle.java.home=$JAVA_HOME" \
-          JAVA_HOME="$JAVA_HOME" \
-          PATH="$JAVA_HOME/bin:$PATH" \
-          eas build --local \
-          --non-interactive \
-          --output=./app-build/app-release.apk \
-          --platform=android \
-          --profile=production
-
-          # Kiểm tra file APK đã được tạo chưa
-          if [ -f "app-build/app-release.apk" ]; then
-            echo "✅ Build thành công, file APK đã được tạo"
-            ls -l app-build/app-release.apk
-            
-            # Lưu gradle cache sau khi build thành công
-            if [ "${GRADLE_CACHE_EXISTS:-false}" == "false" ] || [ "${GRADLE_CACHE_RESTORED:-false}" == "false" ]; then
-              echo "===== LƯU GRADLE CACHE ====="
-              # Đảm bảo thư mục cache tồn tại
-              mkdir -p "$GRADLE_HASH_DIR"
-              
-              echo "Lưu gradle cache vào: $GRADLE_HASH_DIR/.gradle"
-              rm -rf "$GRADLE_HASH_DIR/.gradle"
-              mkdir -p "$GRADLE_HASH_DIR"
-              cp -r "$HOME/.gradle" "$GRADLE_HASH_DIR/"
-              
-              # Lưu M2 repository
-              rm -rf "$PERSISTENT_M2/repository"
-              mkdir -p "$PERSISTENT_M2"
-              cp -r "$HOME/.m2/repository" "$PERSISTENT_M2/" || true
-              
-              echo "===== KẾT THÚC LƯU GRADLE CACHE ====="
-            else
-              echo "✅ Đã sử dụng gradle cache, không cần lưu lại"
-            fi
-            
-            # Tạo tên file APK với timestamp và số build
-            APK_FILENAME="ksms-mb-${TIMESTAMP}-${BUILD_NUMBER}.apk"
-            APK_PATH="$APK_STORAGE_DIR/archives/$APK_FILENAME"
-            
-            # Sao chép APK vào thư mục lưu trữ
-            cp app-build/app-release.apk "$APK_PATH"
-            
-            # Tạo bản sao làm "latest.apk" để luôn có URL cố định
-            cp app-build/app-release.apk "$APK_STORAGE_DIR/latest.apk"
-            
-            # Lưu thông tin phiên bản
-            echo '{
-              "filename": "'$APK_FILENAME'",
-              "timestamp": "'$TIMESTAMP'",
-              "build_number": "'$BUILD_NUMBER'",
-              "commit": "'${{ github.sha }}'"
-            }' > "$APK_STORAGE_DIR/versions/version-${TIMESTAMP}.json"
-            
-            # Chỉ giữ 2 phiên bản mới nhất
-            cd "$APK_STORAGE_DIR/archives"
-            ls -t *.apk | tail -n +3 | xargs -r rm
-            
-            cd "$APK_STORAGE_DIR/versions"
-            ls -t *.json | tail -n +3 | xargs -r rm
-            
-            # Cập nhật README
-            echo "# KSMS Mobile App Downloads" > "$APK_STORAGE_DIR/README.md"
-            echo "" >> "$APK_STORAGE_DIR/README.md"
-            echo "## Latest Version" >> "$APK_STORAGE_DIR/README.md"
-            echo "- Build: $BUILD_NUMBER" >> "$APK_STORAGE_DIR/README.md"
-            echo "- Date: $(date +'%Y-%m-%d %H:%M:%S')" >> "$APK_STORAGE_DIR/README.md"
-            echo "- Commit: ${{ github.sha }}" >> "$APK_STORAGE_DIR/README.md"
-            echo "" >> "$APK_STORAGE_DIR/README.md"
-            echo "## Download Links" >> "$APK_STORAGE_DIR/README.md"
-            echo "- **Latest version**: http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/latest.apk" >> "$APK_STORAGE_DIR/README.md"
-            echo "- **This specific version**: http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/archives/$APK_FILENAME" >> "$APK_STORAGE_DIR/README.md"
-            
-            # Thiết lập output
-            echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-            echo "build_time=$TIMESTAMP" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Build thất bại, không tìm thấy file APK"
-            exit 1
-          fi
-        id: set-apk-path
+      - name: Set Version
+        id: set-version
+        run: echo "version=latest" >> $GITHUB_OUTPUT
 
   release:
     needs: [setup, build-android]
