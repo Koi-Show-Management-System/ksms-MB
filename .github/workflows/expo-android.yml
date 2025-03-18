@@ -49,17 +49,121 @@ jobs:
       # Kiểm tra và cài đặt Yarn nếu chưa có
       - name: Setup Yarn
         run: |
-          if ! command -v yarn &> /dev/null; then
-            echo "Yarn chưa được cài đặt, đang cài đặt..."
-            npm install -g yarn
-            # Xác minh cài đặt
-            yarn --version || {
-              echo "Không thể cài đặt yarn. Sử dụng npm thay thế."
-              echo "USE_NPM=true" >> $GITHUB_ENV
-            }
+          echo "===== KIỂM TRA YARN ====="
+          if command -v yarn &> /dev/null; then
+            YARN_VERSION=$(yarn --version)
+            echo "✅ Yarn đã được cài đặt: $YARN_VERSION"
           else
-            echo "Yarn đã được cài đặt: $(yarn --version)"
+            echo "⚠️ Yarn chưa được cài đặt, đang cài đặt..."
+            npm install -g yarn
+            
+            # Xác minh cài đặt
+            if command -v yarn &> /dev/null; then
+              YARN_VERSION=$(yarn --version)
+              echo "✅ Đã cài đặt Yarn thành công: $YARN_VERSION"
+            else
+              echo "❌ Không thể cài đặt yarn. Sử dụng npm thay thế."
+              echo "USE_NPM=true" >> $GITHUB_ENV
+            fi
           fi
+          echo "===== KẾT THÚC KIỂM TRA YARN ====="
+          
+      # Thiết lập thư mục cache và kiểm tra cache
+      - name: Setup VPS Cache
+        run: |
+          echo "===== THIẾT LẬP CACHE TRÊN VPS ====="
+          
+          # Tạo thư mục cache nếu chưa có
+          CACHE_DIR="$HOME/build-cache"
+          NODE_CACHE_DIR="$CACHE_DIR/node_modules"
+          GRADLE_CACHE_DIR="$CACHE_DIR/gradle"
+          EAS_CACHE_DIR="$CACHE_DIR/eas"
+          
+          mkdir -p "$NODE_CACHE_DIR"
+          mkdir -p "$GRADLE_CACHE_DIR"
+          mkdir -p "$EAS_CACHE_DIR"
+          
+          # Tính toán hash cho package.json và yarn.lock hoặc package-lock.json
+          if [ -f "yarn.lock" ]; then
+            PKG_HASH=$(md5sum yarn.lock package.json | sort | md5sum | cut -d ' ' -f 1)
+            echo "Sử dụng yarn.lock và package.json để tạo hash: $PKG_HASH"
+          else
+            if [ -f "package-lock.json" ]; then
+              PKG_HASH=$(md5sum package-lock.json package.json | sort | md5sum | cut -d ' ' -f 1)
+              echo "Sử dụng package-lock.json và package.json để tạo hash: $PKG_HASH"
+            else
+              PKG_HASH=$(md5sum package.json | cut -d ' ' -f 1)
+              echo "Chỉ sử dụng package.json để tạo hash: $PKG_HASH"
+            fi
+          fi
+          
+          # Lưu hash để sử dụng sau này
+          echo "PKG_HASH=$PKG_HASH" >> $GITHUB_ENV
+          
+          # Kiểm tra xem có cache node_modules cho hash này không
+          NODE_CACHE_FILE="$NODE_CACHE_DIR/$PKG_HASH.tar.gz"
+          if [ -f "$NODE_CACHE_FILE" ]; then
+            echo "✅ Đã tìm thấy cache node_modules cho hash: $PKG_HASH"
+            echo "NODE_CACHE_EXISTS=true" >> $GITHUB_ENV
+            echo "NODE_CACHE_FILE=$NODE_CACHE_FILE" >> $GITHUB_ENV
+          else
+            echo "⚠️ Không tìm thấy cache node_modules cho hash: $PKG_HASH"
+            echo "NODE_CACHE_EXISTS=false" >> $GITHUB_ENV
+            echo "NODE_CACHE_FILE=$NODE_CACHE_FILE" >> $GITHUB_ENV
+          fi
+          
+          # Kiểm tra xem có cache gradle hay không
+          # Tính toán hash cho các file Gradle
+          if [ -d "android" ]; then
+            if [ -f "android/build.gradle" ] && [ -f "android/gradle.properties" ]; then
+              GRADLE_HASH=$(find android -name "*.gradle" -o -name "gradle.properties" | sort | xargs md5sum | md5sum | cut -d ' ' -f 1)
+              echo "Gradle hash: $GRADLE_HASH"
+              
+              GRADLE_CACHE_FILE="$GRADLE_CACHE_DIR/$GRADLE_HASH.tar.gz"
+              if [ -f "$GRADLE_CACHE_FILE" ]; then
+                echo "✅ Đã tìm thấy cache gradle cho hash: $GRADLE_HASH"
+                echo "GRADLE_CACHE_EXISTS=true" >> $GITHUB_ENV
+                echo "GRADLE_CACHE_FILE=$GRADLE_CACHE_FILE" >> $GITHUB_ENV
+                echo "GRADLE_HASH=$GRADLE_HASH" >> $GITHUB_ENV
+              else
+                echo "⚠️ Không tìm thấy cache gradle cho hash: $GRADLE_HASH"
+                echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
+                echo "GRADLE_CACHE_FILE=$GRADLE_CACHE_FILE" >> $GITHUB_ENV
+                echo "GRADLE_HASH=$GRADLE_HASH" >> $GITHUB_ENV
+              fi
+            else
+              echo "⚠️ Không tìm thấy các file gradle cần thiết"
+              echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
+            fi
+          else
+            echo "⚠️ Thư mục android chưa tồn tại"
+            echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
+          fi
+          
+          echo "===== KẾT THÚC THIẾT LẬP CACHE ====="
+          
+      # Khôi phục node_modules từ cache
+      - name: Restore Node Modules from VPS Cache
+        if: env.NODE_CACHE_EXISTS == 'true'
+        run: |
+          echo "===== KHÔI PHỤC NODE MODULES TỪ CACHE ====="
+          
+          # Giải nén node_modules từ cache
+          echo "Giải nén từ: $NODE_CACHE_FILE"
+          tar -xzf "$NODE_CACHE_FILE" -C .
+          
+          # Kiểm tra xem node_modules có được khôi phục không
+          if [ -d "node_modules" ]; then
+            echo "✅ Đã khôi phục node_modules thành công"
+            ls -la node_modules | head -n 5
+            echo "... và các module khác"
+            echo "NODE_MODULES_RESTORED=true" >> $GITHUB_ENV
+          else
+            echo "❌ Không thể khôi phục node_modules từ cache"
+            echo "NODE_MODULES_RESTORED=false" >> $GITHUB_ENV
+          fi
+          
+          echo "===== KẾT THÚC KHÔI PHỤC NODE MODULES ====="
           
       # Cài đặt trước các dependencies để tăng tốc
       - name: Fast Install
@@ -78,20 +182,12 @@ jobs:
           # Thêm bộ đệm mạng
           echo "Cache network calls"
           
-      - name: Cache Node Modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            ~/.npm
-            ~/.yarn/cache
-            .expo
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock', '**/package-lock.json', 'package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-modules-
-            
+      # Cài đặt dependencies chỉ khi không có trong cache hoặc khôi phục thất bại
       - name: Install dependencies
+        if: env.NODE_MODULES_RESTORED != 'true'
         run: |
+          echo "===== CÀI ĐẶT DEPENDENCIES ====="
+          
           if [ "${USE_NPM:-false}" == "true" ]; then
             echo "Sử dụng npm để cài đặt dependencies..."
             npm ci || npm install
@@ -99,6 +195,31 @@ jobs:
             echo "Sử dụng yarn để cài đặt dependencies..."
             yarn install --frozen-lockfile --prefer-offline
           fi
+          
+          # Lưu node_modules vào cache
+          echo "Lưu node_modules vào cache: $NODE_CACHE_FILE"
+          tar -czf "$NODE_CACHE_FILE" node_modules
+          
+          # Giữ lại chỉ 5 file cache mới nhất để tiết kiệm không gian
+          cd "$NODE_CACHE_DIR"
+          ls -t *.tar.gz | tail -n +6 | xargs -r rm
+          cd -
+          
+          echo "===== KẾT THÚC CÀI ĐẶT DEPENDENCIES ====="
+      
+      # Đã được khôi phục từ cache, chỉ cần kiểm tra và cập nhật nếu cần
+      - name: Update dependencies
+        if: env.NODE_MODULES_RESTORED == 'true'
+        run: |
+          echo "===== KIỂM TRA CẬP NHẬT DEPENDENCIES ====="
+          
+          if [ "${USE_NPM:-false}" == "true" ]; then
+            npm outdated || true
+          else
+            yarn check || true
+          fi
+          
+          echo "===== KẾT THÚC KIỂM TRA CẬP NHẬT ====="
           
       - name: Set Version
         id: set-version
@@ -117,23 +238,126 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'yarn'
           
       # Kiểm tra và cài đặt Yarn nếu chưa có
       - name: Setup Yarn
         run: |
-          if ! command -v yarn &> /dev/null; then
-            echo "Yarn chưa được cài đặt, đang cài đặt..."
-            npm install -g yarn
-            # Xác minh cài đặt
-            yarn --version || {
-              echo "Không thể cài đặt yarn. Sử dụng npm thay thế."
-              echo "USE_NPM=true" >> $GITHUB_ENV
-            }
+          echo "===== KIỂM TRA YARN ====="
+          if command -v yarn &> /dev/null; then
+            YARN_VERSION=$(yarn --version)
+            echo "✅ Yarn đã được cài đặt: $YARN_VERSION"
           else
-            echo "Yarn đã được cài đặt: $(yarn --version)"
+            echo "⚠️ Yarn chưa được cài đặt, đang cài đặt..."
+            npm install -g yarn
+            
+            # Xác minh cài đặt
+            if command -v yarn &> /dev/null; then
+              YARN_VERSION=$(yarn --version)
+              echo "✅ Đã cài đặt Yarn thành công: $YARN_VERSION"
+            else
+              echo "❌ Không thể cài đặt yarn. Sử dụng npm thay thế."
+              echo "USE_NPM=true" >> $GITHUB_ENV
+            fi
+          fi
+          echo "===== KẾT THÚC KIỂM TRA YARN ====="
+          
+      # Thiết lập thư mục cache và kiểm tra cache
+      - name: Setup VPS Cache
+        run: |
+          echo "===== THIẾT LẬP CACHE TRÊN VPS ====="
+          
+          # Tạo thư mục cache nếu chưa có
+          CACHE_DIR="$HOME/build-cache"
+          NODE_CACHE_DIR="$CACHE_DIR/node_modules"
+          GRADLE_CACHE_DIR="$CACHE_DIR/gradle"
+          EAS_CACHE_DIR="$CACHE_DIR/eas"
+          
+          mkdir -p "$NODE_CACHE_DIR"
+          mkdir -p "$GRADLE_CACHE_DIR"
+          mkdir -p "$EAS_CACHE_DIR"
+          
+          # Tính toán hash cho package.json và yarn.lock hoặc package-lock.json
+          if [ -f "yarn.lock" ]; then
+            PKG_HASH=$(md5sum yarn.lock package.json | sort | md5sum | cut -d ' ' -f 1)
+            echo "Sử dụng yarn.lock và package.json để tạo hash: $PKG_HASH"
+          else
+            if [ -f "package-lock.json" ]; then
+              PKG_HASH=$(md5sum package-lock.json package.json | sort | md5sum | cut -d ' ' -f 1)
+              echo "Sử dụng package-lock.json và package.json để tạo hash: $PKG_HASH"
+            else
+              PKG_HASH=$(md5sum package.json | cut -d ' ' -f 1)
+              echo "Chỉ sử dụng package.json để tạo hash: $PKG_HASH"
+            fi
           fi
           
+          # Lưu hash để sử dụng sau này
+          echo "PKG_HASH=$PKG_HASH" >> $GITHUB_ENV
+          
+          # Kiểm tra xem có cache node_modules cho hash này không
+          NODE_CACHE_FILE="$NODE_CACHE_DIR/$PKG_HASH.tar.gz"
+          if [ -f "$NODE_CACHE_FILE" ]; then
+            echo "✅ Đã tìm thấy cache node_modules cho hash: $PKG_HASH"
+            echo "NODE_CACHE_EXISTS=true" >> $GITHUB_ENV
+            echo "NODE_CACHE_FILE=$NODE_CACHE_FILE" >> $GITHUB_ENV
+          else
+            echo "⚠️ Không tìm thấy cache node_modules cho hash: $PKG_HASH"
+            echo "NODE_CACHE_EXISTS=false" >> $GITHUB_ENV
+            echo "NODE_CACHE_FILE=$NODE_CACHE_FILE" >> $GITHUB_ENV
+          fi
+          
+          # Kiểm tra xem có cache gradle hay không
+          # Tính toán hash cho các file Gradle
+          if [ -d "android" ]; then
+            if [ -f "android/build.gradle" ] && [ -f "android/gradle.properties" ]; then
+              GRADLE_HASH=$(find android -name "*.gradle" -o -name "gradle.properties" | sort | xargs md5sum | md5sum | cut -d ' ' -f 1)
+              echo "Gradle hash: $GRADLE_HASH"
+              
+              GRADLE_CACHE_FILE="$GRADLE_CACHE_DIR/$GRADLE_HASH.tar.gz"
+              if [ -f "$GRADLE_CACHE_FILE" ]; then
+                echo "✅ Đã tìm thấy cache gradle cho hash: $GRADLE_HASH"
+                echo "GRADLE_CACHE_EXISTS=true" >> $GITHUB_ENV
+                echo "GRADLE_CACHE_FILE=$GRADLE_CACHE_FILE" >> $GITHUB_ENV
+                echo "GRADLE_HASH=$GRADLE_HASH" >> $GITHUB_ENV
+              else
+                echo "⚠️ Không tìm thấy cache gradle cho hash: $GRADLE_HASH"
+                echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
+                echo "GRADLE_CACHE_FILE=$GRADLE_CACHE_FILE" >> $GITHUB_ENV
+                echo "GRADLE_HASH=$GRADLE_HASH" >> $GITHUB_ENV
+              fi
+            else
+              echo "⚠️ Không tìm thấy các file gradle cần thiết"
+              echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
+            fi
+          else
+            echo "⚠️ Thư mục android chưa tồn tại"
+            echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
+          fi
+          
+          echo "===== KẾT THÚC THIẾT LẬP CACHE ====="
+      
+      # Khôi phục node_modules từ cache
+      - name: Restore Node Modules from VPS Cache
+        if: env.NODE_CACHE_EXISTS == 'true'
+        run: |
+          echo "===== KHÔI PHỤC NODE MODULES TỪ CACHE ====="
+          
+          # Giải nén node_modules từ cache
+          echo "Giải nén từ: $NODE_CACHE_FILE"
+          tar -xzf "$NODE_CACHE_FILE" -C .
+          
+          # Kiểm tra xem node_modules có được khôi phục không
+          if [ -d "node_modules" ]; then
+            echo "✅ Đã khôi phục node_modules thành công"
+            ls -la node_modules | head -n 5
+            echo "... và các module khác"
+            echo "NODE_MODULES_RESTORED=true" >> $GITHUB_ENV
+          else
+            echo "❌ Không thể khôi phục node_modules từ cache"
+            echo "NODE_MODULES_RESTORED=false" >> $GITHUB_ENV
+          fi
+          
+          echo "===== KẾT THÚC KHÔI PHỤC NODE MODULES ====="
+      
       # Cài đặt trước các dependencies để tăng tốc
       - name: Fast Install
         run: |
@@ -150,19 +374,13 @@ jobs:
           
           # Thêm bộ đệm mạng
           echo "Cache network calls"
-      - name: Cache Node Modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            ~/.npm
-            ~/.yarn/cache
-            .expo
-          key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock', '**/package-lock.json', 'package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-modules-
+      
+      # Cài đặt dependencies chỉ khi không có trong cache hoặc khôi phục thất bại
       - name: Install dependencies
+        if: env.NODE_MODULES_RESTORED != 'true'
         run: |
+          echo "===== CÀI ĐẶT DEPENDENCIES ====="
+          
           if [ "${USE_NPM:-false}" == "true" ]; then
             echo "Sử dụng npm để cài đặt dependencies..."
             npm ci || npm install
@@ -170,21 +388,54 @@ jobs:
             echo "Sử dụng yarn để cài đặt dependencies..."
             yarn install --frozen-lockfile --prefer-offline
           fi
-      - name: Install EAS CLI
+          
+          # Lưu node_modules vào cache
+          echo "Lưu node_modules vào cache: $NODE_CACHE_FILE"
+          tar -czf "$NODE_CACHE_FILE" node_modules
+          
+          # Giữ lại chỉ 5 file cache mới nhất để tiết kiệm không gian
+          cd "$NODE_CACHE_DIR"
+          ls -t *.tar.gz | tail -n +6 | xargs -r rm
+          cd -
+          
+          echo "===== KẾT THÚC CÀI ĐẶT DEPENDENCIES ====="
+      
+      # Đã được khôi phục từ cache, chỉ cần kiểm tra và cập nhật nếu cần
+      - name: Update dependencies
+        if: env.NODE_MODULES_RESTORED == 'true'
         run: |
+          echo "===== KIỂM TRA CẬP NHẬT DEPENDENCIES ====="
+          
           if [ "${USE_NPM:-false}" == "true" ]; then
-            echo "Sử dụng npm để cài đặt EAS CLI..."
-            npm install -g eas-cli
+            npm outdated || true
           else
-            echo "Sử dụng yarn để cài đặt EAS CLI..."
-            yarn global add eas-cli
+            yarn check || true
           fi
           
-          # Kiểm tra EAS CLI đã được cài đặt
-          eas --version || {
-            echo "::error::Không thể cài đặt eas-cli. Thử phương pháp khác..."
+          echo "===== KẾT THÚC KIỂM TRA CẬP NHẬT ====="
+          
+      - name: Install EAS CLI
+        run: |
+          echo "===== KIỂM TRA EAS CLI ====="
+          if command -v eas &> /dev/null; then
+            EAS_VERSION=$(eas --version)
+            echo "✅ EAS CLI đã được cài đặt: $EAS_VERSION"
+          else
+            echo "⚠️ EAS CLI chưa được cài đặt, đang cài đặt..."
+            
+            # Cài đặt EAS CLI theo hướng dẫn Expo (ưu tiên npm)
             npm install -g eas-cli
-          }
+            
+            # Xác minh cài đặt
+            if command -v eas &> /dev/null; then
+              EAS_VERSION=$(eas --version)
+              echo "✅ Đã cài đặt EAS CLI thành công: $EAS_VERSION"
+            else
+              echo "❌ Không thể cài đặt EAS CLI. Kiểm tra lỗi npm."
+              exit 1
+            fi
+          fi
+          echo "===== KẾT THÚC KIỂM TRA EAS CLI ====="
       - name: Setup Expo
         uses: expo/expo-github-action@v8
         with:
@@ -205,8 +456,15 @@ jobs:
             ${{ runner.os }}-gradle-
       - name: Setup Android Environment
         run: |
-          # Tạo thư mục android nếu chưa tồn tại
-          mkdir -p android
+          echo "===== THIẾT LẬP MÔI TRƯỜNG ANDROID ====="
+          
+          # Kiểm tra xem thư mục android đã tồn tại chưa
+          if [ -d "android" ] && [ -f "android/gradle.properties" ]; then
+            echo "✅ Thư mục Android đã tồn tại và đã có cấu hình"
+          else
+            echo "⚠️ Cần tạo hoặc cập nhật thư mục Android..."
+            # Tạo thư mục android nếu chưa tồn tại
+            mkdir -p android
           
           # Tạo file gradle.properties với các cấu hình cần thiết
           cat > android/gradle.properties << EOF
@@ -409,7 +667,36 @@ jobs:
         run: |
           # Kiểm tra và cài đặt Java
           echo "===== KIỂM TRA VÀ CÀI ĐẶT JAVA ====="
-          if ! command -v java &> /dev/null; then
+          if command -v java &> /dev/null; then
+            JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+            echo "✅ Java đã được cài đặt: $JAVA_VERSION"
+            
+            # Thiết lập JAVA_HOME nếu chưa có
+            if [ -z "$JAVA_HOME" ]; then
+              echo "⚠️ JAVA_HOME chưa được thiết lập, đang tìm kiếm..."
+              
+              # Tìm đường dẫn Java
+              JAVA_PATH=$(which java)
+              JAVA_BIN_DIR=$(dirname "$JAVA_PATH")
+              
+              if [[ "$JAVA_BIN_DIR" == */bin ]]; then
+                # Thiết lập JAVA_HOME là thư mục cha của bin
+                export JAVA_HOME="${JAVA_BIN_DIR%/bin}"
+                echo "✅ Đã thiết lập JAVA_HOME=$JAVA_HOME"
+              else
+                # Tìm kiếm trong các vị trí phổ biến
+                for dir in "/usr/lib/jvm/"*; do
+                  if [ -d "$dir" ] && [ -x "$dir/bin/java" ]; then
+                    export JAVA_HOME="$dir"
+                    echo "✅ Đã thiết lập JAVA_HOME=$JAVA_HOME từ thư mục phổ biến"
+                    break
+                  fi
+                done
+              fi
+            else
+              echo "✅ JAVA_HOME đã được thiết lập: $JAVA_HOME"
+            fi
+          else
             echo "⚠️ Java chưa được cài đặt hoặc không có trong PATH"
             
             # Kiểm tra xem Java đã được cài đặt nhưng không có trong PATH
@@ -428,8 +715,17 @@ jobs:
                 echo "Đang thiết lập JAVA_HOME=$JAVA_HOME"
                 export JAVA_HOME="$JAVA_HOME"
                 export PATH="$JAVA_HOME/bin:$PATH"
+                
+                # Kiểm tra lại Java
+                if command -v java &> /dev/null; then
+                  JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+                  echo "✅ Đã kích hoạt Java: $JAVA_VERSION"
+                fi
               fi
-            else
+            fi
+            
+            # Nếu vẫn không tìm thấy Java, cài đặt mới
+            if ! command -v java &> /dev/null; then
               echo "Đang cài đặt JDK..."
               # Cài đặt OpenJDK 11 (phù hợp cho Android build)
               sudo apt-get update
@@ -438,15 +734,21 @@ jobs:
               # Thiết lập JAVA_HOME
               export JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
               export PATH="$JAVA_HOME/bin:$PATH"
+              
+              # Kiểm tra lại Java
+              if command -v java &> /dev/null; then
+                JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
+                echo "✅ Đã cài đặt và kích hoạt Java: $JAVA_VERSION"
+              else
+                echo "❌ Không thể cài đặt Java, đây là lỗi nghiêm trọng!"
+                exit 1
+              fi
             fi
           fi
           
-          # Kiểm tra lại Java sau khi cài đặt
-          echo "Java version:"
-          java -version || echo "⚠️ Java vẫn chưa được cài đặt đúng cách"
-          
-          # Hiển thị JAVA_HOME
+          # Hiển thị JAVA_HOME và thông tin phiên bản
           echo "JAVA_HOME=$JAVA_HOME"
+          java -version
           echo "===== KẾT THÚC THIẾT LẬP JAVA ====="
           
           # Tạo thư mục build
@@ -490,7 +792,7 @@ jobs:
           
           # Thực hiện build tối ưu
           echo "Starting build process..."
-          GRADLE_OPTS="-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=8" \
+          GRADLE_OPTS="-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=8 -Dorg.gradle.caching=true" \
           JAVA_HOME="$JAVA_HOME" \
           PATH="$JAVA_HOME/bin:$PATH" \
           eas build --local \
@@ -503,6 +805,24 @@ jobs:
           if [ -f "app-build/app-release.apk" ]; then
             echo "✅ Build thành công, file APK đã được tạo"
             ls -l app-build/app-release.apk
+            
+            # Lưu gradle cache sau khi build thành công
+            if [ "${GRADLE_CACHE_EXISTS:-false}" == "false" ] || [ "${GRADLE_CACHE_RESTORED:-false}" == "false" ]; then
+              echo "===== LƯU GRADLE CACHE ====="
+              # Đảm bảo thư mục cache tồn tại
+              mkdir -p "$GRADLE_CACHE_DIR"
+              
+              echo "Lưu gradle cache vào: $GRADLE_CACHE_FILE"
+              tar -czf "$GRADLE_CACHE_FILE" -C ~/ .gradle .m2
+              
+              # Giữ lại chỉ 5 file cache mới nhất để tiết kiệm không gian
+              cd "$GRADLE_CACHE_DIR"
+              ls -t *.tar.gz | tail -n +6 | xargs -r rm
+              cd -
+              echo "===== KẾT THÚC LƯU GRADLE CACHE ====="
+            else
+              echo "✅ Đã sử dụng gradle cache, không cần lưu lại"
+            fi
             
             # Tạo tên file APK với timestamp và số build
             APK_FILENAME="ksms-mb-${TIMESTAMP}-${BUILD_NUMBER}.apk"
