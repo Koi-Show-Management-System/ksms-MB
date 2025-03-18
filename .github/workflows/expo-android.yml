@@ -71,11 +71,11 @@ jobs:
         run: yarn install --frozen-lockfile --prefer-offline
       - name: Set Version
         id: set-version
-        run: echo "version=v1.0.${{ github.run_number }}" >> $GITHUB_OUTPUT
+        run: echo "version=latest" >> $GITHUB_OUTPUT
 
   build-android:
     needs: setup
-    runs-on: ubuntu-latest-16-core
+    runs-on: ubuntu-latest
     outputs:
       direct_upload: ${{ steps.check-artifact.outputs.direct_upload }}
     steps:
@@ -358,7 +358,7 @@ jobs:
         continue-on-error: true  # Không làm hỏng workflow nếu việc upload thất bại
         uses: actions/upload-artifact@v4
         with:
-          name: app-build-${{ github.run_number }}
+          name: app-build-latest
           path: app-build/app-release.apk
           retention-days: 1  # Giảm xuống chỉ còn 1 ngày
           if-no-files-found: warn
@@ -369,7 +369,7 @@ jobs:
         id: check-artifact
         if: steps.upload-artifact.outcome == 'failure'
         run: |
-          echo "::warning::Artifact upload failed. Will use direct release upload instead."
+          echo "::warning::Không thể upload artifact do đạt giới hạn lưu trữ hoặc lỗi khác. Sẽ sử dụng phương pháp upload trực tiếp."
           mkdir -p /tmp/artifacts
           cp app-build/app-release.apk /tmp/artifacts/app-release.apk
           echo "direct_upload=true" >> $GITHUB_OUTPUT
@@ -381,23 +381,74 @@ jobs:
       - uses: actions/checkout@v4
       
       # Fallback nếu artifact không upload được (từ build-android job)
-      - name: Fallback - Sync build từ build-android
+      - name: Fallback - Sử dụng upload trực tiếp
         if: needs.build-android.outputs.direct_upload == 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: /tmp/artifacts
-          path: ./
-          
+        run: |
+          echo "::notice::Đang sử dụng phương pháp upload trực tiếp thay vì thông qua artifact"
+          mkdir -p /tmp/apk
+          # Không cần tải artifact nữa vì chúng ta sẽ sử dụng phương pháp khác
+          # Artifact sẽ được upload trực tiếp trong bước release
+      
       # Đường đi bình thường nếu artifact đã upload thành công  
       - name: Download Build Artifact
         if: needs.build-android.outputs.direct_upload != 'true'
         uses: actions/download-artifact@v4
         with:
-          name: app-build-${{ github.run_number }}
+          name: app-build-latest
           path: ./
       
       - name: Display structure of downloaded files
         run: ls -R
+        
+      - name: Check for existing release
+        id: check_release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              // Tìm kiếm release với tag "latest"
+              const release = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: 'latest'
+              });
+              
+              if (release && release.data) {
+                // Xóa release cũ
+                await github.rest.repos.deleteRelease({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  release_id: release.data.id
+                });
+                
+                console.log('Đã xóa release cũ');
+              }
+            } catch (error) {
+              // Không tìm thấy release, không có vấn đề gì
+              console.log('Không tìm thấy release cũ hoặc có lỗi:', error.message);
+            }
+            
+            // Kiểm tra xem tag đã tồn tại chưa
+            try {
+              const tag = await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: 'tags/latest'
+              });
+              
+              if (tag) {
+                // Xóa tag cũ
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: 'tags/latest'
+                });
+                console.log('Đã xóa tag cũ');
+              }
+            } catch (error) {
+              console.log('Không tìm thấy tag cũ hoặc có lỗi:', error.message);
+            }
         
       - name: Create Release
         id: create_release
@@ -405,8 +456,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ needs.setup.outputs.version }}
-          release_name: Release ${{ needs.setup.outputs.version }}
+          tag_name: latest
+          release_name: Latest Build
           draft: false
           prerelease: true
       
@@ -417,19 +468,20 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} 
           asset_path: ./app-release.apk
-          asset_name: ksms-mb-${{ needs.setup.outputs.version }}.apk
+          asset_name: ksms-mb-latest.apk
           asset_content_type: application/octet-stream
           
       - name: Create QR Code and Update Release
         uses: actions/github-script@v7
         env:
-          VERSION: ${{ needs.setup.outputs.version }}  # Make version available as an env var
+          VERSION: "latest"  # Sử dụng "latest" thay vì version động
           RELEASE_ID: ${{ steps.create_release.outputs.id }}
         with:
           script: |
             const fs = require('fs');
             const version = process.env.VERSION;
             const releaseId = process.env.RELEASE_ID;
+            const buildDate = new Date().toISOString().split('T')[0];
             
             // --- QR Code Configuration ---
             const qrConfig = {
@@ -443,12 +495,13 @@ jobs:
 
             // --- Release Body (Markdown) ---
             const releaseBody = `
-              ### KSMS Mobile App Release
+              ### KSMS Mobile App - Latest Release
 
               **Build Information**
-              - Version: ${version}
-              - Build Number: ${version.substring(5)}
-              - Release Date: ${new Date().toISOString().split('T')[0]}
+              - Version: Latest
+              - Build Date: ${buildDate}
+              - Build Number: ${process.env.GITHUB_RUN_NUMBER}
+              - Commit: ${process.env.GITHUB_SHA?.substring(0, 7) || 'Unknown'}
 
               ### Installation
 
@@ -459,7 +512,8 @@ jobs:
               [![Download APK](https://img.shields.io/badge/Download_APK-blue?style=for-the-badge)](${downloadUrl})
 
               ### Note
-              - This is a pre-release version
+              - This is the latest build
+              - This link will always point to the most recent build
               - Please report any issues you encounter
             `.trim();
             
