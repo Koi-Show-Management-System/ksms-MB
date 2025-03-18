@@ -1702,8 +1702,29 @@ jobs:
               console.log('Không tìm thấy tag cũ hoặc có lỗi:', error.message);
             }
         
-      - name: Create Release with VPS Link
+      # Tạo release trên GitHub
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Định nghĩa hàm urlencode trực tiếp trong step này
+          urlencode() {
+            local string="$1"
+            local strlen=${#string}
+            local encoded=""
+            local pos c o
+            
+            for (( pos=0 ; pos<strlen ; pos++ )); do
+              c=${string:$pos:1}
+              case "$c" in
+                [-_.~a-zA-Z0-9] ) o="${c}" ;;
+                * )               printf -v o '%%%02x' "'$c"
+              esac
+              encoded+="${o}"
+            done
+            echo "${encoded}"
+          }
+          
           # Lấy thông tin từ bước build
           APK_PATH="${{ needs.build-android.outputs.apk_path }}"
           BUILD_TIME="${{ needs.build-android.outputs.build_time }}"
@@ -1758,29 +1779,5 @@ jobs:
           gh release create latest \
             --title "Latest Build (${BUILD_NUMBER})" \
             --notes-file release_notes.md \
-            --target ${{ github.ref }} \
+            --target refs/heads/development \
             --draft=false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      # Utility function cho URL encoding
-      - name: Set up URL encode function
-        run: |
-          # Tạo function để URL encode một string
-          urlencode() {
-            local string="$1"
-            local strlen=${#string}
-            local encoded=""
-            local pos c o
-            
-            for (( pos=0 ; pos<strlen ; pos++ )); do
-              c=${string:$pos:1}
-              case "$c" in
-                [-_.~a-zA-Z0-9] ) o="${c}" ;;
-                * )               printf -v o '%%%02x' "'$c"
-              esac
-              encoded+="${o}"
-            done
-            echo "${encoded}"
-          }
-          export -f urlencode
