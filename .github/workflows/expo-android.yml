@@ -1566,6 +1566,65 @@ jobs:
         id: set-version
         run: echo "version=latest" >> $GITHUB_OUTPUT
 
+      # Trong job build-android, thêm lệnh debug để kiểm tra
+      - name: Debug build output
+        run: |
+          echo "===== DEBUG BUILD OUTPUT ====="
+          find . -name "*.apk" -type f | while read file; do
+            echo "Tìm thấy APK: $file"
+            ls -la "$file"
+          done
+          echo "Nội dung thư mục android (nếu có):"
+          ls -la android/ || echo "Không tìm thấy thư mục android"
+          echo "Nội dung thư mục build output (nếu có):"
+          ls -la android/app/build/outputs/ || echo "Không tìm thấy thư mục outputs"
+
+      # Trong job build-android, thêm lệnh build APK với EAS
+      - name: Build APK với EAS
+        id: build
+        run: |
+          echo "===== BUILD APK VỚI EAS ====="
+          npx eas-cli build --platform android --profile preview --non-interactive --local
+          
+          # Tìm APK và đặt biến output
+          APK_PATH=$(find $(pwd) -name "*.apk" -type f -print -quit)
+          echo "Đường dẫn APK: $APK_PATH"
+          
+          # Đặt output đúng cách
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          
+          # Kiểm tra tệp tồn tại
+          if [ -f "$APK_PATH" ]; then
+            echo "✅ File APK tồn tại tại: $APK_PATH"
+          else
+            echo "❌ Không tìm thấy file APK sau khi build"
+            exit 1
+          fi
+
+      # Trong job build-android, thêm lệnh upload APK đến VPS
+      - name: Upload APK to VPS
+        if: success()
+        env:
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          APK_PATH=$(find $(pwd) -name "*.apk" -type f -print -quit)
+          if [ -f "$APK_PATH" ]; then
+            echo "✅ Tìm thấy APK: $APK_PATH"
+            
+            # Cài đặt sshpass nếu cần
+            sudo apt-get update && sudo apt-get install -y sshpass
+            
+            # Upload APK
+            sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no "$APK_PATH" ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:"${{ secrets.VPS_STORAGE_PATH }}/archives/$(basename "$APK_PATH")"
+            
+            # Đặt biến cho job release
+            echo "direct_upload=true" >> $GITHUB_OUTPUT
+            echo "apk_filename=$(basename "$APK_PATH")" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Không tìm thấy APK sau khi build"
+            exit 1
+          fi
+
   release:
     needs: [setup, build-android]
     runs-on: self-hosted
@@ -1854,17 +1913,18 @@ jobs:
             SEARCH_DIRS=(
               "app/build/outputs/apk"
               "android/app/build/outputs/apk"
+              "android/app/build/outputs/apk/release"
+              "android/app/build/outputs/apk/debug"
               "android/app/build/outputs/bundle"
-              "$HOME/expo-project/android/app/build/outputs/apk"
-              "$GITHUB_WORKSPACE/android/app/build/outputs/apk"
-              "$GITHUB_WORKSPACE/dist"
+              "$HOME/.expo/android"
               "$GITHUB_WORKSPACE/.expo-binary/android"
+              "$GITHUB_WORKSPACE/dist"
               "$GITHUB_WORKSPACE/build"
               "$GITHUB_WORKSPACE/output"
               "$(pwd)"
             )
             
-            # Tìm kiếm sâu hơn
+            # Tìm kiếm trên toàn bộ workspace
             echo "🔍 Tìm kiếm toàn bộ workspace cho file APK..."
             FOUND_APK=$(find "$GITHUB_WORKSPACE" -name "*.apk" -type f -print -quit 2>/dev/null)
             if [ -n "$FOUND_APK" ]; then
