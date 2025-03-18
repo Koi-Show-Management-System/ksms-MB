@@ -23,7 +23,6 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.yourcompany.ksms",
-      "versionCode": 1,
       "permissions": [],
       "softwareKeyboardLayoutMode": "pan",
       "intentFilters": [

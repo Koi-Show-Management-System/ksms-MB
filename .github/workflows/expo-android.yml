@@ -1348,3 +1348,215 @@ jobs:
           fi
           
           echo "===== KẾT THÚC CÀI ĐẶT GITHUB CLI ====="
+
+  # Thêm job build-android 
+  build-android:
+    needs: setup
+    runs-on: self-hosted
+    outputs:
+      apk_path: ${{ steps.build-apk.outputs.apk_path }}
+      build_time: ${{ steps.build-time.outputs.time }}
+      direct_upload: ${{ steps.upload-apk.outputs.direct_upload }}
+      apk_filename: ${{ steps.upload-apk.outputs.apk_filename }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Phục hồi node_modules và các cache từ job setup
+      - name: Restore Node.js Cache
+        run: |
+          echo "===== KHÔI PHỤC CACHE NODE.JS ====="
+          
+          # Thiết lập biến từ job setup
+          export PERSISTENT_CACHE="$HOME/persistent-cache"
+          export PERSISTENT_NODE_MODULES="$PERSISTENT_CACHE/node_modules"
+          export PKG_HASH="${{ needs.setup.outputs.pkghash }}"
+          export NODE_MODULES_HASH_DIR="$PERSISTENT_NODE_MODULES/$PKG_HASH"
+          
+          if [ -z "$PKG_HASH" ]; then
+            # Nếu không có PKG_HASH từ job setup, tính toán lại
+            if [ -f "yarn.lock" ]; then
+              PKG_HASH=$(md5sum yarn.lock package.json | sort | md5sum | cut -d ' ' -f 1)
+            else
+              if [ -f "package-lock.json" ]; then
+                PKG_HASH=$(md5sum package-lock.json package.json | sort | md5sum | cut -d ' ' -f 1)
+              else
+                PKG_HASH=$(md5sum package.json | cut -d ' ' -f 1)
+              fi
+            fi
+            export NODE_MODULES_HASH_DIR="$PERSISTENT_NODE_MODULES/$PKG_HASH"
+          fi
+          
+          # Kiểm tra và khôi phục node_modules
+          if [ -d "$NODE_MODULES_HASH_DIR/node_modules" ]; then
+            echo "Khôi phục node_modules từ cache..."
+            if [ -L "node_modules" ]; then
+              rm -f node_modules
+            elif [ -d "node_modules" ]; then
+              rm -rf node_modules
+            fi
+            ln -sf "$NODE_MODULES_HASH_DIR/node_modules" node_modules
+            if [ -L "node_modules" ] && [ -d "node_modules" ]; then
+              echo "✅ Đã khôi phục node_modules thành công"
+            else
+              echo "❌ Không thể khôi phục node_modules, cần cài đặt mới"
+              if [ -f "yarn.lock" ]; then
+                yarn install --frozen-lockfile
+              else
+                npm ci || npm install
+              fi
+            fi
+          else
+            echo "Không tìm thấy cache node_modules, cài đặt mới..."
+            if [ -f "yarn.lock" ]; then
+              yarn install --frozen-lockfile
+            else
+              npm ci || npm install
+            fi
+          fi
+          
+          echo "===== KẾT THÚC KHÔI PHỤC CACHE NODE.JS ====="
+
+      # Ghi lại thời gian build
+      - name: Set Build Time
+        id: build-time
+        run: echo "time=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+
+      # Thiết lập keystore cho build Android
+      - name: Setup Android Keystore
+        run: |
+          echo "===== THIẾT LẬP KEYSTORE ANDROID ====="
+          
+          # Tạo thư mục keystore
+          mkdir -p android/app/keystores
+          
+          # Kiểm tra xem keystore đã tồn tại chưa
+          if [ ! -f "android/app/keystores/release.keystore" ]; then
+            # Tạo keystore mới nếu chưa có
+            echo "⚠️ Không tìm thấy keystore, tạo mới keystore..."
+            
+            # Kiểm tra ANDROID_KEYSTORE_BASE64 secret
+            if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+              echo "Sử dụng keystore từ GitHub Secrets..."
+              echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/keystores/release.keystore
+            else
+              echo "⚠️ Không tìm thấy ANDROID_KEYSTORE_BASE64 secret, tạo một keystore mới..."
+              # Tạo keystore mới (chỉ cho mục đích develop/preview)
+              keytool -genkeypair -v -keystore android/app/keystores/release.keystore -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US"
+            fi
+          else
+            echo "✅ Đã tìm thấy keystore hiện có"
+          fi
+          
+          # Tạo file credentials.json với thông tin keystore
+          cat > credentials.json << EOL
+          {
+            "android": {
+              "keystore": {
+                "keystorePath": "android/app/keystores/release.keystore",
+                "keystorePassword": "${ANDROID_KEYSTORE_PASSWORD:-android}",
+                "keyAlias": "${ANDROID_KEYSTORE_ALIAS:-androiddebugkey}",
+                "keyPassword": "${ANDROID_KEY_PASSWORD:-android}"
+              }
+            }
+          }
+          EOL
+          
+          # Kiểm tra xem credentials.json đã được tạo chưa
+          if [ -f "credentials.json" ]; then
+            echo "✅ Đã tạo credentials.json thành công"
+            # Hiển thị thông tin (không hiển thị mật khẩu)
+            grep -v "Password" credentials.json || true
+          else
+            echo "❌ Không thể tạo credentials.json"
+          fi
+          
+          echo "===== KẾT THÚC THIẾT LẬP KEYSTORE ANDROID ====="
+
+      # Build APK với EAS
+      - name: Build APK với EAS
+        id: build-apk
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          echo "===== BUILD APK VỚI EAS ====="
+          
+          # Cài đặt eas-cli nếu chưa có
+          if ! command -v eas &> /dev/null; then
+            echo "Cài đặt eas-cli..."
+            npm install -g eas-cli
+          fi
+          
+          # Sử dụng profile preview thay vì development
+          echo "Chạy lệnh build EAS với profile preview..."
+          npx eas-cli build --platform android --profile preview --non-interactive --local --clear-cache --output=./build-output.apk
+          
+          # Kiểm tra xem file APK đã được tạo chưa
+          if [ -f "./build-output.apk" ]; then
+            echo "✅ Build APK thành công: $(pwd)/build-output.apk"
+            echo "apk_path=$(pwd)/build-output.apk" >> $GITHUB_OUTPUT
+          else
+            echo "Tìm kiếm APK trong thư mục build..."
+            APK_PATH=$(find $(pwd) -name "*.apk" -type f -print -quit)
+            
+            if [ -n "$APK_PATH" ]; then
+              echo "✅ Tìm thấy APK tại: $APK_PATH"
+              echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Không tìm thấy file APK sau khi build"
+              exit 1
+            fi
+          fi
+          
+          echo "===== KẾT THÚC BUILD APK VỚI EAS ====="
+
+      # Upload APK đến VPS
+      - name: Upload APK to VPS
+        id: upload-apk
+        if: success()
+        env:
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
+        run: |
+          echo "===== UPLOAD APK ĐẾN VPS ====="
+          
+          # Lấy đường dẫn APK từ bước trước
+          APK_PATH="${{ steps.build-apk.outputs.apk_path }}"
+          
+          if [ -f "$APK_PATH" ]; then
+            echo "✅ Tìm thấy APK: $APK_PATH"
+            
+            # Cài đặt sshpass nếu cần
+            if ! command -v sshpass &> /dev/null; then
+              echo "Cài đặt sshpass..."
+              sudo apt-get update && sudo apt-get install -y sshpass
+            fi
+            
+            # Tạo thư mục đích trên VPS
+            echo "Tạo thư mục đích trên VPS..."
+            sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p '${{ secrets.VPS_STORAGE_PATH }}/archives'"
+            
+            # Upload APK
+            echo "Upload APK đến VPS..."
+            APK_FILENAME="ksms-mb-$(date +'%Y%m%d-%H%M%S').apk"
+            sshpass -p "$VPS_PASSWORD" scp -o StrictHostKeyChecking=no "$APK_PATH" ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:"${{ secrets.VPS_STORAGE_PATH }}/archives/$APK_FILENAME"
+            
+            if [ $? -eq 0 ]; then
+              echo "✅ Upload APK thành công"
+              echo "direct_upload=true" >> $GITHUB_OUTPUT
+              echo "apk_filename=$APK_FILENAME" >> $GITHUB_OUTPUT
+              
+              # Cập nhật link latest.apk
+              echo "Cập nhật latest.apk link..."
+              sshpass -p "$VPS_PASSWORD" ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "cd '${{ secrets.VPS_STORAGE_PATH }}' && rm -f latest.apk && ln -sf archives/$APK_FILENAME latest.apk"
+              
+              echo "APK có sẵn tại: http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/archives/$APK_FILENAME"
+              echo "Và latest.apk: http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/latest.apk"
+            else
+              echo "❌ Không thể upload APK đến VPS"
+              echo "direct_upload=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "❌ Không tìm thấy APK tại đường dẫn: $APK_PATH"
+            exit 1
+          fi
+          
+          echo "===== KẾT THÚC UPLOAD APK ĐẾN VPS ====="
