@@ -90,6 +90,15 @@ jobs:
           mkdir -p "$PERSISTENT_M2"
           mkdir -p "$PERSISTENT_EAS"
           
+          # Xuất các biến cache để các bước khác có thể sử dụng
+          echo "PERSISTENT_CACHE=$PERSISTENT_CACHE" >> $GITHUB_ENV
+          echo "PERSISTENT_NODE_MODULES=$PERSISTENT_NODE_MODULES" >> $GITHUB_ENV
+          echo "PERSISTENT_GRADLE=$PERSISTENT_GRADLE" >> $GITHUB_ENV
+          echo "PERSISTENT_GRADLE_WRAPPER=$PERSISTENT_GRADLE_WRAPPER" >> $GITHUB_ENV
+          echo "PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES" >> $GITHUB_ENV
+          echo "PERSISTENT_M2=$PERSISTENT_M2" >> $GITHUB_ENV
+          echo "PERSISTENT_EAS=$PERSISTENT_EAS" >> $GITHUB_ENV
+          
           # Tính toán hash cho package.json và yarn.lock hoặc package-lock.json
           if [ -f "yarn.lock" ]; then
             PKG_HASH=$(md5sum yarn.lock package.json | sort | md5sum | cut -d ' ' -f 1)
@@ -147,10 +156,20 @@ jobs:
               fi
             else
               echo "⚠️ Không tìm thấy các file gradle cần thiết"
+              GRADLE_HASH=$(date +"%Y%m%d%H%M%S")
+              GRADLE_HASH_DIR="$PERSISTENT_GRADLE/$GRADLE_HASH"
+              mkdir -p "$GRADLE_HASH_DIR"
+              echo "GRADLE_HASH_DIR=$GRADLE_HASH_DIR" >> $GITHUB_ENV
+              echo "GRADLE_HASH=$GRADLE_HASH" >> $GITHUB_ENV
               echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
             fi
           else
             echo "⚠️ Thư mục android chưa tồn tại"
+            GRADLE_HASH=$(date +"%Y%m%d%H%M%S")
+            GRADLE_HASH_DIR="$PERSISTENT_GRADLE/$GRADLE_HASH"
+            mkdir -p "$GRADLE_HASH_DIR"
+            echo "GRADLE_HASH_DIR=$GRADLE_HASH_DIR" >> $GITHUB_ENV
+            echo "GRADLE_HASH=$GRADLE_HASH" >> $GITHUB_ENV
             echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
           fi
           
@@ -189,15 +208,34 @@ jobs:
         run: |
           echo "===== KHÔI PHỤC NODE MODULES BẰNG SYMLINK ====="
           
+          # Kiểm tra lại biến môi trường
+          if [ -z "$NODE_MODULES_HASH_DIR" ]; then
+            echo "⚠️ NODE_MODULES_HASH_DIR không được thiết lập, không thể khôi phục"
+            echo "NODE_MODULES_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC NODE MODULES ====="
+            exit 0
+          fi
+          
+          # Kiểm tra thư mục nguồn tồn tại
+          if [ ! -d "$NODE_MODULES_HASH_DIR/node_modules" ]; then
+            echo "⚠️ Thư mục nguồn không tồn tại: $NODE_MODULES_HASH_DIR/node_modules"
+            echo "NODE_MODULES_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC NODE MODULES ====="
+            exit 0
+          fi
+          
           # Kiểm tra xem node_modules đã tồn tại chưa
-          if [ -d "node_modules" ]; then
+          if [ -L "node_modules" ]; then
+            echo "Xóa symlink node_modules hiện tại"
+            rm -f node_modules
+          elif [ -d "node_modules" ]; then
             echo "Xóa thư mục node_modules hiện tại"
             rm -rf node_modules
           fi
           
           # Tạo symlink từ persistent cache
-          echo "Tạo symlink từ $NODE_MODULES_HASH_DIR/node_modules"
-          ln -s "$NODE_MODULES_HASH_DIR/node_modules" node_modules
+          echo "Tạo symlink từ $NODE_MODULES_HASH_DIR/node_modules đến node_modules"
+          ln -sf "$NODE_MODULES_HASH_DIR/node_modules" node_modules
           
           # Kiểm tra xem node_modules có được khôi phục không
           if [ -L "node_modules" ] && [ -d "node_modules" ]; then
@@ -207,6 +245,9 @@ jobs:
             echo "NODE_MODULES_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục node_modules bằng symlink"
+            # Chẩn đoán
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$NODE_MODULES_HASH_DIR"
             echo "NODE_MODULES_RESTORED=false" >> $GITHUB_ENV
           fi
           
@@ -218,67 +259,146 @@ jobs:
         run: |
           echo "===== KHÔI PHỤC GRADLE BẰNG SYMLINK ====="
           
+          # Kiểm tra biến GRADLE_HASH_DIR
+          if [ -z "$GRADLE_HASH_DIR" ]; then
+            echo "⚠️ GRADLE_HASH_DIR không được thiết lập, không thể khôi phục"
+            echo "GRADLE_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC GRADLE ====="
+            exit 0
+          fi
+          
+          # Kiểm tra thư mục nguồn
+          if [ ! -d "$GRADLE_HASH_DIR/.gradle" ]; then
+            echo "⚠️ Thư mục nguồn không tồn tại: $GRADLE_HASH_DIR/.gradle"
+            echo "GRADLE_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC GRADLE ====="
+            exit 0
+          fi
+          
           # Kiểm tra xem thư mục .gradle đã tồn tại trong $HOME chưa
-          if [ -d "$HOME/.gradle" ]; then
+          if [ -L "$HOME/.gradle" ]; then
+            echo "Xóa symlink .gradle hiện tại"
+            rm -f "$HOME/.gradle"
+          elif [ -d "$HOME/.gradle" ]; then
             echo "Sao lưu thư mục .gradle hiện tại"
-            mv $HOME/.gradle $HOME/.gradle.bak
+            rm -rf "$HOME/.gradle.bak" 2>/dev/null || true
+            mv "$HOME/.gradle" "$HOME/.gradle.bak" || {
+              echo "⚠️ Không thể di chuyển thư mục .gradle hiện tại, đang xóa..."
+              rm -rf "$HOME/.gradle"
+            }
           fi
           
           # Tạo symlink từ persistent cache
           echo "Tạo symlink từ $GRADLE_HASH_DIR/.gradle đến $HOME/.gradle"
-          ln -s "$GRADLE_HASH_DIR/.gradle" $HOME/.gradle
+          ln -sf "$GRADLE_HASH_DIR/.gradle" "$HOME/.gradle"
           
           # Kiểm tra xem .gradle có được khôi phục không
           if [ -L "$HOME/.gradle" ] && [ -d "$HOME/.gradle" ]; then
             echo "✅ Đã khôi phục .gradle thành công bằng symlink"
-            ls -la $HOME/.gradle | head -n 5
+            ls -la "$HOME/.gradle" | head -n 5
             echo "GRADLE_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục .gradle bằng symlink"
+            # Chẩn đoán
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$GRADLE_HASH_DIR"
+            echo "Quyền truy cập thư mục $HOME:"
+            ls -la "$HOME" | grep gradle
             echo "GRADLE_RESTORED=false" >> $GITHUB_ENV
           fi
           
           echo "===== KẾT THÚC KHÔI PHỤC GRADLE ====="
       
-      # Khôi phục gradle wrapper từ cache
-      - name: Restore Gradle Wrapper with Symlinks
-        if: env.GRADLE_WRAPPER_CACHE_EXISTS == 'true'
+      # Khôi phục Gradle Wrapper
+      - name: Restore Gradle Wrapper using symlink
         run: |
-          echo "===== KHÔI PHỤC GRADLE WRAPPER BẰNG SYMLINK ====="
+          echo "===== KHÔI PHỤC GRADLE WRAPPER ====="
           
-          # Tạo thư mục .gradle nếu chưa tồn tại
-          mkdir -p $HOME/.gradle
-          
-          # Kiểm tra xem thư mục wrapper đã tồn tại chưa
-          if [ -d "$HOME/.gradle/wrapper" ]; then
-            echo "Sao lưu thư mục wrapper hiện tại"
-            mv $HOME/.gradle/wrapper $HOME/.gradle/wrapper.bak
+          # Kiểm tra PERSISTENT_GRADLE_WRAPPER
+          if [ -z "${PERSISTENT_GRADLE_WRAPPER}" ]; then
+            PERSISTENT_GRADLE_WRAPPER="$HOME/persistent-cache/gradle-wrapper"
+            echo "PERSISTENT_GRADLE_WRAPPER chưa được thiết lập, đang thiết lập mặc định: $PERSISTENT_GRADLE_WRAPPER"
+            mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
+            echo "PERSISTENT_GRADLE_WRAPPER=$PERSISTENT_GRADLE_WRAPPER" >> $GITHUB_ENV
           fi
           
-          # Tạo symlink từ persistent cache
-          echo "Tạo symlink từ $PERSISTENT_GRADLE_WRAPPER/wrapper đến $HOME/.gradle/wrapper"
-          ln -s "$PERSISTENT_GRADLE_WRAPPER/wrapper" $HOME/.gradle/wrapper
+          # Kiểm tra thư mục nguồn tồn tại
+          if [ ! -d "$PERSISTENT_GRADLE_WRAPPER" ]; then
+            echo "⚠️ Thư mục $PERSISTENT_GRADLE_WRAPPER không tồn tại, đang tạo..."
+            mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
+          fi
           
-          # Kiểm tra xem wrapper có được khôi phục không
-          if [ -L "$HOME/.gradle/wrapper" ] && [ -d "$HOME/.gradle/wrapper" ]; then
-            echo "✅ Đã khôi phục gradle wrapper thành công bằng symlink"
-            ls -la $HOME/.gradle/wrapper | head -n 5
+          # Kiểm tra nếu thư mục nguồn trống, thông báo và tiếp tục
+          if [ -z "$(ls -A "$PERSISTENT_GRADLE_WRAPPER" 2>/dev/null)" ]; then
+            echo "⚠️ Thư mục $PERSISTENT_GRADLE_WRAPPER trống, chưa có cache để khôi phục."
+            echo "GRADLE_WRAPPER_RESTORED=false" >> $GITHUB_ENV
+            exit 0  # Thoát sớm nhưng không báo lỗi
+          fi
+          
+          # Tạo thư mục .gradle nếu chưa tồn tại
+          if [ ! -d "$HOME/.gradle" ]; then
+            echo "Tạo thư mục $HOME/.gradle..."
+            mkdir -p "$HOME/.gradle"
+          fi
+          
+          # Kiểm tra thư mục đích
+          if [ -L "$HOME/.gradle/wrapper" ]; then
+            echo "Thư mục wrapper hiện tại là symlink, đang xóa..."
+            rm -f "$HOME/.gradle/wrapper"
+          elif [ -d "$HOME/.gradle/wrapper" ]; then
+            echo "Thư mục wrapper đã tồn tại, đang sao lưu..."
+            if [ -d "$HOME/.gradle/wrapper.bak" ]; then
+              rm -rf "$HOME/.gradle/wrapper.bak"
+            fi
+            mv "$HOME/.gradle/wrapper" "$HOME/.gradle/wrapper.bak" || {
+              echo "⚠️ Không thể sao lưu thư mục, đang xóa thư mục hiện tại..."
+              rm -rf "$HOME/.gradle/wrapper"
+            }
+          fi
+          
+          # Tạo symlink với thêm tùy chọn -f để ghi đè nếu đã tồn tại
+          echo "Tạo symlink từ $PERSISTENT_GRADLE_WRAPPER/wrapper đến $HOME/.gradle/wrapper"
+          ln -sf "$PERSISTENT_GRADLE_WRAPPER/wrapper" "$HOME/.gradle/wrapper"
+          
+          # Kiểm tra kết quả
+          if [ -L "$HOME/.gradle/wrapper" ] && [ -d "$(readlink -f "$HOME/.gradle/wrapper")" ]; then
+            echo "✅ Đã khôi phục gradle wrapper bằng symlink thành công"
             echo "GRADLE_WRAPPER_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục gradle wrapper bằng symlink"
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$PERSISTENT_GRADLE_WRAPPER"
+            echo "Kiểm tra quyền truy cập thư mục $HOME/.gradle:"
+            ls -la "$HOME/.gradle"
             echo "GRADLE_WRAPPER_RESTORED=false" >> $GITHUB_ENV
           fi
           
           echo "===== KẾT THÚC KHÔI PHỤC GRADLE WRAPPER ====="
       
-      # Khôi phục gradle caches từ cache
-      - name: Restore Gradle Caches with Symlinks
-        if: env.GRADLE_CACHES_CACHE_EXISTS == 'true'
+      # Khôi phục Gradle caches
+      - name: Restore Gradle Caches using symlink
         run: |
-          echo "===== KHÔI PHỤC GRADLE CACHES BẰNG SYMLINK ====="
+          echo "===== KHÔI PHỤC GRADLE CACHES ====="
+          
+          # Kiểm tra PERSISTENT_GRADLE_CACHES
+          if [ -z "${PERSISTENT_GRADLE_CACHES}" ]; then
+            PERSISTENT_GRADLE_CACHES="$HOME/persistent-cache/gradle-caches"
+            echo "PERSISTENT_GRADLE_CACHES chưa được thiết lập, đang thiết lập mặc định: $PERSISTENT_GRADLE_CACHES"
+            mkdir -p "$PERSISTENT_GRADLE_CACHES"
+            echo "PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES" >> $GITHUB_ENV
+          fi
+          
+          # Kiểm tra thư mục nguồn tồn tại
+          if [ ! -d "$PERSISTENT_GRADLE_CACHES/caches" ]; then
+            echo "⚠️ Thư mục nguồn không tồn tại: $PERSISTENT_GRADLE_CACHES/caches"
+            echo "Bỏ qua khôi phục gradle caches"
+            echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC GRADLE CACHES ====="
+            exit 0
+          fi
           
           # Tạo thư mục .gradle nếu chưa tồn tại
-          mkdir -p $HOME/.gradle
+          mkdir -p "$HOME/.gradle"
           
           # Kiểm tra xem thư mục caches đã tồn tại chưa
           if [ -d "$HOME/.gradle/caches" ]; then
@@ -293,7 +413,7 @@ jobs:
           # Kiểm tra xem caches có được khôi phục không
           if [ -L "$HOME/.gradle/caches" ] && [ -d "$HOME/.gradle/caches" ]; then
             echo "✅ Đã khôi phục gradle caches thành công bằng symlink"
-            ls -la $HOME/.gradle/caches | head -n 5
+            ls -la "$HOME/.gradle/caches" | head -n 5
             echo "GRADLE_CACHES_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục gradle caches bằng symlink"
@@ -302,32 +422,67 @@ jobs:
           
           echo "===== KẾT THÚC KHÔI PHỤC GRADLE CACHES ====="
       
-      # Khôi phục M2 repository từ cache
-      - name: Restore M2 Repository with Symlinks
-        if: env.M2_CACHE_EXISTS == 'true'
+      # Khôi phục M2 repository
+      - name: Restore M2 Repository using symlink
         run: |
-          echo "===== KHÔI PHỤC M2 REPOSITORY BẰNG SYMLINK ====="
+          echo "===== KHÔI PHỤC M2 REPOSITORY ====="
           
-          # Tạo thư mục .m2 nếu chưa tồn tại
-          mkdir -p $HOME/.m2
-          
-          # Kiểm tra xem thư mục repository đã tồn tại chưa
-          if [ -d "$HOME/.m2/repository" ]; then
-            echo "Sao lưu thư mục repository hiện tại"
-            mv $HOME/.m2/repository $HOME/.m2/repository.bak
+          # Kiểm tra PERSISTENT_M2
+          if [ -z "${PERSISTENT_M2}" ]; then
+            PERSISTENT_M2="$HOME/persistent-cache/m2"
+            echo "PERSISTENT_M2 chưa được thiết lập, đang thiết lập mặc định: $PERSISTENT_M2"
+            mkdir -p "$PERSISTENT_M2"
+            echo "PERSISTENT_M2=$PERSISTENT_M2" >> $GITHUB_ENV
           fi
           
-          # Tạo symlink từ persistent cache
-          echo "Tạo symlink từ $PERSISTENT_M2/repository đến $HOME/.m2/repository"
-          ln -s "$PERSISTENT_M2/repository" $HOME/.m2/repository
+          # Kiểm tra thư mục nguồn tồn tại
+          if [ ! -d "$PERSISTENT_M2" ]; then
+            echo "⚠️ Thư mục $PERSISTENT_M2 không tồn tại, đang tạo..."
+            mkdir -p "$PERSISTENT_M2"
+          fi
           
-          # Kiểm tra xem repository có được khôi phục không
-          if [ -L "$HOME/.m2/repository" ] && [ -d "$HOME/.m2/repository" ]; then
-            echo "✅ Đã khôi phục m2 repository thành công bằng symlink"
-            ls -la $HOME/.m2/repository | head -n 5
+          # Kiểm tra nếu thư mục nguồn trống, thông báo và tiếp tục
+          if [ -z "$(ls -A "$PERSISTENT_M2" 2>/dev/null)" ]; then
+            echo "⚠️ Thư mục $PERSISTENT_M2 trống, chưa có cache để khôi phục."
+            echo "M2_REPOSITORY_RESTORED=false" >> $GITHUB_ENV
+            exit 0  # Thoát sớm nhưng không báo lỗi
+          fi
+          
+          # Tạo thư mục .m2 nếu chưa tồn tại
+          if [ ! -d "$HOME/.m2" ]; then
+            echo "Tạo thư mục $HOME/.m2..."
+            mkdir -p "$HOME/.m2"
+          fi
+          
+          # Kiểm tra thư mục đích
+          if [ -L "$HOME/.m2/repository" ]; then
+            echo "Thư mục repository hiện tại là symlink, đang xóa..."
+            rm -f "$HOME/.m2/repository"
+          elif [ -d "$HOME/.m2/repository" ]; then
+            echo "Thư mục repository đã tồn tại, đang sao lưu..."
+            if [ -d "$HOME/.m2/repository.bak" ]; then
+              rm -rf "$HOME/.m2/repository.bak"
+            fi
+            mv "$HOME/.m2/repository" "$HOME/.m2/repository.bak" || {
+              echo "⚠️ Không thể sao lưu thư mục, đang xóa thư mục hiện tại..."
+              rm -rf "$HOME/.m2/repository"
+            }
+          fi
+          
+          # Tạo symlink với thêm tùy chọn -f để ghi đè nếu đã tồn tại
+          echo "Tạo symlink từ $PERSISTENT_M2/repository đến $HOME/.m2/repository"
+          ln -sf "$PERSISTENT_M2/repository" "$HOME/.m2/repository"
+          
+          # Kiểm tra kết quả
+          if [ -L "$HOME/.m2/repository" ] && [ -d "$(readlink -f "$HOME/.m2/repository" 2>/dev/null)" ]; then
+            echo "✅ Đã khôi phục m2 repository bằng symlink thành công"
             echo "M2_REPOSITORY_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục m2 repository bằng symlink"
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$PERSISTENT_M2"
+            echo "Kiểm tra quyền truy cập thư mục $HOME/.m2:"
+            ls -la "$HOME/.m2"
             echo "M2_REPOSITORY_RESTORED=false" >> $GITHUB_ENV
           fi
           
@@ -378,10 +533,17 @@ jobs:
         run: |
           echo "===== LƯU CACHE SAU KHI BUILD ====="
           
+          # Kiểm tra và thiết lập các biến môi trường cần thiết
+          # Thiết lập PERSISTENT_CACHE nếu chưa tồn tại
+          if [ -z "${PERSISTENT_CACHE}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            echo "Thiết lập PERSISTENT_CACHE=$PERSISTENT_CACHE"
+            mkdir -p "$PERSISTENT_CACHE"
+          fi
+          
           # Kiểm tra và thiết lập GRADLE_HASH_DIR nếu chưa tồn tại
           if [ -z "${GRADLE_HASH_DIR}" ]; then
             echo "⚠️ GRADLE_HASH_DIR chưa được thiết lập, đang thiết lập..."
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_GRADLE="$PERSISTENT_CACHE/gradle"
             
             # Tạo thư mục persistent nếu chưa tồn tại
@@ -400,92 +562,176 @@ jobs:
           
           # Kiểm tra và thiết lập các biến thư mục persistent khác nếu cần
           if [ -z "${PERSISTENT_GRADLE_WRAPPER}" ]; then
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_GRADLE_WRAPPER="$PERSISTENT_CACHE/gradle-wrapper"
             mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
             echo "Đã thiết lập PERSISTENT_GRADLE_WRAPPER=$PERSISTENT_GRADLE_WRAPPER"
           fi
           
           if [ -z "${PERSISTENT_GRADLE_CACHES}" ]; then
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_GRADLE_CACHES="$PERSISTENT_CACHE/gradle-caches"
             mkdir -p "$PERSISTENT_GRADLE_CACHES"
             echo "Đã thiết lập PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES"
           fi
           
           if [ -z "${PERSISTENT_M2}" ]; then
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_M2="$PERSISTENT_CACHE/m2"
             mkdir -p "$PERSISTENT_M2"
             echo "Đã thiết lập PERSISTENT_M2=$PERSISTENT_M2"
           fi
           
           if [ -z "${PERSISTENT_NODE_MODULES}" ]; then
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_NODE_MODULES="$PERSISTENT_CACHE/node_modules"
             mkdir -p "$PERSISTENT_NODE_MODULES"
             echo "Đã thiết lập PERSISTENT_NODE_MODULES=$PERSISTENT_NODE_MODULES"
+          fi
+          
+          if [ -z "${PERSISTENT_GRADLE}" ]; then
+            PERSISTENT_GRADLE="$PERSISTENT_CACHE/gradle"
+            mkdir -p "$PERSISTENT_GRADLE"
+            echo "Đã thiết lập PERSISTENT_GRADLE=$PERSISTENT_GRADLE"
           fi
           
           # Lưu cache gradle nếu có thay đổi
           if [ -d "$HOME/.gradle" ] && [ ! -L "$HOME/.gradle" ]; then
             echo "Lưu cache Gradle..."
             mkdir -p "$GRADLE_HASH_DIR"
-            rm -rf "$GRADLE_HASH_DIR/.gradle"
+            if [ -d "$GRADLE_HASH_DIR/.gradle" ]; then
+              echo "Xóa thư mục .gradle cũ trong cache"
+              rm -rf "$GRADLE_HASH_DIR/.gradle"
+            fi
+            echo "Sao chép $HOME/.gradle vào $GRADLE_HASH_DIR/"
             cp -r "$HOME/.gradle" "$GRADLE_HASH_DIR/"
-            echo "✅ Đã lưu cache Gradle"
+            if [ -d "$GRADLE_HASH_DIR/.gradle" ]; then
+              echo "✅ Đã lưu cache Gradle thành công"
+            else
+              echo "❌ Không thể sao chép thư mục .gradle vào cache"
+            fi
           elif [ -L "$HOME/.gradle" ]; then
             echo "Gradle đã được lưu cache qua symlink"
+            # Kiểm tra symlink có trỏ đến thư mục tồn tại không
+            LINKED_TARGET=$(readlink -f "$HOME/.gradle")
+            if [ -d "$LINKED_TARGET" ]; then
+              echo "✅ Symlink trỏ đến thư mục hợp lệ: $LINKED_TARGET"
+            else
+              echo "❌ Symlink trỏ đến thư mục không tồn tại: $LINKED_TARGET"
+            fi
+          else
+            echo "⚠️ Không tìm thấy thư mục $HOME/.gradle để lưu cache"
           fi
           
           # Lưu cache gradle wrapper
           if [ -d "$HOME/.gradle/wrapper" ] && [ ! -L "$HOME/.gradle/wrapper" ]; then
             echo "Lưu cache Gradle Wrapper..."
             mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
-            rm -rf "$PERSISTENT_GRADLE_WRAPPER/wrapper"
+            if [ -d "$PERSISTENT_GRADLE_WRAPPER/wrapper" ]; then
+              echo "Xóa wrapper cũ trong cache"
+              rm -rf "$PERSISTENT_GRADLE_WRAPPER/wrapper"
+            fi
+            echo "Sao chép $HOME/.gradle/wrapper vào $PERSISTENT_GRADLE_WRAPPER/"
             cp -r "$HOME/.gradle/wrapper" "$PERSISTENT_GRADLE_WRAPPER/"
-            echo "✅ Đã lưu cache Gradle Wrapper"
+            if [ -d "$PERSISTENT_GRADLE_WRAPPER/wrapper" ]; then
+              echo "✅ Đã lưu cache Gradle Wrapper thành công"
+            else
+              echo "❌ Không thể sao chép thư mục wrapper vào cache"
+            fi
           elif [ -L "$HOME/.gradle/wrapper" ]; then
             echo "Gradle Wrapper đã được lưu cache qua symlink"
+            # Kiểm tra symlink có trỏ đến thư mục tồn tại không
+            LINKED_TARGET=$(readlink -f "$HOME/.gradle/wrapper")
+            if [ -d "$LINKED_TARGET" ]; then
+              echo "✅ Symlink trỏ đến thư mục hợp lệ: $LINKED_TARGET"
+            else
+              echo "❌ Symlink trỏ đến thư mục không tồn tại: $LINKED_TARGET"
+            fi
+          else
+            echo "⚠️ Không tìm thấy thư mục $HOME/.gradle/wrapper để lưu cache"
           fi
           
           # Lưu cache gradle caches
           if [ -d "$HOME/.gradle/caches" ] && [ ! -L "$HOME/.gradle/caches" ]; then
             echo "Lưu cache Gradle Caches..."
             mkdir -p "$PERSISTENT_GRADLE_CACHES"
-            rm -rf "$PERSISTENT_GRADLE_CACHES/caches"
+            if [ -d "$PERSISTENT_GRADLE_CACHES/caches" ]; then
+              echo "Xóa caches cũ trong cache"
+              rm -rf "$PERSISTENT_GRADLE_CACHES/caches"
+            fi
+            echo "Sao chép $HOME/.gradle/caches vào $PERSISTENT_GRADLE_CACHES/"
             cp -r "$HOME/.gradle/caches" "$PERSISTENT_GRADLE_CACHES/"
-            echo "✅ Đã lưu cache Gradle Caches"
+            if [ -d "$PERSISTENT_GRADLE_CACHES/caches" ]; then
+              echo "✅ Đã lưu cache Gradle Caches thành công"
+            else
+              echo "❌ Không thể sao chép thư mục caches vào cache"
+            fi
           elif [ -L "$HOME/.gradle/caches" ]; then
             echo "Gradle Caches đã được lưu cache qua symlink"
+            # Kiểm tra symlink có trỏ đến thư mục tồn tại không
+            LINKED_TARGET=$(readlink -f "$HOME/.gradle/caches")
+            if [ -d "$LINKED_TARGET" ]; then
+              echo "✅ Symlink trỏ đến thư mục hợp lệ: $LINKED_TARGET"
+            else
+              echo "❌ Symlink trỏ đến thư mục không tồn tại: $LINKED_TARGET"
+            fi
+          else
+            echo "⚠️ Không tìm thấy thư mục $HOME/.gradle/caches để lưu cache"
           fi
           
           # Lưu cache M2 repository
           if [ -d "$HOME/.m2/repository" ] && [ ! -L "$HOME/.m2/repository" ]; then
             echo "Lưu cache M2 Repository..."
             mkdir -p "$PERSISTENT_M2"
-            rm -rf "$PERSISTENT_M2/repository"
-            cp -r "$HOME/.m2/repository" "$PERSISTENT_M2/"
-            echo "✅ Đã lưu cache M2 Repository"
+            if [ -d "$PERSISTENT_M2/repository" ]; then
+              echo "Xóa repository cũ trong cache"
+              rm -rf "$PERSISTENT_M2/repository"
+            fi
+            echo "Sao chép $HOME/.m2/repository vào $PERSISTENT_M2/"
+            cp -r "$HOME/.m2/repository" "$PERSISTENT_M2/" || true
+            if [ -d "$PERSISTENT_M2/repository" ]; then
+              echo "✅ Đã lưu cache M2 Repository thành công"
+            else
+              echo "⚠️ Không thể sao chép thư mục repository vào cache, nhưng tiếp tục"
+            fi
           elif [ -L "$HOME/.m2/repository" ]; then
             echo "M2 Repository đã được lưu cache qua symlink"
+            # Kiểm tra symlink có trỏ đến thư mục tồn tại không
+            LINKED_TARGET=$(readlink -f "$HOME/.m2/repository")
+            if [ -d "$LINKED_TARGET" ]; then
+              echo "✅ Symlink trỏ đến thư mục hợp lệ: $LINKED_TARGET"
+            else
+              echo "❌ Symlink trỏ đến thư mục không tồn tại: $LINKED_TARGET"
+            fi
+          else
+            echo "⚠️ Không tìm thấy thư mục $HOME/.m2/repository để lưu cache"
           fi
           
           # Dọn dẹp thư mục cũ
           echo "Dọn dẹp các bản sao lưu..."
-          rm -rf "$HOME/.gradle.bak" "$HOME/.gradle/wrapper.bak" "$HOME/.gradle/caches.bak" "$HOME/.m2/repository.bak"
+          rm -rf "$HOME/.gradle.bak" "$HOME/.gradle/wrapper.bak" "$HOME/.gradle/caches.bak" "$HOME/.m2/repository.bak" 2>/dev/null || true
           
           # Kiểm tra trước khi dọn dẹp cache cũ
           if [ -d "$PERSISTENT_NODE_MODULES" ]; then
             echo "Dọn dẹp các cache node_modules cũ (giữ 5 cache mới nhất)..."
-            find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+            NODE_MODULE_COUNT=$(find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | wc -l)
+            if [ "$NODE_MODULE_COUNT" -gt 5 ]; then
+              echo "Có $NODE_MODULE_COUNT thư mục node_modules cache, xóa bớt để giữ 5 thư mục mới nhất"
+              find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+              echo "✅ Đã dọn dẹp thành công"
+            else
+              echo "Chỉ có $NODE_MODULE_COUNT thư mục node_modules cache <= 5, không cần xóa"
+            fi
           else
             echo "⚠️ Thư mục PERSISTENT_NODE_MODULES không tồn tại, bỏ qua bước dọn dẹp"
           fi
           
           if [ -d "$PERSISTENT_GRADLE" ]; then
             echo "Dọn dẹp các cache gradle cũ (giữ 5 cache mới nhất)..."
-            find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+            GRADLE_CACHE_COUNT=$(find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | wc -l)
+            if [ "$GRADLE_CACHE_COUNT" -gt 5 ]; then
+              echo "Có $GRADLE_CACHE_COUNT thư mục gradle cache, xóa bớt để giữ 5 thư mục mới nhất"
+              find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+              echo "✅ Đã dọn dẹp thành công"
+            else
+              echo "Chỉ có $GRADLE_CACHE_COUNT thư mục gradle cache <= 5, không cần xóa"
+            fi
           else
             echo "⚠️ Thư mục PERSISTENT_GRADLE không tồn tại, bỏ qua bước dọn dẹp"
           fi
@@ -554,6 +800,15 @@ jobs:
           mkdir -p "$PERSISTENT_M2"
           mkdir -p "$PERSISTENT_EAS"
           
+          # Xuất các biến cache để các bước khác có thể sử dụng
+          echo "PERSISTENT_CACHE=$PERSISTENT_CACHE" >> $GITHUB_ENV
+          echo "PERSISTENT_NODE_MODULES=$PERSISTENT_NODE_MODULES" >> $GITHUB_ENV
+          echo "PERSISTENT_GRADLE=$PERSISTENT_GRADLE" >> $GITHUB_ENV
+          echo "PERSISTENT_GRADLE_WRAPPER=$PERSISTENT_GRADLE_WRAPPER" >> $GITHUB_ENV
+          echo "PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES" >> $GITHUB_ENV
+          echo "PERSISTENT_M2=$PERSISTENT_M2" >> $GITHUB_ENV
+          echo "PERSISTENT_EAS=$PERSISTENT_EAS" >> $GITHUB_ENV
+          
           # Tính toán hash cho package.json và yarn.lock hoặc package-lock.json
           if [ -f "yarn.lock" ]; then
             PKG_HASH=$(md5sum yarn.lock package.json | sort | md5sum | cut -d ' ' -f 1)
@@ -611,10 +866,20 @@ jobs:
               fi
             else
               echo "⚠️ Không tìm thấy các file gradle cần thiết"
+              GRADLE_HASH=$(date +"%Y%m%d%H%M%S")
+              GRADLE_HASH_DIR="$PERSISTENT_GRADLE/$GRADLE_HASH"
+              mkdir -p "$GRADLE_HASH_DIR"
+              echo "GRADLE_HASH_DIR=$GRADLE_HASH_DIR" >> $GITHUB_ENV
+              echo "GRADLE_HASH=$GRADLE_HASH" >> $GITHUB_ENV
               echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
             fi
           else
             echo "⚠️ Thư mục android chưa tồn tại"
+            GRADLE_HASH=$(date +"%Y%m%d%H%M%S")
+            GRADLE_HASH_DIR="$PERSISTENT_GRADLE/$GRADLE_HASH"
+            mkdir -p "$GRADLE_HASH_DIR"
+            echo "GRADLE_HASH_DIR=$GRADLE_HASH_DIR" >> $GITHUB_ENV
+            echo "GRADLE_HASH=$GRADLE_HASH" >> $GITHUB_ENV
             echo "GRADLE_CACHE_EXISTS=false" >> $GITHUB_ENV
           fi
           
@@ -653,15 +918,34 @@ jobs:
         run: |
           echo "===== KHÔI PHỤC NODE MODULES BẰNG SYMLINK ====="
           
+          # Kiểm tra lại biến môi trường
+          if [ -z "$NODE_MODULES_HASH_DIR" ]; then
+            echo "⚠️ NODE_MODULES_HASH_DIR không được thiết lập, không thể khôi phục"
+            echo "NODE_MODULES_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC NODE MODULES ====="
+            exit 0
+          fi
+          
+          # Kiểm tra thư mục nguồn tồn tại
+          if [ ! -d "$NODE_MODULES_HASH_DIR/node_modules" ]; then
+            echo "⚠️ Thư mục nguồn không tồn tại: $NODE_MODULES_HASH_DIR/node_modules"
+            echo "NODE_MODULES_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC NODE MODULES ====="
+            exit 0
+          fi
+          
           # Kiểm tra xem node_modules đã tồn tại chưa
-          if [ -d "node_modules" ]; then
+          if [ -L "node_modules" ]; then
+            echo "Xóa symlink node_modules hiện tại"
+            rm -f node_modules
+          elif [ -d "node_modules" ]; then
             echo "Xóa thư mục node_modules hiện tại"
             rm -rf node_modules
           fi
           
           # Tạo symlink từ persistent cache
-          echo "Tạo symlink từ $NODE_MODULES_HASH_DIR/node_modules"
-          ln -s "$NODE_MODULES_HASH_DIR/node_modules" node_modules
+          echo "Tạo symlink từ $NODE_MODULES_HASH_DIR/node_modules đến node_modules"
+          ln -sf "$NODE_MODULES_HASH_DIR/node_modules" node_modules
           
           # Kiểm tra xem node_modules có được khôi phục không
           if [ -L "node_modules" ] && [ -d "node_modules" ]; then
@@ -671,6 +955,9 @@ jobs:
             echo "NODE_MODULES_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục node_modules bằng symlink"
+            # Chẩn đoán
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$NODE_MODULES_HASH_DIR"
             echo "NODE_MODULES_RESTORED=false" >> $GITHUB_ENV
           fi
           
@@ -682,54 +969,117 @@ jobs:
         run: |
           echo "===== KHÔI PHỤC GRADLE BẰNG SYMLINK ====="
           
+          # Kiểm tra biến GRADLE_HASH_DIR
+          if [ -z "$GRADLE_HASH_DIR" ]; then
+            echo "⚠️ GRADLE_HASH_DIR không được thiết lập, không thể khôi phục"
+            echo "GRADLE_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC GRADLE ====="
+            exit 0
+          fi
+          
+          # Kiểm tra thư mục nguồn
+          if [ ! -d "$GRADLE_HASH_DIR/.gradle" ]; then
+            echo "⚠️ Thư mục nguồn không tồn tại: $GRADLE_HASH_DIR/.gradle"
+            echo "GRADLE_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC GRADLE ====="
+            exit 0
+          fi
+          
           # Kiểm tra xem thư mục .gradle đã tồn tại trong $HOME chưa
-          if [ -d "$HOME/.gradle" ]; then
+          if [ -L "$HOME/.gradle" ]; then
+            echo "Xóa symlink .gradle hiện tại"
+            rm -f "$HOME/.gradle"
+          elif [ -d "$HOME/.gradle" ]; then
             echo "Sao lưu thư mục .gradle hiện tại"
-            mv $HOME/.gradle $HOME/.gradle.bak
+            rm -rf "$HOME/.gradle.bak" 2>/dev/null || true
+            mv "$HOME/.gradle" "$HOME/.gradle.bak" || {
+              echo "⚠️ Không thể di chuyển thư mục .gradle hiện tại, đang xóa..."
+              rm -rf "$HOME/.gradle"
+            }
           fi
           
           # Tạo symlink từ persistent cache
           echo "Tạo symlink từ $GRADLE_HASH_DIR/.gradle đến $HOME/.gradle"
-          ln -s "$GRADLE_HASH_DIR/.gradle" $HOME/.gradle
+          ln -sf "$GRADLE_HASH_DIR/.gradle" "$HOME/.gradle"
           
           # Kiểm tra xem .gradle có được khôi phục không
           if [ -L "$HOME/.gradle" ] && [ -d "$HOME/.gradle" ]; then
             echo "✅ Đã khôi phục .gradle thành công bằng symlink"
-            ls -la $HOME/.gradle | head -n 5
+            ls -la "$HOME/.gradle" | head -n 5
             echo "GRADLE_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục .gradle bằng symlink"
+            # Chẩn đoán
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$GRADLE_HASH_DIR"
+            echo "Quyền truy cập thư mục $HOME:"
+            ls -la "$HOME" | grep gradle
             echo "GRADLE_RESTORED=false" >> $GITHUB_ENV
           fi
           
           echo "===== KẾT THÚC KHÔI PHỤC GRADLE ====="
       
-      # Khôi phục gradle wrapper từ cache
-      - name: Restore Gradle Wrapper with Symlinks
-        if: env.GRADLE_WRAPPER_CACHE_EXISTS == 'true'
+      # Khôi phục Gradle Wrapper
+      - name: Restore Gradle Wrapper using symlink
         run: |
-          echo "===== KHÔI PHỤC GRADLE WRAPPER BẰNG SYMLINK ====="
+          echo "===== KHÔI PHỤC GRADLE WRAPPER ====="
           
-          # Tạo thư mục .gradle nếu chưa tồn tại
-          mkdir -p $HOME/.gradle
-          
-          # Kiểm tra xem thư mục wrapper đã tồn tại chưa
-          if [ -d "$HOME/.gradle/wrapper" ]; then
-            echo "Sao lưu thư mục wrapper hiện tại"
-            mv $HOME/.gradle/wrapper $HOME/.gradle/wrapper.bak
+          # Kiểm tra PERSISTENT_GRADLE_WRAPPER
+          if [ -z "${PERSISTENT_GRADLE_WRAPPER}" ]; then
+            PERSISTENT_GRADLE_WRAPPER="$HOME/persistent-cache/gradle-wrapper"
+            echo "PERSISTENT_GRADLE_WRAPPER chưa được thiết lập, đang thiết lập mặc định: $PERSISTENT_GRADLE_WRAPPER"
+            mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
+            echo "PERSISTENT_GRADLE_WRAPPER=$PERSISTENT_GRADLE_WRAPPER" >> $GITHUB_ENV
           fi
           
-          # Tạo symlink từ persistent cache
-          echo "Tạo symlink từ $PERSISTENT_GRADLE_WRAPPER/wrapper đến $HOME/.gradle/wrapper"
-          ln -s "$PERSISTENT_GRADLE_WRAPPER/wrapper" $HOME/.gradle/wrapper
+          # Kiểm tra thư mục nguồn tồn tại
+          if [ ! -d "$PERSISTENT_GRADLE_WRAPPER" ]; then
+            echo "⚠️ Thư mục $PERSISTENT_GRADLE_WRAPPER không tồn tại, đang tạo..."
+            mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
+          fi
           
-          # Kiểm tra xem wrapper có được khôi phục không
-          if [ -L "$HOME/.gradle/wrapper" ] && [ -d "$HOME/.gradle/wrapper" ]; then
-            echo "✅ Đã khôi phục gradle wrapper thành công bằng symlink"
-            ls -la $HOME/.gradle/wrapper | head -n 5
+          # Kiểm tra nếu thư mục nguồn trống, thông báo và tiếp tục
+          if [ -z "$(ls -A "$PERSISTENT_GRADLE_WRAPPER" 2>/dev/null)" ]; then
+            echo "⚠️ Thư mục $PERSISTENT_GRADLE_WRAPPER trống, chưa có cache để khôi phục."
+            echo "GRADLE_WRAPPER_RESTORED=false" >> $GITHUB_ENV
+            exit 0  # Thoát sớm nhưng không báo lỗi
+          fi
+          
+          # Tạo thư mục .gradle nếu chưa tồn tại
+          if [ ! -d "$HOME/.gradle" ]; then
+            echo "Tạo thư mục $HOME/.gradle..."
+            mkdir -p "$HOME/.gradle"
+          fi
+          
+          # Kiểm tra thư mục đích
+          if [ -L "$HOME/.gradle/wrapper" ]; then
+            echo "Thư mục wrapper hiện tại là symlink, đang xóa..."
+            rm -f "$HOME/.gradle/wrapper"
+          elif [ -d "$HOME/.gradle/wrapper" ]; then
+            echo "Thư mục wrapper đã tồn tại, đang sao lưu..."
+            if [ -d "$HOME/.gradle/wrapper.bak" ]; then
+              rm -rf "$HOME/.gradle/wrapper.bak"
+            fi
+            mv "$HOME/.gradle/wrapper" "$HOME/.gradle/wrapper.bak" || {
+              echo "⚠️ Không thể sao lưu thư mục, đang xóa thư mục hiện tại..."
+              rm -rf "$HOME/.gradle/wrapper"
+            }
+          fi
+          
+          # Tạo symlink với thêm tùy chọn -f để ghi đè nếu đã tồn tại
+          echo "Tạo symlink từ $PERSISTENT_GRADLE_WRAPPER/wrapper đến $HOME/.gradle/wrapper"
+          ln -sf "$PERSISTENT_GRADLE_WRAPPER/wrapper" "$HOME/.gradle/wrapper"
+          
+          # Kiểm tra kết quả
+          if [ -L "$HOME/.gradle/wrapper" ] && [ -d "$(readlink -f "$HOME/.gradle/wrapper")" ]; then
+            echo "✅ Đã khôi phục gradle wrapper bằng symlink thành công"
             echo "GRADLE_WRAPPER_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục gradle wrapper bằng symlink"
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$PERSISTENT_GRADLE_WRAPPER"
+            echo "Kiểm tra quyền truy cập thư mục $HOME/.gradle:"
+            ls -la "$HOME/.gradle"
             echo "GRADLE_WRAPPER_RESTORED=false" >> $GITHUB_ENV
           fi
           
@@ -741,8 +1091,26 @@ jobs:
         run: |
           echo "===== KHÔI PHỤC GRADLE CACHES BẰNG SYMLINK ====="
           
+          # Kiểm tra biến PERSISTENT_GRADLE_CACHES
+          if [ -z "$PERSISTENT_GRADLE_CACHES" ]; then
+            echo "⚠️ Biến PERSISTENT_GRADLE_CACHES chưa được thiết lập, đang thiết lập..."
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            PERSISTENT_GRADLE_CACHES="$PERSISTENT_CACHE/gradle-caches"
+            mkdir -p "$PERSISTENT_GRADLE_CACHES"
+            echo "Đã thiết lập PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES"
+          fi
+          
+          # Kiểm tra thư mục nguồn tồn tại
+          if [ ! -d "$PERSISTENT_GRADLE_CACHES/caches" ]; then
+            echo "⚠️ Thư mục nguồn không tồn tại: $PERSISTENT_GRADLE_CACHES/caches"
+            echo "Bỏ qua khôi phục gradle caches"
+            echo "GRADLE_CACHES_RESTORED=false" >> $GITHUB_ENV
+            echo "===== KẾT THÚC KHÔI PHỤC GRADLE CACHES ====="
+            exit 0
+          fi
+          
           # Tạo thư mục .gradle nếu chưa tồn tại
-          mkdir -p $HOME/.gradle
+          mkdir -p "$HOME/.gradle"
           
           # Kiểm tra xem thư mục caches đã tồn tại chưa
           if [ -d "$HOME/.gradle/caches" ]; then
@@ -757,7 +1125,7 @@ jobs:
           # Kiểm tra xem caches có được khôi phục không
           if [ -L "$HOME/.gradle/caches" ] && [ -d "$HOME/.gradle/caches" ]; then
             echo "✅ Đã khôi phục gradle caches thành công bằng symlink"
-            ls -la $HOME/.gradle/caches | head -n 5
+            ls -la "$HOME/.gradle/caches" | head -n 5
             echo "GRADLE_CACHES_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục gradle caches bằng symlink"
@@ -766,32 +1134,67 @@ jobs:
           
           echo "===== KẾT THÚC KHÔI PHỤC GRADLE CACHES ====="
       
-      # Khôi phục M2 repository từ cache
-      - name: Restore M2 Repository with Symlinks
-        if: env.M2_CACHE_EXISTS == 'true'
+      # Khôi phục M2 repository
+      - name: Restore M2 Repository using symlink
         run: |
-          echo "===== KHÔI PHỤC M2 REPOSITORY BẰNG SYMLINK ====="
+          echo "===== KHÔI PHỤC M2 REPOSITORY ====="
           
-          # Tạo thư mục .m2 nếu chưa tồn tại
-          mkdir -p $HOME/.m2
-          
-          # Kiểm tra xem thư mục repository đã tồn tại chưa
-          if [ -d "$HOME/.m2/repository" ]; then
-            echo "Sao lưu thư mục repository hiện tại"
-            mv $HOME/.m2/repository $HOME/.m2/repository.bak
+          # Kiểm tra PERSISTENT_M2
+          if [ -z "${PERSISTENT_M2}" ]; then
+            PERSISTENT_M2="$HOME/persistent-cache/m2"
+            echo "PERSISTENT_M2 chưa được thiết lập, đang thiết lập mặc định: $PERSISTENT_M2"
+            mkdir -p "$PERSISTENT_M2"
+            echo "PERSISTENT_M2=$PERSISTENT_M2" >> $GITHUB_ENV
           fi
           
-          # Tạo symlink từ persistent cache
-          echo "Tạo symlink từ $PERSISTENT_M2/repository đến $HOME/.m2/repository"
-          ln -s "$PERSISTENT_M2/repository" $HOME/.m2/repository
+          # Kiểm tra thư mục nguồn tồn tại
+          if [ ! -d "$PERSISTENT_M2" ]; then
+            echo "⚠️ Thư mục $PERSISTENT_M2 không tồn tại, đang tạo..."
+            mkdir -p "$PERSISTENT_M2"
+          fi
           
-          # Kiểm tra xem repository có được khôi phục không
-          if [ -L "$HOME/.m2/repository" ] && [ -d "$HOME/.m2/repository" ]; then
-            echo "✅ Đã khôi phục m2 repository thành công bằng symlink"
-            ls -la $HOME/.m2/repository | head -n 5
+          # Kiểm tra nếu thư mục nguồn trống, thông báo và tiếp tục
+          if [ -z "$(ls -A "$PERSISTENT_M2" 2>/dev/null)" ]; then
+            echo "⚠️ Thư mục $PERSISTENT_M2 trống, chưa có cache để khôi phục."
+            echo "M2_REPOSITORY_RESTORED=false" >> $GITHUB_ENV
+            exit 0  # Thoát sớm nhưng không báo lỗi
+          fi
+          
+          # Tạo thư mục .m2 nếu chưa tồn tại
+          if [ ! -d "$HOME/.m2" ]; then
+            echo "Tạo thư mục $HOME/.m2..."
+            mkdir -p "$HOME/.m2"
+          fi
+          
+          # Kiểm tra thư mục đích
+          if [ -L "$HOME/.m2/repository" ]; then
+            echo "Thư mục repository hiện tại là symlink, đang xóa..."
+            rm -f "$HOME/.m2/repository"
+          elif [ -d "$HOME/.m2/repository" ]; then
+            echo "Thư mục repository đã tồn tại, đang sao lưu..."
+            if [ -d "$HOME/.m2/repository.bak" ]; then
+              rm -rf "$HOME/.m2/repository.bak"
+            fi
+            mv "$HOME/.m2/repository" "$HOME/.m2/repository.bak" || {
+              echo "⚠️ Không thể sao lưu thư mục, đang xóa thư mục hiện tại..."
+              rm -rf "$HOME/.m2/repository"
+            }
+          fi
+          
+          # Tạo symlink với thêm tùy chọn -f để ghi đè nếu đã tồn tại
+          echo "Tạo symlink từ $PERSISTENT_M2/repository đến $HOME/.m2/repository"
+          ln -sf "$PERSISTENT_M2/repository" "$HOME/.m2/repository"
+          
+          # Kiểm tra kết quả
+          if [ -L "$HOME/.m2/repository" ] && [ -d "$(readlink -f "$HOME/.m2/repository" 2>/dev/null)" ]; then
+            echo "✅ Đã khôi phục m2 repository bằng symlink thành công"
             echo "M2_REPOSITORY_RESTORED=true" >> $GITHUB_ENV
           else
             echo "❌ Không thể khôi phục m2 repository bằng symlink"
+            echo "Kiểm tra thư mục nguồn:"
+            ls -la "$PERSISTENT_M2"
+            echo "Kiểm tra quyền truy cập thư mục $HOME/.m2:"
+            ls -la "$HOME/.m2"
             echo "M2_REPOSITORY_RESTORED=false" >> $GITHUB_ENV
           fi
           
@@ -842,10 +1245,17 @@ jobs:
         run: |
           echo "===== LƯU CACHE SAU KHI BUILD ====="
           
+          # Kiểm tra và thiết lập các biến môi trường cần thiết
+          # Thiết lập PERSISTENT_CACHE nếu chưa tồn tại
+          if [ -z "${PERSISTENT_CACHE}" ]; then
+            PERSISTENT_CACHE="$HOME/persistent-cache"
+            echo "Thiết lập PERSISTENT_CACHE=$PERSISTENT_CACHE"
+            mkdir -p "$PERSISTENT_CACHE"
+          fi
+          
           # Kiểm tra và thiết lập GRADLE_HASH_DIR nếu chưa tồn tại
           if [ -z "${GRADLE_HASH_DIR}" ]; then
             echo "⚠️ GRADLE_HASH_DIR chưa được thiết lập, đang thiết lập..."
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_GRADLE="$PERSISTENT_CACHE/gradle"
             
             # Tạo thư mục persistent nếu chưa tồn tại
@@ -864,92 +1274,176 @@ jobs:
           
           # Kiểm tra và thiết lập các biến thư mục persistent khác nếu cần
           if [ -z "${PERSISTENT_GRADLE_WRAPPER}" ]; then
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_GRADLE_WRAPPER="$PERSISTENT_CACHE/gradle-wrapper"
             mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
             echo "Đã thiết lập PERSISTENT_GRADLE_WRAPPER=$PERSISTENT_GRADLE_WRAPPER"
           fi
           
           if [ -z "${PERSISTENT_GRADLE_CACHES}" ]; then
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_GRADLE_CACHES="$PERSISTENT_CACHE/gradle-caches"
             mkdir -p "$PERSISTENT_GRADLE_CACHES"
             echo "Đã thiết lập PERSISTENT_GRADLE_CACHES=$PERSISTENT_GRADLE_CACHES"
           fi
           
           if [ -z "${PERSISTENT_M2}" ]; then
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_M2="$PERSISTENT_CACHE/m2"
             mkdir -p "$PERSISTENT_M2"
             echo "Đã thiết lập PERSISTENT_M2=$PERSISTENT_M2"
           fi
           
           if [ -z "${PERSISTENT_NODE_MODULES}" ]; then
-            PERSISTENT_CACHE="$HOME/persistent-cache"
             PERSISTENT_NODE_MODULES="$PERSISTENT_CACHE/node_modules"
             mkdir -p "$PERSISTENT_NODE_MODULES"
             echo "Đã thiết lập PERSISTENT_NODE_MODULES=$PERSISTENT_NODE_MODULES"
+          fi
+          
+          if [ -z "${PERSISTENT_GRADLE}" ]; then
+            PERSISTENT_GRADLE="$PERSISTENT_CACHE/gradle"
+            mkdir -p "$PERSISTENT_GRADLE"
+            echo "Đã thiết lập PERSISTENT_GRADLE=$PERSISTENT_GRADLE"
           fi
           
           # Lưu cache gradle nếu có thay đổi
           if [ -d "$HOME/.gradle" ] && [ ! -L "$HOME/.gradle" ]; then
             echo "Lưu cache Gradle..."
             mkdir -p "$GRADLE_HASH_DIR"
-            rm -rf "$GRADLE_HASH_DIR/.gradle"
+            if [ -d "$GRADLE_HASH_DIR/.gradle" ]; then
+              echo "Xóa thư mục .gradle cũ trong cache"
+              rm -rf "$GRADLE_HASH_DIR/.gradle"
+            fi
+            echo "Sao chép $HOME/.gradle vào $GRADLE_HASH_DIR/"
             cp -r "$HOME/.gradle" "$GRADLE_HASH_DIR/"
-            echo "✅ Đã lưu cache Gradle"
+            if [ -d "$GRADLE_HASH_DIR/.gradle" ]; then
+              echo "✅ Đã lưu cache Gradle thành công"
+            else
+              echo "❌ Không thể sao chép thư mục .gradle vào cache"
+            fi
           elif [ -L "$HOME/.gradle" ]; then
             echo "Gradle đã được lưu cache qua symlink"
+            # Kiểm tra symlink có trỏ đến thư mục tồn tại không
+            LINKED_TARGET=$(readlink -f "$HOME/.gradle")
+            if [ -d "$LINKED_TARGET" ]; then
+              echo "✅ Symlink trỏ đến thư mục hợp lệ: $LINKED_TARGET"
+            else
+              echo "❌ Symlink trỏ đến thư mục không tồn tại: $LINKED_TARGET"
+            fi
+          else
+            echo "⚠️ Không tìm thấy thư mục $HOME/.gradle để lưu cache"
           fi
           
           # Lưu cache gradle wrapper
           if [ -d "$HOME/.gradle/wrapper" ] && [ ! -L "$HOME/.gradle/wrapper" ]; then
             echo "Lưu cache Gradle Wrapper..."
             mkdir -p "$PERSISTENT_GRADLE_WRAPPER"
-            rm -rf "$PERSISTENT_GRADLE_WRAPPER/wrapper"
+            if [ -d "$PERSISTENT_GRADLE_WRAPPER/wrapper" ]; then
+              echo "Xóa wrapper cũ trong cache"
+              rm -rf "$PERSISTENT_GRADLE_WRAPPER/wrapper"
+            fi
+            echo "Sao chép $HOME/.gradle/wrapper vào $PERSISTENT_GRADLE_WRAPPER/"
             cp -r "$HOME/.gradle/wrapper" "$PERSISTENT_GRADLE_WRAPPER/"
-            echo "✅ Đã lưu cache Gradle Wrapper"
+            if [ -d "$PERSISTENT_GRADLE_WRAPPER/wrapper" ]; then
+              echo "✅ Đã lưu cache Gradle Wrapper thành công"
+            else
+              echo "❌ Không thể sao chép thư mục wrapper vào cache"
+            fi
           elif [ -L "$HOME/.gradle/wrapper" ]; then
             echo "Gradle Wrapper đã được lưu cache qua symlink"
+            # Kiểm tra symlink có trỏ đến thư mục tồn tại không
+            LINKED_TARGET=$(readlink -f "$HOME/.gradle/wrapper")
+            if [ -d "$LINKED_TARGET" ]; then
+              echo "✅ Symlink trỏ đến thư mục hợp lệ: $LINKED_TARGET"
+            else
+              echo "❌ Symlink trỏ đến thư mục không tồn tại: $LINKED_TARGET"
+            fi
+          else
+            echo "⚠️ Không tìm thấy thư mục $HOME/.gradle/wrapper để lưu cache"
           fi
           
           # Lưu cache gradle caches
           if [ -d "$HOME/.gradle/caches" ] && [ ! -L "$HOME/.gradle/caches" ]; then
             echo "Lưu cache Gradle Caches..."
             mkdir -p "$PERSISTENT_GRADLE_CACHES"
-            rm -rf "$PERSISTENT_GRADLE_CACHES/caches"
+            if [ -d "$PERSISTENT_GRADLE_CACHES/caches" ]; then
+              echo "Xóa caches cũ trong cache"
+              rm -rf "$PERSISTENT_GRADLE_CACHES/caches"
+            fi
+            echo "Sao chép $HOME/.gradle/caches vào $PERSISTENT_GRADLE_CACHES/"
             cp -r "$HOME/.gradle/caches" "$PERSISTENT_GRADLE_CACHES/"
-            echo "✅ Đã lưu cache Gradle Caches"
+            if [ -d "$PERSISTENT_GRADLE_CACHES/caches" ]; then
+              echo "✅ Đã lưu cache Gradle Caches thành công"
+            else
+              echo "❌ Không thể sao chép thư mục caches vào cache"
+            fi
           elif [ -L "$HOME/.gradle/caches" ]; then
             echo "Gradle Caches đã được lưu cache qua symlink"
+            # Kiểm tra symlink có trỏ đến thư mục tồn tại không
+            LINKED_TARGET=$(readlink -f "$HOME/.gradle/caches")
+            if [ -d "$LINKED_TARGET" ]; then
+              echo "✅ Symlink trỏ đến thư mục hợp lệ: $LINKED_TARGET"
+            else
+              echo "❌ Symlink trỏ đến thư mục không tồn tại: $LINKED_TARGET"
+            fi
+          else
+            echo "⚠️ Không tìm thấy thư mục $HOME/.gradle/caches để lưu cache"
           fi
           
           # Lưu cache M2 repository
           if [ -d "$HOME/.m2/repository" ] && [ ! -L "$HOME/.m2/repository" ]; then
             echo "Lưu cache M2 Repository..."
             mkdir -p "$PERSISTENT_M2"
-            rm -rf "$PERSISTENT_M2/repository"
-            cp -r "$HOME/.m2/repository" "$PERSISTENT_M2/"
-            echo "✅ Đã lưu cache M2 Repository"
+            if [ -d "$PERSISTENT_M2/repository" ]; then
+              echo "Xóa repository cũ trong cache"
+              rm -rf "$PERSISTENT_M2/repository"
+            fi
+            echo "Sao chép $HOME/.m2/repository vào $PERSISTENT_M2/"
+            cp -r "$HOME/.m2/repository" "$PERSISTENT_M2/" || true
+            if [ -d "$PERSISTENT_M2/repository" ]; then
+              echo "✅ Đã lưu cache M2 Repository thành công"
+            else
+              echo "⚠️ Không thể sao chép thư mục repository vào cache, nhưng tiếp tục"
+            fi
           elif [ -L "$HOME/.m2/repository" ]; then
             echo "M2 Repository đã được lưu cache qua symlink"
+            # Kiểm tra symlink có trỏ đến thư mục tồn tại không
+            LINKED_TARGET=$(readlink -f "$HOME/.m2/repository")
+            if [ -d "$LINKED_TARGET" ]; then
+              echo "✅ Symlink trỏ đến thư mục hợp lệ: $LINKED_TARGET"
+            else
+              echo "❌ Symlink trỏ đến thư mục không tồn tại: $LINKED_TARGET"
+            fi
+          else
+            echo "⚠️ Không tìm thấy thư mục $HOME/.m2/repository để lưu cache"
           fi
           
           # Dọn dẹp thư mục cũ
           echo "Dọn dẹp các bản sao lưu..."
-          rm -rf "$HOME/.gradle.bak" "$HOME/.gradle/wrapper.bak" "$HOME/.gradle/caches.bak" "$HOME/.m2/repository.bak"
+          rm -rf "$HOME/.gradle.bak" "$HOME/.gradle/wrapper.bak" "$HOME/.gradle/caches.bak" "$HOME/.m2/repository.bak" 2>/dev/null || true
           
           # Kiểm tra trước khi dọn dẹp cache cũ
           if [ -d "$PERSISTENT_NODE_MODULES" ]; then
             echo "Dọn dẹp các cache node_modules cũ (giữ 5 cache mới nhất)..."
-            find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+            NODE_MODULE_COUNT=$(find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | wc -l)
+            if [ "$NODE_MODULE_COUNT" -gt 5 ]; then
+              echo "Có $NODE_MODULE_COUNT thư mục node_modules cache, xóa bớt để giữ 5 thư mục mới nhất"
+              find "$PERSISTENT_NODE_MODULES" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+              echo "✅ Đã dọn dẹp thành công"
+            else
+              echo "Chỉ có $NODE_MODULE_COUNT thư mục node_modules cache <= 5, không cần xóa"
+            fi
           else
             echo "⚠️ Thư mục PERSISTENT_NODE_MODULES không tồn tại, bỏ qua bước dọn dẹp"
           fi
           
           if [ -d "$PERSISTENT_GRADLE" ]; then
             echo "Dọn dẹp các cache gradle cũ (giữ 5 cache mới nhất)..."
-            find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+            GRADLE_CACHE_COUNT=$(find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | wc -l)
+            if [ "$GRADLE_CACHE_COUNT" -gt 5 ]; then
+              echo "Có $GRADLE_CACHE_COUNT thư mục gradle cache, xóa bớt để giữ 5 thư mục mới nhất"
+              find "$PERSISTENT_GRADLE" -maxdepth 1 -mindepth 1 -type d | sort -r | tail -n +6 | xargs -r rm -rf
+              echo "✅ Đã dọn dẹp thành công"
+            else
+              echo "Chỉ có $GRADLE_CACHE_COUNT thư mục gradle cache <= 5, không cần xóa"
+            fi
           else
             echo "⚠️ Thư mục PERSISTENT_GRADLE không tồn tại, bỏ qua bước dọn dẹp"
           fi
