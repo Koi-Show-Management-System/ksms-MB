@@ -67,8 +67,54 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/gradlew', '**/gradle/wrapper/gradle-wrapper.properties', 'build.gradle', '**/build.gradle.kts') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+      - name: Setup Android Environment
+        run: |
+          # Tạo thư mục android nếu chưa tồn tại
+          mkdir -p android
+          
+          # Tạo file gradle.properties với các cấu hình cần thiết
+          cat > android/gradle.properties << EOF
+          # Project-wide Gradle settings.
+          
+          # Android SDK
+          android.useAndroidX=true
+          android.enableJetifier=true
+          
+          # Version of flipper SDK to use with React Native
+          FLIPPER_VERSION=0.182.0
+          
+          # Use this property to specify which architecture you want to build.
+          # You can also override it from the CLI using
+          # ./gradlew <task> -PreactNativeArchitectures=x86_64
+          reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+          
+          # Use this property to enable support to the new architecture.
+          # This will allow you to use TurboModules and the Fabric render in
+          # your application. You should enable this flag either if you want
+          # to write custom TurboModules/Fabric components OR use libraries that
+          # are providing them.
+          newArchEnabled=false
+          
+          # Use this property to enable or disable the Hermes JS engine.
+          # If set to false, you will be using JSC instead.
+          hermesEnabled=true
+          
+          # Keystore settings
+          MYAPP_UPLOAD_STORE_FILE=release.keystore
+          MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
+          
+          org.gradle.jvmargs=-Xmx4g -XX:MaxPermSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+          EOF
+          
+          echo "Created gradle.properties"
+          ls -la android/gradle.properties
       - name: Setup Keystore
         run: |
+          # Tạo thư mục android/app nếu chưa tồn tại
+          mkdir -p android/app
+          
           # Lưu base64 vào tệp trước khi giải mã
           echo '${{ secrets.ANDROID_KEYSTORE_BASE64 }}' > keystore-base64.txt
           
@@ -76,13 +122,13 @@ jobs:
           tr -d '\n\r\t ' < keystore-base64.txt > keystore-base64-clean.txt
           
           # Giải mã base64 thành binary
-          base64 --decode keystore-base64-clean.txt > keystore.jks || {
+          base64 --decode keystore-base64-clean.txt > android/app/release.keystore || {
             echo "Failed to decode base64 keystore"
             exit 1
           }
           
           # Kiểm tra kích thước file keystore để xác nhận thành công
-          FILESIZE=$(stat -c%s "keystore.jks")
+          FILESIZE=$(stat -c%s "android/app/release.keystore")
           echo "Keystore size: $FILESIZE bytes"
           
           if [ "$FILESIZE" -eq 0 ]; then
@@ -91,18 +137,18 @@ jobs:
           fi
           
           # Đường dẫn tuyệt đối đến keystore
-          ABSOLUTE_KEYSTORE_PATH=$(realpath keystore.jks)
+          ABSOLUTE_KEYSTORE_PATH=$(realpath android/app/release.keystore)
           echo "KEYSTORE_PATH=$ABSOLUTE_KEYSTORE_PATH" >> $GITHUB_ENV
       - name: Verify Keystore
         run: |
           # Kiểm tra keystore tồn tại và có kích thước hợp lệ
-          if [ ! -f "keystore.jks" ]; then
+          if [ ! -f "android/app/release.keystore" ]; then
             echo "Error: Keystore file not found!"
             exit 1
           fi
           
           # Kiểm tra kích thước của keystore (phải > 0 bytes)
-          FILESIZE=$(stat -c%s "keystore.jks")
+          FILESIZE=$(stat -c%s "android/app/release.keystore")
           if [ "$FILESIZE" -eq 0 ]; then
             echo "Error: Keystore file is empty!"
             exit 1
@@ -119,6 +165,21 @@ jobs:
               "appVersionSource": "remote"
             },
             "build": {
+              "development": {
+                "developmentClient": true,
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk",
+                  "gradleCommand": ":app:assembleDebug"
+                }
+              },
+              "preview": {
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk",
+                  "gradleCommand": ":app:assembleRelease"
+                }
+              }, 
               "production": {
                 "autoIncrement": true,
                 "android": {
@@ -127,6 +188,9 @@ jobs:
                   "credentialsSource": "local"
                 }
               }
+            },
+            "submit": {
+              "production": {}
             }
           }
           EOF
@@ -139,10 +203,12 @@ jobs:
           cat > .expo/credentials.json << EOF
           {
             "android": {
-              "keystorePath": "${{ env.KEYSTORE_PATH }}",
-              "keystorePassword": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
-              "keyAlias": "${{ secrets.ANDROID_KEYSTORE_ALIAS }}",
-              "keyPassword": "${{ secrets.ANDROID_KEY_PASSWORD }}"
+              "keystore": {
+                "keystorePath": "${{ env.KEYSTORE_PATH }}",
+                "keystorePassword": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
+                "keyAlias": "${{ secrets.ANDROID_KEYSTORE_ALIAS }}",
+                "keyPassword": "${{ secrets.ANDROID_KEY_PASSWORD }}"
+              }
             }
           }
           EOF
@@ -166,7 +232,7 @@ jobs:
           echo "Current directory: $(pwd)"
           ls -la
           echo "Keystore:"
-          ls -la keystore.jks || echo "Keystore not found!"
+          ls -la android/app/release.keystore || echo "Keystore not found!"
           echo "credentials.json:"
           ls -la credentials.json || echo "credentials.json not found!"
           
@@ -183,13 +249,30 @@ jobs:
           echo "Checking EAS environment..."
           eas diagnostics
           
-          # Thực hiện build với verbose mode
+          # Kiểm tra cấu hình build
+          echo "Checking build configuration..."
+          cat eas.json
+          
+          # Kiểm tra credentials
+          echo "Checking credentials..."
+          if [ -f ".expo/credentials.json" ]; then
+            echo "Found .expo/credentials.json"
+            cat .expo/credentials.json | sed 's/"keyPassword": "[^"]*"/"keyPassword": "***"/g' | sed 's/"keystorePassword": "[^"]*"/"keystorePassword": "***"/g'
+          else
+            echo "No .expo/credentials.json found"
+          fi
+          
+          # Kiểm tra keystore
+          echo "Checking keystore..."
+          ls -la android/app/release.keystore
+          
+          # Thực hiện build
+          echo "Starting build process..."
           eas build --local \
           --non-interactive \
           --output=./app-build/app-release.apk \
           --platform=android \
-          --profile=production \
-          --verbose
+          --profile=production
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
