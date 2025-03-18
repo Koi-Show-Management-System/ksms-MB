@@ -91,6 +91,13 @@
         "projectId": "a8509b6e-ffa0-45cd-985f-fb94cc1b2785"
       }
     },
-    "owner": "nhatsang29"
+    "owner": "nhatsang29",
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "credentialsSource": "local"
+      }
+    }
   }
 }
