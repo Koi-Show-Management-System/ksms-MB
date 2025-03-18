@@ -407,6 +407,48 @@ jobs:
           fi
       - name: Build Android app (Local Build)
         run: |
+          # Kiểm tra và cài đặt Java
+          echo "===== KIỂM TRA VÀ CÀI ĐẶT JAVA ====="
+          if ! command -v java &> /dev/null; then
+            echo "⚠️ Java chưa được cài đặt hoặc không có trong PATH"
+            
+            # Kiểm tra xem Java đã được cài đặt nhưng không có trong PATH
+            if [ -d "/usr/lib/jvm" ]; then
+              echo "Tìm thấy thư mục JVM, đang kiểm tra các phiên bản Java..."
+              ls -la /usr/lib/jvm
+              
+              # Tìm kiếm thư mục java phổ biến
+              JAVA_DIRS=$(find /usr/lib/jvm -maxdepth 1 -name "*java*" -type d 2>/dev/null)
+              if [ ! -z "$JAVA_DIRS" ]; then
+                echo "Tìm thấy các thư mục Java:"
+                echo "$JAVA_DIRS"
+                
+                # Thiết lập JAVA_HOME cho bản Java đầu tiên tìm được
+                JAVA_HOME=$(echo "$JAVA_DIRS" | head -n 1)
+                echo "Đang thiết lập JAVA_HOME=$JAVA_HOME"
+                export JAVA_HOME="$JAVA_HOME"
+                export PATH="$JAVA_HOME/bin:$PATH"
+              fi
+            else
+              echo "Đang cài đặt JDK..."
+              # Cài đặt OpenJDK 11 (phù hợp cho Android build)
+              sudo apt-get update
+              sudo apt-get install -y openjdk-11-jdk
+              
+              # Thiết lập JAVA_HOME
+              export JAVA_HOME="/usr/lib/jvm/java-11-openjdk-amd64"
+              export PATH="$JAVA_HOME/bin:$PATH"
+            fi
+          fi
+          
+          # Kiểm tra lại Java sau khi cài đặt
+          echo "Java version:"
+          java -version || echo "⚠️ Java vẫn chưa được cài đặt đúng cách"
+          
+          # Hiển thị JAVA_HOME
+          echo "JAVA_HOME=$JAVA_HOME"
+          echo "===== KẾT THÚC THIẾT LẬP JAVA ====="
+          
           # Tạo thư mục build
           BUILD_DIRECTORY="$HOME/app-builds"
           APP_DIRECTORY="$BUILD_DIRECTORY/ksms-app"
@@ -449,6 +491,8 @@ jobs:
           # Thực hiện build tối ưu
           echo "Starting build process..."
           GRADLE_OPTS="-Dorg.gradle.daemon=true -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=8" \
+          JAVA_HOME="$JAVA_HOME" \
+          PATH="$JAVA_HOME/bin:$PATH" \
           eas build --local \
           --non-interactive \
           --output=./app-build/app-release.apk \
