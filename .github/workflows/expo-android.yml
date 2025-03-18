@@ -25,7 +25,7 @@ on:
 
 jobs:
   cleanup-artifacts:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Cleanup Artifacts
         uses: c-hive/gha-remove-artifacts@v1
@@ -36,7 +36,7 @@ jobs:
 
   setup:
     needs: cleanup-artifacts
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       version: ${{ steps.set-version.outputs.version }}
     steps:
@@ -75,9 +75,11 @@ jobs:
 
   build-android:
     needs: setup
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       direct_upload: ${{ steps.check-artifact.outputs.direct_upload }}
+      apk_path: ${{ steps.set-apk-path.outputs.apk_path }}
+      build_time: ${{ steps.set-apk-path.outputs.build_time }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
@@ -311,6 +313,21 @@ jobs:
           fi
       - name: Build Android app (Local Build)
         run: |
+          # Tạo thư mục build
+          BUILD_DIRECTORY="$HOME/app-builds"
+          APP_DIRECTORY="$BUILD_DIRECTORY/ksms-app"
+          mkdir -p "$APP_DIRECTORY"
+          
+          # Tạo timestamp cho build này
+          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+          BUILD_NUMBER="${{ github.run_number }}"
+          
+          # Tạo thư mục cho lưu trữ APK
+          APK_STORAGE_DIR="$HOME/apk-storage"
+          mkdir -p "$APK_STORAGE_DIR/archives"
+          mkdir -p "$APK_STORAGE_DIR/versions"
+          
+          # Chuẩn bị thư mục build
           rm -rf app-build
           mkdir -p app-build
           
@@ -348,66 +365,56 @@ jobs:
           if [ -f "app-build/app-release.apk" ]; then
             echo "✅ Build thành công, file APK đã được tạo"
             ls -l app-build/app-release.apk
+            
+            # Tạo tên file APK với timestamp và số build
+            APK_FILENAME="ksms-mb-${TIMESTAMP}-${BUILD_NUMBER}.apk"
+            APK_PATH="$APK_STORAGE_DIR/archives/$APK_FILENAME"
+            
+            # Sao chép APK vào thư mục lưu trữ
+            cp app-build/app-release.apk "$APK_PATH"
+            
+            # Tạo bản sao làm "latest.apk" để luôn có URL cố định
+            cp app-build/app-release.apk "$APK_STORAGE_DIR/latest.apk"
+            
+            # Lưu thông tin phiên bản
+            echo '{
+              "filename": "'$APK_FILENAME'",
+              "timestamp": "'$TIMESTAMP'",
+              "build_number": "'$BUILD_NUMBER'",
+              "commit": "'${{ github.sha }}'"
+            }' > "$APK_STORAGE_DIR/versions/version-${TIMESTAMP}.json"
+            
+            # Chỉ giữ 2 phiên bản mới nhất
+            cd "$APK_STORAGE_DIR/archives"
+            ls -t *.apk | tail -n +3 | xargs -r rm
+            
+            cd "$APK_STORAGE_DIR/versions"
+            ls -t *.json | tail -n +3 | xargs -r rm
+            
+            # Cập nhật README
+            echo "# KSMS Mobile App Downloads" > "$APK_STORAGE_DIR/README.md"
+            echo "" >> "$APK_STORAGE_DIR/README.md"
+            echo "## Latest Version" >> "$APK_STORAGE_DIR/README.md"
+            echo "- Build: $BUILD_NUMBER" >> "$APK_STORAGE_DIR/README.md"
+            echo "- Date: $(date +'%Y-%m-%d %H:%M:%S')" >> "$APK_STORAGE_DIR/README.md"
+            echo "- Commit: ${{ github.sha }}" >> "$APK_STORAGE_DIR/README.md"
+            echo "" >> "$APK_STORAGE_DIR/README.md"
+            echo "## Download Links" >> "$APK_STORAGE_DIR/README.md"
+            echo "- **Latest version**: http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/latest.apk" >> "$APK_STORAGE_DIR/README.md"
+            echo "- **This specific version**: http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/archives/$APK_FILENAME" >> "$APK_STORAGE_DIR/README.md"
+            
+            # Thiết lập output
+            echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+            echo "build_time=$TIMESTAMP" >> $GITHUB_OUTPUT
           else
             echo "❌ Build thất bại, không tìm thấy file APK"
             exit 1
           fi
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
-          ANDROID_KEYSTORE_PATH: ${{ env.KEYSTORE_PATH }}
-          ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEYSTORE: ${{ env.KEYSTORE_PATH }}
-      - name: Upload Build Artifact
-        id: upload-artifact
-        if: success()  # Chỉ upload nếu build thành công
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-build-latest
-          path: app-build/app-release.apk
-          retention-days: 1
-          if-no-files-found: error  # Báo lỗi nếu không tìm thấy file
-          overwrite: true
-          
-      # Thêm bước xác minh artifact
-      - name: Verify Artifact Upload
-        run: |
-          echo "===== THÔNG TIN ARTIFACT ====="
-          echo "Kiểm tra file APK trước khi upload artifact:"
-          if [ -f "app-build/app-release.apk" ]; then
-            echo "✓ File APK tồn tại: app-build/app-release.apk"
-            ls -la app-build/app-release.apk
-            echo "Kích thước: $(du -h app-build/app-release.apk | cut -f1)"
-          else
-            echo "✗ KHÔNG tìm thấy file app-build/app-release.apk"
-            find . -name "*.apk" -type f
-            exit 1
-          fi
-          
-      # Luôn lưu APK như một artifact phụ cho trường hợp khẩn cấp
-      - name: Upload Emergency Artifact
-        id: upload-emergency-artifact
-        if: success()  # Chỉ upload nếu build thành công
-        uses: actions/upload-artifact@v4
-        with:
-          name: apk-emergency-latest
-          path: app-build/app-release.apk
-          retention-days: 1
-          if-no-files-found: error
-          overwrite: true
-          
-      - name: Check Artifact Upload Status
-        id: check-artifact
-        if: steps.upload-artifact.outcome == 'failure'
-        run: |
-          echo "::warning::Không thể upload artifact do đạt giới hạn lưu trữ hoặc lỗi khác. Sẽ sử dụng phương pháp upload trực tiếp."
-          echo "direct_upload=true" >> $GITHUB_OUTPUT
+        id: set-apk-path
 
   release:
     needs: [setup, build-android]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
       
@@ -532,90 +539,85 @@ jobs:
               console.log('Không tìm thấy tag cũ hoặc có lỗi:', error.message);
             }
         
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: latest
-          release_name: Latest Build
-          draft: false
-          prerelease: true
-      
-      - name: Check Downloaded APK Exists
+      - name: Create Release with VPS Link
         run: |
-          if [ -f "./ksms-mb-latest.apk" ]; then
-            echo "✅ APK file found at ./ksms-mb-latest.apk"
-            ls -la ./ksms-mb-latest.apk
-          else
-            echo "❌ APK file NOT found at ./ksms-mb-latest.apk"
-            echo "Trying to find APK in other locations..."
-            find . -name "*.apk" -type f
-            echo "::error::Không tìm thấy APK để upload. Vui lòng kiểm tra lại quy trình download artifact."
-            exit 1
-          fi
-      
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+          # Lấy thông tin từ bước build
+          APK_PATH="${{ needs.build-android.outputs.apk_path }}"
+          BUILD_TIME="${{ needs.build-android.outputs.build_time }}"
+          BUILD_NUMBER="${{ github.run_number }}"
+          COMMIT_SHA="${{ github.sha }}"
+          
+          # Lấy tên file APK từ đường dẫn
+          APK_FILENAME=$(basename "$APK_PATH")
+          
+          # URL cho file APK
+          APK_URL="http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/archives/$APK_FILENAME"
+          LATEST_URL="http://${{ secrets.VPS_HOST }}${{ secrets.VPS_PUBLIC_PATH }}/latest.apk"
+          
+          # Configure QR Code 
+          QR_CONFIG="size=300&margin=1&dark=000000&light=FFFFFF"
+          QR_CODE_URL="https://quickchart.io/qr?text=$(urlencode "$LATEST_URL")&$QR_CONFIG"
+          
+          # Xóa tag cũ nếu tồn tại
+          git tag -d latest || true
+          git push --delete origin latest || true
+          
+          # Tạo tag mới
+          git tag latest
+          git push origin latest
+          
+          # Tạo release notes
+          cat > release_notes.md << EOL
+          ### KSMS Mobile App - Build ${BUILD_NUMBER}
+
+          **Build Information**
+          - Build Date: $(date +'%Y-%m-%d')
+          - Build Time: ${BUILD_TIME}
+          - Build Number: ${BUILD_NUMBER}
+          - Commit: ${COMMIT_SHA:0:7}
+
+          ### Installation
+
+          1. **Scan QR Code**
+          ![QRCode](${QR_CODE_URL})
+
+          2. **Download Links**
+          - [Download Latest Version](${LATEST_URL})
+          - [Download This Specific Version](${APK_URL})
+
+          ### Notes
+          - Chỉ 2 phiên bản gần nhất được lưu trên server
+          - Phiên bản này có sẵn tại: \`${APK_FILENAME}\`
+          - VPS link luôn trỏ đến phiên bản mới nhất
+          EOL
+          
+          # Sử dụng GitHub CLI để tạo release
+          gh release create latest \
+            --title "Latest Build (${BUILD_NUMBER})" \
+            --notes-file release_notes.md \
+            --target ${{ github.ref }} \
+            --draft=false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} 
-          asset_path: ./ksms-mb-latest.apk
-          asset_name: ksms-mb-latest.apk
-          asset_content_type: application/octet-stream
           
-      - name: Create QR Code and Update Release
-        uses: actions/github-script@v7
-        env:
-          VERSION: "latest"  # Sử dụng "latest" thay vì version động
-          RELEASE_ID: ${{ steps.create_release.outputs.id }}
-        with:
-          script: |
-            const fs = require('fs');
-            const version = process.env.VERSION;
-            const releaseId = process.env.RELEASE_ID;
-            const buildDate = new Date().toISOString().split('T')[0];
+      # Utility function cho URL encoding
+      - name: Set up URL encode function
+        run: |
+          # Tạo function để URL encode một string
+          urlencode() {
+            local string="$1"
+            local strlen=${#string}
+            local encoded=""
+            local pos c o
             
-            // --- QR Code Configuration ---
-            const qrConfig = {
-              size: 300,
-              margin: 1,
-              dark: '000000',
-              light: 'FFFFFF',
-            };
-            const downloadUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/releases/download/${version}/ksms-mb-${version}.apk`;
-            const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(downloadUrl)}&size=${qrConfig.size}&margin=${qrConfig.margin}&dark=${qrConfig.dark}&light=${qrConfig.light}`;
-
-            // --- Release Body (Markdown) ---
-            const releaseBody = `
-              ### KSMS Mobile App - Latest Release
-
-              **Build Information**
-              - Version: Latest
-              - Build Date: ${buildDate}
-              - Build Number: ${process.env.GITHUB_RUN_NUMBER}
-              - Commit: ${process.env.GITHUB_SHA?.substring(0, 7) || 'Unknown'}
-
-              ### Installation
-
-              1. **Scan QR Code**
-              ![QRCode](${qrCodeUrl})
-
-              2. **Direct Download**
-              [![Download APK](https://img.shields.io/badge/Download_APK-blue?style=for-the-badge)](${downloadUrl})
-
-              ### Note
-              - This is the latest build
-              - This link will always point to the most recent build
-              - Please report any issues you encounter
-            `.trim();
-            
-            // Update the release with QR code and description
-            await github.rest.repos.updateRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: releaseId,
-              body: releaseBody
-            });
+            for (( pos=0 ; pos<strlen ; pos++ )); do
+              c=${string:$pos:1}
+              case "$c" in
+                [-_.~a-zA-Z0-9] ) o="${c}" ;;
+                * )               printf -v o '%%%02x' "'$c"
+              esac
+              encoded+="${o}"
+            done
+            echo "${encoded}"
+          }
+          export -f urlencode
