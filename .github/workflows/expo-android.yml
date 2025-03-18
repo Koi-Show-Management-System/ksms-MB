@@ -986,51 +986,60 @@ jobs:
             
             return artifacts.data.artifacts.length > 0;
       
-      - name: Download APK Artifact
-        id: download-artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: app-build-latest
-          path: ./release-assets/
-      
-      - name: Verify APK Download
+      # Lấy APK trực tiếp từ VPS storage thay vì download từ GitHub
+      - name: Get APK from VPS Storage
+        id: get-apk-vps
         run: |
-          echo "===== KIỂM TRA FILE APK DOWNLOAD ====="
+          echo "===== LẤY APK TỪ VPS STORAGE ====="
+          # Thông tin APK từ job build-android
+          APK_PATH="${{ needs.build-android.outputs.apk_path }}"
+          BUILD_TIME="${{ needs.build-android.outputs.build_time }}"
+          
+          if [ -f "$APK_PATH" ]; then
+            echo "✅ Tìm thấy APK tại $APK_PATH"
+            # Tạo thư mục cho release (nếu cần)
+            mkdir -p ./release-assets
+            
+            # Sao chép APK vào thư mục release
+            cp "$APK_PATH" ./release-assets/app-release.apk
+            echo "✅ Đã sao chép APK vào ./release-assets/app-release.apk"
+          else
+            echo "⚠️ Không tìm thấy APK tại đường dẫn $APK_PATH"
+            # Tìm trong thư mục lưu trữ mặc định
+            APK_STORAGE_DIR="$HOME/apk-storage"
+            if [ -f "$APK_STORAGE_DIR/latest.apk" ]; then
+              echo "✅ Tìm thấy APK tại $APK_STORAGE_DIR/latest.apk"
+              mkdir -p ./release-assets
+              cp "$APK_STORAGE_DIR/latest.apk" ./release-assets/app-release.apk
+              echo "✅ Đã sao chép APK vào ./release-assets/app-release.apk"
+            else
+              echo "❌ Không tìm thấy APK ở bất kỳ vị trí nào"
+            fi
+          fi
+      
+      - name: Verify APK Access
+        run: |
+          echo "===== KIỂM TRA TRUY CẬP FILE APK ====="
           mkdir -p ./release-assets
           
-          # Tìm kiếm APK trong thư mục release-assets
+          # Kiểm tra xem có truy cập được file APK từ VPS không
           if [ -f "./release-assets/app-release.apk" ]; then
             echo "✅ Tìm thấy APK tại ./release-assets/app-release.apk"
             ls -la ./release-assets/app-release.apk
-            # Sao chép file về thư mục gốc để upload
+            # Sao chép file về thư mục gốc cho các bước tiếp theo (nếu cần)
             cp ./release-assets/app-release.apk ./ksms-mb-latest.apk
             echo "✅ Đã sao chép sang ./ksms-mb-latest.apk"
           else
-            echo "❌ Không tìm thấy APK tại ./release-assets/app-release.apk"
+            echo "❌ Không thể truy cập APK tại ./release-assets/app-release.apk"
             
-            # Tìm kiếm trực tiếp mọi file APK
-            echo "Tìm kiếm tất cả file APK:"
-            find . -name "*.apk" -type f
+            # Tìm kiếm trực tiếp mọi file APK trên VPS
+            echo "Tìm kiếm tất cả file APK trên VPS:"
+            find $HOME/apk-storage -name "*.apk" -type f | head -n 5
             
-            # Thử tải artifact khẩn cấp
-            echo "Thử tải artifact khẩn cấp..."
-            mkdir -p ./emergency
-            
-            # Sửa lỗi cú pháp - chạy lệnh download trực tiếp
-            echo "Tải artifact khẩn cấp..."
-            
-            # Tải artifact khẩn cấp
-            if ! [ -z "${{ github.run_id }}" ]; then
-              echo "Tải từ run ID hiện tại: ${{ github.run_id }}"
-              curl -L -o emergency-download.zip \
-                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/apk-emergency-latest/zip" || true
-                
-              # Giải nén nếu tải thành công
-              if [ -f emergency-download.zip ]; then
-                unzip -o emergency-download.zip -d ./emergency/ || true
-              fi
-            fi
+            # Hiển thị nội dung thư mục lưu trữ
+            echo "Nội dung thư mục lưu trữ APK:"
+            ls -la $HOME/apk-storage/
+            ls -la $HOME/apk-storage/archives/ 2>/dev/null || echo "Thư mục archives không tồn tại"
           fi
           
           # Hiển thị tất cả các file trong thư mục hiện tại
