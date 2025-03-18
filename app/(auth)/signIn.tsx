@@ -31,7 +31,7 @@ const SignIn: React.FC<SignInProps> = ({
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      setErrorMessage("Please enter both email and password");
+      setErrorMessage("Please enter both email and password test!!!!");
       return;
     }
 
