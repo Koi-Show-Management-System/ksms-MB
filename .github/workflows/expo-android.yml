@@ -466,55 +466,56 @@ jobs:
             # Tạo thư mục android nếu chưa tồn tại
             mkdir -p android
           
-          # Tạo file gradle.properties với các cấu hình cần thiết
-          cat > android/gradle.properties << EOF
-          # Project-wide Gradle settings.
-          
-          # Android SDK
-          android.useAndroidX=true
-          android.enableJetifier=true
-          
-          # Version of flipper SDK to use with React Native
-          FLIPPER_VERSION=0.182.0
-          
-          # Use this property to specify which architecture you want to build.
-          # You can also override it from the CLI using
-          # ./gradlew <task> -PreactNativeArchitectures=x86_64
-          reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
-          
-          # Use this property to enable support to the new architecture.
-          # This will allow you to use TurboModules and the Fabric render in
-          # your application. You should enable this flag either if you want
-          # to write custom TurboModules/Fabric components OR use libraries that
-          # are providing them.
-          newArchEnabled=false
-          
-          # Use this property to enable or disable the Hermes JS engine.
-          # If set to false, you will be using JSC instead.
-          hermesEnabled=true
-          
-          # Keystore settings
-          MYAPP_UPLOAD_STORE_FILE=release.keystore
-          MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEYSTORE_ALIAS }}
-          MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
-          
-          # Tối ưu hóa build performance
-          org.gradle.daemon=true
-          org.gradle.configureondemand=true
-          org.gradle.parallel=true
-          org.gradle.caching=true
-          org.gradle.jvmargs=-Xmx4g -XX:MaxPermSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseParallelGC
-          
-          # Tối ưu Android build
-          android.enableR8.fullMode=true
-          android.enableDexingArtifactTransform.desugaring=false
-          android.useAndroidX=true
-          android.nonTransitiveRClass=true
-          EOF
-          
-          echo "Created gradle.properties"
-          ls -la android/gradle.properties
+            # Tạo file gradle.properties với các cấu hình cần thiết
+            cat > android/gradle.properties << EOF
+            # Project-wide Gradle settings.
+            
+            # Android SDK
+            android.useAndroidX=true
+            android.enableJetifier=true
+            
+            # Version of flipper SDK to use with React Native
+            FLIPPER_VERSION=0.182.0
+            
+            # Use this property to specify which architecture you want to build.
+            # You can also override it from the CLI using
+            # ./gradlew <task> -PreactNativeArchitectures=x86_64
+            reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+            
+            # Use this property to enable support to the new architecture.
+            # This will allow you to use TurboModules and the Fabric render in
+            # your application. You should enable this flag either if you want
+            # to write custom TurboModules/Fabric components OR use libraries that
+            # are providing them.
+            newArchEnabled=false
+            
+            # Use this property to enable or disable the Hermes JS engine.
+            # If set to false, you will be using JSC instead.
+            hermesEnabled=true
+            
+            # Keystore settings
+            MYAPP_UPLOAD_STORE_FILE=release.keystore
+            MYAPP_UPLOAD_KEY_ALIAS=${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+            MYAPP_UPLOAD_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+            MYAPP_UPLOAD_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}
+            
+            # Tối ưu hóa build performance
+            org.gradle.daemon=true
+            org.gradle.configureondemand=true
+            org.gradle.parallel=true
+            org.gradle.caching=true
+            org.gradle.jvmargs=-Xmx4g -XX:MaxPermSize=2048m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseParallelGC
+            
+            # Tối ưu Android build
+            android.enableR8.fullMode=true
+            android.enableDexingArtifactTransform.desugaring=false
+            android.useAndroidX=true
+            android.nonTransitiveRClass=true
+            EOF
+            
+            echo "Created gradle.properties"
+            ls -la android/gradle.properties
+          fi
       - name: Setup Keystore
         run: |
           # Tạo thư mục android/app nếu chưa tồn tại
