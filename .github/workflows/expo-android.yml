@@ -890,6 +890,38 @@ jobs:
             exit 1
           fi
 
+      # Thêm bước thiết lập keystore từ VPS
+      - name: Setup VPS Keystore
+        run: |
+          # Kiểm tra keystore đã tồn tại chưa
+          if [ -f "~/android/app/keystores/release.keystore" ]; then
+            echo "✅ Đã tìm thấy keystore tại ~/android/app/keystores/release.keystore"
+            
+            # Tạo thư mục trong môi trường build
+            mkdir -p android/app/keystores
+            
+            # Sao chép keystore từ VPS vào môi trường build
+            cp ~/android/app/keystores/release.keystore android/app/keystores/
+            
+            # Tạo credentials.json
+            cat > credentials.json << EOL
+            {
+              "android": {
+                "keystore": {
+                  "keystorePath": "android/app/keystores/release.keystore",
+                  "keystorePassword": "android",
+                  "keyAlias": "androiddebugkey",
+                  "keyPassword": "android"
+                }
+              }
+            }
+            EOL
+            
+            echo "✅ Đã thiết lập keystore từ VPS thành công"
+          else
+            echo "⚠️ Không tìm thấy keystore trên VPS"
+          fi
+
   release:
     needs: [setup, build-android]
     runs-on: self-hosted
