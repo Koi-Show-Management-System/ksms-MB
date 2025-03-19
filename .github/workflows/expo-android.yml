@@ -922,6 +922,81 @@ jobs:
             echo "⚠️ Không tìm thấy keystore trên VPS"
           fi
 
+      # Tạo thư mục gradle/wrapper
+      - name: Setup Gradle Wrapper
+        run: |
+          echo "===== SETUP GRADLE WRAPPER ====="
+          mkdir -p android/gradle/wrapper
+
+          # Tạo file gradle-wrapper.properties với phiên bản Gradle phù hợp
+          cat > android/gradle/wrapper/gradle-wrapper.properties << 'EOL'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-7.6-all.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOL
+
+          # Kiểm tra file đã được tạo
+          cat android/gradle/wrapper/gradle-wrapper.properties
+
+      # Sao lưu eas.json hiện tại
+      - name: Backup eas.json
+        run: |
+          echo "===== SAO LƯU EAS.JSON ====="
+          cp eas.json eas.json.backup
+
+      # Cập nhật file eas.json
+      - name: Update eas.json
+        run: |
+          echo "===== CẬP NHẬT EAS.JSON ====="
+          cat > eas.json << 'EOL'
+          {
+            "cli": {
+              "version": ">= 3.13.3",
+              "appVersionSource": "remote"
+            },
+            "build": {
+              "development": {
+                "developmentClient": true,
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk",
+                  "gradleCommand": ":app:assembleDebug",
+                  "credentialsSource": "local",
+                  "withoutCredentials": true
+                },
+                "env": {
+                  "NODE_ENV": "development"
+                }
+              },
+              "preview": {
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk",
+                  "credentialsSource": "local",
+                  "withoutCredentials": true
+                },
+                "env": {
+                  "NODE_ENV": "production"
+                }
+              },
+              "production": {
+                "autoIncrement": true,
+                "android": {
+                  "buildType": "apk"
+                },
+                "env": {
+                  "NODE_ENV": "production"
+                }
+              }
+            }
+          }
+          EOL
+
+          # Hiển thị file đã sửa
+          cat eas.json
+
   release:
     needs: [setup, build-android]
     runs-on: self-hosted
