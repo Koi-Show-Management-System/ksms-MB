@@ -164,6 +164,36 @@ jobs:
             echo "Không tìm thấy keystore, sẽ sử dụng debug signing"
           fi
 
+          - name: Sửa lỗi build
+          run: |
+            # Copy toàn bộ script ở trên vào đây
+            #!/bin/bash
+            set -e
+  
+            echo "===== Bắt đầu script sửa lỗi build APK ====="
+            
+            # 1. Sửa lỗi trong settings.gradle 
+            echo "Đang sửa file settings.gradle..."
+            cp android/settings.gradle android/settings.gradle.bak
+            cat > android/settings.gradle << 'EOL'
+            rootProject.name = 'KSMS'
+            apply from: new File(["node", "--print", "require.resolve('expo/package.json')"].execute(null, rootDir).text.trim(), "../scripts/autolinking.gradle");
+            useExpoModules()
+  
+            dependencyResolutionManagement {
+                repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+                repositories {
+                    google()
+                    mavenCentral()
+                }
+            }
+  
+            include ':app'
+            EOL
+            echo "✅ Đã sửa settings.gradle thành công"
+            
+            # Các phần khác của script... 
+
       - name: Xây dựng ứng dụng Android
         run: |
           echo "Đang xây dựng APK cho profile: ${{ env.BUILD_PROFILE }}"
@@ -459,4 +489,6 @@ jobs:
       - name: Kiểm tra xung đột phiên bản
         run: |
           echo "Kiểm tra xung đột phiên bản..."
-          npx expo-doctor@latest 
+          npx expo-doctor@latest
+
+      
