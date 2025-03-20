@@ -73,6 +73,41 @@ Dự án này bao gồm workflow GitHub Actions để tự động hóa việc b
 2. Có thể chạy thủ công thông qua GitHub interface với lựa chọn build profile
 3. Lưu trữ APK trực tiếp trên server để phân phối
 
+### Thiết lập Android SDK
+
+Workflow GitHub Actions sẽ tự động thiết lập Android SDK trên VPS:
+
+1. SDK được cài đặt vào thư mục `/opt/android-sdk`
+2. Workflow tự động tải Command Line Tools và cài đặt các thành phần cần thiết
+3. Biến môi trường `ANDROID_HOME` và `ANDROID_SDK_ROOT` được thiết lập đúng đường dẫn
+4. Docker container sẽ sử dụng Android SDK từ host thông qua volume mount
+
+Nếu bạn muốn thiết lập Android SDK thủ công:
+
+```bash
+# Tạo thư mục Android SDK
+sudo mkdir -p /opt/android-sdk
+sudo chown $USER:$USER /opt/android-sdk
+
+# Tải Command Line Tools
+cd /opt/android-sdk
+wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
+unzip -q commandlinetools-linux-8512546_latest.zip
+mkdir -p cmdline-tools/latest
+mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null
+rm commandlinetools-linux-8512546_latest.zip
+
+# Thiết lập biến môi trường
+echo 'export ANDROID_HOME=/opt/android-sdk' >> ~/.bashrc
+echo 'export ANDROID_SDK_ROOT=/opt/android-sdk' >> ~/.bashrc
+echo 'export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools' >> ~/.bashrc
+source ~/.bashrc
+
+# Chấp nhận licenses và cài đặt các thành phần
+yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-31" "build-tools;31.0.0"
+```
+
 ### Thiết lập Web Server cho phân phối APK
 
 Workflow này được thiết kế để lưu trữ và phân phối APK thông qua web server trên VPS:
@@ -212,4 +247,4 @@ Nếu bạn muốn xóa và bắt đầu lại:
 ```bash
 docker-compose down
 docker system prune -a
-``` 
+```

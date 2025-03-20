@@ -1,102 +1,43 @@
 {
   "expo": {
-    "name": "ksms-MB",
-    "slug": "ksms-mb",
+    "name": "KSMS",
+    "slug": "ksms",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "ksms",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.ksms",
-      "infoPlist": {
-        "LSApplicationQueriesSchemes": [
-          "ksms"
-        ]
-      }
+      "bundleIdentifier": "com.yourcompany.ksms"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.yourcompany.ksms",
-      "permissions": [],
-      "softwareKeyboardLayoutMode": "pan",
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "ksms",
-              "host": "app",
-              "pathPrefix": "/"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ]
+      "package": "com.yourcompany.ksms"
     },
     "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png",
-      "proxy": {
-        "/api": {
-          "target": "https://api.ksms.news",
-          "secure": true,
-          "changeOrigin": true
-        }
-      }
-    },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
-      "expo-font",
-      ["expo-video",
-      {
-        "supportsBackgroundPlayback": true,
-        "supportsPictureInPicture": true
-      }],      
-      [
-        "expo-dev-client",
-        {
-          "launchMode": "most-recent"
-        }
-      ]      
-    ],
-    "experiments": {
-      "typedRoutes": true
+      "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "router": {
-        "origin": false
-      },
       "eas": {
-        "projectId": "a8509b6e-ffa0-45cd-985f-fb94cc1b2785"
+        "projectId": "your-project-id"
       }
     },
-    "owner": "nhatsang29",
-    "preview": {
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk",
-        "credentialsSource": "local"
-      }
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/your-project-id"
     }
   }
 }

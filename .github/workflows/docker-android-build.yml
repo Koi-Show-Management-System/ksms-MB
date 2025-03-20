@@ -38,6 +38,11 @@ jobs:
   build-android-apk:
     name: Build Android APK
     runs-on: self-hosted
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,6 +51,48 @@ jobs:
         run: |
           docker --version
           docker-compose --version
+
+      - name: Setup Android SDK
+        run: |
+          echo "Cài đặt và thiết lập Android SDK..."
+          
+          # Tạo thư mục cho Android SDK
+          ANDROID_SDK_ROOT="/opt/android-sdk"
+          if [ ! -d "$ANDROID_SDK_ROOT" ]; then
+            sudo mkdir -p $ANDROID_SDK_ROOT
+            sudo chown $USER:$USER $ANDROID_SDK_ROOT
+          fi
+          
+          # Thiết lập biến môi trường
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          
+          # Tải Command Line Tools nếu chưa tồn tại
+          CMDLINE_TOOLS_ROOT="$ANDROID_SDK_ROOT/cmdline-tools"
+          if [ ! -d "$CMDLINE_TOOLS_ROOT/latest" ]; then
+            mkdir -p $CMDLINE_TOOLS_ROOT
+            
+            # Tải Command Line Tools mới nhất
+            echo "Đang tải Android Command Line Tools..."
+            wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip -O cmdline-tools.zip
+            unzip -q cmdline-tools.zip -d $CMDLINE_TOOLS_ROOT
+            mv $CMDLINE_TOOLS_ROOT/cmdline-tools $CMDLINE_TOOLS_ROOT/latest
+            rm cmdline-tools.zip
+          fi
+          
+          # Thêm vào PATH
+          echo "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+          
+          # Chấp nhận licenses
+          yes | $CMDLINE_TOOLS_ROOT/latest/bin/sdkmanager --licenses || true
+          
+          # Cài đặt các thành phần cần thiết
+          echo "Cài đặt các thành phần Android SDK cần thiết..."
+          $CMDLINE_TOOLS_ROOT/latest/bin/sdkmanager "platform-tools" "platforms;android-31" "build-tools;31.0.0" "extras;android;m2repository" "extras;google;m2repository"
+          
+          # Hiển thị thông tin
+          echo "Android SDK đã được thiết lập tại $ANDROID_SDK_ROOT"
+          $CMDLINE_TOOLS_ROOT/latest/bin/sdkmanager --list_installed | grep -E 'build-tools|platforms'
 
       - name: Set build profile
         id: set-profile
@@ -94,6 +141,8 @@ jobs:
         env:
           BUILD_PROFILE: ${{ env.BUILD_PROFILE }}
           CI: "true"
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
           KEYSTORE_READY: ${{ env.KEYSTORE_READY || 'false' }}
           ANDROID_KEYSTORE_PATH: ${{ env.ANDROID_KEYSTORE_PATH || '' }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || '' }}

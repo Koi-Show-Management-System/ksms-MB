@@ -11,6 +11,8 @@ services:
       - .:/app
       # Mount volume để lưu trữ output APK
       - ./build-output:/app/build-output
+      # Mount Android SDK từ host (nếu có)
+      - ${ANDROID_SDK_ROOT:-/opt/android-sdk}:/opt/android-sdk
     environment:
       # Các biến môi trường có thể được thêm ở đây nếu cần
       NODE_ENV: production
@@ -18,6 +20,9 @@ services:
       EAS_BUILD_AUTOCOMMIT: false
       # Nếu chạy trong CI/CD
       CI: ${CI:-false}
+      # Biến môi trường cho Android SDK
+      ANDROID_HOME: /opt/android-sdk
+      ANDROID_SDK_ROOT: /opt/android-sdk
       # Biến môi trường cho keystore và signing
       KEYSTORE_READY: ${KEYSTORE_READY:-false}
       ANDROID_KEYSTORE_PATH: ${ANDROID_KEYSTORE_PATH:-""}
