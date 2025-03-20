@@ -34,10 +34,11 @@
       }
     },
     "runtimeVersion": {
-      "policy": "appVersion"
+      "policy": "sdkVersion"
     },
     "updates": {
-      "url": "https://expo.dev/accounts/nhatsang29/projects/ksms-mb"
+      "url": "https://expo.dev/accounts/nhatsang29/projects/ksms-mb",
+      "enabled": true
     }
   }
 }

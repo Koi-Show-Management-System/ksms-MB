@@ -10,20 +10,30 @@
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleDebug",
-        "credentialsSource": "local"
+        "image": "sdk-52"
+      },
+      "env": {
+        "EXPO_USE_UPDATES": "1"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "credentialsSource": "local"
+        "image": "sdk-52"
+      },
+      "env": {
+        "EXPO_USE_UPDATES": "1"
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "image": "sdk-52"
+      },
+      "env": {
+        "EXPO_USE_UPDATES": "1"
       }
     }
   }

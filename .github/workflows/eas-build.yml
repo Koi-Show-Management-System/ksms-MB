@@ -40,6 +40,11 @@ env:
   MAX_BUILDS_PER_PROFILE: 3
   NODE_MODULES_CACHE_KEY: node-modules-${{ github.run_number }}
   DEPLOY_DIR: /var/www/html/apk-downloads
+  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+  ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+  ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
 jobs:
   build:
