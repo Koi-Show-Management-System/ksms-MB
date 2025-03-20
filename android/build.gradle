@@ -2,19 +2,19 @@
 
 buildscript {
     ext {
-        buildToolsVersion = "33.0.0"
-        minSdkVersion = 21
-        compileSdkVersion = 33
-        targetSdkVersion = 33
-        ndkVersion = "23.1.7779620"
-        kotlinVersion = "1.8.0"
+        buildToolsVersion = "34.0.0"
+        minSdkVersion = 23
+        compileSdkVersion = 34
+        targetSdkVersion = 34
+        ndkVersion = "25.1.8937393"
+        kotlinVersion = "1.9.20"
     }
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:7.4.2")
+        classpath("com.android.tools.build:gradle:8.1.2")
         classpath("com.facebook.react:react-native-gradle-plugin")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     }
@@ -42,11 +42,8 @@ allprojects {
         google()
         maven { url 'https://www.jitpack.io' }
     }
-}
-
-// Thêm cấu hình publishing
-subprojects {
-    afterEvaluate {project ->
+    
+    gradle.projectsEvaluated {
         if (project.hasProperty("android")) {
             android {
                 publishing {
@@ -57,5 +54,21 @@ subprojects {
                 }
             }
         }
+    }
+}
+
+// Vô hiệu hóa expo-dev-launcher cho production build
+gradle.taskGraph.whenReady { taskGraph ->
+    if (taskGraph.allTasks.any { task -> task.name.contains('assembleRelease') }) {
+        // Đặt biến để vô hiệu hóa expo-dev-launcher trong production build
+        def originalProp = project.getProperties()
+        if (originalProp.containsKey("expo.modules.devlauncher.isEnabled")) {
+            project.ext."expo.modules.devlauncher.isEnabled" = false
+        }
+        
+        // Thiết lập các biến môi trường phù hợp cho SDK 52
+        project.ext."expo.jsEngine" = "hermes"
+        project.ext."expo.runtimeVersion" = "1.0.0"
+        project.ext."expo.sdkVersion" = "52.0.0"
     }
 }

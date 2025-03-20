@@ -2,6 +2,10 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+// Kiểm tra môi trường build
+def isDevOrProd = System.getenv("BUILD_PROFILE") ?: "development"
+def isDevBuild = isDevOrProd != "production"
+
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
@@ -91,8 +95,28 @@ android {
         applicationId 'com.yourcompany.ksms'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode 16
         versionName "1.0.0"
+        
+        // Vô hiệu hóa expo-dev-launcher trong production builds
+        buildConfigField "boolean", "ENABLE_DEV_LAUNCHER", "${isDevBuild}"
+        
+        // Đặt biến môi trường để vô hiệu hóa các tính năng dev trong production
+        if (!isDevBuild) {
+            manifestPlaceholders = [
+                isDevLauncherEnabled: "false"
+            ]
+        } else {
+            manifestPlaceholders = [
+                isDevLauncherEnabled: "true"
+            ]
+        }
+        
+        // Cài đặt để hỗ trợ Expo SDK 52
+        manifestPlaceholders += [
+            expoRuntimeVersion: "1.0.0",  // Phải khớp với runtimeVersion trong app.json
+            expoSdkVersion: "52.0.0"
+        ]
     }
     signingConfigs {
         debug {
@@ -207,5 +231,15 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+
+    // Thêm các dependencies cần thiết cho Expo SDK 52
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    
+    // Vô hiệu hóa expo-dev-launcher trong production build
+    if (isDevBuild) {
+        implementation("dev.expo.modules:expo-dev-launcher")
     }
 }
