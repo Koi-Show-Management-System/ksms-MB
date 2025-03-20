@@ -112,10 +112,10 @@ android {
             ]
         }
         
-        // Cài đặt để hỗ trợ Expo SDK 52
+        // Cài đặt để hỗ trợ Expo SDK 51
         manifestPlaceholders += [
             expoRuntimeVersion: "1.7.8",  // Phải khớp với runtimeVersion trong app.json
-            expoSdkVersion: "52.0.0"
+            expoSdkVersion: "51.0.0"
         ]
     }
 

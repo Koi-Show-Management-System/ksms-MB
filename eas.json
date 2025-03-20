@@ -10,7 +10,7 @@
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleDebug",
-        "image": "sdk-52"
+        "image": "sdk-51"
       },
       "env": {
         "EXPO_USE_UPDATES": "1"
@@ -20,7 +20,7 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "image": "sdk-52"
+        "image": "sdk-51"
       },
       "env": {
         "EXPO_USE_UPDATES": "1"
@@ -30,7 +30,7 @@
       "autoIncrement": true,
       "android": {
         "buildType": "apk",
-        "image": "sdk-52"
+        "image": "sdk-51"
       },
       "env": {
         "EXPO_USE_UPDATES": "1"
