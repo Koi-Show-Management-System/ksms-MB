@@ -55,19 +55,29 @@ jobs:
 
       - name: Install Docker Compose
         run: |
-          echo "Cài đặt Docker Compose..."
-          # Thêm biến môi trường SSH_PASSWORD
-          echo "Cấu hình sudo sử dụng mật khẩu..."
-          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S echo "Sudo đã được cấu hình"
-          
           # Tải Docker Compose
-          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S curl -L "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          echo "Đang tải Docker Compose..."
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           
           # Cấp quyền thực thi
           echo '${{ secrets.SSH_PASSWORD }}' | sudo -S chmod +x /usr/local/bin/docker-compose
           
           # Kiểm tra phiên bản
           docker-compose --version
+
+      - name: Check Docker service
+        run: |
+          echo "Kiểm tra trạng thái Docker service..."
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S systemctl status docker || true
+          
+          # Khởi động Docker service nếu chưa chạy
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S systemctl start docker
+          
+          # Đợi Docker service khởi động
+          sleep 5
+          
+          # Kiểm tra lại trạng thái
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S systemctl status docker
 
       - name: Setup Android SDK
         run: |
@@ -76,8 +86,8 @@ jobs:
           # Tạo thư mục cho Android SDK
           ANDROID_SDK_ROOT="/opt/android-sdk"
           if [ ! -d "$ANDROID_SDK_ROOT" ]; then
-            sudo mkdir -p $ANDROID_SDK_ROOT
-            sudo chown $USER:$USER $ANDROID_SDK_ROOT
+            echo '${{ secrets.SSH_PASSWORD }}' | sudo -S mkdir -p $ANDROID_SDK_ROOT
+            echo '${{ secrets.SSH_PASSWORD }}' | sudo -S chown $USER:$USER $ANDROID_SDK_ROOT
           fi
           
           # Thiết lập biến môi trường
@@ -120,8 +130,11 @@ jobs:
             echo "BUILD_PROFILE=production" >> $GITHUB_ENV
           fi
 
-      - name: Create build-output directory
-        run: mkdir -p build-output
+      - name: Create output directory
+        run: |
+          echo "Tạo thư mục output..."
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S mkdir -p build-output
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S chown -R $USER:$USER build-output
 
       - name: Setup Android Keystore
         if: env.BUILD_PROFILE == 'production' && github.ref == 'refs/heads/main'
@@ -154,31 +167,18 @@ jobs:
             echo "GOOGLE_PLAY_READY=false" >> $GITHUB_ENV
           fi
 
-      - name: Build and run Docker
-        env:
-          BUILD_PROFILE: ${{ env.BUILD_PROFILE }}
-          CI: "true"
-          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          KEYSTORE_READY: ${{ env.KEYSTORE_READY || 'false' }}
-          ANDROID_KEYSTORE_PATH: ${{ env.ANDROID_KEYSTORE_PATH || '' }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || '' }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || '' }}
+      - name: Build APK
         run: |
-          docker-compose build
-          docker-compose run android-builder
-
-      - name: Check for APK files
-        id: check_apk
-        run: |
-          if find build-output -name "*.apk" -type f | grep -q .; then
+          echo "Bắt đầu build APK..."
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S docker-compose run android-builder
+          
+          # Kiểm tra kết quả build
+          if [ -f "build-output/*.apk" ]; then
+            echo "Build APK thành công!"
             echo "APK_EXISTS=true" >> $GITHUB_ENV
-            echo "Found APK files in build-output directory:"
-            find build-output -name "*.apk" -type f | xargs -I{} echo "- {}"
           else
+            echo "Không tìm thấy file APK sau khi build!"
             echo "APK_EXISTS=false" >> $GITHUB_ENV
-            echo "No APK files found in build-output directory."
           fi
 
       - name: Store APK on server
@@ -186,35 +186,35 @@ jobs:
         run: |
           # Tạo thư mục lưu trữ APK trên server
           DEPLOY_DIR="/var/www/html/apk-downloads"
-          sudo mkdir -p $DEPLOY_DIR
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S mkdir -p $DEPLOY_DIR
           
           # Tạo thư mục cho build hiện tại
           TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
           BUILD_DIR="$DEPLOY_DIR/${{ env.BUILD_PROFILE }}_${TIMESTAMP}"
-          sudo mkdir -p $BUILD_DIR
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S mkdir -p $BUILD_DIR
           
           # Copy APK vào thư mục triển khai
-          sudo cp build-output/*.apk $BUILD_DIR/
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S cp build-output/*.apk $BUILD_DIR/
           
           # Tạo symbolic link đến build mới nhất
-          sudo ln -sf $BUILD_DIR $DEPLOY_DIR/latest_${{ env.BUILD_PROFILE }}
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S ln -sf $BUILD_DIR $DEPLOY_DIR/latest_${{ env.BUILD_PROFILE }}
           
           # Tạo file thông tin về build
-          echo "Build Info:" | sudo tee $BUILD_DIR/build_info.txt
-          echo "Profile: ${{ env.BUILD_PROFILE }}" | sudo tee -a $BUILD_DIR/build_info.txt
-          echo "Commit: ${{ github.sha }}" | sudo tee -a $BUILD_DIR/build_info.txt
-          echo "Build Date: $(date)" | sudo tee -a $BUILD_DIR/build_info.txt
-          echo "Build Number: ${{ github.run_number }}" | sudo tee -a $BUILD_DIR/build_info.txt
+          echo "Build Info:" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee $BUILD_DIR/build_info.txt
+          echo "Profile: ${{ env.BUILD_PROFILE }}" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee -a $BUILD_DIR/build_info.txt
+          echo "Commit: ${{ github.sha }}" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee -a $BUILD_DIR/build_info.txt
+          echo "Build Date: $(date)" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee -a $BUILD_DIR/build_info.txt
+          echo "Build Number: ${{ github.run_number }}" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee -a $BUILD_DIR/build_info.txt
           
           # Phân quyền để web server có thể phục vụ
-          sudo chmod -R 755 $DEPLOY_DIR
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S chmod -R 755 $DEPLOY_DIR
           
           # In ra đường dẫn tải xuống
           APK_NAME=$(find build-output -name "*.apk" -type f | head -n 1 | xargs basename)
           echo "APK available at: http://your-server-address/apk-downloads/latest_${{ env.BUILD_PROFILE }}/$APK_NAME"
           
           # Cập nhật file index.html cho thư mục download
-          cat << EOF | sudo tee $DEPLOY_DIR/index.html
+          cat << EOF | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee $DEPLOY_DIR/index.html
           <!DOCTYPE html>
           <html>
           <head>
@@ -255,13 +255,3 @@ jobs:
           </body>
           </html>
           EOF
-
-      - name: Upload to Google Play
-        if: github.ref == 'refs/heads/main' && env.APK_EXISTS == 'true' && env.GOOGLE_PLAY_READY == 'true'
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ env.GOOGLE_PLAY_SERVICE_ACCOUNT_PATH }}
-          packageName: com.yourcompany.ksms
-          releaseFiles: build-output/*.apk
-          track: internal
-          status: completed 
