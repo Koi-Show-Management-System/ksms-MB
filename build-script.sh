@@ -43,7 +43,7 @@ fi
 
 # Running the build
 echo "Building APK with profile: $PROFILE"
-yarn run build --profile $PROFILE --non-interactive
+eas build -p android --profile $PROFILE --non-interactive
 
 # Chuyển APK đến thư mục output
 mkdir -p /app/build-output
