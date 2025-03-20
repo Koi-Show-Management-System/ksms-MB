@@ -1,0 +1,53 @@
+# name: Android Build
+
+# on:
+#   push:
+#     branches: [ main ]
+#   pull_request:
+#     branches: [ main ]
+
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+      
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
+      
+#       - name: Set up Docker Compose
+#         run: |
+#           sudo apt-get update
+#           sudo apt-get install -y docker-compose
+      
+#       - name: Create build-output directory
+#         run: mkdir -p build-output
+      
+#       - name: Build Android APK
+#         run: |
+#           echo "Bắt đầu build APK..."
+#           # Kiểm tra EXPO_TOKEN
+#           if [ -n "${{ secrets.EXPO_TOKEN }}" ]; then
+#             echo "EXPO_TOKEN đã được cấu hình"
+#           else
+#             echo "EXPO_TOKEN chưa được cấu hình trong GitHub Secrets"
+#             exit 1
+#           fi
+          
+#           # Chạy docker-compose với EXPO_TOKEN và BUILD_PROFILE
+#           EXPO_TOKEN="${{ secrets.EXPO_TOKEN }}" BUILD_PROFILE="production" echo '${{ secrets.SSH_PASSWORD }}' | sudo -S docker-compose run android-builder
+      
+#       - name: Check APK existence
+#         run: |
+#           if [ -f "build-output/app-release.apk" ]; then
+#             echo "APK đã được tạo thành công"
+#           else
+#             echo "Không tìm thấy file APK trong thư mục build-output"
+#             exit 1
+#           fi
+      
+#       - name: Upload APK
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: android-apk
+#           path: build-output/*.apk 

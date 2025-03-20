@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# Thiết lập profile
-PROFILE=${1:-production}
+# Thiết lập profile từ biến môi trường hoặc tham số mặc định
+PROFILE=${BUILD_PROFILE:-production}
 
 # Xử lý keystore nếu đang chạy trong CI và có cung cấp keystore
 if [ "${KEYSTORE_READY}" == "true" ] && [ -n "${ANDROID_KEYSTORE_PATH}" ]; then
@@ -51,6 +51,7 @@ if [ -n "$EXPO_TOKEN" ]; then
   # Biến EXPO_TOKEN được tự động sử dụng bởi eas-cli
 else
   echo "EXPO_TOKEN không được thiết lập, có thể gặp lỗi xác thực"
+  exit 1
 fi
 
 # Hàm thực hiện build với số lần thử lại
