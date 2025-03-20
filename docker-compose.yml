@@ -8,7 +8,16 @@ services:
       target: builder  # Sử dụng stage builder từ Dockerfile
     volumes:
       # Mount thư mục hiện tại vào /app trong container
-      - .:/app
+      # Nhưng loại trừ file build-script.sh để tránh bị ghi đè
+      - ./app:/app/app
+      - ./android:/app/android
+      - ./assets:/app/assets
+      - ./package.json:/app/package.json
+      - ./yarn.lock:/app/yarn.lock
+      - ./app.json:/app/app.json
+      - ./eas.json:/app/eas.json
+      - ./babel.config.js:/app/babel.config.js
+      - ./metro.config.js:/app/metro.config.js
       # Mount volume để lưu trữ output APK
       - ./build-output:/app/build-output
       # Mount Android SDK từ host (nếu có)
