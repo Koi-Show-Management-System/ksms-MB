@@ -79,6 +79,12 @@ jobs:
           # Kiểm tra lại trạng thái
           echo '${{ secrets.SSH_PASSWORD }}' | sudo -S systemctl status docker
 
+      - name: Install required tools
+        run: |
+          echo "Cài đặt các công cụ cần thiết..."
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S apt-get update
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S apt-get install -y unzip wget curl
+
       - name: Setup Android SDK
         run: |
           echo "Cài đặt và thiết lập Android SDK..."
