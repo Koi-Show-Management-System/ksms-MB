@@ -176,9 +176,21 @@ jobs:
             echo "GOOGLE_PLAY_READY=false" >> $GITHUB_ENV
           fi
 
+      - name: Check Expo Token
+        run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "EXPO_TOKEN không được cấu hình trong GitHub Secrets"
+            exit 1
+          fi
+          echo "EXPO_TOKEN đã được cấu hình"
+
       - name: Build APK
         run: |
           echo "Bắt đầu build APK..."
+          # Kiểm tra token trong container
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S docker-compose run --rm android-builder sh -c 'echo "EXPO_TOKEN is set: $([ -n "$EXPO_TOKEN" ] && echo "yes" || echo "no")"'
+          
+          # Build APK
           echo '${{ secrets.SSH_PASSWORD }}' | sudo -S docker-compose run android-builder
           
           # Kiểm tra kết quả build
