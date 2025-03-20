@@ -423,6 +423,7 @@ jobs:
                       </div>
                       
                       <div class="build-card">
+                          <div class="build-header development">
                               <h2>Development Build</h2>
                           </div>
                           <div class="build-content">

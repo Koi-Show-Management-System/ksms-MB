@@ -1,128 +1,138 @@
-plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    id "com.facebook.react"
-}
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+
+// Kiểm tra môi trường build
+def isDevOrProd = System.getenv("BUILD_PROFILE") ?: "development"
+def isDevBuild = isDevOrProd != "production"
+
+def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
  */
 react {
+    entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", projectRoot, "android", "absolute"].execute(null, rootDir).text.trim())
+    reactNativeDir = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
+    hermesCommand = new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/sdks/hermesc/%OS-BIN%/hermesc"
+    codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
+
+    // Use Expo CLI to bundle the app, this ensures the Metro config
+    // works correctly with Expo projects.
+    cliFile = new File(["node", "--print", "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })"].execute(null, rootDir).text.trim())
+    bundleCommand = "export:embed"
+
     /* Folders */
-    //   The root of your project, i.e. where "package.json" lives. Default is '..'
-    root = file("../")
-    //   The folder where the react-native NPM package is. Default is ../node_modules/react-native
-    reactNativeDir = file("../node_modules/react-native")
-    //   The folder where the react-native Codegen package is. Default is ../node_modules/@react-native/codegen
-    codegenDir = file("../node_modules/@react-native/codegen")
-    //   The cli.js file which is the React Native CLI entrypoint. Default is ../node_modules/react-native/cli.js
-    cliFile = file("../node_modules/react-native/cli.js")
+     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
+    // root = file("../../")
+    //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native
+    // reactNativeDir = file("../../node_modules/react-native")
+    //   The folder where the react-native Codegen package is. Default is ../../node_modules/@react-native/codegen
+    // codegenDir = file("../../node_modules/@react-native/codegen")
+
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to
     //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.
     //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
-    debuggableVariants = ["debug"]
-    
+    // debuggableVariants = ["liteDebug", "prodDebug"]
+
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
-    //nodeExecutableAndArgs = ["node"]
-    //
-    //   The command to run when bundling. By default is 'bundle'
-    //bundleCommand = "ram-bundle"
+    // nodeExecutableAndArgs = ["node"]
+
     //
     //   The path to the CLI configuration file. Default is empty.
-    //bundleConfig = file(../rn-cli.config.js)
+    // bundleConfig = file(../rn-cli.config.js)
     //
     //   The name of the generated asset file containing your JS bundle
-    //bundleAssetName = "MyApplication.android.bundle"
+    // bundleAssetName = "MyApplication.android.bundle"
     //
     //   The entry file for bundle generation. Default is 'index.android.js' or 'index.js'
-    //entryFile = file("../js/MyApplication.android.js")
+    // entryFile = file("../js/MyApplication.android.js")
     //
     //   A list of extra flags to pass to the 'bundle' commands.
     //   See https://github.com/react-native-community/cli/blob/main/docs/commands.md#bundle
-    //extraPackagerArgs = []
-    
+    // extraPackagerArgs = []
+
     /* Hermes Commands */
     //   The hermes compiler command to run. By default it is 'hermesc'
-    //hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
+    // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
     //
     //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
-    //hermesFlags = ["-O", "-output-source-map"]
-}
+    // hermesFlags = ["-O", "-output-source-map"]
 
-/**
- * Set this to true to create four separate APKs instead of one,
- * one for each native architecture. This is useful if you don't
- * use App Bundles (https://developer.android.com/guide/app-bundle/)
- * and want to have separate APKs to upload to the Play Store.
- */
-def enableSeparateBuildPerCPUArchitecture = false
+    /* Autolinking */
+    autolinkLibrariesWithApp()
+}
 
 /**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
-def enableProguardInReleaseBuilds = false
+def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInReleaseBuilds') ?: false).toBoolean()
 
 /**
  * The preferred build flavor of JavaScriptCore (JSC)
  *
  * For example, to use the international variant, you can use:
  * `def jscFlavor = 'org.webkit:android-jsc-intl:+'`
+ *
+ * The international variant includes ICU i18n library and necessary data
+ * allowing to use e.g. `Date.toLocaleString` and `String.localeCompare` that
+ * give correct results when using with locales other than en-US. Note that
+ * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
-/**
- * Whether to enable the Hermes VM.
- *
- * This should be set on project.ext.react and that value will be read here. If it is not set
- * on project.ext.react, JavaScript will not be compiled to Hermes Bytecode
- * and the benefits of using Hermes will therefore be sharply reduced.
- */
-def enableHermes = project.ext.react.get("enableHermes", false)
-
-/**
- * Other building flags
- */
-def ndkVersion = rootProject.ext.has("ndkVersion") ? rootProject.ext.get("ndkVersion") : "25.1.8937393"
-def buildToolsVersion = rootProject.ext.has("buildToolsVersion") ? rootProject.ext.get("buildToolsVersion") : "34.0.0"
-def compileSdk = rootProject.ext.has("compileSdkVersion") ? rootProject.ext.get("compileSdkVersion") : 35
-
-/**
- * Architectures to build native code for.
- */
-def reactNativeArchitectures() {
-    def value = project.getProperties().get("reactNativeArchitectures")
-    return value ? value.split(",") : ["armeabi-v7a", "x86", "x86_64", "arm64-v8a"]
-}
-
 android {
-    ndkVersion = ndkVersion
+    ndkVersion rootProject.ext.ndkVersion
 
-    compileSdk = compileSdk
-    buildToolsVersion = buildToolsVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
 
-    namespace = "com.ksms"
+    namespace 'com.yourcompany.ksms'
     defaultConfig {
-        applicationId "com.ksms"
-        minSdkVersion rootProject.ext.minSdkVersion
+        applicationId 'com.yourcompany.ksms'
+        minSdkVersion 29
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
-        manifestPlaceholders = [
-            expoRuntimeVersion: "exposdk:51.0.0",
-            expoSdkVersion: "51.0.0",
+        versionCode 16
+        versionName "1.0.0"
+        
+        // Vô hiệu hóa expo-dev-launcher trong production builds
+        buildConfigField "boolean", "ENABLE_DEV_LAUNCHER", "${isDevBuild}"
+        
+        // Đặt biến môi trường để vô hiệu hóa các tính năng dev trong production
+        if (!isDevBuild) {
+            manifestPlaceholders = [
+                isDevLauncherEnabled: "false"
+            ]
+        } else {
+            manifestPlaceholders = [
+                isDevLauncherEnabled: "true"
+            ]
+        }
+        
+        // Cài đặt để hỗ trợ Expo SDK 51
+        manifestPlaceholders += [
+            expoRuntimeVersion: "1.7.8",  // Phải khớp với runtimeVersion trong app.json
+            expoSdkVersion: "51.0.0"
         ]
     }
 
-    splits {
-        abi {
-            reset()
-            enable enableSeparateBuildPerCPUArchitecture
-            universalApk false  // If true, also generate a universal APK
-            include (*reactNativeArchitectures())
-        }
+    kotlinOptions {
+        jvmTarget = "17"
+        freeCompilerArgs += [
+            "-opt-in=kotlin.RequiresOptIn",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
+        ]
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion "1.5.15"
     }
 
     signingConfigs {
@@ -132,61 +142,85 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-    }
-
-    buildTypes {
-        debug {
-            signingConfig signingConfigs.debug
-            buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", "false"
-            buildConfigField "boolean", "IS_HERMES_ENABLED", "false"
-            debuggable true
-        }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
-            minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
-            buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", "false"
-            buildConfigField "boolean", "IS_HERMES_ENABLED", "false"
-            debuggable false
-        }
-    }
-
-    // applicationVariants are e.g. debug, release
-    applicationVariants.all { variant ->
-        variant.outputs.each { output ->
-            // For each separate APK per architecture, set a unique version code as described here:
-            // https://developer.android.com/studio/build/configure-apk-splits.html
-            // Example: versionCode 1 will generate 1001 for armeabi-v7a, 1002 for x86, etc.
-            def versionCodes = ["armeabi-v7a": 1, "x86": 2, "arm64-v8a": 3, "x86_64": 4]
-            def abi = output.getFilter(com.android.build.OutputFile.ABI)
-            if (abi != null) {  // null for the universal-debug, universal-release variants
-                output.versionCodeOverride =
-                        defaultConfig.versionCode * 1000 + versionCodes.get(abi)
+            def keystoreBase64 = System.getenv("ANDROID_KEYSTORE_BASE64")
+            def tmpFilePath = System.getProperty("java.io.tmpdir") + "/release.keystore"
+            
+            if (keystoreBase64 != null) {
+                new File(tmpFilePath).bytes = keystoreBase64.decodeBase64()
+                storeFile file(tmpFilePath)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEYSTORE_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
             }
         }
     }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            // Đảm bảo cấu hình signing cho release được thiết lập đúng
+            if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
     }
-
-    kotlinOptions {
-        jvmTarget = '17'
-        freeCompilerArgs += [
-            "-Xopt-in=kotlin.RequiresOptIn",
-            "-Xjdk-release=17",
-        ]
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging (findProperty('expo.useLegacyPackaging')?.toBoolean() ?: false)
+        }
     }
-
-    buildFeatures {
-        compose = true
+    androidResources {
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
+    
+    // Thêm đoạn này để xử lý lỗi SoftwareComponent - chỉ áp dụng cho app module
+    if (project.path == ':app') {
+        publishing {
+            singleVariant("release") {
+                withSourcesJar()
+                withJavadocJar()
+            }
+        }
+    }
+}
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = rootProject.ext.get("composeVersion")
+// Thêm cấu hình này để định nghĩa signingConfigs.release
+if (project.hasProperty('MYAPP_UPLOAD_STORE_FILE')) {
+    android {
+        signingConfigs {
+            release {
+                storeFile file(MYAPP_UPLOAD_STORE_FILE)
+                storePassword MYAPP_UPLOAD_STORE_PASSWORD
+                keyAlias MYAPP_UPLOAD_KEY_ALIAS
+                keyPassword MYAPP_UPLOAD_KEY_PASSWORD
+            }
+        }
+    }
+}
+
+// Apply static values from `gradle.properties` to the `android.packagingOptions`
+// Accepts values in comma delimited lists, example:
+// android.packagingOptions.pickFirsts=/LICENSE,**/picasa.ini
+["pickFirsts", "excludes", "merges", "doNotStrip"].each { prop ->
+    // Split option: 'foo,bar' -> ['foo', 'bar']
+    def options = (findProperty("android.packagingOptions.$prop") ?: "").split(",");
+    // Trim all elements in place.
+    for (i in 0..<options.size()) options[i] = options[i].trim();
+    // `[] - ""` is essentially `[""].filter(Boolean)` removing all empty strings.
+    options -= ""
+
+    if (options.length > 0) {
+        println "android.packagingOptions.$prop += $options ($options.length)"
+        // Ex: android.packagingOptions.pickFirsts += '**/SCCS/**'
+        options.each {
+            android.packagingOptions[prop] += it
+        }
     }
 }
 
@@ -194,7 +228,25 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
-    if (enableHermes) {
+    def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
+    def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
+    def isWebpAnimatedEnabled = (findProperty('expo.webp.animated') ?: "") == "true";
+
+    if (isGifEnabled) {
+        // For animated gif support
+        implementation("com.facebook.fresco:animated-gif:${reactAndroidLibs.versions.fresco.get()}")
+    }
+
+    if (isWebpEnabled) {
+        // For webp support
+        implementation("com.facebook.fresco:webpsupport:${reactAndroidLibs.versions.fresco.get()}")
+        if (isWebpAnimatedEnabled) {
+            // Animated webp support
+            implementation("com.facebook.fresco:animated-webp:${reactAndroidLibs.versions.fresco.get()}")
+        }
+    }
+
+    if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
