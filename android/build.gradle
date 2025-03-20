@@ -56,7 +56,7 @@ gradle.taskGraph.whenReady { taskGraph ->
         
         // Thiết lập các biến môi trường phù hợp cho SDK 52
         project.ext."expo.jsEngine" = "hermes"
-        project.ext."expo.runtimeVersion" = "1.0.0"
+        project.ext."expo.runtimeVersion" = "1.7.8"
         project.ext."expo.sdkVersion" = "52.0.0"
     }
 }
