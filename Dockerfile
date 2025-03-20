@@ -17,7 +17,9 @@ RUN apt-get update && apt-get install -y \
 ENV ANDROID_HOME=/opt/android-sdk
 ENV PATH=${PATH}:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools
 
-RUN mkdir -p ${ANDROID_HOME} && \
+# Kiểm tra và cài đặt Android SDK nếu chưa có
+RUN if [ ! -d "${ANDROID_HOME}/cmdline-tools/latest" ]; then \
+    mkdir -p ${ANDROID_HOME} && \
     cd ${ANDROID_HOME} && \
     curl -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip && \
     unzip cmdline-tools.zip && \
@@ -30,10 +32,13 @@ RUN mkdir -p ${ANDROID_HOME} && \
                  "build-tools;35.0.0" \
                  "platforms;android-35" \
                  "platforms;android-34" \
-                 "ndk;26.1.10909125"
+                 "ndk;26.1.10909125"; \
+    fi
 
-# Cài đặt Expo CLI và các công cụ cần thiết
-RUN npm install -g expo-cli eas-cli yarn
+# Kiểm tra và cài đặt Expo CLI và EAS CLI nếu chưa có
+RUN if ! command -v expo &> /dev/null || ! command -v eas &> /dev/null; then \
+    npm install -g --force expo-cli eas-cli; \
+    fi
 
 # Giai đoạn phụ thuộc - Cài đặt node_modules
 FROM base AS dependencies
