@@ -114,7 +114,7 @@ android {
         
         // Cài đặt để hỗ trợ Expo SDK 51
         manifestPlaceholders += [
-            expoRuntimeVersion: "1.7.8",  // Phải khớp với runtimeVersion trong app.json
+            expoRuntimeVersion: "exposdk:51.0.0",
             expoSdkVersion: "51.0.0"
         ]
     }
@@ -132,7 +132,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion "1.5.15"
+        kotlinCompilerExtensionVersion "1.5.7"
     }
 
     signingConfigs {

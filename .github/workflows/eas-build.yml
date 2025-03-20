@@ -449,4 +449,14 @@ jobs:
               </div>
           </body>
           </html>
-          EOF 
+          EOF
+
+      - name: Cài đặt expo-build-properties
+        run: |
+          echo "Cài đặt expo-build-properties..."
+          npx expo install expo-build-properties
+
+      - name: Kiểm tra xung đột phiên bản
+        run: |
+          echo "Kiểm tra xung đột phiên bản..."
+          npx expo-doctor@latest 
