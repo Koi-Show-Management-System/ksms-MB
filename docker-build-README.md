@@ -65,13 +65,45 @@ Sau đó, bạn có thể chạy các lệnh bên trong container, ví dụ:
 yarn run build --profile preview
 ```
 
-## Sử dụng GitHub Actions CI/CD
+## Sử dụng GitHub Actions CI/CD với Phân phối APK trên Server
 
 Dự án này bao gồm workflow GitHub Actions để tự động hóa việc build APK. Workflow này được cấu hình để:
 
 1. Chạy khi có push vào các nhánh `main` hoặc `development`
 2. Có thể chạy thủ công thông qua GitHub interface với lựa chọn build profile
-3. Tạo Releases khi build thành công trên nhánh `main`
+3. Lưu trữ APK trực tiếp trên server để phân phối
+
+### Thiết lập Web Server cho phân phối APK
+
+Workflow này được thiết kế để lưu trữ và phân phối APK thông qua web server trên VPS:
+
+1. Đảm bảo đã cài đặt web server (Nginx hoặc Apache):
+   ```bash
+   # Cài đặt Nginx
+   sudo apt update
+   sudo apt install nginx
+   ```
+
+2. Workflow sẽ lưu trữ APK tại thư mục `/var/www/html/apk-downloads/`
+3. Mỗi build sẽ được lưu vào thư mục riêng với format `[profile]_[timestamp]`
+4. Các symlink sẽ được tạo cho build mới nhất của mỗi profile:
+   - `/var/www/html/apk-downloads/latest_production/`
+   - `/var/www/html/apk-downloads/latest_preview/`
+   - `/var/www/html/apk-downloads/latest_development/`
+
+5. Một trang web đơn giản sẽ được tạo tại `/var/www/html/apk-downloads/index.html` để dễ dàng download
+
+### Truy cập APK
+
+Sau khi build thành công, APK có thể được truy cập qua:
+
+- **Trang danh sách chung**: `http://your-server-address/apk-downloads/`
+- **Download trực tiếp**:
+  - Production: `http://your-server-address/apk-downloads/latest_production/`
+  - Preview: `http://your-server-address/apk-downloads/latest_preview/`
+  - Development: `http://your-server-address/apk-downloads/latest_development/`
+
+Bạn cần thay `your-server-address` bằng địa chỉ IP hoặc tên miền của VPS.
 
 ### Thiết lập Self-hosted Runner
 
@@ -120,6 +152,18 @@ base64 -i ksms_key.keystore | tr -d '\n' > keystore_base64.txt
 
 ## Tùy chỉnh
 
+### Quản lý dung lượng lưu trữ APK
+
+Để tránh tốn quá nhiều dung lượng disk, bạn có thể thêm một cron job để xóa các build cũ:
+
+```bash
+# Thêm vào crontab
+sudo crontab -e
+
+# Thêm dòng sau để giữ lại các build trong 30 ngày
+0 0 * * * find /var/www/html/apk-downloads/ -type d -name "*_20*" -mtime +30 -exec rm -rf {} \; 2>/dev/null
+```
+
 ### Sử dụng EAS build local
 
 Nếu bạn muốn sử dụng EAS build local, bạn có thể cấu hình trong `eas.json`:
@@ -150,10 +194,15 @@ docker-compose run android-builder eas build --platform android --profile develo
 
 ### Vấn đề về quyền (Permission)
 
-Nếu bạn gặp vấn đề về quyền khi chạy Docker, hãy thử:
+Nếu bạn gặp vấn đề về quyền khi chạy Docker hoặc khi lưu trữ APK, hãy thử:
 
 ```bash
+# Quyền cho build-output
 sudo chown -R $(whoami) build-output/
+
+# Quyền cho thư mục phân phối APK
+sudo chown -R www-data:www-data /var/www/html/apk-downloads/
+sudo chmod -R 755 /var/www/html/apk-downloads/
 ```
 
 ### Xóa image và container
