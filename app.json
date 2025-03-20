@@ -33,9 +33,7 @@
         "projectId": "a8509b6e-ffa0-45cd-985f-fb94cc1b2785"
       }
     },
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://expo.dev/accounts/nhatsang29/projects/ksms-mb",
       "enabled": true

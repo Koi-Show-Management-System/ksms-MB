@@ -95,7 +95,7 @@ android {
         applicationId 'com.yourcompany.ksms'
         minSdkVersion 29
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
+        versionCode 1
         versionName "1.0.0"
         
         // Vô hiệu hóa expo-dev-launcher trong production builds

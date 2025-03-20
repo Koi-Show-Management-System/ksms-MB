@@ -21,7 +21,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
   }
 }
 
-rootProject.name = 'ksms-MB'
+rootProject.name = 'KSMS'
 
 dependencyResolutionManagement {
   versionCatalogs {
