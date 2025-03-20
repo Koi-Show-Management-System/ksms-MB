@@ -43,7 +43,45 @@ fi
 
 # Running the build
 echo "Building APK with profile: $PROFILE"
-eas build -p android --profile $PROFILE --non-interactive
+
+# Đăng nhập vào Expo nếu có token
+if [ -n "$EXPO_TOKEN" ]; then
+  echo "Đang sử dụng EXPO_TOKEN để xác thực..."
+  # Sử dụng token thay vì đăng nhập tương tác
+  # Biến EXPO_TOKEN được tự động sử dụng bởi eas-cli
+else
+  echo "EXPO_TOKEN không được thiết lập, có thể gặp lỗi xác thực"
+fi
+
+# Hàm thực hiện build với số lần thử lại
+build_with_retry() {
+  local max_attempts=3
+  local attempt=1
+  local wait_time=5
+
+  while [ $attempt -le $max_attempts ]; do
+    echo "Lần thử build thứ $attempt/$max_attempts..."
+    
+    if npx eas-cli@latest build -p android --profile $PROFILE --non-interactive --local; then
+      echo "Build thành công!"
+      return 0
+    else
+      echo "Build thất bại. Đợi $wait_time giây trước khi thử lại..."
+      sleep $wait_time
+      attempt=$((attempt + 1))
+      wait_time=$((wait_time * 2))  # Tăng thời gian chờ sau mỗi lần thử
+    fi
+  done
+
+  echo "Đã thử build $max_attempts lần nhưng vẫn thất bại."
+  return 1
+}
+
+# Thực hiện build với cơ chế retry
+if ! build_with_retry; then
+  echo "Build thất bại sau nhiều lần thử."
+  exit 1
+fi
 
 # Chuyển APK đến thư mục output
 mkdir -p /app/build-output

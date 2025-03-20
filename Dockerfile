@@ -37,7 +37,8 @@ RUN if [ ! -d "${ANDROID_HOME}/cmdline-tools/latest" ]; then \
 
 # Kiểm tra và cài đặt Expo CLI và EAS CLI nếu chưa có
 RUN if ! command -v expo &> /dev/null || ! command -v eas &> /dev/null; then \
-    npm install -g --force expo-cli eas-cli; \
+    npm install -g --force expo-cli && \
+    npm install -g --force eas-cli@latest; \
     fi
 
 # Giai đoạn phụ thuộc - Cài đặt node_modules
@@ -105,7 +106,18 @@ fi\n\
 \n\
 # Running the build\n\
 echo "Building APK with profile: $PROFILE"\n\
-eas build --profile $PROFILE --non-interactive\n\
+\n\
+# Đăng nhập vào Expo nếu có token\n\
+if [ -n "$EXPO_TOKEN" ]; then\n\
+  echo "Đang sử dụng EXPO_TOKEN để xác thực..."\n\
+  # Sử dụng token thay vì đăng nhập tương tác\n\
+  # Biến EXPO_TOKEN được tự động sử dụng bởi eas-cli\n\
+else\n\
+  echo "EXPO_TOKEN không được thiết lập, có thể gặp lỗi xác thực"\n\
+fi\n\
+\n\
+# Build APK với profile được chỉ định\n\
+eas build -p android --profile $PROFILE --non-interactive --local\n\
 \n\
 # Chuyển APK đến thư mục output\n\
 mkdir -p /app/build-output\n\

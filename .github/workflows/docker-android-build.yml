@@ -183,8 +183,8 @@ jobs:
             exit 1
           fi
           echo "EXPO_TOKEN đã được cấu hình"
-          # Kiểm tra token trong container nhưng không làm ảnh hưởng đến command chính
-          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S docker-compose run --rm -e BUILD_PROFILE=check-token android-builder bash -c 'echo "EXPO_TOKEN is set: $([ -n "$EXPO_TOKEN" ] && echo "yes" || echo "no")"'
+          # Kiểm tra token trong container nhưng đảm bảo không ảnh hưởng đến command chính
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S docker-compose run --rm -e EXPO_CHECK=1 android-builder /bin/bash -c 'echo "EXPO_TOKEN is set: $([ -n "$EXPO_TOKEN" ] && echo "yes" || echo "no")"'
 
       - name: Build APK
         run: |
@@ -194,7 +194,7 @@ jobs:
           echo "Building with profile: $BUILD_PROFILE"
           
           # Build APK
-          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S docker-compose run android-builder
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S BUILD_PROFILE=$BUILD_PROFILE docker-compose run android-builder
           
           # Kiểm tra kết quả build
           if [ -f "build-output/*.apk" ]; then
