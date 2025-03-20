@@ -54,61 +54,59 @@ ENV EAS_BUILD_AUTOCOMMIT=false
 # Tạo thư mục build-output cho APK
 RUN mkdir -p /app/build-output
 
-# Script chuẩn bị cho build
-COPY <<EOF /app/build-script.sh
-#!/bin/bash
-set -e
-
-# Thiết lập profile
-PROFILE=\${1:-production}
-
-# Xử lý keystore nếu đang chạy trong CI và có cung cấp keystore
-if [ "\${KEYSTORE_READY}" == "true" ] && [ -n "\${ANDROID_KEYSTORE_PATH}" ]; then
-  echo "Setting up keystore for production signing..."
-  
-  # Tạo hoặc cập nhật tệp gradle.properties
-  GRADLE_PROPS=/app/android/gradle.properties
-  
-  # Backup gradle.properties
-  cp \$GRADLE_PROPS \$GRADLE_PROPS.bak
-  
-  # Thêm cấu hình signing vào gradle.properties
-  echo "" >> \$GRADLE_PROPS
-  echo "# Signing config từ CI/CD" >> \$GRADLE_PROPS
-  echo "KSMS_RELEASE_STORE_FILE=\${ANDROID_KEYSTORE_PATH}" >> \$GRADLE_PROPS
-  echo "KSMS_RELEASE_KEY_ALIAS=\${ANDROID_KEY_ALIAS}" >> \$GRADLE_PROPS
-  echo "KSMS_RELEASE_STORE_PASSWORD=\${ANDROID_KEYSTORE_PASSWORD}" >> \$GRADLE_PROPS
-  echo "KSMS_RELEASE_KEY_PASSWORD=\${ANDROID_KEY_PASSWORD}" >> \$GRADLE_PROPS
-  
-  # Cập nhật cấu hình signing trong build.gradle
-  BUILDGRADLE=/app/android/app/build.gradle
-  
-  # Kiểm tra nếu chưa có signingConfigs.release
-  if ! grep -q "signingConfigs.release" \$BUILDGRADLE; then
-    # Tìm vị trí signingConfigs block
-    LINE=\$(grep -n "signingConfigs {" \$BUILDGRADLE | cut -d: -f1)
-    if [ -n "\$LINE" ]; then
-      # Thêm cấu hình release signing
-      sed -i "\$LINE a\\        release {\\n            storeFile file(KSMS_RELEASE_STORE_FILE)\\n            storePassword KSMS_RELEASE_STORE_PASSWORD\\n            keyAlias KSMS_RELEASE_KEY_ALIAS\\n            keyPassword KSMS_RELEASE_KEY_PASSWORD\\n        }" \$BUILDGRADLE
-      
-      # Cập nhật buildTypes để sử dụng signing config
-      sed -i "s/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g" \$BUILDGRADLE
-    fi
-  fi
-  
-  echo "Keystore setup completed"
-fi
-
-# Running the build
-echo "Building APK with profile: \$PROFILE"
-yarn run build --profile \$PROFILE --non-interactive
-
-# Chuyển APK đến thư mục output
-mkdir -p /app/build-output
-find /app -name "*.apk" -type f -exec cp {} /app/build-output/ \;
-
-echo "Build completed. APK files saved to /app/build-output/"
-EOF
+# Tạo file build script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Thiết lập profile\n\
+PROFILE=${1:-production}\n\
+\n\
+# Xử lý keystore nếu đang chạy trong CI và có cung cấp keystore\n\
+if [ "${KEYSTORE_READY}" == "true" ] && [ -n "${ANDROID_KEYSTORE_PATH}" ]; then\n\
+  echo "Setting up keystore for production signing..."\n\
+  \n\
+  # Tạo hoặc cập nhật tệp gradle.properties\n\
+  GRADLE_PROPS=/app/android/gradle.properties\n\
+  \n\
+  # Backup gradle.properties\n\
+  cp $GRADLE_PROPS $GRADLE_PROPS.bak\n\
+  \n\
+  # Thêm cấu hình signing vào gradle.properties\n\
+  echo "" >> $GRADLE_PROPS\n\
+  echo "# Signing config từ CI/CD" >> $GRADLE_PROPS\n\
+  echo "KSMS_RELEASE_STORE_FILE=${ANDROID_KEYSTORE_PATH}" >> $GRADLE_PROPS\n\
+  echo "KSMS_RELEASE_KEY_ALIAS=${ANDROID_KEY_ALIAS}" >> $GRADLE_PROPS\n\
+  echo "KSMS_RELEASE_STORE_PASSWORD=${ANDROID_KEYSTORE_PASSWORD}" >> $GRADLE_PROPS\n\
+  echo "KSMS_RELEASE_KEY_PASSWORD=${ANDROID_KEY_PASSWORD}" >> $GRADLE_PROPS\n\
+  \n\
+  # Cập nhật cấu hình signing trong build.gradle\n\
+  BUILDGRADLE=/app/android/app/build.gradle\n\
+  \n\
+  # Kiểm tra nếu chưa có signingConfigs.release\n\
+  if ! grep -q "signingConfigs.release" $BUILDGRADLE; then\n\
+    # Tìm vị trí signingConfigs block\n\
+    LINE=$(grep -n "signingConfigs {" $BUILDGRADLE | cut -d: -f1)\n\
+    if [ -n "$LINE" ]; then\n\
+      # Thêm cấu hình release signing\n\
+      sed -i "$LINE a\\        release {\\n            storeFile file(KSMS_RELEASE_STORE_FILE)\\n            storePassword KSMS_RELEASE_STORE_PASSWORD\\n            keyAlias KSMS_RELEASE_KEY_ALIAS\\n            keyPassword KSMS_RELEASE_KEY_PASSWORD\\n        }" $BUILDGRADLE\n\
+      \n\
+      # Cập nhật buildTypes để sử dụng signing config\n\
+      sed -i "s/signingConfig signingConfigs.debug/signingConfig signingConfigs.release/g" $BUILDGRADLE\n\
+    fi\n\
+  fi\n\
+  \n\
+  echo "Keystore setup completed"\n\
+fi\n\
+\n\
+# Running the build\n\
+echo "Building APK with profile: $PROFILE"\n\
+yarn run build --profile $PROFILE --non-interactive\n\
+\n\
+# Chuyển APK đến thư mục output\n\
+mkdir -p /app/build-output\n\
+find /app -name "*.apk" -type f -exec cp {} /app/build-output/ \;\n\
+\n\
+echo "Build completed. APK files saved to /app/build-output/"' > /app/build-script.sh
 
 RUN chmod +x /app/build-script.sh
 
