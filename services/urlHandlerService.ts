@@ -34,12 +34,12 @@ export const handleURL = ({ url }: { url: string }) => {
     if (path === "success") {
       router.replace({
         pathname: "/(payments)/PaymentSuccess",
-        params: parsedUrl.queryParams,
+        params: parsedUrl.queryParams ?? undefined,
       });
     } else if (path === "fail") {
       router.replace({
         pathname: "/(payments)/PaymentFailed",
-        params: parsedUrl.queryParams,
+        params: parsedUrl.queryParams ?? undefined,
       });
     }
   }
