@@ -1,0 +1,153 @@
+name: Docker Android Build
+
+permissions:
+  contents: write
+  packages: write
+  actions: write
+
+on:
+  push:
+    branches: [main, development]
+    paths:
+      - 'app/**'
+      - 'assets/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'app.json'
+      - 'eas.json'
+      - 'babel.config.js'
+      - 'metro.config.js'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - '.github/workflows/docker-android-build.yml'
+  pull_request:
+    branches: [main, development]
+  workflow_dispatch:
+    inputs:
+      build_profile:
+        description: 'Build profile (development, preview, production)'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+
+jobs:
+  build-android-apk:
+    name: Build Android APK
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify Docker installation
+        run: |
+          docker --version
+          docker-compose --version
+
+      - name: Set build profile
+        id: set-profile
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "BUILD_PROFILE=${{ github.event.inputs.build_profile }}" >> $GITHUB_ENV
+          else
+            echo "BUILD_PROFILE=production" >> $GITHUB_ENV
+          fi
+
+      - name: Create build-output directory
+        run: mkdir -p build-output
+
+      - name: Setup Android Keystore
+        if: env.BUILD_PROFILE == 'production' && github.ref == 'refs/heads/main'
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "Setting up keystore for signing..."
+            KEYSTORE_PATH=$GITHUB_WORKSPACE/android/app/release.keystore
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > $KEYSTORE_PATH
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> $GITHUB_ENV
+            echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "ANDROID_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+            echo "KEYSTORE_READY=true" >> $GITHUB_ENV
+          else
+            echo "No keystore provided, will use debug signing"
+            echo "KEYSTORE_READY=false" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Google Play Service Account
+        if: env.BUILD_PROFILE == 'production' && github.ref == 'refs/heads/main'
+        run: |
+          if [ -n "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}" ]; then
+            echo "Setting up Google Play service account..."
+            SERVICE_ACCOUNT_PATH=$GITHUB_WORKSPACE/google-play-service-account.json
+            echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}" | base64 -d > $SERVICE_ACCOUNT_PATH
+            echo "GOOGLE_PLAY_SERVICE_ACCOUNT_PATH=$SERVICE_ACCOUNT_PATH" >> $GITHUB_ENV
+            echo "GOOGLE_PLAY_READY=true" >> $GITHUB_ENV
+          else
+            echo "No Google Play service account provided"
+            echo "GOOGLE_PLAY_READY=false" >> $GITHUB_ENV
+          fi
+
+      - name: Build and run Docker
+        env:
+          BUILD_PROFILE: ${{ env.BUILD_PROFILE }}
+          CI: "true"
+          KEYSTORE_READY: ${{ env.KEYSTORE_READY || 'false' }}
+          ANDROID_KEYSTORE_PATH: ${{ env.ANDROID_KEYSTORE_PATH || '' }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || '' }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD || '' }}
+        run: |
+          docker-compose build
+          docker-compose run android-builder
+
+      - name: Check for APK files
+        id: check_apk
+        run: |
+          if find build-output -name "*.apk" -type f | grep -q .; then
+            echo "APK_EXISTS=true" >> $GITHUB_ENV
+            echo "Found APK files in build-output directory:"
+            find build-output -name "*.apk" -type f | xargs -I{} echo "- {}"
+          else
+            echo "APK_EXISTS=false" >> $GITHUB_ENV
+            echo "No APK files found in build-output directory."
+          fi
+
+      - name: Upload APK artifacts
+        if: env.APK_EXISTS == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-apk-${{ env.BUILD_PROFILE }}
+          path: build-output/*.apk
+          retention-days: 7
+
+      - name: Create Release (only for main branch)
+        if: github.ref == 'refs/heads/main' && env.APK_EXISTS == 'true'
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: APK Build ${{ github.sha }}
+          tag_name: build-${{ github.run_number }}
+          draft: false
+          prerelease: false
+          files: build-output/*.apk
+          body: |
+            Automated APK build from GitHub Actions
+            
+            Build Profile: ${{ env.BUILD_PROFILE }}
+            Commit: ${{ github.sha }}
+            Build Date: ${{ github.event.repository.updated_at }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Google Play
+        if: github.ref == 'refs/heads/main' && env.APK_EXISTS == 'true' && env.GOOGLE_PLAY_READY == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ env.GOOGLE_PLAY_SERVICE_ACCOUNT_PATH }}
+          packageName: com.yourcompany.ksms
+          releaseFiles: build-output/*.apk
+          track: internal
+          status: completed 

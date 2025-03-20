@@ -1,0 +1,32 @@
+version: '3'
+
+services:
+  android-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Sử dụng stage builder từ Dockerfile
+    volumes:
+      # Mount thư mục hiện tại vào /app trong container
+      - .:/app
+      # Mount volume để lưu trữ output APK
+      - ./build-output:/app/build-output
+    environment:
+      # Các biến môi trường có thể được thêm ở đây nếu cần
+      NODE_ENV: production
+      EAS_NO_VCS: 1
+      EAS_BUILD_AUTOCOMMIT: false
+      # Nếu chạy trong CI/CD
+      CI: ${CI:-false}
+      # Biến môi trường cho keystore và signing
+      KEYSTORE_READY: ${KEYSTORE_READY:-false}
+      ANDROID_KEYSTORE_PATH: ${ANDROID_KEYSTORE_PATH:-""}
+      ANDROID_KEYSTORE_PASSWORD: ${ANDROID_KEYSTORE_PASSWORD:-""}
+      ANDROID_KEY_ALIAS: ${ANDROID_KEY_ALIAS:-""}
+      ANDROID_KEY_PASSWORD: ${ANDROID_KEY_PASSWORD:-""}
+    # Dùng tty để giữ container chạy và có thể tương tác với nó
+    tty: true
+    stdin_open: true
+    # Có thể truyền build profile qua command
+    # Ví dụ: docker-compose run android-builder development
+    command: ${BUILD_PROFILE:-production} 

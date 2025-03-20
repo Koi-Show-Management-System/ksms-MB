@@ -997,6 +997,11 @@ jobs:
           # Hiển thị file đã sửa
           cat eas.json
 
+      # Tạo tệp local.properties
+      - name: Tạo tệp local.properties
+        run: |
+          echo "sdk.dir=/usr/local/lib/android/sdk" > android/local.properties
+
   release:
     needs: [setup, build-android]
     runs-on: self-hosted
