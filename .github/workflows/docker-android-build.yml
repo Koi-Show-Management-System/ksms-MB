@@ -56,10 +56,16 @@ jobs:
       - name: Install Docker Compose
         run: |
           echo "Cài đặt Docker Compose..."
+          # Thêm biến môi trường SSH_PASSWORD
+          echo "Cấu hình sudo sử dụng mật khẩu..."
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S echo "Sudo đã được cấu hình"
+          
           # Tải Docker Compose
-          sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S curl -L "https://github.com/docker/compose/releases/download/v2.24.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          
           # Cấp quyền thực thi
-          sudo chmod +x /usr/local/bin/docker-compose
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S chmod +x /usr/local/bin/docker-compose
+          
           # Kiểm tra phiên bản
           docker-compose --version
 
