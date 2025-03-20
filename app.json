@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "KSMS",
-    "slug": "ksms",
+    "slug": "ksms-mb",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
