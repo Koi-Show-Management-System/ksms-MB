@@ -1,44 +1,47 @@
 {
   "expo": {
-    "name": "KSMS",
-    "slug": "ksms-mb",
+    "name": "ksms-MB",
+    "slug": "ksms-MB",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.ksms"
+      "bundleIdentifier": "com.ksms"
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.yourcompany.ksms"
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
+      "package": "com.ksms"
     },
     "extra": {
       "eas": {
-        "projectId": "a8509b6e-ffa0-45cd-985f-fb94cc1b2785"
+        "projectId": "6a3eed5a-ed43-49ba-94c9-accc8c5fb0c2"
       }
     },
     "runtimeVersion": {
-      "policy": "sdkVersion"
+      "policy": "appVersion"
     },
     "updates": {
-      "url": "https://expo.dev/accounts/nhatsang29/projects/ksms-mb",
-      "enabled": true
-    }
+      "url": "https://u.expo.dev/6a3eed5a-ed43-49ba-94c9-accc8c5fb0c2"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "34.0.0",
+            "kotlinVersion": "1.9.20",
+            "kotlinCompilerExtensionVersion": "1.5.7"
+          },
+          "ios": {
+            "deploymentTarget": "13.4"
+          }
+        }
+      ]
+    ]
   }
 }
