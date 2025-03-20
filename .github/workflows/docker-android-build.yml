@@ -39,6 +39,7 @@ jobs:
     name: Build Android APK
     runs-on: self-hosted
     env:
+      ANDROID_HOME: /opt/android/sdk
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
