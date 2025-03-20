@@ -42,19 +42,6 @@ allprojects {
         google()
         maven { url 'https://www.jitpack.io' }
     }
-    
-    gradle.projectsEvaluated {
-        if (project.hasProperty("android")) {
-            android {
-                publishing {
-                    singleVariant("release") {
-                        withSourcesJar()
-                        withJavadocJar()
-                    }
-                }
-            }
-        }
-    }
 }
 
 // Vô hiệu hóa expo-dev-launcher cho production build

@@ -162,11 +162,13 @@ android {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
     
-    // Thêm đoạn này để xử lý lỗi SoftwareComponent
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-            withJavadocJar()
+    // Thêm đoạn này để xử lý lỗi SoftwareComponent - chỉ áp dụng cho app module
+    if (project.path == ':app') {
+        publishing {
+            singleVariant("release") {
+                withSourcesJar()
+                withJavadocJar()
+            }
         }
     }
 }
