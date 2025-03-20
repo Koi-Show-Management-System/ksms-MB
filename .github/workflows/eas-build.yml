@@ -1,0 +1,172 @@
+name: Build APK với EAS
+
+permissions:
+  contents: write
+  packages: write
+  actions: write
+
+on:
+  push:
+    branches: [main, development]
+    paths:
+      - 'app/**'
+      - 'assets/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'app.json'
+      - 'eas.json'
+      - 'babel.config.js'
+      - 'metro.config.js'
+  pull_request:
+    branches: [main, development]
+  workflow_dispatch:
+    inputs:
+      build_profile:
+        description: 'Build profile (development, preview, production)'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+
+jobs:
+  build:
+    name: Xây dựng APK Android
+    runs-on: self-hosted
+    steps:
+      - name: Setup repo
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+          cache: "yarn"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Expo
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Set build profile
+        id: set-profile
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "BUILD_PROFILE=${{ github.event.inputs.build_profile }}" >> $GITHUB_ENV
+          else
+            echo "BUILD_PROFILE=production" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Android Keystore
+        if: env.BUILD_PROFILE == 'production' && github.ref == 'refs/heads/main'
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "Setting up keystore for signing..."
+            KEYSTORE_PATH=$GITHUB_WORKSPACE/android/app/release.keystore
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > $KEYSTORE_PATH
+            # Tạo hoặc cập nhật tệp gradle.properties
+            GRADLE_PROPS=$GITHUB_WORKSPACE/android/gradle.properties
+            
+            # Thêm cấu hình signing vào gradle.properties
+            echo "" >> $GRADLE_PROPS
+            echo "# Signing config từ CI/CD" >> $GRADLE_PROPS
+            echo "KSMS_RELEASE_STORE_FILE=release.keystore" >> $GRADLE_PROPS
+            echo "KSMS_RELEASE_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GRADLE_PROPS
+            echo "KSMS_RELEASE_STORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GRADLE_PROPS
+            echo "KSMS_RELEASE_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GRADLE_PROPS
+          else
+            echo "No keystore provided, will use debug signing"
+          fi
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build Android app
+        run: eas build --platform android --profile ${{ env.BUILD_PROFILE }} --local --output ${{ github.workspace }}/app-release.apk
+
+      - name: Lưu trữ APK trên server
+        run: |
+          # Tạo thư mục lưu trữ APK trên server
+          DEPLOY_DIR="/var/www/html/apk-downloads"
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S mkdir -p $DEPLOY_DIR
+          
+          # Tạo thư mục cho build hiện tại
+          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+          BUILD_DIR="$DEPLOY_DIR/${{ env.BUILD_PROFILE }}_${TIMESTAMP}"
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S mkdir -p $BUILD_DIR
+          
+          # Copy APK vào thư mục triển khai
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S cp ${{ github.workspace }}/app-release.apk $BUILD_DIR/app-${{ env.BUILD_PROFILE }}-$TIMESTAMP.apk
+          
+          # Tạo symbolic link đến build mới nhất
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S ln -sf $BUILD_DIR $DEPLOY_DIR/latest_${{ env.BUILD_PROFILE }}
+          
+          # Tạo file thông tin về build
+          echo "Build Info:" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee $BUILD_DIR/build_info.txt
+          echo "Profile: ${{ env.BUILD_PROFILE }}" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee -a $BUILD_DIR/build_info.txt
+          echo "Commit: ${{ github.sha }}" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee -a $BUILD_DIR/build_info.txt
+          echo "Build Date: $(date)" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee -a $BUILD_DIR/build_info.txt
+          echo "Build Number: ${{ github.run_number }}" | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee -a $BUILD_DIR/build_info.txt
+          
+          # Phân quyền để web server có thể phục vụ
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S chmod -R 755 $DEPLOY_DIR
+          
+          # In ra đường dẫn tải xuống
+          APK_NAME="app-${{ env.BUILD_PROFILE }}-$TIMESTAMP.apk"
+          echo "APK có sẵn tại: https://ksms.news/apk-downloads/latest_${{ env.BUILD_PROFILE }}/$APK_NAME"
+          
+          # Cập nhật file index.html cho thư mục download
+          cat << EOF | echo '${{ secrets.SSH_PASSWORD }}' | sudo -S tee $DEPLOY_DIR/index.html
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>APK Downloads</title>
+              <style>
+                  body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+                  h1 { color: #333; }
+                  .profile { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+                  .profile h2 { margin-top: 0; color: #0066cc; }
+                  .download-btn { display: inline-block; background-color: #4CAF50; color: white; padding: 10px 20px; 
+                                  text-decoration: none; border-radius: 4px; margin-top: 10px; }
+                  .timestamp { color: #666; font-size: 0.8em; margin-top: 10px; }
+              </style>
+          </head>
+          <body>
+              <h1>APK Downloads</h1>
+              
+              <div class="profile">
+                  <h2>Production Build</h2>
+                  <p>Phiên bản ổn định mới nhất của ứng dụng.</p>
+                  <a href="latest_production/" class="download-btn">Tải APK Production</a>
+                  <p class="timestamp">Cập nhật lần cuối: $(date)</p>
+              </div>
+              
+              <div class="profile">
+                  <h2>Preview Build</h2>
+                  <p>Phiên bản xem trước với các tính năng sắp ra mắt.</p>
+                  <a href="latest_preview/" class="download-btn">Tải APK Preview</a>
+                  <p class="timestamp">Cập nhật lần cuối: $(date)</p>
+              </div>
+              
+              <div class="profile">
+                  <h2>Development Build</h2>
+                  <p>Bản build phát triển mới nhất với các tính năng mới nhất.</p>
+                  <a href="latest_development/" class="download-btn">Tải APK Development</a>
+                  <p class="timestamp">Cập nhật lần cuối: $(date)</p>
+              </div>
+          </body>
+          </html>
+          EOF 

@@ -193,8 +193,8 @@ jobs:
           export BUILD_PROFILE="${{ env.BUILD_PROFILE }}"
           echo "Building with profile: $BUILD_PROFILE"
           
-          # Build APK
-          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S BUILD_PROFILE=$BUILD_PROFILE docker-compose run android-builder
+          # Build APK - sửa cách truyền biến vào docker-compose
+          echo '${{ secrets.SSH_PASSWORD }}' | sudo -S docker-compose run --rm -e BUILD_PROFILE=$BUILD_PROFILE -e EXPO_TOKEN="${{ secrets.EXPO_TOKEN }}" android-builder
           
           # Kiểm tra kết quả build
           if [ -f "build-output/*.apk" ]; then
