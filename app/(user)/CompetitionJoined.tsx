@@ -14,7 +14,7 @@ import {
   RefreshControl,
 } from "react-native";
 import {
-  RegistrationItem, 
+  HistoryRegisterShowItem,
   getRegistrationHistory, 
   getFilterParams, 
   mapToCompetitionData, 
@@ -25,10 +25,13 @@ import {
 // Competition Card Component
 const CompetitionCard: React.FC<{
   competition: ReturnType<typeof mapToCompetitionData>;
-  onPress: () => void;
+  onPress: (competitionId: string) => void;
 }> = ({ competition, onPress }) => {
   return (
-    <TouchableOpacity style={styles.competitionCard} onPress={onPress}>
+    <TouchableOpacity 
+      style={styles.competitionCard} 
+      onPress={() => onPress(competition.id)}
+    >
       <Image
         source={{ uri: competition.image }}
         style={styles.competitionImage}
@@ -40,10 +43,10 @@ const CompetitionCard: React.FC<{
           <View
             style={[
               styles.statusBadge,
-              { backgroundColor: getStatusColorWithRegistration(competition.status, competition.registrationStatus) },
+              { backgroundColor: getStatusColorWithRegistration(competition.status) },
             ]}>
             <Text style={styles.statusText}>
-              {getStatusTextWithRegistration(competition.status, competition.registrationStatus)}
+              {getStatusTextWithRegistration(competition.status)}
             </Text>
           </View>
         </View>
@@ -70,28 +73,9 @@ const CompetitionCard: React.FC<{
           </View>
         </View>
 
-        <View style={styles.koiInfoContainer}>
-          <Text style={styles.koiName}>
-            {competition.koiProfile.name} - {competition.koiProfile.variety.name}
-          </Text>
-          <Text style={styles.koiDetails}>
-            Kích thước: {competition.koiSize}cm • Tuổi: {competition.koiAge} năm • Hạng mục: {competition.categoryName}
-          </Text>
-          {competition.payment && (
-            <Text style={[
-              styles.paymentStatus, 
-              { color: competition.payment.status === 'paid' ? '#4CAF50' : 
-                      competition.payment.status === 'pending' ? '#FF9800' : '#F44336' }
-            ]}>
-              Thanh toán: {competition.payment.status === 'paid' ? 'Đã thanh toán' : 
-                          competition.payment.status === 'pending' ? 'Đang xử lý' : 'Đã hủy'}
-            </Text>
-          )}
-        </View>
-
-        {competition.status === "completed" && (
+        {competition.status === "completed" && competition.result && (
           <View style={styles.resultContainer}>
-            {competition.result?.awarded ? (
+            {competition.result.awarded ? (
               <View style={styles.awardContainer}>
                 <Image
                   source={{
@@ -105,7 +89,7 @@ const CompetitionCard: React.FC<{
               </View>
             ) : (
               <Text style={styles.rankText}>
-                Hạng: {competition.result?.rank || "N/A"}
+                Hạng: {competition.result.rank || "N/A"}
               </Text>
             )}
           </View>
@@ -150,11 +134,11 @@ const CompetitionJoined: React.FC = () => {
   >("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
+  const [registrations, setRegistrations] = useState<HistoryRegisterShowItem[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [registrationStatus, setRegistrationStatus] = useState<string | null>(null);
-  const [showStatus, setShowStatus] = useState<string | null>(null);
+  const [showStatus, setShowStatus] = useState<string | undefined>(undefined);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -172,7 +156,7 @@ const CompetitionJoined: React.FC = () => {
   };
 
   // Fetch registrations
-  const fetchRegistrations = async (page = 1, showStat = showStatus, regStat = registrationStatus, refresh = false) => {
+  const fetchRegistrations = async (page = 1, showStat = showStatus, refresh = false) => {
     try {
       if (refresh) {
         setRefreshing(true);
@@ -184,7 +168,7 @@ const CompetitionJoined: React.FC = () => {
       setHasError(false);
       setErrorMessage('');
 
-      const paginatedResponse = await getRegistrationHistory(page, 10, regStat, showStat);
+      const paginatedResponse = await getRegistrationHistory(page, 10, showStat);
       
       if (refresh || page === 1) {
         setRegistrations(paginatedResponse.items);
@@ -207,9 +191,9 @@ const CompetitionJoined: React.FC = () => {
   useEffect(() => {
     const filterParams = getFilterParams(activeFilter);
     setRegistrationStatus(filterParams.registrationStatus);
-    setShowStatus(filterParams.showStatus);
+    setShowStatus(filterParams.showStatus || undefined);
     setCurrentPage(1); // Reset về trang 1
-    fetchRegistrations(1, filterParams.showStatus, filterParams.registrationStatus, true);
+    fetchRegistrations(1, filterParams.showStatus || undefined, true);
   }, [activeFilter]);
 
   // Load more items when reaching end of list
@@ -221,30 +205,18 @@ const CompetitionJoined: React.FC = () => {
 
   // Refresh data
   const handleRefresh = () => {
-    fetchRegistrations(1, showStatus, registrationStatus, true);
+    fetchRegistrations(1, showStatus, true);
   };
 
   // Map registration data to competition data
-  const mappedCompetitions = registrations.map(mapToCompetitionData);
+  const mappedCompetitions = registrations.map((item) => mapToCompetitionData(item));
 
   // Handle competition press
-  const handleCompetitionPress = (competition: ReturnType<typeof mapToCompetitionData>) => {
-    if (
-      competition.status === "completed" ||
-      competition.status === "ongoing"
-    ) {
-      // Navigate to ParticipateResult for both completed and ongoing competitions
-      router.push({
-        pathname: "/(user)/ParticipateResult",
-        params: { competitionId: competition.id },
-      });
-    } else if (competition.status === "upcoming") {
-      // Navigate to TicketCheckin for upcoming competitions
-      router.push({
-        pathname: "/(user)/TicketCheckin",
-        params: { competitionId: competition.id },
-      });
-    }
+  const handleCardPress = (competitionId: string) => {
+    router.push({
+      pathname: "/(user)/ParticipateResult",
+      params: { competitionId }
+    });
   };
 
   // Initial fetch
@@ -319,7 +291,7 @@ const CompetitionJoined: React.FC = () => {
           <Text style={styles.errorText}>{errorMessage}</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => fetchRegistrations(1, showStatus, registrationStatus, true)}>
+            onPress={() => fetchRegistrations(1, showStatus, true)}>
             <Text style={styles.retryButtonText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
@@ -358,7 +330,7 @@ const CompetitionJoined: React.FC = () => {
           renderItem={({ item }) => (
             <CompetitionCard
               competition={item}
-              onPress={() => handleCompetitionPress(item)}
+              onPress={handleCardPress}
             />
           )}
           contentContainerStyle={styles.listContent}

@@ -71,30 +71,100 @@ export interface PaginatedResponse<T> {
   items: T[];
 }
 
+// Interface cho item phản hồi từ API mới
+export interface HistoryRegisterShowItem {
+  id: string;
+  showName: string;
+  imageUrl: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  status: "upcoming" | "ongoing" | "completed" | "pending" | "published" | "inprogress" | "finished";
+}
+
+// Interface cho phản hồi phân trang từ API mới
+export interface HistoryRegisterShowResponse {
+  size: number;
+  page: number;
+  total: number;
+  totalPages: number;
+  items: HistoryRegisterShowItem[];
+}
+
+// Interface cho media của registration
+export interface RegistrationMedia {
+  id: string;
+  mediaUrl: string;
+  mediaType: string;
+}
+
+// Interface cho payment của registration
+export interface ShowDetailPayment {
+  id: string;
+  paidAmount: number;
+  paymentDate: string;
+  qrcodeData: string | null;
+  paymentMethod: string;
+  transactionCode: string;
+  status: string;
+}
+
+// Interface cho registration item trong show detail
+export interface ShowDetailRegistration {
+  registrationId: string;
+  registrationNumber: string | null;
+  status: string;
+  koiProfileId: string;
+  koiName: string;
+  variety: string;
+  size: number;
+  age: number;
+  gender: string;
+  bloodLine: string;
+  categoryId: string;
+  categoryName: string;
+  registrationFee: number;
+  rank: number | null;
+  award: string | null;
+  currentRound: string | null;
+  payment: ShowDetailPayment;
+  media: RegistrationMedia[];
+}
+
+// Interface cho show detail
+export interface ShowMemberDetail {
+  showId: string;
+  showName: string;
+  showImageUrl: string;
+  location: string;
+  duration: string;
+  description: string;
+  status: string;
+  totalRegisteredKoi: number;
+  registrations: ShowDetailRegistration[];
+}
+
 /**
- * Lấy danh sách đăng ký tham gia cuộc thi theo phân trang
+ * Lấy danh sách đăng ký tham gia cuộc thi theo phân trang sử dụng API mới
  * @param page Số trang (mặc định: 1)
  * @param size Số lượng mục mỗi trang (mặc định: 10)
- * @param registrationStatus Trạng thái đăng ký (có thể là danh sách các trạng thái phân tách bằng dấu phẩy)
- * @param showStatus Trạng thái cuộc thi (có thể là danh sách các trạng thái phân tách bằng dấu phẩy)
+ * @param showStatus Trạng thái cuộc thi (Pending, Published, Upcoming, InProgress, Finished)
  * @returns Promise với dữ liệu phân trang của đăng ký
  */
 export const getRegistrationHistory = async (
   page: number = 1,
   size: number = 10,
-  registrationStatus?: string | null,
   showStatus?: string | null
-): Promise<PaginatedResponse<RegistrationItem>> => {
+): Promise<HistoryRegisterShowResponse> => {
   try {
     // Build query parameters
     let query = `?page=${page}&size=${size}`;
     if (showStatus) query += `&showStatus=${showStatus}`;
-    if (registrationStatus) query += `&registrationStatus=${registrationStatus}`;
 
-    const url = `/api/v1/registration/get-page-history-registration${query}`;
+    const url = `/api/v1/koi-show/get-history-register-show${query}`;
     console.log(`[API Request] GET ${url}`);
 
-    const response = await api.get<ApiResponse<PaginatedResponse<RegistrationItem>>>(url);
+    const response = await api.get<ApiResponse<HistoryRegisterShowResponse>>(url);
     
     if (response.data.statusCode === 200) {
       return response.data.data;
@@ -108,32 +178,25 @@ export const getRegistrationHistory = async (
       : `Lỗi kết nối: ${error.message}`;
     
     console.error('Lỗi khi tải danh sách đăng ký:', errorMessage);
-    console.error('Tham số gọi API - Page:', page, 'Size:', size, 'RegStatus:', registrationStatus, 'ShowStatus:', showStatus);
+    console.error('Tham số gọi API - Page:', page, 'Size:', size, 'ShowStatus:', showStatus);
     
-    // Trả về một đối tượng trống nếu có lỗi xảy ra
-    return {
-      size: size,
-      page: page,
-      total: 0,
-      totalPages: 0,
-      items: []
-    };
+    throw error;
   }
 };
 
 /**
  * Biến đổi trạng thái filter thành parameters cho API
  * @param filter Bộ lọc (all, upcoming, ongoing, completed)
- * @returns Object chứa showStatus cho API, với registrationStatus luôn là null
+ * @returns Object chứa showStatus cho API
  */
 export const getFilterParams = (
   filter: "all" | "upcoming" | "ongoing" | "completed"
-): { registrationStatus: string | null; showStatus: string | null } => {
+): { registrationStatus: string | null; showStatus: string | undefined } => {
   switch (filter) {
     case 'upcoming':
       return {
         registrationStatus: null,
-        showStatus: 'Upcoming,Pending,Published'
+        showStatus: 'Upcoming'
       };
     case 'ongoing':
       return {
@@ -149,7 +212,7 @@ export const getFilterParams = (
     default:
       return {
         registrationStatus: null,
-        showStatus: null
+        showStatus: undefined
       };
   }
 };
@@ -205,81 +268,61 @@ export function normalizeShowStatus(status: string): KoiShow['status'] {
 }
 
 /**
- * Biến đổi Registration Data thành Competition Data cho component hiển thị
- * @param registration Thông tin đăng ký từ API
+ * Biến đổi HistoryRegisterShowItem thành dữ liệu Competition Data cho component hiển thị
+ * @param item Thông tin đăng ký từ API mới
  * @returns Dữ liệu được định dạng cho hiển thị
  */
-export const mapToCompetitionData = (registration: RegistrationItem) => {
-  // Chuẩn hóa các trạng thái để đảm bảo tính nhất quán
-  const showStatus = normalizeShowStatus(registration.koiShow.status);
-  const regStatus = normalizeRegistrationStatus(registration.status);
-  
-  // Quyết định status hiển thị từ status của registration và show
+export const mapToCompetitionData = (item: HistoryRegisterShowItem) => {
+  // Format ngày từ startDate
+  const startDate = new Date(item.startDate);
+  const formattedDate = `${startDate.getDate()}/${startDate.getMonth() + 1}/${startDate.getFullYear()}`;
+
+  // Chuẩn hóa status để phù hợp với logic hiển thị
   let displayStatus: "upcoming" | "ongoing" | "completed" = "upcoming";
+  let normalizedStatus = item.status.toLowerCase();
   
-  // Ưu tiên kiểm tra trạng thái show trước
-  if (showStatus === "Finished") {
+  if (normalizedStatus === "finished") {
     displayStatus = "completed";
-  } else if (showStatus === "InProgress") {
+  } else if (normalizedStatus === "inprogress") {
     displayStatus = "ongoing";
-  } else if (["Upcoming", "Pending", "Published"].includes(showStatus)) {
-    // Sau đó mới kiểm tra trạng thái đăng ký
-    if (["Rejected", "Refunded", "Cancelled"].includes(regStatus)) {
-      displayStatus = "completed";
-    } else if (regStatus === "CheckIn") {
-      displayStatus = "ongoing";
-    } else {
-      displayStatus = "upcoming";
-    }
+  } else {
+    displayStatus = "upcoming";
   }
 
-  // Format ngày từ createdAt
-  const date = new Date(registration.createdAt);
-  const formattedDate = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
-
   return {
-    id: registration.id,
-    name: registration.koiShow.name,
+    id: item.id,
+    name: item.showName,
     date: formattedDate,
-    location: "Đang cập nhật", // API chưa trả về location
+    location: item.location || "Đang cập nhật",
     status: displayStatus,
-    image: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png", // Default image
-    participantCount: 0, // Thông tin này không có trong API
-    fishCount: 0, // Thông tin này không có trong API
+    image: item.imageUrl || "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png",
+    participantCount: 0,
+    fishCount: 0,
     result: displayStatus === "completed" ? {
-      rank: registration.rank || "N/A",
+      rank: "N/A",
       awarded: false,
       awardTitle: "",
     } : undefined,
-    registrationStatus: regStatus,
-    koiProfile: registration.koiProfile,
-    koiSize: registration.koiSize,
-    koiAge: registration.koiAge,
-    categoryName: registration.competitionCategory.name,
-    payment: registration.registrationPayment
+    koiProfile: {
+      name: "Không có thông tin",
+      variety: {
+        name: ""
+      }
+    },
+    koiSize: 0,
+    koiAge: 0,
+    categoryName: "",
+    payment: null,
+    registrationStatus: null
   };
 };
 
 /**
- * Lấy màu trạng thái dựa trên status và registration status
+ * Lấy màu trạng thái dựa trên status
  * @param status Trạng thái hiển thị (upcoming, ongoing, completed)
- * @param registrationStatus Trạng thái đăng ký
  * @returns Mã màu cho trạng thái
  */
-export const getStatusColorWithRegistration = (status: string, registrationStatus?: string) => {
-  // Chuẩn hóa trạng thái đăng ký nếu có
-  const normalizedRegStatus = registrationStatus ? normalizeRegistrationStatus(registrationStatus) : undefined;
-  
-  // Nếu registration status là cancelled hoặc rejected, luôn hiển thị màu đỏ
-  if (normalizedRegStatus && ["Cancelled", "Rejected", "Refunded"].includes(normalizedRegStatus)) {
-    return "#E74C3C"; // Đỏ
-  }
-
-  // Xử lý trạng thái chờ thanh toán
-  if (normalizedRegStatus === "WaitToPaid") {
-    return "#FF9500"; // Cam
-  }
-
+export const getStatusColorWithRegistration = (status: string) => {
   // Các trạng thái show thông thường
   switch (status) {
     case "upcoming":
@@ -296,33 +339,9 @@ export const getStatusColorWithRegistration = (status: string, registrationStatu
 /**
  * Lấy text trạng thái hiển thị
  * @param status Trạng thái hiển thị (upcoming, ongoing, completed)
- * @param registrationStatus Trạng thái đăng ký
  * @returns Text hiển thị cho trạng thái
  */
-export const getStatusTextWithRegistration = (status: string, registrationStatus?: string) => {
-  // Chuẩn hóa trạng thái đăng ký nếu có
-  const normalizedRegStatus = registrationStatus ? normalizeRegistrationStatus(registrationStatus) : undefined;
-  
-  // Nếu registration status có giá trị, hiển thị text tương ứng
-  if (normalizedRegStatus) {
-    switch (normalizedRegStatus) {
-      case "WaitToPaid":
-        return "Chờ thanh toán";
-      case "Pending":
-        return "Chờ xác nhận";
-      case "Confirmed":
-        return "Đã xác nhận";
-      case "CheckIn":
-        return "Đã check in";
-      case "Cancelled":
-        return "Đã hủy";
-      case "Rejected":
-        return "Bị từ chối";
-      case "Refunded":
-        return "Đã hoàn tiền";
-    }
-  }
-
+export const getStatusTextWithRegistration = (status: string) => {
   // Các trạng thái show thông thường
   switch (status) {
     case "upcoming":
@@ -333,5 +352,35 @@ export const getStatusTextWithRegistration = (status: string, registrationStatus
       return "Đã kết thúc";
     default:
       return "Không xác định";
+  }
+};
+
+/**
+ * Lấy thông tin chi tiết của một show và danh sách cá đã đăng ký
+ * @param showId ID của show cần lấy thông tin
+ * @returns Promise với dữ liệu chi tiết của show
+ */
+export const getShowMemberDetail = async (showId: string): Promise<ShowMemberDetail> => {
+  try {
+    const url = `/api/v1/registration/get-show-member-detail/${showId}`;
+    console.log(`[API Request] GET ${url}`);
+
+    const response = await api.get<ApiResponse<ShowMemberDetail>>(url);
+    
+    if (response.data.statusCode === 200) {
+      return response.data.data;
+    } else {
+      throw new Error(response.data.message || 'Không thể lấy thông tin chi tiết của show');
+    }
+  } catch (error: any) {
+    // Ghi log chi tiết hơn
+    const errorMessage = error.response 
+      ? `Lỗi ${error.response.status}: ${error.response.data?.message || 'Không có thông báo lỗi'}`
+      : `Lỗi kết nối: ${error.message}`;
+    
+    console.error('Lỗi khi lấy thông tin chi tiết của show:', errorMessage);
+    console.error('Tham số gọi API - ShowId:', showId);
+    
+    throw error;
   }
 }; 

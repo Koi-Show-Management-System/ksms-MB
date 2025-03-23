@@ -37,17 +37,6 @@ interface KoiProfileResponse {
   message: string;
 }
 
-interface KoiProfileListResponse {
-  data: {
-    items: KoiProfile[];
-    total: number;
-    page: number;
-    size: number;
-  };
-  statusCode: number;
-  message: string;
-}
-
 interface GetKoiProfilesParams {
   varietyIds?: string[];
   startSize?: number;
@@ -57,15 +46,30 @@ interface GetKoiProfilesParams {
   size?: number;
 }
 
-export const getKoiProfiles = async (
-  page: number = 1,
-  size: number = 10
-): Promise<KoiProfileListResponse> => {
+export interface KoiProfileListResponse {
+  data: {
+    items: KoiProfile[];
+    total: number;
+    page: number;
+    size: number;
+    totalPages: number;
+  };
+  statusCode: number;
+  message: string;
+}
+
+export const getKoiProfiles = async (params: GetKoiProfilesParams = {}): Promise<KoiProfileListResponse> => {
   try {
+    const { page = 1, size = 10, varietyIds, startSize, endSize, name } = params;
+    
     const response = await api.get('/api/v1/koi-profile/get-page', {
       params: {
         page,
-        size
+        size,
+        ...(varietyIds && varietyIds.length > 0 && { VarietyIds: varietyIds }),
+        ...(startSize !== undefined && { StartSize: startSize }),
+        ...(endSize !== undefined && { EndSize: endSize }),
+        ...(name && { Name: name })
       }
     });
     return response.data;
