@@ -268,52 +268,6 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
     );
   };
 
-  // Render media carousel trong modal
-  const renderMediaCarousel = () => {
-    if (!selectedContestant) return null;
-    
-    const media = selectedContestant.registration.koiMedia;
-    if (!media || media.length === 0) return null;
-    
-    return (
-      <View style={styles.mediaCarouselContainer}>
-        <View style={styles.mediaContainer}>
-          {media[activeMediaIndex].mediaType === 'Image' ? (
-            <Image 
-              source={{ uri: media[activeMediaIndex].mediaUrl }}
-              style={styles.modalImage}
-              resizeMode="contain"
-            />
-          ) : (
-            <Video
-              source={{ uri: media[activeMediaIndex].mediaUrl }}
-              style={styles.modalVideo}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              isLooping
-              shouldPlay
-            />
-          )}
-        </View>
-        
-        {media.length > 1 && (
-          <View style={styles.mediaDots}>
-            {media.map((_, index: number) => (
-              <TouchableOpacity 
-                key={index}
-                style={[
-                  styles.mediaDot,
-                  index === activeMediaIndex && styles.activeMediaDot
-                ]}
-                onPress={() => setActiveMediaIndex(index)}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-    );
-  };
-
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={true}>
       {/* Breadcrumb navigation */}
@@ -479,111 +433,149 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView style={styles.modalScrollContent}>
-                  {/* Tab Content */}
+                {/* Tab Content */}
+                <View style={styles.modalTabContentContainer}>
                   {activeTabInModal === 'info' ? (
-                    <View style={styles.infoContainer}>
-                      <InfoRow 
-                        label="Mã Đăng Ký" 
-                        value={selectedContestant.id.substring(0, 8)} 
-                      />
-                      <InfoRow 
-                        label="Tên Người Đăng Ký" 
-                        value={selectedContestant.registration.registerName || "Không có thông tin"} 
-                      />
-                      <InfoRow 
-                        label="Tên Cá Koi" 
-                        value={selectedContestant.registration.koiProfile.name} 
-                      />
-                      <InfoRow 
-                        label="Giống" 
-                        value={selectedContestant.registration.koiProfile.variety.name} 
-                      />
-                      <InfoRow 
-                        label="Kích Thước" 
-                        value={`${selectedContestant.registration.koiSize} cm`} 
-                      />
-                      <InfoRow 
-                        label="Tuổi Cá" 
-                        value={`${Math.floor(selectedContestant.registration.koiAge / 12) || 0} năm`} 
-                      />
-                      <InfoRow 
-                        label="Dòng máu" 
-                        value={selectedContestant.registration.koiProfile.bloodline || "Không có thông tin"} 
-                      />
-                      <InfoRow 
-                        label="Hạng Mục" 
-                        value={selectedCategoryName} 
-                      />
-                      <InfoRow 
-                        label="Phí Đăng Ký" 
-                        value={`${selectedContestant.registration.registrationFee?.toLocaleString('vi-VN') || 0} VND`} 
-                      />
-                      <InfoRow 
-                        label="Trạng Thái" 
-                        value={
-                          <View style={styles.statusBadge}>
-                            <Text style={styles.statusBadgeText}>
-                              {selectedContestant.status === "active" ? "Đã công khai" : 
-                               selectedContestant.status === "pending" ? "Chờ duyệt" : 
-                               "Đã huỷ"}
-                            </Text>
+                    <ScrollView style={styles.modalScrollContent}>
+                      <View style={styles.infoContainer}>
+                        <InfoRow 
+                          label="Mã Đăng Ký" 
+                          value={selectedContestant.id.substring(0, 8)} 
+                        />
+                        <InfoRow 
+                          label="Tên Người Đăng Ký" 
+                          value={selectedContestant.registration.registerName || "Không có thông tin"} 
+                        />
+                        <InfoRow 
+                          label="Tên Cá Koi" 
+                          value={selectedContestant.registration.koiProfile.name} 
+                        />
+                        <InfoRow 
+                          label="Giống" 
+                          value={selectedContestant.registration.koiProfile.variety.name} 
+                        />
+                        <InfoRow 
+                          label="Kích Thước" 
+                          value={`${selectedContestant.registration.koiSize} cm`} 
+                        />
+                        <InfoRow 
+                          label="Tuổi Cá" 
+                          value={`${Math.floor(selectedContestant.registration.koiAge / 12) || 0} năm`} 
+                        />
+                        <InfoRow 
+                          label="Dòng máu" 
+                          value={selectedContestant.registration.koiProfile.bloodline || "Không có thông tin"} 
+                        />
+                        <InfoRow 
+                          label="Hạng Mục" 
+                          value={selectedCategoryName} 
+                        />
+                        <InfoRow 
+                          label="Phí Đăng Ký" 
+                          value={`${selectedContestant.registration.registrationFee?.toLocaleString('vi-VN') || 0} VND`} 
+                        />
+                        <InfoRow 
+                          label="Trạng Thái" 
+                          value={
+                            <View style={styles.statusBadge}>
+                              <Text style={styles.statusBadgeText}>
+                                {selectedContestant.status === "active" ? "Đã công khai" : 
+                                 selectedContestant.status === "pending" ? "Chờ duyệt" : 
+                                 "Đã huỷ"}
+                              </Text>
+                            </View>
+                          } 
+                        />
+                        <InfoRow 
+                          label="Bể" 
+                          value={selectedContestant.tankName || "Chưa gán bể"} 
+                        />
+                        <InfoRow 
+                          label="Thời gian check in" 
+                          value={selectedContestant.checkInTime ? new Date(selectedContestant.checkInTime).toLocaleString('vi-VN') : "Chưa check in"} 
+                        />
+                        
+                        {selectedContestant.registration.notes && (
+                          <View style={styles.notesSection}>
+                            <Text style={styles.notesSectionTitle}>Ghi chú:</Text>
+                            <Text style={styles.notesContent}>{selectedContestant.registration.notes}</Text>
                           </View>
-                        } 
-                      />
-                      <InfoRow 
-                        label="Bể" 
-                        value={selectedContestant.tankName || "Chưa gán bể"} 
-                      />
-                      <InfoRow 
-                        label="Thời gian check in" 
-                        value={selectedContestant.checkInTime ? new Date(selectedContestant.checkInTime).toLocaleString('vi-VN') : "Chưa check in"} 
-                      />
-                      
-                      {selectedContestant.registration.notes && (
-                        <View style={styles.notesSection}>
-                          <Text style={styles.notesSectionTitle}>Ghi chú:</Text>
-                          <Text style={styles.notesContent}>{selectedContestant.registration.notes}</Text>
-                        </View>
-                      )}
-                    </View>
+                        )}
+                      </View>
+                    </ScrollView>
                   ) : (
                     <View style={styles.mediaTabContent}>
-                      {renderMediaCarousel()}
-                      
-                      <View style={styles.mediaListContainer}>
-                        <Text style={styles.mediaListTitle}>Tất cả hình ảnh và video</Text>
-                        <FlatList
-                          data={selectedContestant.registration.koiMedia}
-                          horizontal={false}
-                          renderItem={({ item, index }) => (
-                            <TouchableOpacity 
-                              style={[
-                                styles.mediaThumbnailContainer,
-                                activeMediaIndex === index && styles.activeThumbnail
-                              ]}
-                              onPress={() => setActiveMediaIndex(index)}
-                            >
+                      {/* Carousel */}
+                      <View style={styles.mediaCarouselContainer}>
+                        {selectedContestant.registration.koiMedia.length > 0 && (
+                          <View style={styles.mediaContainer}>
+                            {selectedContestant.registration.koiMedia[activeMediaIndex].mediaType === 'Image' ? (
                               <Image 
-                                source={{ uri: item.mediaUrl }} 
-                                style={styles.mediaThumbnail} 
-                                resizeMode="cover"
+                                source={{ uri: selectedContestant.registration.koiMedia[activeMediaIndex].mediaUrl }}
+                                style={styles.modalImage}
+                                resizeMode="contain"
                               />
-                              {item.mediaType === 'Video' && (
-                                <View style={styles.videoOverlay}>
-                                  <MaterialIcons name="play-circle-outline" size={24} color="#FFFFFF" />
-                                </View>
-                              )}
-                            </TouchableOpacity>
-                          )}
-                          keyExtractor={(item, index) => `media-${index}`}
-                          numColumns={3}
-                          contentContainerStyle={styles.mediaGrid}
-                        />
+                            ) : (
+                              <Video
+                                source={{ uri: selectedContestant.registration.koiMedia[activeMediaIndex].mediaUrl }}
+                                style={styles.modalVideo}
+                                useNativeControls
+                                resizeMode={ResizeMode.CONTAIN}
+                                isLooping
+                                shouldPlay
+                              />
+                            )}
+                          </View>
+                        )}
+                        
+                        {selectedContestant.registration.koiMedia.length > 1 && (
+                          <View style={styles.mediaDots}>
+                            {selectedContestant.registration.koiMedia.map((_, index: number) => (
+                              <TouchableOpacity 
+                                key={index}
+                                style={[
+                                  styles.mediaDot,
+                                  index === activeMediaIndex && styles.activeMediaDot
+                                ]}
+                                onPress={() => setActiveMediaIndex(index)}
+                              />
+                            ))}
+                          </View>
+                        )}
                       </View>
+                      
+                      {/* Thumbnails */}
+                      <ScrollView style={styles.mediaListScrollContainer}>
+                        <View style={styles.mediaListContainer}>
+                          <Text style={styles.mediaListTitle}>Tất cả hình ảnh và video</Text>
+                          <View style={styles.thumbnailGrid}>
+                            {selectedContestant.registration.koiMedia.map((item, index) => (
+                              <TouchableOpacity 
+                                key={`media-${index}`}
+                                style={[
+                                  styles.mediaThumbnailContainer,
+                                  activeMediaIndex === index && styles.activeThumbnail
+                                ]}
+                                onPress={() => setActiveMediaIndex(index)}
+                              >
+                                <Image 
+                                  source={{ uri: item.mediaUrl }} 
+                                  style={styles.mediaThumbnail} 
+                                  resizeMode="cover"
+                                />
+                                {item.mediaType === 'Video' && (
+                                  <View style={styles.videoOverlay}>
+                                    <MaterialIcons name="play-circle-outline" size={24} color="#FFFFFF" />
+                                  </View>
+                                )}
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+                      </ScrollView>
                     </View>
                   )}
-                </ScrollView>
+                </View>
               </View>
             ) : (
               <View style={styles.loadingContainer}>
@@ -875,6 +867,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '100%',
     maxHeight: '90%',
+    height: 600,
     position: 'relative',
     overflow: 'hidden',
     shadowColor: '#000000',
@@ -882,7 +875,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
-    paddingBottom: 16,
   },
   closeButton: {
     position: 'absolute',
@@ -894,7 +886,8 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   fullDetailsContainer: {
-    paddingTop: 40, // Tạo khoảng cách cho nút đóng
+    flex: 1,
+    paddingTop: 40,
   },
   modalTabContainer: {
     flexDirection: 'row',
@@ -923,8 +916,11 @@ const styles = StyleSheet.create({
     color: '#2196F3',
     fontWeight: '600',
   },
+  modalTabContentContainer: {
+    flex: 1,
+  },
   modalScrollContent: {
-    maxHeight: 500,
+    flex: 1,
   },
   infoContainer: {
     padding: 16,
@@ -980,6 +976,11 @@ const styles = StyleSheet.create({
   },
   mediaTabContent: {
     flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  mediaListScrollContainer: {
+    flex: 1,
   },
   mediaListContainer: {
     padding: 16,
@@ -990,32 +991,10 @@ const styles = StyleSheet.create({
     color: '#333333',
     marginBottom: 12,
   },
-  mediaGrid: {
-    paddingBottom: 16,
-  },
-  mediaThumbnailContainer: {
-    width: '32%',
-    aspectRatio: 1,
-    marginBottom: 8,
-    marginRight: '2%',
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  activeThumbnail: {
-    borderWidth: 2,
-    borderColor: '#2196F3',
-  },
-  mediaThumbnail: {
-    width: '100%',
-    height: '100%',
-  },
-  videoOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  thumbnailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   mediaCarouselContainer: {
     height: 250,
@@ -1070,6 +1049,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#3498db',
     marginRight: 4,
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mediaThumbnailContainer: {
+    width: '31%',
+    aspectRatio: 1,
+    marginBottom: 8,
+    marginRight: '2%',
+    marginLeft: '0%',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  activeThumbnail: {
+    borderWidth: 2,
+    borderColor: '#2196F3',
+  },
+  mediaThumbnail: {
+    width: '100%',
+    height: '100%',
   },
 });
 
