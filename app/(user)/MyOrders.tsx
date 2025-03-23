@@ -18,6 +18,8 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
+  interpolate,
+  Easing,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../../services/api";
@@ -65,6 +67,13 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'OrderDetail
 const { width: screenWidth } = Dimensions.get("window");
 
 const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
+  const [showFullId, setShowFullId] = useState(false);
+  const animatedValue = useSharedValue(0);
+  // Tính toán chiều rộng màn hình ở cấp độ component
+  const currentScreenWidth = Dimensions.get('window').width;
+  const maxContainerWidth = currentScreenWidth * 0.9;
+  const minContainerWidth = currentScreenWidth * 0.3;
+  
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -103,9 +112,72 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
     return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
   };
 
+  const formatOrderId = (id: string) => {
+    if (!id) return "N/A";
+    
+    const screenWidth = Dimensions.get('window').width;
+    // Ước tính số ký tự có thể hiển thị dựa trên độ rộng màn hình
+    // Giả sử mỗi ký tự chiếm khoảng 10 điểm ảnh và style id có letterSpacing: 0.5
+    // Để an toàn, giảm bớt khoảng 30% diện tích cho các yếu tố khác trong giao diện
+    const availableWidth = screenWidth * 0.3; // 30% của màn hình dành cho ID
+    const charWidth = 10.5; // Mỗi ký tự khoảng 10px + letterSpacing
+    const maxChars = Math.floor(availableWidth / charWidth);
+    
+    // Nếu ID ngắn hơn số ký tự tối đa có thể hiển thị, hiển thị toàn bộ
+    if (id.length <= maxChars) {
+      return id.toUpperCase();
+    }
+    
+    // Nếu không, chỉ hiển thị phần đầu của ID và kết thúc bằng dấu ba chấm
+    // Trừ 3 ký tự cho dấu "..."
+    const visibleChars = maxChars - 3;
+    const prefix = id.slice(0, visibleChars);
+    
+    return `${prefix}...`.toUpperCase();
+  };
+
   const status = order.orderStatus || order.status || "";
   const orderDate = order.orderDate || order.date;
-  const orderId = order.id ? order.id.slice(0, 8).toUpperCase() : "N/A";
+  
+  // Tạo 2 phiên bản của orderId: dạng rút gọn và dạng đầy đủ
+  const shortOrderId = order.id ? formatOrderId(order.id) : "N/A";
+  const fullOrderId = order.id ? order.id.toUpperCase() : "N/A";
+  
+  // Xử lý khi người dùng nhấn vào mã vé
+  const toggleOrderIdDisplay = () => {
+    setShowFullId(!showFullId);
+    animatedValue.value = withSpring(showFullId ? 0 : 1, {
+      damping: 20,
+      stiffness: 90,
+    });
+  };
+  
+  // Style animation cho container của mã vé
+  const animatedOrderIdStyle = useAnimatedStyle(() => {
+    return {
+      maxWidth: interpolate(
+        animatedValue.value,
+        [0, 1],
+        [minContainerWidth, maxContainerWidth], // Sử dụng biến đã tính trước
+      ),
+      paddingRight: interpolate(
+        animatedValue.value,
+        [0, 1],
+        [8, 16], // Thêm padding khi mở rộng
+      ),
+    };
+  });
+  
+  // Style animation cho text mã vé
+  const animatedOrderIdTextStyle = useAnimatedStyle(() => {
+    return {
+      fontSize: interpolate(
+        animatedValue.value,
+        [0, 1],
+        [16, 14], // Thu nhỏ font chữ khi hiển thị mã đầy đủ
+      ),
+    };
+  });
 
   const navigation = useNavigation<NavigationProp>();
   
@@ -119,10 +191,19 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
       onPress={handleViewDetail}
       activeOpacity={0.7}>
       <View style={styles.orderHeader}>
-        <View style={styles.orderIdContainer}>
+        <Animated.View style={[styles.orderIdContainer, animatedOrderIdStyle]}>
           <Text style={styles.orderIdLabel}>Mã đơn hàng</Text>
-          <Text style={styles.orderId}>{orderId}</Text>
-        </View>
+          <TouchableOpacity onPress={toggleOrderIdDisplay} activeOpacity={0.6}>
+            <Animated.Text style={[styles.orderId, animatedOrderIdTextStyle]}>
+              {showFullId ? fullOrderId : shortOrderId}
+            </Animated.Text>
+            <View style={styles.idTooltip}>
+              <Text style={styles.idTooltipText}>
+                {showFullId ? "Thu gọn" : "Xem đầy đủ"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) }]}>
           <Text style={styles.statusText}>{getStatusText(status)}</Text>
         </View>
@@ -621,6 +702,7 @@ const styles = StyleSheet.create({
   },
   orderIdContainer: {
     flex: 1,
+    overflow: 'hidden',
   },
   orderIdLabel: {
     fontSize: 13,
@@ -632,6 +714,17 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontWeight: "600",
     letterSpacing: 0.5,
+  },
+  idTooltip: {
+    position: 'absolute',
+    right: 0,
+    bottom: -16,
+    opacity: 0.6,
+  },
+  idTooltipText: {
+    fontSize: 10,
+    color: '#666',
+    fontStyle: 'italic',
   },
   statusBadge: {
     paddingHorizontal: 10,

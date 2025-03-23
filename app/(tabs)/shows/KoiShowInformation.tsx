@@ -13,6 +13,8 @@ import {
 } from "react-native";
 import { getKoiShowById, KoiShow } from "../../../services/showService";
 import { CompetitionCategory, getCompetitionCategories } from "../../../services/registrationService";
+import KoiContestants from "./KoiContestants";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 // Skeleton Component
 const SkeletonLoader = () => {
@@ -103,6 +105,7 @@ const KoiShowInformation: React.FC = () => {
     rules: false,
     timeline: false, // Renamed from enteringKoi
   });
+  const [activeTab, setActiveTab] = useState('info'); // 'info' or 'contestants'
 
   // Fetch show data
   useEffect(() => {
@@ -195,6 +198,46 @@ const KoiShowInformation: React.FC = () => {
     );
   };
 
+  // Format timeline content để đảm bảo là string
+  const formatTimelineContent = (content: any): string => {
+    if (typeof content === 'string') return content;
+    if (content && typeof content === 'object') {
+      if (content.title && content.content) {
+        return `${content.title}: ${content.content}`;
+      }
+      return JSON.stringify(content);
+    }
+    return String(content || '');
+  };
+
+  // Format rule content để đảm bảo là string
+  const formatRuleContent = (rule: any): string => {
+    if (typeof rule === 'string') return rule;
+    if (rule && typeof rule === 'object') {
+      if (rule.id && rule.title && rule.content) {
+        return `${rule.title}: ${rule.content}`;
+      } else if (rule.title && rule.content) {
+        return `${rule.title}: ${rule.content}`;
+      }
+      return JSON.stringify(rule);
+    }
+    return String(rule || '');
+  };
+
+  // Format criterion content để đảm bảo là string
+  const formatCriterionContent = (criterion: any): string => {
+    if (typeof criterion === 'string') return criterion;
+    if (criterion && typeof criterion === 'object') {
+      if (criterion.id && criterion.title && criterion.content) {
+        return `${criterion.title}: ${criterion.content}`;
+      } else if (criterion.title && criterion.content) {
+        return `${criterion.title}: ${criterion.content}`;
+      }
+      return JSON.stringify(criterion);
+    }
+    return String(criterion || '');
+  };
+
   // Add this function to render categories
   const renderCategoryItem = ({ item }: { item: CompetitionCategory }) => (
     <View style={styles.categoryCard}>
@@ -238,12 +281,12 @@ const KoiShowInformation: React.FC = () => {
     </View>
   );
 
-  // Replace loading condition with Skeleton
+  // Nếu đang loading, hiển thị skeleton
   if (loading) {
     return <SkeletonLoader />;
   }
 
-  // If error, show error message
+  // Nếu có lỗi, hiển thị thông báo lỗi
   if (error) {
     return (
       <View style={styles.errorContainer}>
@@ -260,383 +303,419 @@ const KoiShowInformation: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        {/* Header with Show Banner Image */}
-        <View style={styles.bannerContainer}>
-          {showData?.imgUrl ? (
-            <Image
-              source={{ uri: showData.imgUrl }}
-              style={styles.bannerImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[styles.bannerImage, styles.placeholderBanner]}>
-              <FontAwesome5 name="koi" size={64} color="#ffffff" />
-            </View>
-          )}
-          <View style={styles.overlay}>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>
-                {showData?.status === "upcoming"
-                  ? "Sắp diễn ra"
-                  : showData?.status === "active"
-                  ? "Đang diễn ra"
-                  : showData?.status === "completed"
-                  ? "Đã kết thúc"
-                  : "Đã lên lịch"}
-              </Text>
-            </View>
+      {/* Header Banner (hiển thị tất cả tab) */}
+      <View style={styles.bannerContainer}>
+        {showData?.imgUrl ? (
+          <Image
+            source={{ uri: showData.imgUrl }}
+            style={styles.bannerImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.bannerImage, styles.placeholderBanner]}>
+            <Ionicons name="fish" size={64} color="#ffffff" />
+          </View>
+        )}
+        <View style={styles.overlay}>
+          <View style={styles.statusBadge}>
+            <Text style={styles.statusText}>
+              {showData?.status === "upcoming"
+                ? "Sắp diễn ra"
+                : showData?.status === "active"
+                ? "Đang diễn ra"
+                : showData?.status === "completed"
+                ? "Đã kết thúc"
+                : "Đã lên lịch"}
+            </Text>
           </View>
         </View>
+      </View>
 
-        {/* Show Title and Quick Info */}
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>{showData?.name}</Text>
-          <View style={styles.quickInfoContainer}>
-            <View style={styles.quickInfoItem}>
-              <MaterialIcons name="location-on" size={18} color="#000000" />
-              <Text style={styles.quickInfoText}>{showData?.location}</Text>
-            </View>
-            <View style={styles.quickInfoItem}>
-              <MaterialIcons name="date-range" size={18} color="#000000" />
-              <Text style={styles.quickInfoText}>
-                {formatDate(showData?.startDate || "")} -{" "}
-                {formatDate(showData?.endDate || "")}
-              </Text>
-            </View>
+      {/* Tiêu đề và thông tin nhanh (hiển thị ở tất cả các tab) */}
+      <View style={styles.titleContainer}>
+        <Text style={styles.title}>{showData?.name}</Text>
+        <View style={styles.quickInfoContainer}>
+          <View style={styles.quickInfoItem}>
+            <MaterialIcons name="location-on" size={18} color="#000000" />
+            <Text style={styles.quickInfoText}>{showData?.location}</Text>
+          </View>
+          <View style={styles.quickInfoItem}>
+            <MaterialIcons name="date-range" size={18} color="#000000" />
+            <Text style={styles.quickInfoText}>
+              {formatDate(showData?.startDate || "")} -{" "}
+              {formatDate(showData?.endDate || "")}
+            </Text>
           </View>
         </View>
+      </View>
 
-        {/* Event Details Section */}
-        <View style={styles.sectionContainer}>
-          <TouchableOpacity
-            style={[
-              styles.sectionHeader,
-              expandedSections.eventDetails && styles.sectionHeaderExpanded,
-            ]}
-            onPress={() => toggleSection("eventDetails")}>
-            <View style={styles.sectionHeaderContent}>
-              <MaterialIcons name="info-outline" size={22} color="#000000" />
-              <Text style={styles.sectionTitle}>Chi tiết sự kiện</Text>
-            </View>
-            <MaterialIcons
-              name={
-                expandedSections.eventDetails ? "expand-less" : "expand-more"
-              }
-              size={24}
-              color="#000000"
-            />
-          </TouchableOpacity>
+      {/* Tab Navigation */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tabButton, activeTab === 'info' && styles.activeTabButton]}
+          onPress={() => setActiveTab('info')}>
+          <MaterialIcons 
+            name="info-outline" 
+            size={18} 
+            color={activeTab === 'info' ? "#000000" : "#666666"} 
+          />
+          <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>
+            Thông tin
+          </Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tabButton, activeTab === 'contestants' && styles.activeTabButton]}
+          onPress={() => setActiveTab('contestants')}>
+          <Ionicons 
+            name="fish" 
+            size={16} 
+            color={activeTab === 'contestants' ? "#000000" : "#666666"} 
+          />
+          <Text style={[styles.tabText, activeTab === 'contestants' && styles.activeTabText]}>
+            Thí sinh
+          </Text>
+        </TouchableOpacity>
+      </View>
 
-          {expandedSections.eventDetails && (
-            <View style={styles.sectionContent}>
-              <Text style={styles.descriptionText}>
-                {showData?.description || "Chưa có thông tin chi tiết"}
-              </Text>
+      {/* Nội dung Tab */}
+      {activeTab === 'info' ? (
+        <ScrollView style={styles.scrollView}>
+          {/* Chi tiết sự kiện */}
+          <View style={styles.sectionContainer}>
+            <TouchableOpacity
+              style={[
+                styles.sectionHeader,
+                expandedSections.eventDetails && styles.sectionHeaderExpanded,
+              ]}
+              onPress={() => toggleSection("eventDetails")}>
+              <View style={styles.sectionHeaderContent}>
+                <MaterialIcons name="info-outline" size={22} color="#000000" />
+                <Text style={styles.sectionTitle}>Chi tiết sự kiện</Text>
+              </View>
+              <MaterialIcons
+                name={
+                  expandedSections.eventDetails ? "expand-less" : "expand-more"
+                }
+                size={24}
+                color="#000000"
+              />
+            </TouchableOpacity>
 
-              <View style={styles.detailsGrid}>
-                <View style={styles.detailItem}>
-                  <MaterialIcons name="event" size={20} color="#3498db" />
-                  <View>
-                    <Text style={styles.detailLabel}>Thời gian biểu diễn</Text>
-                    <Text style={styles.detailValue}>
-                      {formatDate(showData?.startExhibitionDate || "")} -{" "}
-                      {formatDate(showData?.endExhibitionDate || "")}
-                    </Text>
+            {expandedSections.eventDetails && (
+              <View style={styles.sectionContent}>
+                <Text style={styles.descriptionText}>
+                  {showData?.description || "Chưa có thông tin chi tiết"}
+                </Text>
+
+                <View style={styles.detailsGrid}>
+                  <View style={styles.detailItem}>
+                    <MaterialIcons name="event" size={20} color="#3498db" />
+                    <View>
+                      <Text style={styles.detailLabel}>Thời gian biểu diễn</Text>
+                      <Text style={styles.detailValue}>
+                        {formatDate(showData?.startExhibitionDate || "")} -{" "}
+                        {formatDate(showData?.endExhibitionDate || "")}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.detailItem}>
+                    <MaterialIcons
+                      name="hourglass-bottom"
+                      size={20}
+                      color="#3498db"
+                    />
+                    <View>
+                      <Text style={styles.detailLabel}>Thời lượng</Text>
+                      <Text style={styles.detailValue}>
+                        {/* Existing time duration content */}
+                      </Text>
+                    </View>
                   </View>
                 </View>
 
-                <View style={styles.detailItem}>
+                {/* Add Ticket Types Section */}
+                <View style={styles.fullWidthSection}>
                   <MaterialIcons
-                    name="hourglass-bottom"
+                    name="confirmation-number"
                     size={20}
                     color="#3498db"
                   />
                   <View>
-                    <Text style={styles.detailLabel}>Thời lượng</Text>
-                    <Text style={styles.detailValue}>
-                      {/* Existing time duration content */}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Add Ticket Types Section */}
-              <View style={styles.fullWidthSection}>
-                <MaterialIcons
-                  name="confirmation-number"
-                  size={20}
-                  color="#3498db"
-                />
-                <View>
-                  <Text style={styles.detailLabel}>Loại vé</Text>
-                  {showData?.ticketTypes && showData.ticketTypes.length > 0 ? (
-                    <ScrollView
-                      horizontal={true}
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.ticketsCarouselContainer}>
-                      {showData.ticketTypes.map((ticket) => (
-                        <View key={ticket.id} style={styles.ticketCard}>
-                          <Text style={styles.ticketNameDetail}>{ticket.name}</Text>
-                          <Text style={styles.ticketPriceDetail}>
-                            {ticket.price.toLocaleString("vi-VN")} VNĐ
-                          </Text>
-                          <View style={styles.ticketAvailability}>
-                            <MaterialIcons
-                              name="event-seat"
-                              size={16}
-                              color="#3498db"
-                            />
-                            <Text style={styles.ticketQuantityDetail}>
-                              Còn {ticket.availableQuantity} vé
+                    <Text style={styles.detailLabel}>Loại vé</Text>
+                    {showData?.ticketTypes && showData.ticketTypes.length > 0 ? (
+                      <ScrollView
+                        horizontal={true}
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.ticketsCarouselContainer}>
+                        {showData.ticketTypes.map((ticket) => (
+                          <View key={ticket.id} style={styles.ticketCard}>
+                            <Text style={styles.ticketNameDetail}>{ticket.name}</Text>
+                            <Text style={styles.ticketPriceDetail}>
+                              {ticket.price.toLocaleString("vi-VN")} VNĐ
                             </Text>
-                          </View>
-                        </View>
-                      ))}
-                    </ScrollView>
-                  ) : (
-                    <Text style={styles.emptyText}>Chưa có thông tin vé</Text>
-                  )}
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Categories Section - New Section */}
-        <View style={styles.sectionContainer}>
-          <TouchableOpacity
-            style={[
-              styles.sectionHeader,
-              expandedSections.categories && styles.sectionHeaderExpanded,
-            ]}
-            onPress={() => toggleSection("categories")}>
-            <View style={styles.sectionHeaderContent}>
-              <MaterialIcons name="category" size={22} color="#000000" />
-              <Text style={styles.sectionTitle}>Hạng mục thi đấu</Text>
-            </View>
-            <MaterialIcons
-              name={
-                expandedSections.categories ? "expand-less" : "expand-more"
-              }
-              size={24}
-              color="#000000"
-            />
-          </TouchableOpacity>
-
-          {expandedSections.categories && (
-            <View style={styles.sectionContent}>
-              {categories.length > 0 ? (
-                <FlatList
-                  data={categories}
-                  renderItem={renderCategoryItem}
-                  keyExtractor={(item) => item.id}
-                  horizontal={true}
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.categoriesContainer}
-                  ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-                />
-              ) : (
-                <View style={styles.emptyStateContainer}>
-                  <MaterialIcons name="category" size={48} color="#d1d5db" />
-                  <Text style={styles.emptyStateText}>
-                    Chưa có hạng mục thi đấu nào được thêm vào cuộc thi này
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* Rules & Regulations Section */}
-        <View style={styles.sectionContainer}>
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => toggleSection("rules")}>
-            <View style={styles.sectionHeaderContent}>
-              <MaterialIcons name="gavel" size={22} color="#000000" />
-              <Text style={styles.sectionTitle}>Quy định & Điều lệ</Text>
-            </View>
-            <MaterialIcons
-              name={expandedSections.rules ? "expand-less" : "expand-more"}
-              size={24}
-              color="#000000"
-            />
-          </TouchableOpacity>
-
-          {expandedSections.rules && (
-            <View style={styles.sectionContent}>
-              {showData?.showRules && showData.showRules.length > 0 ? (
-                showData.showRules.map((rule, index) => (
-                  <View key={index} style={styles.ruleContainer}>
-                    <Text style={styles.ruleNumber}>{index + 1}</Text>
-                    <Text style={styles.ruleText}>{rule}</Text>
-                  </View>
-                ))
-              ) : (
-                <View style={styles.emptyStateContainer}>
-                  <MaterialIcons name="info" size={40} color="#bdc3c7" />
-                  <Text style={styles.emptyStateText}>
-                    Chưa có quy định nào được đăng tải
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-
-        {/* Criteria Section */}
-        <View style={styles.sectionContainer}>
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => toggleSection("awards")}>
-            <View style={styles.sectionHeaderContent}>
-              <MaterialIcons name="star" size={22} color="#000000" />
-              <Text style={styles.sectionTitle}>Tiêu chí đánh giá</Text>
-            </View>
-            <MaterialIcons
-              name={expandedSections.awards ? "expand-less" : "expand-more"}
-              size={24}
-              color="#000000"
-            />
-          </TouchableOpacity>
-
-          {expandedSections.awards && (
-            <View style={styles.sectionContent}>
-              {showData?.criteria && showData.criteria.length > 0 ? (
-                showData.criteria.map((criterion, index) => (
-                  <View key={index} style={styles.criterionContainer}>
-                    <View style={styles.criterionBullet}>
-                      <Text style={styles.criterionBulletText}>
-                        {index + 1}
-                      </Text>
-                    </View>
-                    <Text style={styles.criterionText}>{criterion}</Text>
-                  </View>
-                ))
-              ) : (
-                <View style={styles.emptyStateContainer}>
-                  <MaterialIcons name="info" size={40} color="#bdc3c7" />
-                  <Text style={styles.emptyStateText}>
-                    Chưa có tiêu chí nào được đăng tải
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.awardInfoContainer}>
-                <View style={styles.awardInfoItem}>
-                  <MaterialIcons
-                    name={
-                      showData?.hasGrandChampion ? "check-circle" : "cancel"
-                    }
-                    size={24}
-                    color={showData?.hasGrandChampion ? "#2ecc71" : "#e74c3c"}
-                  />
-                  <Text style={styles.awardInfoText}>Grand Champion</Text>
-                </View>
-
-                <View style={styles.awardInfoItem}>
-                  <MaterialIcons
-                    name={showData?.hasBestInShow ? "check-circle" : "cancel"}
-                    size={24}
-                    color={showData?.hasBestInShow ? "#2ecc71" : "#e74c3c"}
-                  />
-                  <Text style={styles.awardInfoText}>Best In Show</Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Event Timeline Section */}
-        <View style={styles.sectionContainer}>
-          <TouchableOpacity
-            style={styles.sectionHeader}
-            onPress={() => toggleSection("timeline")}>
-            <View style={styles.sectionHeaderContent}>
-              <MaterialIcons name="timeline" size={22} color="#000000" />
-              <Text style={styles.sectionTitle}>Lịch trình sự kiện</Text>
-            </View>
-            <MaterialIcons
-              name={expandedSections.timeline ? "expand-less" : "expand-more"}
-              size={24}
-              color="#000000"
-            />
-          </TouchableOpacity>
-
-          {expandedSections.timeline && (
-            <View style={styles.sectionContent}>
-              {showData?.showStatuses && showData.showStatuses.length > 0 ? (
-                <View style={styles.timelineContainer}>
-                  {showData.showStatuses.map((status, index) => {
-                    const isLast = index === showData.showStatuses.length - 1;
-                    return (
-                      <View key={status.id}>
-                        <View style={styles.timelineItemContainer}>
-                          <View style={styles.timelineLeftColumn}>
-                            <Text style={styles.timelineDate}>
-                              {formatDate(status.startDate)}
-                            </Text>
-                            <Text style={styles.timelineTime}>
-                              {formatTime(status.startDate)} -{" "}
-                              {formatTime(status.endDate)}
-                            </Text>
-                          </View>
-
-                          <View style={styles.timelineCenterColumn}>
-                            <View
-                              style={[
-                                styles.timelineDot,
-                                status.isActive && styles.timelineDotActive,
-                              ]}
-                            />
-                            {!isLast && <View style={styles.timelineLine} />}
-                          </View>
-
-                          <View style={styles.timelineRightColumn}>
-                            <View
-                              style={[
-                                styles.timelineContent,
-                                status.isActive && styles.timelineContentActive,
-                              ]}>
-                              <Text
-                                style={[
-                                  styles.timelineTitle,
-                                  status.isActive && styles.timelineTitleActive,
-                                ]}>
-                                {status.description}
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.timelineStatus,
-                                  status.isActive &&
-                                    styles.timelineStatusActive,
-                                ]}>
-                                {status.isActive
-                                  ? "Đang diễn ra"
-                                  : new Date(status.endDate) < new Date()
-                                  ? "Đã hoàn thành"
-                                  : "Sắp diễn ra"}
+                            <View style={styles.ticketAvailability}>
+                              <MaterialIcons
+                                name="event-seat"
+                                size={16}
+                                color="#3498db"
+                              />
+                              <Text style={styles.ticketQuantityDetail}>
+                                Còn {ticket.availableQuantity} vé
                               </Text>
                             </View>
                           </View>
-                        </View>
+                        ))}
+                      </ScrollView>
+                    ) : (
+                      <Text style={styles.emptyText}>Chưa có thông tin vé</Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Giữ các section khác như cũ */}
+          {/* Categories Section */}
+          <View style={styles.sectionContainer}>
+            <TouchableOpacity
+              style={[
+                styles.sectionHeader,
+                expandedSections.categories && styles.sectionHeaderExpanded,
+              ]}
+              onPress={() => toggleSection("categories")}>
+              <View style={styles.sectionHeaderContent}>
+                <MaterialIcons name="category" size={22} color="#000000" />
+                <Text style={styles.sectionTitle}>Hạng mục thi đấu</Text>
+              </View>
+              <MaterialIcons
+                name={
+                  expandedSections.categories ? "expand-less" : "expand-more"
+                }
+                size={24}
+                color="#000000"
+              />
+            </TouchableOpacity>
+
+            {expandedSections.categories && (
+              <View style={styles.sectionContent}>
+                {categories.length > 0 ? (
+                  <FlatList
+                    data={categories}
+                    renderItem={renderCategoryItem}
+                    keyExtractor={(item) => item.id}
+                    horizontal={true}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.categoriesContainer}
+                    ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+                  />
+                ) : (
+                  <View style={styles.emptyStateContainer}>
+                    <MaterialIcons name="category" size={48} color="#d1d5db" />
+                    <Text style={styles.emptyStateText}>
+                      Chưa có hạng mục thi đấu nào được thêm vào cuộc thi này
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Rules & Regulations Section */}
+          <View style={styles.sectionContainer}>
+            <TouchableOpacity
+              style={styles.sectionHeader}
+              onPress={() => toggleSection("rules")}>
+              <View style={styles.sectionHeaderContent}>
+                <MaterialIcons name="gavel" size={22} color="#000000" />
+                <Text style={styles.sectionTitle}>Quy định & Điều lệ</Text>
+              </View>
+              <MaterialIcons
+                name={expandedSections.rules ? "expand-less" : "expand-more"}
+                size={24}
+                color="#000000"
+              />
+            </TouchableOpacity>
+
+            {expandedSections.rules && (
+              <View style={styles.sectionContent}>
+                {showData?.showRules && showData.showRules.length > 0 ? (
+                  showData.showRules.map((rule, index) => (
+                    <View key={index} style={styles.ruleContainer}>
+                      <Text style={styles.ruleNumber}>{index + 1}</Text>
+                      <Text style={styles.ruleText}>{formatRuleContent(rule)}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.emptyStateContainer}>
+                    <MaterialIcons name="info" size={40} color="#bdc3c7" />
+                    <Text style={styles.emptyStateText}>
+                      Chưa có quy định nào được đăng tải
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Criteria Section */}
+          <View style={styles.sectionContainer}>
+            <TouchableOpacity
+              style={styles.sectionHeader}
+              onPress={() => toggleSection("awards")}>
+              <View style={styles.sectionHeaderContent}>
+                <MaterialIcons name="star" size={22} color="#000000" />
+                <Text style={styles.sectionTitle}>Tiêu chí đánh giá</Text>
+              </View>
+              <MaterialIcons
+                name={expandedSections.awards ? "expand-less" : "expand-more"}
+                size={24}
+                color="#000000"
+              />
+            </TouchableOpacity>
+
+            {expandedSections.awards && (
+              <View style={styles.sectionContent}>
+                {showData?.criteria && showData.criteria.length > 0 ? (
+                  showData.criteria.map((criterion, index) => (
+                    <View key={index} style={styles.criterionContainer}>
+                      <View style={styles.criterionBullet}>
+                        <Text style={styles.criterionBulletText}>
+                          {index + 1}
+                        </Text>
                       </View>
-                    );
-                  })}
+                      <Text style={styles.criterionText}>{formatCriterionContent(criterion)}</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.emptyStateContainer}>
+                    <MaterialIcons name="info" size={40} color="#bdc3c7" />
+                    <Text style={styles.emptyStateText}>
+                      Chưa có tiêu chí nào được đăng tải
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.awardInfoContainer}>
+                  <View style={styles.awardInfoItem}>
+                    <MaterialIcons
+                      name={
+                        showData?.hasGrandChampion ? "check-circle" : "cancel"
+                      }
+                      size={24}
+                      color={showData?.hasGrandChampion ? "#2ecc71" : "#e74c3c"}
+                    />
+                    <Text style={styles.awardInfoText}>Grand Champion</Text>
+                  </View>
+
+                  <View style={styles.awardInfoItem}>
+                    <MaterialIcons
+                      name={showData?.hasBestInShow ? "check-circle" : "cancel"}
+                      size={24}
+                      color={showData?.hasBestInShow ? "#2ecc71" : "#e74c3c"}
+                    />
+                    <Text style={styles.awardInfoText}>Best In Show</Text>
+                  </View>
                 </View>
-              ) : (
-                <View style={styles.emptyStateContainer}>
-                  <MaterialIcons name="info" size={40} color="#bdc3c7" />
-                  <Text style={styles.emptyStateText}>
-                    Chưa có lịch trình nào được đăng tải
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-      </ScrollView>
+              </View>
+            )}
+          </View>
+
+          {/* Event Timeline Section */}
+          <View style={styles.sectionContainer}>
+            <TouchableOpacity
+              style={styles.sectionHeader}
+              onPress={() => toggleSection("timeline")}>
+              <View style={styles.sectionHeaderContent}>
+                <MaterialIcons name="timeline" size={22} color="#000000" />
+                <Text style={styles.sectionTitle}>Lịch trình sự kiện</Text>
+              </View>
+              <MaterialIcons
+                name={expandedSections.timeline ? "expand-less" : "expand-more"}
+                size={24}
+                color="#000000"
+              />
+            </TouchableOpacity>
+
+            {expandedSections.timeline && (
+              <View style={styles.sectionContent}>
+                {showData?.showStatuses && showData.showStatuses.length > 0 ? (
+                  <View style={styles.timelineContainer}>
+                    {showData.showStatuses.map((status, index) => {
+                      const isLast = index === showData.showStatuses.length - 1;
+                      return (
+                        <View key={status.id}>
+                          <View style={styles.timelineItemContainer}>
+                            <View style={styles.timelineLeftColumn}>
+                              <Text style={styles.timelineDate}>
+                                {formatDate(status.startDate)}
+                              </Text>
+                              <Text style={styles.timelineTime}>
+                                {formatTime(status.startDate)} -{" "}
+                                {formatTime(status.endDate)}
+                              </Text>
+                            </View>
+
+                            <View style={styles.timelineCenterColumn}>
+                              <View
+                                style={[
+                                  styles.timelineDot,
+                                  status.isActive && styles.timelineDotActive,
+                                ]}
+                              />
+                              {!isLast && <View style={styles.timelineLine} />}
+                            </View>
+
+                            <View style={styles.timelineRightColumn}>
+                              <View
+                                style={[
+                                  styles.timelineContent,
+                                  status.isActive && styles.timelineContentActive,
+                                ]}>
+                                <Text
+                                  style={[
+                                    styles.timelineTitle,
+                                    status.isActive && styles.timelineTitleActive,
+                                  ]}>
+                                  {formatTimelineContent(status.description)}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.timelineStatus,
+                                    status.isActive &&
+                                      styles.timelineStatusActive,
+                                  ]}>
+                                  {status.isActive
+                                    ? "Đang diễn ra"
+                                    : new Date(status.endDate) < new Date()
+                                    ? "Đã hoàn thành"
+                                    : "Sắp diễn ra"}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : (
+                  <View style={styles.emptyStateContainer}>
+                    <MaterialIcons name="info" size={40} color="#bdc3c7" />
+                    <Text style={styles.emptyStateText}>
+                      Chưa có lịch trình nào được đăng tải
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      ) : (
+        // Tab Thí sinh
+        <KoiContestants showId={id} />
+      )}
 
       {/* Footer with action buttons */}
       <View style={styles.footer}>
@@ -1242,6 +1321,38 @@ const styles = StyleSheet.create({
   skeletonButton: {
     backgroundColor: '#e0e0e0',
     height: 48,
+  },
+  // Thêm styles cho tab
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  tabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginRight: 8,
+    borderRadius: 20,
+  },
+  activeTabButton: {
+    backgroundColor: '#f0f0f0',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666666',
+    marginLeft: 4,
+  },
+  activeTabText: {
+    color: '#000000',
+    fontWeight: '600',
   },
 });
 

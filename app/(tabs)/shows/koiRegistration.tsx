@@ -761,6 +761,18 @@ const KoiRegistrationScreen: React.FC = () => {
       return;
     }
 
+    // Kiểm tra có ít nhất một ảnh và một video
+    const hasImages = mediaItems.some(item => item.mediaType === 'Image');
+    const hasVideos = mediaItems.some(item => item.mediaType === 'Video');
+
+    if (!hasImages || !hasVideos) {
+      Alert.alert(
+        "Thiếu media",
+        `Đăng ký cần có ít nhất một ${!hasImages ? 'ảnh' : ''}${(!hasImages && !hasVideos) ? ' và ' : ''}${!hasVideos ? 'video' : ''}.`
+      );
+      return;
+    }
+
     if (mediaItems.length === 0) {
       Alert.alert(
         "Cần media",
@@ -806,6 +818,10 @@ const KoiRegistrationScreen: React.FC = () => {
       const totalMediaItems = mediaItems.length;
       let processedItems = 0;
       
+      // Theo dõi việc có thêm đủ ảnh và video không
+      let addedImages = 0;
+      let addedVideos = 0;
+      
       for (const item of mediaItems) {
         try {
           if (item.isNew && item.fileUri) {
@@ -816,12 +832,16 @@ const KoiRegistrationScreen: React.FC = () => {
                 type: 'image/jpeg',
                 name: `image_${item.id}.jpg`
               } as any);
+              addedImages++;
+              console.log(`Added new image: ${item.id} (${addedImages} images total)`);
             } else {
               formData.append('RegistrationVideos', {
                 uri: item.fileUri,
                 type: 'video/mp4',
                 name: `video_${item.id}.mp4`
               } as any);
+              addedVideos++;
+              console.log(`Added new video: ${item.id} (${addedVideos} videos total)`);
             }
           } else {
             try {
@@ -841,12 +861,16 @@ const KoiRegistrationScreen: React.FC = () => {
                   type: 'image/jpeg',
                   name: `image_${item.id}.jpg`
                 } as any);
+                addedImages++;
+                console.log(`Added profile image: ${item.id} (${addedImages} images total)`);
               } else {
                 formData.append('RegistrationVideos', {
                   uri: item.mediaUrl,
                   type: 'video/mp4',
                   name: `video_${item.id}.mp4`
                 } as any);
+                addedVideos++;
+                console.log(`Added profile video: ${item.id} (${addedVideos} videos total)`);
               }
             } catch (mediaError) {
               console.error(`Error processing media from profile (${item.id}):`, mediaError);
@@ -878,6 +902,19 @@ const KoiRegistrationScreen: React.FC = () => {
         } catch (error) {
           console.error(`Error processing media item ${item.id}:`, error);
         }
+      }
+
+      // Kiểm tra một lần nữa xem đã thêm đủ ảnh và video chưa
+      if (addedImages === 0 || addedVideos === 0) {
+        setLoading(false);
+        setProcessingStep("");
+        setUploadProgress(0);
+        Alert.alert(
+          "Thiếu media",
+          `Không thể hoàn thành đăng ký vì ${addedImages === 0 ? 'không có ảnh' : ''}${(addedImages === 0 && addedVideos === 0) ? ' và ' : ''}${addedVideos === 0 ? 'không có video' : ''}.`,
+          [{ text: "OK" }]
+        );
+        return;
       }
 
       // Log FormData contents
@@ -955,9 +992,48 @@ const KoiRegistrationScreen: React.FC = () => {
       setUploadProgress(100);
     } catch (error) {
       console.error("Đăng ký thất bại", error);
+      
+      // Mặc định thông báo lỗi
+      let errorMessage = "Không thể hoàn tất đăng ký. Vui lòng thử lại.";
+      
+      // Cố gắng trích xuất thông báo lỗi cụ thể từ đối tượng lỗi
+      try {
+        // Chuyển đổi error thành any để truy cập các thuộc tính
+        const err = error as any;
+        
+        // Kiểm tra các dạng lỗi khác nhau
+        if (err.response?.data?.Error) {
+          // Định dạng: {StatusCode: 400, Error: "...", TimeStamp: "..."}
+          errorMessage = err.response.data.Error;
+        } else if (err.response?.data?.errors) {
+          // Định dạng: {errors: {...}} (từ validation)
+          const errorValues = Object.values(err.response.data.errors);
+          if (Array.isArray(errorValues) && errorValues.length > 0) {
+            const flatErrors = errorValues.flat();
+            if (flatErrors.length > 0) {
+              errorMessage = flatErrors.join('\n');
+            }
+          }
+        } else if (err.response?.data?.message) {
+          // Định dạng: {message: "..."}
+          errorMessage = err.response.data.message;
+        } else if (typeof err.response?.data === 'string') {
+          // Định dạng: string trực tiếp
+          errorMessage = err.response.data;
+        } else if (err.message) {
+          // Lỗi JavaScript thông thường
+          errorMessage = err.message;
+        }
+        
+        console.log('Thông báo lỗi đã xử lý:', errorMessage);
+      } catch (parseError) {
+        console.error('Lỗi khi xử lý thông báo lỗi:', parseError);
+        // Giữ nguyên thông báo lỗi mặc định
+      }
+      
       Alert.alert(
         "Đăng ký thất bại",
-        "Không thể hoàn tất đăng ký. Vui lòng thử lại."
+        errorMessage
       );
     } finally {
       setLoading(false);
@@ -1042,16 +1118,33 @@ const KoiRegistrationScreen: React.FC = () => {
 
   // Render media list manually to avoid nesting FlatList in ScrollView
   const renderMediaList = () => {
+    // Kiểm tra có ảnh và video
+    const hasImages = mediaItems.some(item => item.mediaType === 'Image');
+    const hasVideos = mediaItems.some(item => item.mediaType === 'Video');
+    
     if (mediaItems.length === 0) {
       return (
-        <Text style={styles.noMediaText}>
-          Chưa có ảnh hoặc video. Vui lòng thêm.
-        </Text>
+        <View>
+          <Text style={styles.noMediaText}>
+            Chưa có ảnh hoặc video. Vui lòng thêm.
+          </Text>
+          <Text style={styles.mediaRequirement}>
+            * Đăng ký cần có ít nhất một ảnh và một video của Koi
+          </Text>
+        </View>
       );
     }
 
     return (
       <View style={styles.mediaList}>
+        <View style={styles.mediaRequirementContainer}>
+          <Text style={[styles.mediaRequirement, {color: hasImages ? '#4CAF50' : '#F44336'}]}>
+            {hasImages ? '✓ Đã có ít nhất một ảnh' : '✗ Cần thêm ít nhất một ảnh'}
+          </Text>
+          <Text style={[styles.mediaRequirement, {color: hasVideos ? '#4CAF50' : '#F44336'}]}>
+            {hasVideos ? '✓ Đã có ít nhất một video' : '✗ Cần thêm ít nhất một video'}
+          </Text>
+        </View>
         <FlatList
           data={mediaItems}
           renderItem={renderMediaItem}
@@ -2332,9 +2425,9 @@ const styles = StyleSheet.create({
   noMediaText: {
     fontFamily: "Roboto",
     fontSize: 14,
-    color: "#64748B",
+    color: "#94A3B8",
     textAlign: "center",
-    marginVertical: 20,
+    marginTop: 10,
   },
   mediaItemContainer: {
     flexDirection: "row",
@@ -3048,6 +3141,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.8)",
+  },
+  mediaRequirementContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 8,
+  },
+  mediaRequirement: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 });
 

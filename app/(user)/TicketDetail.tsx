@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useState } from "react";
 import {
   Image,
   SafeAreaView,
@@ -9,8 +9,15 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  interpolate,
+} from "react-native-reanimated";
 
 // --- Event Details Component ---
 interface EventDetailsProps {
@@ -153,24 +160,97 @@ const TicketInfo: React.FC<TicketInfoProps> = ({
   ticketType,
   ticketNumber,
   buyerName,
-}) => (
-  <View style={styles.ticketInfoContainer}>
-    <View style={styles.ticketInfoRow}>
-      <Text style={styles.ticketLabel}>Loại vé</Text>
-      <Text style={styles.ticketValue}>{ticketType}</Text>
+}) => {
+  // Logic cho hiển thị mã vé
+  const [showFullTicketId, setShowFullTicketId] = useState(false);
+  const ticketIdAnimValue = useSharedValue(0);
+  
+  // Tính toán chiều rộng màn hình
+  const currentScreenWidth = Dimensions.get('window').width;
+  const maxContainerWidth = currentScreenWidth * 0.7;
+  const minContainerWidth = currentScreenWidth * 0.3;
+  
+  // Function format mã ID dựa trên độ rộng màn hình
+  const formatId = (id: string) => {
+    if (!id) return "N/A";
+    
+    const screenWidth = Dimensions.get('window').width;
+    // Ước tính số ký tự có thể hiển thị dựa trên độ rộng màn hình
+    const availableWidth = screenWidth * 0.3; // 30% của màn hình dành cho ID
+    const charWidth = 10.5; // Mỗi ký tự khoảng 10px + letterSpacing
+    const maxChars = Math.floor(availableWidth / charWidth);
+    
+    // Nếu ID ngắn hơn số ký tự tối đa có thể hiển thị, hiển thị toàn bộ
+    if (id.length <= maxChars) {
+      return id;
+    }
+    
+    // Nếu không, chỉ hiển thị phần đầu của ID và kết thúc bằng dấu ba chấm
+    const visibleChars = maxChars - 3;
+    const prefix = id.slice(0, visibleChars);
+    
+    return `${prefix}...`;
+  };
+  
+  // Xử lý khi người dùng nhấn vào mã vé
+  const toggleTicketIdDisplay = () => {
+    setShowFullTicketId(!showFullTicketId);
+    ticketIdAnimValue.value = withSpring(showFullTicketId ? 0 : 1, {
+      damping: 20,
+      stiffness: 90,
+    });
+  };
+  
+  // Style animation cho container của mã vé
+  const animatedTicketIdStyle = useAnimatedStyle(() => {
+    return {
+      flex: interpolate(
+        ticketIdAnimValue.value,
+        [0, 1],
+        [2, 4] // Tăng flex để mở rộng khi hiển thị đầy đủ
+      ),
+    };
+  });
+  
+  // Style animation cho text mã vé
+  const animatedTicketIdTextStyle = useAnimatedStyle(() => {
+    return {
+      fontSize: interpolate(
+        ticketIdAnimValue.value,
+        [0, 1],
+        [15, 13] // Thu nhỏ font chữ khi hiển thị mã đầy đủ
+      ),
+    };
+  });
+  
+  return (
+    <View style={styles.ticketInfoContainer}>
+      <View style={styles.ticketInfoRow}>
+        <Text style={styles.ticketLabel}>Loại vé</Text>
+        <Text style={styles.ticketValue}>{ticketType}</Text>
+      </View>
+      <View style={styles.infoSeparator} />
+      <View style={styles.ticketInfoRow}>
+        <Text style={styles.ticketLabel}>Mã vé</Text>
+        <Animated.View style={[styles.ticketValueContainer, animatedTicketIdStyle]}>
+          <TouchableOpacity onPress={toggleTicketIdDisplay} activeOpacity={0.6}>
+            <Animated.Text style={[styles.ticketValue, animatedTicketIdTextStyle]}>
+              {showFullTicketId ? ticketNumber : formatId(ticketNumber)}
+            </Animated.Text>
+            <Text style={styles.ticketIdTooltip}>
+              {showFullTicketId ? "Thu gọn" : "Xem đầy đủ"}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+      <View style={styles.infoSeparator} />
+      <View style={styles.ticketInfoRow}>
+        <Text style={styles.ticketLabel}>Người mua</Text>
+        <Text style={styles.ticketValue}>{buyerName}</Text>
+      </View>
     </View>
-    <View style={styles.infoSeparator} />
-    <View style={styles.ticketInfoRow}>
-      <Text style={styles.ticketLabel}>Mã vé</Text>
-      <Text style={styles.ticketValue}>{ticketNumber}</Text>
-    </View>
-    <View style={styles.infoSeparator} />
-    <View style={styles.ticketInfoRow}>
-      <Text style={styles.ticketLabel}>Người mua</Text>
-      <Text style={styles.ticketValue}>{buyerName}</Text>
-    </View>
-  </View>
-);
+  );
+};
 
 // --- Important Notes Component ---
 const ImportantNotes: React.FC = () => (
@@ -482,16 +562,32 @@ const styles = StyleSheet.create({
   ticketInfoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     paddingVertical: 12,
   },
   ticketLabel: {
-    fontSize: 14,
-    color: "#757575",
+    fontSize: 15,
+    color: "#666666",
+    flex: 1,
+    marginRight: 8,
+  },
+  ticketValueContainer: {
+    flex: 2,
+    alignItems: 'flex-end',
   },
   ticketValue: {
-    fontSize: 14,
+    fontSize: 15,
+    color: "#000000",
     fontWeight: "600",
-    color: "#212121",
+    textAlign: "right",
+    flexWrap: "wrap",
+  },
+  ticketIdTooltip: {
+    fontSize: 10,
+    color: '#666',
+    fontStyle: 'italic',
+    textAlign: 'right',
+    marginTop: 2,
   },
   infoSeparator: {
     height: 1,

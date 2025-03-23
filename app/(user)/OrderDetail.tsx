@@ -8,12 +8,19 @@ import {
   ScrollView,
   Alert,
   Image,
-  FlatList
+  FlatList,
+  Dimensions
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  interpolate,
+} from "react-native-reanimated";
 
 interface OrderDetailItem {
   id: string;
@@ -90,6 +97,15 @@ const OrderDetail = () => {
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [error, setError] = useState("");
   const [ticketError, setTicketError] = useState("");
+  
+  // Logic cho hiển thị mã đơn hàng
+  const [showFullOrderId, setShowFullOrderId] = useState(false);
+  const orderIdAnimValue = useSharedValue(0);
+  
+  // Tính toán chiều rộng màn hình ở cấp độ component
+  const currentScreenWidth = Dimensions.get('window').width;
+  const maxContainerWidth = currentScreenWidth * 0.9;
+  const minContainerWidth = currentScreenWidth * 0.3;
 
   useEffect(() => {
     fetchOrderDetails();
@@ -330,7 +346,7 @@ const OrderDetail = () => {
           qrCodeUrl: qrCodeUrl,
           showName: showName,
           ticketType: ticketType,
-          ticketNumber: ticket.id.substring(0, 8).toUpperCase(),
+          ticketNumber: ticket.id.toUpperCase(),
           buyerName: userFullName,
           dateTime: new Date(ticket.expiredDate).toLocaleDateString('vi-VN'),
           venue: "Địa điểm cuộc thi",
@@ -341,6 +357,67 @@ const OrderDetail = () => {
       alert("Đã xảy ra lỗi khi mở chi tiết vé. Vui lòng thử lại sau.");
     }
   };
+
+  // Function format mã ID dựa trên độ rộng màn hình
+  const formatId = (id: string) => {
+    if (!id) return "N/A";
+    
+    const screenWidth = Dimensions.get('window').width;
+    // Ước tính số ký tự có thể hiển thị dựa trên độ rộng màn hình
+    // Giả sử mỗi ký tự chiếm khoảng 10 điểm ảnh và style id có letterSpacing: 0.5
+    // Để an toàn, giảm bớt khoảng 30% diện tích cho các yếu tố khác trong giao diện
+    const availableWidth = screenWidth * 0.3; // 30% của màn hình dành cho ID
+    const charWidth = 10.5; // Mỗi ký tự khoảng 10px + letterSpacing
+    const maxChars = Math.floor(availableWidth / charWidth);
+    
+    // Nếu ID ngắn hơn số ký tự tối đa có thể hiển thị, hiển thị toàn bộ
+    if (id.length <= maxChars) {
+      return id.toUpperCase();
+    }
+    
+    // Nếu không, chỉ hiển thị phần đầu của ID và kết thúc bằng dấu ba chấm
+    // Trừ 3 ký tự cho dấu "..."
+    const visibleChars = maxChars - 3;
+    const prefix = id.slice(0, visibleChars);
+    
+    return `${prefix}...`.toUpperCase();
+  };
+  
+  // Xử lý khi người dùng nhấn vào mã đơn hàng
+  const toggleOrderIdDisplay = () => {
+    setShowFullOrderId(!showFullOrderId);
+    orderIdAnimValue.value = withSpring(showFullOrderId ? 0 : 1, {
+      damping: 20,
+      stiffness: 90,
+    });
+  };
+  
+  // Style animation cho container của mã đơn hàng
+  const animatedOrderIdStyle = useAnimatedStyle(() => {
+    return {
+      maxWidth: interpolate(
+        orderIdAnimValue.value,
+        [0, 1],
+        [minContainerWidth, maxContainerWidth], // Sử dụng biến đã tính trước
+      ),
+      paddingRight: interpolate(
+        orderIdAnimValue.value,
+        [0, 1],
+        [8, 16], // Thêm padding khi mở rộng
+      ),
+    };
+  });
+  
+  // Style animation cho text mã đơn hàng
+  const animatedOrderIdTextStyle = useAnimatedStyle(() => {
+    return {
+      fontSize: interpolate(
+        orderIdAnimValue.value,
+        [0, 1],
+        [16, 14], // Thu nhỏ font chữ khi hiển thị mã đầy đủ
+      ),
+    };
+  });
 
   const renderContent = () => {
     if (loading) {
@@ -384,7 +461,19 @@ const OrderDetail = () => {
         <ScrollView style={styles.scrollView}>
           {/* Tiêu đề và trạng thái đơn hàng */}
           <View style={styles.orderHeaderContainer}>
-            <Text style={styles.orderIdText}>Mã đơn hàng: {orderId.substring(0, 8).toUpperCase()}</Text>
+            <Animated.View style={[styles.orderIdContainer, animatedOrderIdStyle]}>
+              <Text style={styles.orderIdLabel}>Mã đơn hàng</Text>
+              <TouchableOpacity onPress={toggleOrderIdDisplay} activeOpacity={0.6}>
+                <Animated.Text style={[styles.orderIdText, animatedOrderIdTextStyle]}>
+                  {showFullOrderId ? orderId.toUpperCase() : formatId(orderId)}
+                </Animated.Text>
+                <View style={styles.idTooltip}>
+                  <Text style={styles.idTooltipText}>
+                    {showFullOrderId ? "Thu gọn" : "Xem đầy đủ"}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(orderInfo.status) }]}>
               <Text style={styles.statusText}>{getStatusText(orderInfo.status)}</Text>
             </View>
@@ -473,7 +562,7 @@ const OrderDetail = () => {
                 >
                   <View style={styles.ticketCardContent}>
                     <View style={styles.ticketCardInfo}>
-                      <Text style={styles.ticketCardTitle}>Mã vé: {item.id.substring(0, 8).toUpperCase()}</Text>
+                      <Text style={styles.ticketCardTitle}>Mã vé: {item.id.toUpperCase()}</Text>
                       <Text style={[
                         styles.ticketCardStatus, 
                         {color: item.isCheckedIn ? '#FF3B30' : '#4CAF50'}
@@ -600,21 +689,42 @@ const styles = StyleSheet.create({
   orderHeaderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    alignItems: 'flex-start',
     marginBottom: 16,
-    elevation: 1,
+    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  orderIdContainer: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  orderIdLabel: {
+    fontSize: 13,
+    color: "#666666",
+    marginBottom: 2,
   },
   orderIdText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#333',
+    fontSize: 16,
+    color: "#000000",
+    fontWeight: "600",
+    letterSpacing: 0.5,
+  },
+  idTooltip: {
+    position: 'absolute',
+    right: 0,
+    bottom: -16,
+    opacity: 0.6,
+  },
+  idTooltipText: {
+    fontSize: 10,
+    color: '#666',
+    fontStyle: 'italic',
   },
   orderDateText: {
     fontSize: 14,
@@ -744,10 +854,11 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   ticketCardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#333333',
-    marginBottom: 8,
+    marginBottom: 4,
+    flexWrap: 'wrap',
   },
   ticketCardStatus: {
     fontSize: 15,

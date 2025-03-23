@@ -1,7 +1,7 @@
-// app/(user)/MyCompetitions.tsx
+// app/(user)/CompetitionJoined.tsx
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,58 +11,22 @@ import {
   Text,
   TouchableOpacity,
   View,
+  RefreshControl,
 } from "react-native";
-
-// Define competition data interface
-interface CompetitionData {
-  id: string;
-  name: string;
-  date: string;
-  location: string;
-  status: "upcoming" | "ongoing" | "completed";
-  image: string;
-  participantCount: number;
-  fishCount: number;
-  result?: {
-    rank?: string;
-    awarded: boolean;
-    awardTitle?: string;
-  };
-}
+import {
+  RegistrationItem, 
+  getRegistrationHistory, 
+  getFilterParams, 
+  mapToCompetitionData, 
+  getStatusColorWithRegistration, 
+  getStatusTextWithRegistration
+} from "../../services/competitionService";
 
 // Competition Card Component
 const CompetitionCard: React.FC<{
-  competition: CompetitionData;
+  competition: ReturnType<typeof mapToCompetitionData>;
   onPress: () => void;
 }> = ({ competition, onPress }) => {
-  // Get status color based on competition status
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "upcoming":
-        return "#4A90E2"; // Blue
-      case "ongoing":
-        return "#50C878"; // Green
-      case "completed":
-        return "#E74C3C"; // Red
-      default:
-        return "#95A5A6"; // Gray
-    }
-  };
-
-  // Format status text for display
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "upcoming":
-        return "Upcoming";
-      case "ongoing":
-        return "Ongoing";
-      case "completed":
-        return "Completed";
-      default:
-        return "Unknown";
-    }
-  };
-
   return (
     <TouchableOpacity style={styles.competitionCard} onPress={onPress}>
       <Image
@@ -76,10 +40,10 @@ const CompetitionCard: React.FC<{
           <View
             style={[
               styles.statusBadge,
-              { backgroundColor: getStatusColor(competition.status) },
+              { backgroundColor: getStatusColorWithRegistration(competition.status, competition.registrationStatus) },
             ]}>
             <Text style={styles.statusText}>
-              {getStatusText(competition.status)}
+              {getStatusTextWithRegistration(competition.status, competition.registrationStatus)}
             </Text>
           </View>
         </View>
@@ -106,43 +70,50 @@ const CompetitionCard: React.FC<{
           </View>
         </View>
 
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{competition.participantCount}</Text>
-            <Text style={styles.statLabel}>Participants</Text>
-          </View>
-
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{competition.fishCount}</Text>
-            <Text style={styles.statLabel}>Fish Entered</Text>
-          </View>
-
-          {competition.status === "completed" && (
-            <View style={styles.resultContainer}>
-              {competition.result?.awarded ? (
-                <View style={styles.awardContainer}>
-                  <Image
-                    source={{
-                      uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/frame.png",
-                    }}
-                    style={styles.awardIcon}
-                  />
-                  <Text style={styles.awardText}>
-                    {competition.result.awardTitle}
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.rankText}>
-                  Rank: {competition.result?.rank || "N/A"}
-                </Text>
-              )}
-            </View>
+        <View style={styles.koiInfoContainer}>
+          <Text style={styles.koiName}>
+            {competition.koiProfile.name} - {competition.koiProfile.variety.name}
+          </Text>
+          <Text style={styles.koiDetails}>
+            Kích thước: {competition.koiSize}cm • Tuổi: {competition.koiAge} năm • Hạng mục: {competition.categoryName}
+          </Text>
+          {competition.payment && (
+            <Text style={[
+              styles.paymentStatus, 
+              { color: competition.payment.status === 'paid' ? '#4CAF50' : 
+                      competition.payment.status === 'pending' ? '#FF9800' : '#F44336' }
+            ]}>
+              Thanh toán: {competition.payment.status === 'paid' ? 'Đã thanh toán' : 
+                          competition.payment.status === 'pending' ? 'Đang xử lý' : 'Đã hủy'}
+            </Text>
           )}
         </View>
 
         {competition.status === "completed" && (
+          <View style={styles.resultContainer}>
+            {competition.result?.awarded ? (
+              <View style={styles.awardContainer}>
+                <Image
+                  source={{
+                    uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/frame.png",
+                  }}
+                  style={styles.awardIcon}
+                />
+                <Text style={styles.awardText}>
+                  {competition.result.awardTitle}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.rankText}>
+                Hạng: {competition.result?.rank || "N/A"}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {competition.status === "completed" && (
           <View style={styles.viewResultsContainer}>
-            <Text style={styles.viewResultsText}>View Results</Text>
+            <Text style={styles.viewResultsText}>Xem kết quả</Text>
             <Image
               source={{
                 uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/arrow-right.png",
@@ -172,94 +143,92 @@ const FilterTab: React.FC<{
 );
 
 // Main Component
-const MyCompetitions: React.FC = () => {
+const CompetitionJoined: React.FC = () => {
   // State for filter
   const [activeFilter, setActiveFilter] = useState<
     "all" | "upcoming" | "ongoing" | "completed"
   >("all");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [registrationStatus, setRegistrationStatus] = useState<string | null>(null);
+  const [showStatus, setShowStatus] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Mock competition data
-  const competitions: CompetitionData[] = [
-    {
-      id: "1",
-      name: "Annual Koi Championship 2023",
-      date: "November 10, 2023",
-      location: "Grand Convention Center",
-      status: "completed",
-      image:
-        "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png",
-      participantCount: 200,
-      fishCount: 350,
-      result: {
-        rank: "1st",
-        awarded: true,
-        awardTitle: "Best in Show",
-      },
-    },
-    {
-      id: "2",
-      name: "Spring Koi Exhibition",
-      date: "March 15, 2023",
-      location: "Aquatic Center",
-      status: "completed",
-      image:
-        "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-5.png",
-      participantCount: 150,
-      fishCount: 280,
-      result: {
-        rank: "84/160",
-        awarded: false,
-      },
-    },
-    {
-      id: "3",
-      name: "International Koi Show 2024",
-      date: "January 20, 2024",
-      location: "Convention Center",
-      status: "upcoming",
-      image:
-        "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-6.png",
-      participantCount: 300,
-      fishCount: 0,
-    },
-    {
-      id: "4",
-      name: "Summer Koi Festival",
-      date: "July 5, 2023",
-      location: "City Park",
-      status: "completed",
-      image:
-        "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-7.png",
-      participantCount: 120,
-      fishCount: 200,
-      result: {
-        rank: "3rd",
-        awarded: true,
-        awardTitle: "Best Kohaku",
-      },
-    },
-    {
-      id: "5",
-      name: "Regional Koi Competition",
-      date: "December 1, 2023",
-      location: "Aquarium Hall",
-      status: "ongoing",
-      image:
-        "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-8.png",
-      participantCount: 80,
-      fishCount: 150,
-    },
-  ];
+  // Prepare empty message text based on filter
+  const getEmptyStateMessage = () => {
+    if (activeFilter === "completed") {
+      return "Bạn chưa có cuộc thi nào đã kết thúc hoặc có thể đang có vấn đề khi tải dữ liệu. Hãy thử lọc theo 'Tất cả' để xem tất cả các cuộc thi.";
+    } else if (activeFilter === "ongoing") {
+      return "Bạn chưa tham gia cuộc thi đang diễn ra nào.";
+    } else if (activeFilter === "upcoming") {
+      return "Bạn chưa tham gia cuộc thi sắp diễn ra nào.";
+    } else {
+      return "Bạn chưa tham gia cuộc thi nào.";
+    }
+  };
 
-  // Filter competitions based on active filter
-  const filteredCompetitions =
-    activeFilter === "all"
-      ? competitions
-      : competitions.filter((comp) => comp.status === activeFilter);
+  // Fetch registrations
+  const fetchRegistrations = async (page = 1, showStat = showStatus, regStat = registrationStatus, refresh = false) => {
+    try {
+      if (refresh) {
+        setRefreshing(true);
+      } else if (!refreshing) {
+        setLoading(true);
+      }
 
-  // Handle competition press// Handle competition press
-  const handleCompetitionPress = (competition: CompetitionData) => {
+      // Reset error state
+      setHasError(false);
+      setErrorMessage('');
+
+      const paginatedResponse = await getRegistrationHistory(page, 10, regStat, showStat);
+      
+      if (refresh || page === 1) {
+        setRegistrations(paginatedResponse.items);
+      } else {
+        setRegistrations(prev => [...prev, ...paginatedResponse.items]);
+      }
+      setTotalPages(paginatedResponse.totalPages);
+      setCurrentPage(paginatedResponse.page);
+    } catch (error: any) {
+      console.error('Lỗi khi tải danh sách đăng ký:', error);
+      setHasError(true);
+      setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Set filter based on activeFilter
+  useEffect(() => {
+    const filterParams = getFilterParams(activeFilter);
+    setRegistrationStatus(filterParams.registrationStatus);
+    setShowStatus(filterParams.showStatus);
+    setCurrentPage(1); // Reset về trang 1
+    fetchRegistrations(1, filterParams.showStatus, filterParams.registrationStatus, true);
+  }, [activeFilter]);
+
+  // Load more items when reaching end of list
+  const handleLoadMore = () => {
+    if (currentPage < totalPages && !loading) {
+      fetchRegistrations(currentPage + 1);
+    }
+  };
+
+  // Refresh data
+  const handleRefresh = () => {
+    fetchRegistrations(1, showStatus, registrationStatus, true);
+  };
+
+  // Map registration data to competition data
+  const mappedCompetitions = registrations.map(mapToCompetitionData);
+
+  // Handle competition press
+  const handleCompetitionPress = (competition: ReturnType<typeof mapToCompetitionData>) => {
     if (
       competition.status === "completed" ||
       competition.status === "ongoing"
@@ -278,14 +247,10 @@ const MyCompetitions: React.FC = () => {
     }
   };
 
-  // Refresh competitions
-  const refreshCompetitions = () => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-    }, 1500);
-  };
+  // Initial fetch
+  useEffect(() => {
+    fetchRegistrations();
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -302,9 +267,9 @@ const MyCompetitions: React.FC = () => {
             }}
             style={styles.backIcon}
           />
-          <Text style={styles.backText}>Back</Text>
+          <Text style={styles.backText}>Quay lại</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Competitions</Text>
+        <Text style={styles.headerTitle}>Cuộc thi của tôi</Text>
       </View>
 
       {/* Filter Tabs */}
@@ -314,22 +279,22 @@ const MyCompetitions: React.FC = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterScrollContent}>
           <FilterTab
-            title="All"
+            title="Tất cả"
             active={activeFilter === "all"}
             onPress={() => setActiveFilter("all")}
           />
           <FilterTab
-            title="Upcoming"
+            title="Sắp diễn ra"
             active={activeFilter === "upcoming"}
             onPress={() => setActiveFilter("upcoming")}
           />
           <FilterTab
-            title="Ongoing"
+            title="Đang diễn ra"
             active={activeFilter === "ongoing"}
             onPress={() => setActiveFilter("ongoing")}
           />
           <FilterTab
-            title="Completed"
+            title="Đã kết thúc"
             active={activeFilter === "completed"}
             onPress={() => setActiveFilter("completed")}
           />
@@ -337,12 +302,28 @@ const MyCompetitions: React.FC = () => {
       </View>
 
       {/* Competition List */}
-      {loading ? (
+      {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Loading competitions...</Text>
+          <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
         </View>
-      ) : filteredCompetitions.length === 0 ? (
+      ) : hasError ? (
+        <View style={styles.errorContainer}>
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/error-icon.png",
+            }}
+            style={styles.errorIcon}
+          />
+          <Text style={styles.errorTitle}>Đã xảy ra lỗi</Text>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => fetchRegistrations(1, showStatus, registrationStatus, true)}>
+            <Text style={styles.retryButtonText}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      ) : mappedCompetitions.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Image
             source={{
@@ -350,20 +331,29 @@ const MyCompetitions: React.FC = () => {
             }}
             style={styles.emptyIcon}
           />
-          <Text style={styles.emptyTitle}>No competitions found</Text>
-          <Text style={styles.emptyText}>
-            You haven't participated in any{" "}
-            {activeFilter !== "all" ? activeFilter : ""} competitions yet.
-          </Text>
-          <TouchableOpacity
-            style={styles.browseButton}
-            onPress={() => router.push("/(tabs)/shows/KoiShowsPage")}>
-            <Text style={styles.browseButtonText}>Browse Competitions</Text>
-          </TouchableOpacity>
+          <Text style={styles.emptyTitle}>Không tìm thấy cuộc thi</Text>
+          <Text style={styles.emptyText}>{getEmptyStateMessage()}</Text>
+          
+          <View style={styles.buttonContainer}>
+            {activeFilter === "completed" && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.viewAllButton]}
+                onPress={() => setActiveFilter("all")}>
+                <Text style={styles.viewAllButtonText}>Xem tất cả</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity
+              style={[styles.actionButton, styles.browseButton]}
+              onPress={() => router.push("/(tabs)/shows/KoiShowsPage")}>
+              <Text style={styles.browseButtonText}>Tìm cuộc thi</Text>
+            </TouchableOpacity>
+          </View>
+          
         </View>
       ) : (
         <FlatList
-          data={filteredCompetitions}
+          data={mappedCompetitions}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <CompetitionCard
@@ -373,8 +363,24 @@ const MyCompetitions: React.FC = () => {
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
-          onRefresh={refreshCompetitions}
-          refreshing={loading}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={["#4A90E2"]}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            currentPage < totalPages ? (
+              <ActivityIndicator 
+                style={{ marginVertical: 20 }} 
+                size="small" 
+                color="#4A90E2" 
+              />
+            ) : null
+          }
         />
       )}
 
@@ -389,7 +395,7 @@ const MyCompetitions: React.FC = () => {
             }}
             style={styles.footerIcon}
           />
-          <Text style={styles.footerText}>Home</Text>
+          <Text style={styles.footerText}>Trang chủ</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -401,7 +407,7 @@ const MyCompetitions: React.FC = () => {
             }}
             style={styles.footerIcon}
           />
-          <Text style={styles.footerText}>Notifications</Text>
+          <Text style={styles.footerText}>Thông báo</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -413,7 +419,7 @@ const MyCompetitions: React.FC = () => {
             }}
             style={styles.footerIcon}
           />
-          <Text style={styles.footerText}>Profile</Text>
+          <Text style={styles.footerText}>Hồ sơ</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -517,12 +523,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
   },
-  browseButton: {
-    backgroundColor: "#4A90E2",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 24,
-  },
   browseButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
@@ -530,6 +530,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingBottom: 80, // Extra padding at bottom for better UX
   },
   competitionCard: {
     backgroundColor: "#FFFFFF",
@@ -590,6 +591,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666666",
   },
+  koiInfoContainer: {
+    marginTop: 10,
+    marginBottom: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#EEEEEE",
+  },
+  koiName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333333",
+    marginBottom: 4,
+  },
+  koiDetails: {
+    fontSize: 14,
+    color: "#666666",
+    marginBottom: 4,
+  },
+  paymentStatus: {
+    fontSize: 14,
+    fontWeight: "500",
+    marginTop: 4,
+  },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -611,6 +635,7 @@ const styles = StyleSheet.create({
   },
   resultContainer: {
     alignItems: "flex-end",
+    marginTop: 8,
   },
   awardContainer: {
     flexDirection: "row",
@@ -657,6 +682,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#EEEEEE",
     paddingBottom: 20, // Extra padding for iPhone home indicator
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   footerButton: {
     alignItems: "center",
@@ -670,6 +699,65 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666666",
   },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 32,
+  },
+  errorIcon: {
+    width: 80,
+    height: 80,
+    marginBottom: 24,
+    tintColor: "#E74C3C",
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#E74C3C",
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#666666",
+    textAlign: "center",
+    marginBottom: 24,
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    backgroundColor: "#4A90E2",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 20,
+    gap: 10,
+  },
+  actionButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+  },
+  viewAllButton: {
+    backgroundColor: "#666666",
+  },
+  viewAllButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  browseButton: {
+    backgroundColor: "#4A90E2",
+  },
 });
 
-export default MyCompetitions;
+export default CompetitionJoined;
