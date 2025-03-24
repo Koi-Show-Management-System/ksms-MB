@@ -47,8 +47,8 @@ const KoiList: React.FC = () => {
     gender: string;
     bloodline: string;
     description: string;
-    image?: any;
-    video?: any;
+    images: any[];
+    videos: any[];
   }>({
     name: "",
     age: 0,
@@ -57,6 +57,8 @@ const KoiList: React.FC = () => {
     gender: "Đực",
     bloodline: "",
     description: "",
+    images: [],
+    videos: [],
   });
 
   // State để quản lý section nào đang được chọn
@@ -258,7 +260,7 @@ const KoiList: React.FC = () => {
       return;
     }
     
-    if (!newKoi.image) {
+    if (newKoi.images.length === 0) {
       console.log("DEBUG: Validation thất bại - Thiếu ảnh cá Koi");
       Alert.alert("Lỗi", "Vui lòng tải lên ít nhất một ảnh của cá Koi.");
       return;
@@ -281,25 +283,25 @@ const KoiList: React.FC = () => {
       formData.append('Description', newKoi.description);
     }
     
-    // Append image
-    if (newKoi.image) {
-      console.log("DEBUG: Thông tin ảnh được tải lên:", {
-        uri: newKoi.image.uri,
-        type: newKoi.image.type,
-        name: newKoi.image.name,
+    // Append all images
+    newKoi.images.forEach((image, index) => {
+      console.log(`DEBUG: Thông tin ảnh ${index + 1} được tải lên:`, {
+        uri: image.uri,
+        type: image.type,
+        name: image.name,
       });
-      formData.append('Image', newKoi.image);
-    }
+      formData.append(`KoiImages`, image);
+    });
     
-    // Append video
-    if (newKoi.video) {
-      console.log("DEBUG: Thông tin video được tải lên:", {
-        uri: newKoi.video.uri,
-        type: newKoi.video.type,
-        name: newKoi.video.name,
+    // Append all videos
+    newKoi.videos.forEach((video, index) => {
+      console.log(`DEBUG: Thông tin video ${index + 1} được tải lên:`, {
+        uri: video.uri,
+        type: video.type,
+        name: video.name,
       });
-      formData.append('Video', newKoi.video);
-    }
+      formData.append(`KoiVideos`, video);
+    });
     
     console.log("DEBUG: FormData đã được tạo với các key:");
     
@@ -355,6 +357,8 @@ const KoiList: React.FC = () => {
                   gender: "Đực",
                   bloodline: "",
                   description: "",
+                  images: [],
+                  videos: [],
                 });
 
                 // Refresh the koi list
@@ -390,6 +394,13 @@ const KoiList: React.FC = () => {
   const handleImageUpload = async () => {
     try {
       console.log("DEBUG: Bắt đầu quá trình upload ảnh");
+      
+      // Kiểm tra giới hạn số lượng ảnh
+      if (newKoi.images.length >= 3) {
+        Alert.alert("Giới hạn đạt", "Bạn chỉ có thể tải lên tối đa 3 ảnh.");
+        return;
+      }
+      
       // Yêu cầu quyền truy cập vào thư viện ảnh
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       console.log("DEBUG: Kết quả yêu cầu quyền:", permissionResult);
@@ -420,17 +431,19 @@ const KoiList: React.FC = () => {
           fileSize: selectedAsset.fileSize
         });
         
-        // Lưu thông tin ảnh đã chọn
+        // Thêm ảnh mới vào mảng ảnh
+        const newImage = {
+          uri: selectedAsset.uri,
+          type: 'image/jpeg',
+          name: `new-image-${Date.now()}.jpg`,
+        };
+        
         setNewKoi({
           ...newKoi,
-          image: {
-            uri: selectedAsset.uri,
-            type: 'image/jpeg',
-            name: `new-image-${Date.now()}.jpg`,
-          }
+          images: [...newKoi.images, newImage]
         });
         
-        console.log("DEBUG: Đã lưu thông tin ảnh vào state");
+        console.log("DEBUG: Đã thêm ảnh mới vào mảng ảnh:", newImage);
       }
     } catch (error: unknown) {
       console.error("DEBUG: Lỗi khi chọn ảnh:", error);
@@ -442,6 +455,13 @@ const KoiList: React.FC = () => {
   const handleVideoUpload = async () => {
     try {
       console.log("DEBUG: Bắt đầu quá trình upload video");
+      
+      // Kiểm tra giới hạn số lượng video
+      if (newKoi.videos.length >= 2) {
+        Alert.alert("Giới hạn đạt", "Bạn chỉ có thể tải lên tối đa 2 video.");
+        return;
+      }
+      
       // Yêu cầu quyền truy cập vào thư viện ảnh
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       console.log("DEBUG: Kết quả yêu cầu quyền:", permissionResult);
@@ -501,23 +521,45 @@ const KoiList: React.FC = () => {
           }
         }
         
-        // Lưu thông tin video đã chọn
+        // Thêm video mới vào mảng videos
+        const newVideo = {
+          uri: selectedAsset.uri,
+          type: 'video/mp4',
+          name: `new-video-${Date.now()}.mp4`,
+        };
+        
         setNewKoi({
           ...newKoi,
-          video: {
-            uri: selectedAsset.uri,
-            type: 'video/mp4',
-            name: `new-video-${Date.now()}.mp4`,
-          }
+          videos: [...newKoi.videos, newVideo]
         });
         
-        console.log("DEBUG: Đã lưu thông tin video vào state");
+        console.log("DEBUG: Đã thêm video mới vào mảng videos:", newVideo);
       }
     } catch (error: unknown) {
       console.error("DEBUG: Lỗi khi chọn video:", error);
       console.error("DEBUG: Chi tiết lỗi:", error instanceof Error ? error.stack : "Không có stack trace");
       Alert.alert("Lỗi", "Không thể tải video. Vui lòng thử lại.");
     }
+  };
+
+  // Hàm xóa ảnh
+  const handleRemoveImage = (index: number) => {
+    const updatedImages = [...newKoi.images];
+    updatedImages.splice(index, 1);
+    setNewKoi({
+      ...newKoi,
+      images: updatedImages
+    });
+  };
+  
+  // Hàm xóa video
+  const handleRemoveVideo = (index: number) => {
+    const updatedVideos = [...newKoi.videos];
+    updatedVideos.splice(index, 1);
+    setNewKoi({
+      ...newKoi,
+      videos: updatedVideos
+    });
   };
 
   // Hàm mở modal chọn giống cá Koi
@@ -828,45 +870,92 @@ const KoiList: React.FC = () => {
           />
 
           <Text style={styles.label}>Tải ảnh cá Koi</Text>
-          <TouchableOpacity
-            style={styles.uploadBox}
-            onPress={handleImageUpload}>
-            {newKoi.image ? (
-              <Image
-                source={{ uri: newKoi.image.uri }}
-                style={styles.uploadedImage}
-              />
-            ) : (
+          {newKoi.images.length > 0 ? (
+            <View style={styles.uploadedMediaContainer}>
+              {newKoi.images.map((image, index) => (
+                <View key={`image-${index}`} style={styles.uploadedMediaItem}>
+                  <Image
+                    source={{ uri: image.uri }}
+                    style={styles.uploadedImage}
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity 
+                    style={styles.removeMediaButton}
+                    onPress={() => handleRemoveImage(index)}
+                  >
+                    <Text style={styles.removeMediaButtonText}>X</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              
+              {newKoi.images.length < 3 && (
+                <TouchableOpacity 
+                  style={styles.addMoreMediaButton}
+                  onPress={handleImageUpload}
+                >
+                  <Text style={styles.addMoreMediaButtonText}>Thêm ảnh</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.uploadBox}
+              onPress={handleImageUpload}
+            >
               <Image
                 source={{
                   uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-3.png",
                 }}
                 style={styles.uploadIcon}
               />
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
+          
           <Text style={styles.helperText}>
             Nên chụp ảnh dọc và ảnh chất lượng cao. Chấp nhận file jpg hoặc png. Kích thước tối thiểu: 320px x 500px. Tối đa 3 ảnh.
           </Text>
 
           <Text style={styles.label}>Tải video cá Koi</Text>
-          <TouchableOpacity
-            style={styles.uploadBox}
-            onPress={handleVideoUpload}>
-            {newKoi.video ? (
-              <View style={styles.videoUploaded}>
-                <Text style={styles.videoUploadedText}>Video đã tải lên</Text>
-                <Text style={styles.videoUploadedName}>{newKoi.video.name}</Text>
-              </View>
-            ) : (
+          {newKoi.videos.length > 0 ? (
+            <View style={styles.uploadedMediaContainer}>
+              {newKoi.videos.map((video, index) => (
+                <View key={`video-${index}`} style={styles.uploadedMediaItem}>
+                  <View style={styles.videoUploaded}>
+                    <Text style={styles.videoUploadedText}>Video đã tải lên</Text>
+                    <Text style={styles.videoUploadedName}>{video.name}</Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.removeMediaButton}
+                    onPress={() => handleRemoveVideo(index)}
+                  >
+                    <Text style={styles.removeMediaButtonText}>X</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+              
+              {newKoi.videos.length < 2 && (
+                <TouchableOpacity 
+                  style={styles.addMoreMediaButton}
+                  onPress={handleVideoUpload}
+                >
+                  <Text style={styles.addMoreMediaButtonText}>Thêm video</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.uploadBox}
+              onPress={handleVideoUpload}
+            >
               <Image
                 source={{
                   uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-8.png",
                 }}
                 style={styles.uploadIcon}
               />
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          )}
+          
           <Text style={styles.helperText}>
             Video được chấp nhận tối đa 10 phút và không quá 100MB. Tối đa 2 video.
           </Text>
@@ -1111,9 +1200,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   uploadedImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 8, // Match border radius
+    width: '100%',
+    height: '100%', // Sử dụng 100% của parent container
+    borderRadius: 8,
   },
   uploadIcon: {
     width: 30,
@@ -1275,6 +1364,11 @@ const styles = StyleSheet.create({
   videoUploaded: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+    height: 120, // Thêm chiều cao cố định cho video container
+    backgroundColor: '#f1f1f1',
+    borderRadius: 8,
+    padding: 16,
   },
   videoUploadedText: {
     fontFamily: "Lexend Deca",
@@ -1376,6 +1470,49 @@ const styles = StyleSheet.create({
     fontFamily: "Lexend Deca",
     fontSize: 14,
     color: '#666',
+  },
+  uploadedMediaContainer: {
+    width: '100%',
+    marginBottom: 8,
+  },
+  uploadedMediaItem: {
+    position: 'relative',
+    marginBottom: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+    height: 200, // Thêm chiều cao cố định
+    backgroundColor: '#f1f1f1',
+  },
+  removeMediaButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1, // Đảm bảo nút xóa luôn ở trên cùng
+  },
+  removeMediaButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  addMoreMediaButton: {
+    height: 48,
+    backgroundColor: '#000000',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  addMoreMediaButtonText: {
+    fontFamily: "Lexend Deca",
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

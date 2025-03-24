@@ -1,14 +1,26 @@
-// KoiInformation.tsx
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useLocalSearchParams, router } from "expo-router";
+import { getKoiProfileById, KoiProfile as BaseKoiProfile, KoiMedia } from "../../services/koiProfileService";
+import { VideoView, useVideoPlayer } from "expo-video";
+import { LinearGradient } from "expo-linear-gradient";
 import {
-  Alert,
+  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Dimensions,
+  Modal,
+  SafeAreaView,
+  FlatList,
+  StatusBar,
 } from "react-native";
+import { useFonts, Poppins_400Regular, Poppins_700Bold } from '@expo-google-fonts/poppins';
+
+// Lấy kích thước màn hình
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // --- Interfaces ---
 interface Achievement {
@@ -18,107 +30,283 @@ interface Achievement {
   year: number;
 }
 
+// Mở rộng interface KoiProfile để thêm competitionHistory
 interface CompetitionEntry {
-  year: number;
+  year: string;
   showName: string;
+  showStatus: string; 
   location: string;
   result: string;
 }
 
-interface KoiData {
-  // Define the structure of your Koi data
-  name: string;
-  status: "Owned" | "Sold" | string; //  add other possible statuses
-  breed: string;
-  size: string;
-  age: number;
-  gender: "Male" | "Female" | string; //  add other genders if needed
-  mainColors: string;
-  purchaseDate: string;
-  origin: string;
-  idNumber: string;
-  description: string;
-  achievements: Achievement[];
-  competitionHistory: CompetitionEntry[];
-  images: string[];
-  videos: string[]; // Assuming you'll store video URLs
+// Tạo interface mở rộng từ KoiProfile gốc 
+interface KoiProfile extends BaseKoiProfile {
+  competitionHistory?: CompetitionEntry[];
 }
 
 // --- Main Component ---
-const KoiInformation: React.FC = () => {
-  // Sample data (Replace with data from API or navigation props)
-  const koiData: KoiData = {
-    name: "Sakura",
-    status: "Owned",
-    breed: "Kohaku",
-    size: "45 cm",
-    age: 3,
-    gender: "Female",
-    mainColors: "Red, White",
-    purchaseDate: "12/08/2020",
-    origin: "Nishikigoi Farm",
-    idNumber: "123456789",
-    description:
-      "This koi fish stands out with its vivid red and white pattern, symbolizing strength and beauty.",
-    achievements: [
-      {
-        icon: "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/frame-2.png",
-        title: "Grand Champion",
-        category: "Kohaku",
-        year: 2022,
-      },
-      // Add more achievements as needed
-    ],
-    competitionHistory: [
-      {
-        year: 2022,
-        showName: "All Japan Koi Show",
-        location: "Tokyo, Japan",
-        result: "Grand Champion",
-      },
-      // Add more competition entries
-    ],
-    images: [
-      "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/group-3.png",
-      "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/group-4.png",
-      "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/group-5.png",
-      // Add more image URLs
-    ],
-    videos: [
-      // Add video URLs here
-    ],
-  };
-  const [selectedImage, setSelectedImage] = useState<string | null>(
-    koiData.images[0]
+export default function KoiInformation() {
+  const params = useLocalSearchParams();
+  const koiId = params.id as string;
+  const flatListRef = useRef<FlatList>(null);
+
+  // Load fonts
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_700Bold,
+  });
+
+  const [koiData, setKoiData] = useState<KoiProfile | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
+  const [selectedMediaType, setSelectedMediaType] = useState<"Image" | "Video">("Image");
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [mediaItems, setMediaItems] = useState<KoiMedia[]>([]);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+  
+  // State cho fullscreen
+  const [fullscreenVisible, setFullscreenVisible] = useState<boolean>(false);
+  const [fullscreenMedia, setFullscreenMedia] = useState<string | null>(null);
+  const [fullscreenMediaType, setFullscreenMediaType] = useState<"Image" | "Video">("Image");
+  const [isFullscreenPlaying, setIsFullscreenPlaying] = useState<boolean>(false);
+
+  // Cấu hình để theo dõi item đang hiển thị
+  const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
+
+  // Tạo video player cho video đang được xem
+  const videoPlayer = useVideoPlayer(
+    selectedMedia && selectedMediaType === "Video" ? selectedMedia : null,
+    player => {
+      player.loop = false;
+    }
   );
 
-  const handleImagePress = (image: string) => {
-    setSelectedImage(image);
-  };
-  const handleAddImageVideo = () => {
-    // Placeholder for adding image/video.  Use a library like react-native-image-picker.
-    Alert.alert("Add Image/Video", "Select an image or video to add.", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "OK",
-        onPress: () => {
-          // Implement image/video selection and update state.
-          console.log("Add image/video");
-        },
-      },
-    ]);
+  // Tạo video player cho fullscreen
+  const fullscreenVideoPlayer = useVideoPlayer(
+    fullscreenMedia && fullscreenMediaType === "Video" ? fullscreenMedia : null,
+    player => {
+      player.loop = false;
+    }
+  );
+
+  // Xử lý khi item hiện tại thay đổi
+  const onViewableItemsChanged = useRef(({ 
+    viewableItems 
+  }: {
+    viewableItems: Array<{
+      index: number | null;
+      item: KoiMedia;
+      key: string;
+      isViewable: boolean;
+    }>;
+  }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+      const index = viewableItems[0].index;
+      setCurrentMediaIndex(index);
+      const currentItem = mediaItems[index];
+      if (currentItem) {
+        setSelectedMedia(currentItem.mediaUrl);
+        setSelectedMediaType(currentItem.mediaType);
+      }
+    }
+  }).current;
+
+  // Lắng nghe sự kiện playingChange cho video
+  useEffect(() => {
+    const subscription = videoPlayer.addListener('playingChange', (event) => {
+      setIsPlaying(!!event.isPlaying);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [videoPlayer]);
+
+  // Lắng nghe sự kiện playingChange cho fullscreen video
+  useEffect(() => {
+    const subscription = fullscreenVideoPlayer.addListener('playingChange', (event) => {
+      setIsFullscreenPlaying(!!event.isPlaying);
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fullscreenVideoPlayer]);
+
+  // Dừng video khi chuyển slide
+  useEffect(() => {
+    if (selectedMediaType === "Video") {
+      // Bắt đầu phát khi đến slide video
+      videoPlayer.play();
+    } else {
+      // Dừng phát khi rời khỏi slide video
+      videoPlayer.pause();
+    }
+  }, [selectedMedia, selectedMediaType, videoPlayer]);
+
+  useEffect(() => {
+    const fetchKoiData = async () => {
+      try {
+        if (!koiId) {
+          setError("Không tìm thấy ID cá Koi");
+          setIsLoading(false);
+          return;
+        }
+
+        console.log("Đang tải thông tin cá Koi với ID:", koiId);
+        const response = await getKoiProfileById(koiId);
+        
+        if (response.statusCode === 200) {
+          console.log("Nhận được dữ liệu cá Koi:", response.data);
+          setKoiData(response.data);
+          
+          // Lưu trữ tất cả media
+          if (response.data.koiMedia && response.data.koiMedia.length > 0) {
+            setMediaItems(response.data.koiMedia);
+            // Chọn media đầu tiên để hiển thị
+            const firstItem = response.data.koiMedia[0];
+            setSelectedMedia(firstItem.mediaUrl);
+            setSelectedMediaType(firstItem.mediaType);
+          }
+        } else {
+          setError(`Không thể tải thông tin cá Koi: ${response.message}`);
+        }
+      } catch (err) {
+        console.error("Lỗi khi tải thông tin cá Koi:", err);
+        setError("Đã xảy ra lỗi khi tải thông tin cá Koi");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchKoiData();
+  }, [koiId]);
+
+  const handleMediaPress = (mediaUrl: string, mediaType: "Image" | "Video") => {
+    setFullscreenMedia(mediaUrl);
+    setFullscreenMediaType(mediaType);
+    setFullscreenVisible(true);
   };
 
+  const getMediaByType = (type: "Image" | "Video"): KoiMedia[] => {
+    if (!koiData || !koiData.koiMedia) return [];
+    return koiData.koiMedia.filter(media => media.mediaType === type);
+  };
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      videoPlayer.pause();
+    } else {
+      videoPlayer.play();
+    }
+  };
+
+  const handleFullscreenPlayPause = () => {
+    if (isFullscreenPlaying) {
+      fullscreenVideoPlayer.pause();
+    } else {
+      fullscreenVideoPlayer.play();
+    }
+  };
+
+  // Render item cho carousel media
+  const renderMediaItem = ({ item, index }: { item: KoiMedia; index: number }) => (
+    <View style={[styles.mediaSlide]}>
+      {item.mediaType === "Image" ? (
+        <TouchableOpacity 
+          style={styles.mediaTouchable}
+          onPress={() => handleMediaPress(item.mediaUrl, "Image")}
+        >
+          <Image
+            source={{ uri: item.mediaUrl }}
+            style={styles.mediaImage}
+            resizeMode="cover"
+          />
+          <LinearGradient
+            colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.3)']}
+            style={styles.mediaGradient}
+          />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.mediaVideoContainer}>
+          {index === currentMediaIndex && (
+            <VideoView
+              style={styles.mediaVideo}
+              player={videoPlayer}
+              contentFit="cover"
+              nativeControls={false}
+            />
+          )}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.3)']}
+            style={styles.mediaGradient}
+          />
+          <TouchableOpacity
+            style={styles.videoControls}
+            onPress={handlePlayPause}
+          >
+            {!isPlaying && (
+              <Image
+                source={{
+                  uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-8.png",
+                }}
+                style={styles.playIcon}
+              />
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  // Hiển thị khi đang tải
+  if (isLoading || !fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Đang tải thông tin cá Koi...</Text>
+      </View>
+    );
+  }
+
+  // Hiển thị khi có lỗi
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => router.back()}>
+          <Text style={styles.retryButtonText}>Quay lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Hiển thị khi không có dữ liệu
+  if (!koiData) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Không tìm thấy thông tin cá Koi</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => router.back()}>
+          <Text style={styles.retryButtonText}>Quay lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const images = getMediaByType("Image");
+  const videos = getMediaByType("Video");
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => {
-            /* Navigate Back */
-          }}
+          onPress={() => router.back()}
           style={styles.backButtonContainer}>
           <Image
             source={{
@@ -127,99 +315,246 @@ const KoiInformation: React.FC = () => {
             style={styles.backButtonIcon}
           />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Koi Fish Information</Text>
+        <Text style={styles.headerTitle}>Thông tin cá Koi</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <Image
-          source={{ uri: selectedImage || koiData.images[0] }}
-          style={styles.koiFishImage}
-        />
+      <ScrollView
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Media Carousel sử dụng FlatList */}
+        {mediaItems.length > 0 && (
+          <View style={styles.heroSection}>
+            <FlatList
+              ref={flatListRef}
+              data={mediaItems}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+              renderItem={renderMediaItem}
+              keyExtractor={(item) => item.id}
+              decelerationRate="fast"
+              snapToInterval={screenWidth}
+              snapToAlignment="center"
+            />
 
-        <View style={styles.detailsSection}>
-          <Text style={styles.sectionTitle}>{koiData.name}</Text>
-          <Text style={styles.statusText}>Status: {koiData.status}</Text>
-          <Text style={styles.subSectionTitle}>Detailed Information</Text>
-          <View style={styles.detailsGrid}>
-            <Text style={styles.detailText}>Breed: {koiData.breed}</Text>
-            <Text style={styles.detailText}>Size: {koiData.size}</Text>
-            <Text style={styles.detailText}>Age: {koiData.age} years</Text>
-            <Text style={styles.detailText}>Gender: {koiData.gender}</Text>
-            <Text style={styles.detailText}>
-              Main Colors: {koiData.mainColors}
-            </Text>
-            <Text style={styles.detailText}>
-              Purchase Date: {koiData.purchaseDate}
-            </Text>
-            <Text style={styles.detailText}>Origin: {koiData.origin}</Text>
-            <Text style={styles.detailText}>ID Number: {koiData.idNumber}</Text>
+            {/* Chấm phân trang (Pagination) */}
+            <View style={styles.paginationContainer}>
+              {mediaItems.map((_, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.paginationDot,
+                    index === currentMediaIndex && styles.paginationDotActive,
+                  ]}
+                  onPress={() => {
+                    flatListRef.current?.scrollToIndex({
+                      index,
+                      animated: true,
+                    });
+                  }}
+                />
+              ))}
+            </View>
           </View>
-          <Text style={styles.descriptionText}>{koiData.description}</Text>
-        </View>
+        )}
 
-        <View style={styles.achievementsSection}>
-          <Text style={styles.subSectionTitle}>Achievements</Text>
-          {koiData.achievements.map((achievement, index) => (
-            <View key={index} style={styles.achievement}>
-              <Image
-                source={{ uri: achievement.icon }}
-                style={styles.achievementIcon}
-              />
-              <View style={styles.achievementTextContainer}>
-                <Text style={styles.achievementTitle}>{achievement.title}</Text>
-                <Text style={styles.achievementSubtext}>
-                  {achievement.category} - {achievement.year}
-                </Text>
+        <View style={styles.contentContainer}>
+          {/* Tiêu đề và trạng thái */}
+          <Text style={styles.koiName}>{koiData.name}</Text>
+          <Text style={styles.statusText}>Trạng thái: {koiData.status}</Text>
+          
+          {/* Thông tin chi tiết */}
+          <Text style={styles.sectionTitle}>Thông tin chi tiết</Text>
+          <View style={styles.detailCard}>
+            <View style={styles.detailRow}>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Giống:</Text>
+                <Text style={styles.detailValue}>{koiData.variety?.name}</Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Kích thước:</Text>
+                <Text style={styles.detailValue}>{koiData.size} cm</Text>
               </View>
             </View>
-          ))}
-        </View>
-
-        <View style={styles.competitionSection}>
-          <Text style={styles.subSectionTitle}>Competition History</Text>
-          {koiData.competitionHistory.map((entry, index) => (
-            <View key={index} style={styles.competitionEntry}>
-              <Text style={styles.competitionTitle}>
-                {entry.year} - {entry.showName}
-              </Text>
-              <Text style={styles.competitionSubtext}>{entry.location}</Text>
-              <Text style={styles.competitionSubtext}>
-                Result: {entry.result}
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  /* Navigate to result details */
-                }}>
-                <Text style={styles.linkText}>View Result Details</Text>
-              </TouchableOpacity>
+            
+            <View style={styles.detailRow}>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Tuổi:</Text>
+                <Text style={styles.detailValue}>{koiData.age} năm</Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Giới tính:</Text>
+                <Text style={styles.detailValue}>{koiData.gender}</Text>
+              </View>
             </View>
-          ))}
-        </View>
-
-        <View style={styles.gallerySection}>
-          <Text style={styles.subSectionTitle}>Images & Videos</Text>
-          <View style={styles.imageGrid}>
-            {koiData.images.map((image, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => handleImagePress(image)}>
-                <Image source={{ uri: image }} style={styles.galleryImage} />
-              </TouchableOpacity>
-            ))}
+            
+            <View style={styles.detailRow}>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Dòng máu:</Text>
+                <Text style={styles.detailValue}>{koiData.bloodline}</Text>
+              </View>
+              {koiData.createdAt && (
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Ngày tạo:</Text>
+                  <Text style={styles.detailValue}>
+                    {new Date(koiData.createdAt).toLocaleDateString('vi-VN')}
+                  </Text>
+                </View>
+              )}
+            </View>
+            
+            {koiData.variety?.description && (
+              <View style={styles.descriptionContainer}>
+                <Text style={styles.descriptionLabel}>Mô tả:</Text>
+                <Text style={styles.descriptionText}>{koiData.variety?.description}</Text>
+              </View>
+            )}
           </View>
-          <TouchableOpacity
-            style={styles.addButton}
-            onPress={handleAddImageVideo}>
-            <Text style={styles.addButtonText}>Add Image/Video</Text>
-          </TouchableOpacity>
+
+          {/* Phần hình ảnh và video */}
+          <Text style={styles.sectionTitle}>Hình ảnh & Video</Text>
+          <View style={styles.mediaSection}>
+            {images.length > 0 && (
+              <View style={styles.mediaCategory}>
+                <Text style={styles.mediaCategoryTitle}>Hình ảnh ({images.length})</Text>
+                <FlatList
+                  data={images}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={styles.thumbnailContainer}
+                      onPress={() => handleMediaPress(item.mediaUrl, "Image")}>
+                      <Image 
+                        source={{ uri: item.mediaUrl }} 
+                        style={styles.mediaThumbnail} 
+                      />
+                    </TouchableOpacity>
+                  )}
+                  contentContainerStyle={styles.mediaThumbnailList}
+                />
+              </View>
+            )}
+            
+            {videos.length > 0 && (
+              <View style={styles.mediaCategory}>
+                <Text style={styles.mediaCategoryTitle}>Video ({videos.length})</Text>
+                <FlatList
+                  data={videos}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item, index }) => (
+                    <TouchableOpacity
+                      style={styles.thumbnailContainer}
+                      onPress={() => handleMediaPress(item.mediaUrl, "Video")}>
+                      <View style={styles.videoThumbnail}>
+                        <Text style={styles.videoLabel}>Video {index + 1}</Text>
+                        <Image 
+                          source={{
+                            uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-8.png",
+                          }}
+                          style={styles.playIconSmall}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  contentContainerStyle={styles.mediaThumbnailList}
+                />
+              </View>
+            )}
+          </View>
+
+          {/* Hiển thị lịch sử thi đấu nếu có */}
+          {koiData.competitionHistory && koiData.competitionHistory.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Lịch sử thi đấu</Text>
+              <View style={styles.competitionList}>
+                {koiData.competitionHistory.map((competition, index) => (
+                  <View key={index} style={styles.competitionCard}>
+                    <Text style={styles.competitionTitle}>
+                      {competition.year} - {competition.showName}
+                    </Text>
+                    <Text style={styles.competitionDetail}>
+                      <Text style={styles.competitionLabel}>Địa điểm:</Text> {competition.location}
+                    </Text>
+                    <Text style={styles.competitionDetail}>
+                      <Text style={styles.competitionLabel}>Kết quả:</Text> {competition.result}
+                    </Text>
+                    <View style={styles.competitionStatusContainer}>
+                      <Text style={[
+                        styles.competitionStatus,
+                        competition.showStatus === "upcoming" ? styles.statusUpcoming : styles.statusFinished
+                      ]}>
+                        {competition.showStatus === "upcoming" ? "Sắp diễn ra" : "Đã kết thúc"}
+                      </Text>
+                      <TouchableOpacity style={styles.viewDetailsButton}>
+                        <Text style={styles.viewDetailsText}>Xem chi tiết</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
         </View>
       </ScrollView>
+
+      {/* Full Screen Modal */}
+      <Modal
+        visible={fullscreenVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFullscreenVisible(false)}
+      >
+        <SafeAreaView style={styles.fullscreenModal}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => {
+              if (fullscreenMediaType === "Video") {
+                fullscreenVideoPlayer.pause();
+              }
+              setFullscreenVisible(false);
+            }}
+          >
+            <Text style={styles.closeButtonText}>×</Text>
+          </TouchableOpacity>
+          
+          {fullscreenMediaType === "Image" ? (
+            <Image
+              source={{ uri: fullscreenMedia! }}
+              style={styles.fullscreenImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <View style={styles.fullscreenVideoContainer}>
+              <VideoView
+                style={styles.fullscreenVideo}
+                player={fullscreenVideoPlayer}
+                contentFit="contain"
+                nativeControls={true}
+              />
+              <View style={styles.fullscreenVideoControls}>
+                <TouchableOpacity
+                  style={styles.fullscreenPlayButton}
+                  onPress={handleFullscreenPlayPause}
+                >
+                  <Text style={styles.fullscreenPlayButtonText}>
+                    {isFullscreenPlaying ? "Tạm dừng" : "Phát video"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </SafeAreaView>
+      </Modal>
+
       <View style={styles.footer}>
-        <TouchableOpacity
-          onPress={() => {
-            /* Navigate to Home */
-          }}
-          style={styles.footerButton}>
+        <TouchableOpacity onPress={() => router.push("/")}>
           <Image
             source={{
               uri: "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/frame-4.png",
@@ -227,11 +562,7 @@ const KoiInformation: React.FC = () => {
             style={styles.footerIcon}
           />
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            /* Navigate to Profile */
-          }}
-          style={styles.footerButton}>
+        <TouchableOpacity onPress={() => router.push("/UserProfile")}>
           <Image
             source={{
               uri: "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/frame-5.png",
@@ -239,11 +570,7 @@ const KoiInformation: React.FC = () => {
             style={styles.footerIcon}
           />
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => {
-            /* Navigate to Gallery */
-          }}
-          style={styles.footerButton}>
+        <TouchableOpacity onPress={() => router.push("/KoiList")}>
           <Image
             source={{
               uri: "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/frame-6.png",
@@ -252,15 +579,15 @@ const KoiInformation: React.FC = () => {
           />
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
-};
+}
 
 // --- Styles ---
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
   },
   // Header Styles
   header: {
@@ -270,12 +597,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#E5E7EB",
-    marginTop: 20, // Add top margin
-    width: "100%", // Full width
+    marginTop: 15,
   },
   backButtonContainer: {
-    width: 28, // Increased size
-    height: 28,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backButtonIcon: {
     width: 24,
@@ -284,144 +612,373 @@ const styles = StyleSheet.create({
   headerTitle: {
     marginLeft: 16,
     fontSize: 20,
-    fontFamily: "Poppins-Bold", // Ensure this font is loaded
+    fontFamily: 'Poppins_700Bold',
     color: "#000000",
   },
 
   // ScrollView
   scrollViewContent: {
     flexGrow: 1,
-    alignItems: "center", // Center content horizontally
-    paddingBottom: 20, // Padding at the bottom
+    paddingBottom: 20,
   },
-
-  // Koi Fish Image
-  koiFishImage: {
-    width: "100%",
-    height: 200,
-  },
-
-  // Details Section
-  detailsSection: {
+  contentContainer: {
     padding: 16,
-    width: "100%",
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: "Poppins-Bold",
+
+  // Loading & Error Styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#4B5563',
+    fontFamily: 'Poppins_400Regular',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#e53e3e',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontFamily: 'Poppins_400Regular',
+  },
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    elevation: 2,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Poppins_700Bold',
+  },
+
+  // Hero/Media Section Styles
+  heroSection: {
+    width: "100%",
+    height: 280,
+    position: "relative",
+    backgroundColor: "#f7f7f7",
+  },
+  mediaSlide: {
+    width: screenWidth,
+    height: 280,
+    backgroundColor: "#f0f0f0",
+  },
+  mediaTouchable: {
+    width: screenWidth,
+    height: 280,
+  },
+  mediaImage: {
+    width: screenWidth,
+    height: 280,
+  },
+  mediaGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  mediaVideoContainer: {
+    width: screenWidth,
+    height: 280,
+    backgroundColor: '#000',
+    position: "relative",
+  },
+  mediaVideo: {
+    width: "100%",
+    height: "100%",
+  },
+  videoControls: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  paginationContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    position: "absolute",
+    bottom: 16,
+    left: 0,
+    right: 0,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
+    marginHorizontal: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+  },
+  paginationDotActive: {
+    backgroundColor: "#007AFF",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  playIcon: {
+    width: 56,
+    height: 56,
+    tintColor: "#FFFFFF",
+  },
+  playIconSmall: {
+    width: 32,
+    height: 32,
+    tintColor: "#FFFFFF",
+  },
+
+  // Koi Information Styles
+  koiName: {
+    fontSize: 24,
+    fontFamily: 'Poppins_700Bold',
     color: "#000000",
     marginBottom: 4,
   },
   statusText: {
     fontSize: 14,
-    fontFamily: "Poppins",
+    fontFamily: 'Poppins_400Regular',
     color: "#4B5563",
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins_700Bold',
+    color: "#000000",
     marginBottom: 16,
   },
-  subSectionTitle: {
-    fontSize: 16,
-    fontFamily: "Poppins-Bold",
-    color: "#000000",
+  
+  // Detail Card
+  detailCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  detailRow: {
+    flexDirection: "row",
     marginBottom: 12,
   },
-  detailsGrid: {
-    marginBottom: 16,
+  detailItem: {
+    flex: 1,
   },
-  detailText: {
+  detailLabel: {
+    fontSize: 12,
+    fontFamily: 'Poppins_400Regular',
+    color: "#6B7280",
+    marginBottom: 2,
+  },
+  detailValue: {
     fontSize: 14,
-    fontFamily: "Poppins",
+    fontFamily: 'Poppins_400Regular',
     color: "#1F2937",
-    marginBottom: 8,
+  },
+  descriptionContainer: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+  },
+  descriptionLabel: {
+    fontSize: 12,
+    fontFamily: 'Poppins_400Regular',
+    color: "#6B7280",
+    marginBottom: 4,
   },
   descriptionText: {
     fontSize: 14,
-    fontFamily: "Poppins",
+    fontFamily: 'Poppins_400Regular',
     color: "#1F2937",
-    lineHeight: 21,
+    lineHeight: 20,
   },
 
-  // Achievements Section
-  achievementsSection: {
-    padding: 16,
-    width: "100%",
+  // Media Section
+  mediaSection: {
+    marginBottom: 24,
   },
-  achievement: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+  mediaCategory: {
     marginBottom: 16,
   },
-  achievementIcon: {
-    width: 28, // Increased size
-    height: 28,
-    marginRight: 8,
-    marginTop: 2,
-  },
-  achievementTextContainer: {
-    flex: 1, // Allow text to wrap
-  },
-  achievementTitle: {
+  mediaCategoryTitle: {
     fontSize: 14,
-    fontFamily: "Poppins",
-    color: "#1F2937",
-  },
-  achievementSubtext: {
-    fontSize: 12,
-    fontFamily: "Poppins",
+    fontFamily: 'Poppins_400Regular',
     color: "#4B5563",
+    marginBottom: 12,
+  },
+  mediaThumbnailList: {
+    paddingRight: 16,
+  },
+  thumbnailContainer: {
+    marginRight: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  mediaThumbnail: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+  },
+  videoThumbnail: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    backgroundColor: '#1F2937',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoLabel: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontFamily: 'Poppins_400Regular',
+    marginBottom: 8,
   },
 
   // Competition Section
-  competitionSection: {
-    padding: 16,
-    width: "100%",
-  },
-  competitionEntry: {
+  competitionList: {
     marginBottom: 16,
+  },
+  competitionCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
   competitionTitle: {
-    fontSize: 14,
-    fontFamily: "Poppins",
+    fontSize: 16,
+    fontFamily: 'Poppins_700Bold',
     color: "#1F2937",
+    marginBottom: 8,
   },
-  competitionSubtext: {
-    fontSize: 12,
-    fontFamily: "Poppins",
+  competitionDetail: {
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
+    color: "#4B5563",
+    marginBottom: 4,
+  },
+  competitionLabel: {
+    fontFamily: 'Poppins_700Bold',
     color: "#4B5563",
   },
-  linkText: {
-    fontSize: 12,
-    fontFamily: "Poppins",
-    color: "#007AFF",
-    marginTop: 4,
+  competitionStatusContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  competitionStatus: {
+    fontSize: 13,
+    fontFamily: 'Poppins_700Bold',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  statusUpcoming: {
+    backgroundColor: '#EBF5FF',
+    color: '#007AFF',
+  },
+  statusFinished: {
+    backgroundColor: '#F3F4F6',
+    color: '#6B7280',
+  },
+  viewDetailsButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  viewDetailsText: {
+    fontSize: 13,
+    color: '#007AFF',
+    fontFamily: 'Poppins_400Regular',
   },
 
-  // Gallery Section
-  gallerySection: {
-    padding: 16,
-    width: "100%",
+  // Fullscreen Modal
+  fullscreenModal: {
+    flex: 1,
+    backgroundColor: 'black',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  imageGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap", // Allow images to wrap to the next line
-    justifyContent: "space-between", // Space out images
-    marginBottom: 16,
+  closeButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  galleryImage: {
-    width: 100,
-    height: 100,
+  closeButtonText: {
+    color: 'white',
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  fullscreenImage: {
+    width: screenWidth,
+    height: screenHeight * 0.8,
+  },
+  fullscreenVideoContainer: {
+    width: screenWidth,
+    height: screenHeight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenVideo: {
+    width: '100%',
+    height: '80%',
+  },
+  fullscreenVideoControls: {
+    position: 'absolute',
+    bottom: 80,
+    width: '100%',
+    alignItems: 'center',
+  },
+  fullscreenPlayButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
-    marginBottom: 8, // Add margin to the bottom of each image
   },
-  addButton: {
-    alignItems: "center",
-    padding: 10, // Increased padding
-    backgroundColor: "#007AFF",
-    borderRadius: 8, // Increased border radius
-  },
-  addButtonText: {
-    fontSize: 16, // Increased font size
-    fontFamily: "Poppins-Bold",
-    color: "#FEFEFE",
+  fullscreenPlayButtonText: {
+    color: 'white',
+    fontFamily: 'Poppins_700Bold',
+    fontSize: 16,
   },
 
   // Footer
@@ -429,19 +986,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    height: 70,
+    height: 60,
     borderTopWidth: 1,
     borderTopColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF", // Consistent background
-    width: "100%",
-  },
-  footerButton: {
-    padding: 8, // Add padding
+    backgroundColor: "#FFFFFF",
   },
   footerIcon: {
-    width: 28, // Increased size
+    width: 28,
     height: 28,
   },
 });
-
-export default KoiInformation;

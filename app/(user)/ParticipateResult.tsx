@@ -333,27 +333,11 @@ const ParticipateResult: React.FC = () => {
 
   // Xử lý chuyển hướng đến màn hình chi tiết cá
   const handleViewFishDetail = (registration: EnhancedShowDetailRegistration) => {
-    // Lấy ảnh đầu tiên từ media hoặc sử dụng ảnh mặc định
-    const fishImage = registration.media.find(item => item.mediaType === "Image")?.mediaUrl || 
-      "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png";
-    
     router.push({
       pathname: "/(user)/FishStatus",
       params: {
-        fishName: registration.koiName,
-        fishImage: fishImage,
-        breed: registration.variety,
-        size: registration.size.toString(),
-        category: registration.categoryName,
-        status: registration.status,
-        prize: registration.award || undefined,
-        award: registration.award || undefined,
-        score: 0, // Không có trong API
-        coloration: 0, // Không có trong API
-        shape: 0, // Không có trong API
-        pattern: 0, // Không có trong API
-        fishSize: 0, // Không có trong API
-        comments: [], // Không có trong API
+        showId: competitionId,
+        registrationId: registration.registrationId
       },
     });
   };
