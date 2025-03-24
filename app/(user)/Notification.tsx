@@ -1,7 +1,6 @@
-// app/(user)/Notification.tsx
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,30 +11,57 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Animated,
+  Platform,
+  Pressable,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  NotificationType as ApiNotificationType,
+  NotificationItem as ApiNotificationItem,
+} from "../../services/notificationService";
+import {
+  Ionicons, 
+  AntDesign, 
+  MaterialIcons, 
+  FontAwesome5,
+  Feather
+} from '@expo/vector-icons';
 
-// Define notification types for better organization
+// Hàm log debug
+const logDebug = (message: string, data?: any) => {
+  if (__DEV__) {
+    if (data) {
+      console.log(`[DEBUG][Notification] ${message}`, data);
+    } else {
+      console.log(`[DEBUG][Notification] ${message}`);
+    }
+  }
+};
+
+// Định nghĩa các loại thông báo UI khớp với API
 enum NotificationType {
-  EVENT = "event",
-  REGISTRATION = "registration",
-  PURCHASE = "purchase",
-  RESULT = "result",
-  OFFER = "offer",
-  VOTE = "vote",
-  LIVESTREAM = "livestream",
+  Registration = "Registration",
+  System = "System",
+  Show = "Show",
+  Payment = "Payment",
 }
 
-// Define valid routes for type checking
+// Định nghĩa các route hợp lệ
 type ValidRoute =
   | "/(tabs)/shows/KoiShowsPage"
-  | "/(tabs)/shows/koiRegistration"
+  | "/(tabs)/shows/KoiRegistration"
   | "/(tabs)/shows/BuyTickets"
   | "/(tabs)/shows/AwardScreen"
   | "/(tabs)/shows/LiveStream"
   | "/(tabs)/home/homepage"
   | "/(tabs)/home/UserMenu";
 
-// Interface for notification data
+// Interface cho dữ liệu thông báo UI
 interface Notification {
   id: string;
   icon: string;
@@ -47,17 +73,91 @@ interface Notification {
   actionUrl?: ValidRoute; // Optional URL or route to navigate to
 }
 
+// Hàm chuyển đổi từ thông báo API sang UI
+const mapApiNotificationToUI = (apiNotification: ApiNotificationItem): Notification => {
+  logDebug(`Chuyển đổi thông báo từ API sang UI - ID: ${apiNotification.id}, Type: ${apiNotification.type}`);
+  
+  let actionUrl: ValidRoute | undefined;
+  
+  // Xác định URL hành động dựa trên loại thông báo và nội dung
+  switch (apiNotification.type) {
+    case "Registration":
+      // Kiểm tra nội dung để xác định chính xác route
+      if (apiNotification.content.includes("check in")) {
+        actionUrl = "/(tabs)/shows/KoiShowsPage";
+      } else if (apiNotification.content.includes("chấp nhận")) {
+        actionUrl = "/(tabs)/shows/KoiShowsPage";
+      } else {
+        actionUrl = "/(tabs)/shows/KoiRegistration";
+      }
+      break;
+    case "Show":
+      actionUrl = "/(tabs)/shows/KoiShowsPage";
+      break;
+    case "Payment":
+      actionUrl = "/(tabs)/shows/BuyTickets";
+      break;
+    default:
+      actionUrl = undefined;
+  }
+  
+  // Ánh xạ icon dựa trên loại thông báo
+  let icon = "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group.png"; // Default icon
+  switch (apiNotification.type) {
+    case "Registration":
+      // Phân loại icon Registration chi tiết hơn dựa vào nội dung
+      if (apiNotification.content.includes("check in")) {
+        icon = "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-4.png";
+      } else if (apiNotification.content.includes("chấp nhận")) {
+        icon = "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-5.png";
+      } else {
+        icon = "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-2.png";
+      }
+      break;
+    case "Payment":
+      icon = "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-3.png";
+      break;
+    case "Show":
+      icon = "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-4.png";
+      break;
+    case "System":
+      icon = "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-5.png";
+      break;
+  }
+  
+  const uiNotification = {
+    id: apiNotification.id,
+    icon: icon,
+    title: apiNotification.title,
+    description: apiNotification.content,
+    type: apiNotification.type as NotificationType,
+    date: apiNotification.sentDate,
+    isRead: apiNotification.isRead,
+    actionUrl: actionUrl,
+  };
+  
+  logDebug(`Kết quả chuyển đổi:`, uiNotification);
+  return uiNotification;
+};
+
 interface NotificationItemProps {
   notification: Notification;
   onPress: (notification: Notification) => void;
   onMarkAsRead: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 const NotificationItem: React.FC<NotificationItemProps> = ({
   notification,
   onPress,
   onMarkAsRead,
+  onDelete,
 }) => {
+  // Animation values
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [bgColor, setBgColor] = useState(notification.isRead ? '#F9F9F9' : '#FFFFFF');
+  const [showDeleteButton, setShowDeleteButton] = useState(false);
+  
   // Format the date to a more readable format
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
@@ -65,7 +165,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
     // If today, show time
     if (date.toDateString() === now.toDateString()) {
-      return `Today at ${date.toLocaleTimeString([], {
+      return `Hôm nay lúc ${date.toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       })}`;
@@ -75,7 +175,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
     if (date.toDateString() === yesterday.toDateString()) {
-      return `Yesterday at ${date.toLocaleTimeString([], {
+      return `Hôm qua lúc ${date.toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       })}`;
@@ -92,260 +192,702 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
   // Get icon background color based on notification type
   const getBackgroundColor = (type: NotificationType): string => {
     switch (type) {
-      case NotificationType.EVENT:
+      case NotificationType.Show:
         return "#4A90E2";
-      case NotificationType.REGISTRATION:
+      case NotificationType.Registration:
         return "#50C878";
-      case NotificationType.PURCHASE:
+      case NotificationType.Payment:
         return "#F5A623";
-      case NotificationType.RESULT:
+      case NotificationType.System:
         return "#9B59B6";
-      case NotificationType.OFFER:
-        return "#E74C3C";
-      case NotificationType.VOTE:
-        return "#3498DB";
-      case NotificationType.LIVESTREAM:
-        return "#E74C3C";
       default:
         return "#95A5A6";
     }
   };
+  
+  // Create animation for press effect - chỉ sử dụng native animation
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.98,
+      useNativeDriver: true,
+      speed: 20,
+    }).start();
+    
+    // Thay vì dùng animation cho màu nền, cập nhật state trực tiếp
+    setBgColor('#F0F7FF');
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 20,
+    }).start();
+    
+    // Khôi phục màu nền
+    setBgColor(notification.isRead ? '#F9F9F9' : '#FFFFFF');
+  };
+
+  // Xử lý nhấn giữ để hiển thị nút xóa
+  const handleLongPress = () => {
+    setShowDeleteButton(true);
+  };
+  
+  // Xử lý xóa thông báo
+  const handleDelete = () => {
+    Alert.alert(
+      "Xóa thông báo",
+      "Bạn có chắc chắn muốn xóa thông báo này không?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+          onPress: () => setShowDeleteButton(false)
+        },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: () => {
+            setShowDeleteButton(false);
+            onDelete(notification.id);
+          }
+        }
+      ]
+    );
+  };
+
+  // Hàm lấy icon dựa trên loại thông báo
+  const getIconComponent = (type: NotificationType) => {
+    switch (type) {
+      case NotificationType.Show:
+        return <Ionicons name="calendar" size={22} color="#FFFFFF" />;
+      case NotificationType.Registration:
+        if (notification.description?.includes("check in")) {
+          return <MaterialIcons name="done-all" size={22} color="#FFFFFF" />;
+        } else if (notification.description?.includes("chấp nhận")) {
+          return <AntDesign name="checkcircleo" size={22} color="#FFFFFF" />;
+        } else {
+          return <FontAwesome5 name="clipboard-list" size={20} color="#FFFFFF" />;
+        }
+      case NotificationType.Payment:
+        return <MaterialIcons name="payment" size={22} color="#FFFFFF" />;
+      case NotificationType.System:
+        return <Ionicons name="settings-sharp" size={22} color="#FFFFFF" />;
+      default:
+        return <Ionicons name="notifications" size={22} color="#FFFFFF" />;
+    }
+  };
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.itemContainer,
-        notification.isRead ? styles.itemRead : null,
-      ]}
+    <Pressable
+      style={styles.itemContainer}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       onPress={() => {
+        if (showDeleteButton) {
+          setShowDeleteButton(false);
+          return;
+        }
+        logDebug(`Thông báo được nhấn - ID: ${notification.id}, Title: ${notification.title}`);
         onPress(notification);
         if (!notification.isRead) {
           onMarkAsRead(notification.id);
         }
       }}
-      activeOpacity={0.7}>
-      <View style={styles.itemContent}>
+      onLongPress={handleLongPress}
+      delayLongPress={500}
+      android_ripple={{ color: 'rgba(0, 0, 0, 0.05)', borderless: false }}>
+      <Animated.View 
+        style={[
+          styles.itemContent,
+          { 
+            transform: [{ scale: scaleAnim }],
+            backgroundColor: bgColor,
+            borderRadius: 12,
+          }
+        ]}>
         <View
           style={[
             styles.iconBackground,
             { backgroundColor: getBackgroundColor(notification.type) },
           ]}>
-          <Image
-            source={{ uri: notification.icon }}
-            style={styles.itemIcon}
-            resizeMode="contain"
-          />
+          {getIconComponent(notification.type)}
         </View>
         <View style={styles.itemTextContainer}>
-          <Text style={styles.itemTitle} numberOfLines={1}>
+          <Text 
+            style={[
+              styles.itemTitle,
+              notification.isRead ? styles.itemTitleRead : null
+            ]} 
+            numberOfLines={1}>
             {notification.title}
           </Text>
           {notification.description ? (
-            <Text style={styles.itemDescription} numberOfLines={2}>
+            <Text 
+              style={[
+                styles.itemDescription,
+                notification.isRead ? styles.itemDescriptionRead : null
+              ]} 
+              numberOfLines={2}>
               {notification.description}
             </Text>
           ) : null}
           <Text style={styles.itemDate}>{formatDate(notification.date)}</Text>
         </View>
         {!notification.isRead && <View style={styles.unreadIndicator} />}
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/frame.png",
-          }}
-          style={styles.itemChevron}
-          resizeMode="contain"
-        />
-      </View>
-    </TouchableOpacity>
+        
+        {/* Hiển thị nút xóa hoặc nút xem chi tiết */}
+        {showDeleteButton ? (
+          <Pressable 
+            style={({ pressed }) => [
+              styles.deleteButton,
+              pressed && Platform.OS === 'ios' ? { opacity: 0.7 } : {}
+            ]}
+            android_ripple={{ color: 'rgba(231, 76, 60, 0.1)', borderless: true }}
+            onPress={handleDelete}>
+            <AntDesign name="delete" size={20} color="#E74C3C" />
+          </Pressable>
+        ) : (
+          <Feather name="chevron-right" size={20} color="#999999" style={styles.itemChevron} />
+        )}
+      </Animated.View>
+    </Pressable>
   );
 };
 
 const Notifications: React.FC = () => {
+  logDebug("Rendering Notifications component");
+  
+  const [userId, setUserId] = useState<string>("");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<NotificationType | "all">("all");
-
-  // Mock data - in a real app, this would come from an API
-  const mockNotifications: Notification[] = [
-    {
-      id: "1",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group.png",
-      title: "Reminder: Koi fish competition tomorrow",
-      description:
-        "Don't forget to attend the annual Koi competition starting at 10 AM.",
-      type: NotificationType.EVENT,
-      date: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-      isRead: false,
-      actionUrl: "/(tabs)/shows/KoiShowsPage",
-    },
-    {
-      id: "2",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-2.png",
-      title: "Register for upcoming Koi fish exhibition",
-      description:
-        "Registration is now open for the Spring Koi Exhibition. Early bird discounts available!",
-      type: NotificationType.REGISTRATION,
-      date: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-      isRead: false,
-      actionUrl: "/(tabs)/shows/koiRegistration",
-    },
-    {
-      id: "3",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-3.png",
-      title: "Purchase tickets for Koi fish showcase",
-      description:
-        "Limited tickets available for the International Koi Showcase next month.",
-      type: NotificationType.PURCHASE,
-      date: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(), // 5 hours ago
-      isRead: true,
-      actionUrl: "/(tabs)/shows/BuyTickets",
-    },
-    {
-      id: "4",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-4.png",
-      title: "Your event registration is confirmed",
-      description:
-        "Thank you for registering for the Summer Koi Exhibition. Your registration #KE2023-456 is confirmed.",
-      type: NotificationType.REGISTRATION,
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-      isRead: true,
-    },
-    {
-      id: "5",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-5.png",
-      title: "Exclusive offer for Koi fish enthusiasts",
-      description:
-        "Get 20% off on premium Koi food and supplies this weekend only!",
-      type: NotificationType.OFFER,
-      date: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
-      isRead: false,
-    },
-    {
-      id: "6",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-6.png",
-      title: "Results of Koi fish competition are in!",
-      description:
-        "Check out the winners of this year's National Koi Competition.",
-      type: NotificationType.RESULT,
-      date: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), // 3 days ago
-      isRead: false,
-      actionUrl: "/(tabs)/shows/AwardScreen",
-    },
-    {
-      id: "7",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-7.png",
-      title: "Vote for your favorite Koi fish",
-      description: "Public voting is now open for the People's Choice Award.",
-      type: NotificationType.VOTE,
-      date: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(), // 4 days ago
-      isRead: true,
-    },
-    {
-      id: "8",
-      icon: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-8.png",
-      title: "Live stream of Koi fish judging starts soon",
-      description:
-        "Tune in at 2 PM for the live judging of the championship round.",
-      type: NotificationType.LIVESTREAM,
-      date: new Date(Date.now() - 1000 * 60 * 60 * 120).toISOString(), // 5 days ago
-      isRead: true,
-      actionUrl: "/(tabs)/shows/LiveStream",
-    },
-  ];
-
-  // Load notifications
+  const [filter, setFilter] = useState<string>("unread");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const emptyIconScale = useRef(new Animated.Value(1)).current;
+  
+  // Lấy userId từ AsyncStorage khi component mount
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setNotifications(mockNotifications);
-      setLoading(false);
-    }, 1000);
+    logDebug("useEffect - Lấy userId từ AsyncStorage");
+    
+    const getUserId = async () => {
+      try {
+        const id = await AsyncStorage.getItem("userId");
+        logDebug(`Lấy userId từ AsyncStorage: ${id}`);
+        
+        if (id) {
+          setUserId(id);
+        } else {
+          logDebug("Không tìm thấy userId trong AsyncStorage");
+          setError("Vui lòng đăng nhập để xem thông báo");
+          setLoading(false);
+        }
+      } catch (err) {
+        logDebug("Lỗi khi lấy thông tin người dùng:", err);
+        console.error("Lỗi khi lấy thông tin người dùng:", err);
+        setError("Không thể lấy thông tin người dùng");
+        setLoading(false);
+      }
+    };
+    
+    getUserId();
   }, []);
-
-  // Handle refresh
-  const onRefresh = () => {
-    setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setNotifications(mockNotifications);
+  
+  // Fetch notifications
+  const fetchNotifications = async (page: number = 1, filterType?: string, shouldAppend: boolean = false) => {
+    logDebug(`Bắt đầu fetch thông báo - Page: ${page}, Filter: ${filterType || 'all'}, Append: ${shouldAppend}`);
+    
+    if (page > 1 && shouldAppend) {
+      setIsLoadingMore(true);
+    }
+    
+    try {
+      setError(null);
+      
+      if (!userId) {
+        logDebug("Không tìm thấy userId, không thể fetch thông báo");
+        setError("Không tìm thấy ID người dùng");
+        setLoading(false);
+        return;
+      }
+      
+      const params: {
+        page: number;
+        size: number;
+        notificationType?: ApiNotificationType;
+        isRead?: boolean;
+      } = {
+        page: page,
+        size: 10,
+      };
+      
+      // Xử lý các bộ lọc dựa trên API
+      if (filterType === "unread") {
+        // Tab "Chưa đọc" -> isRead = false
+        logDebug("Áp dụng bộ lọc chưa đọc, isRead=false");
+        params.isRead = false;
+      } 
+      else if (filterType === "read") {
+        // Tab "Đã đọc" -> isRead = true
+        logDebug("Áp dụng bộ lọc đã đọc, isRead=true");
+        params.isRead = true;
+      }
+      // Nếu là bộ lọc theo loại thông báo
+      else if (filterType && filterType !== "all") {
+        logDebug(`Áp dụng bộ lọc loại thông báo: ${filterType}`);
+        params.notificationType = filterType as ApiNotificationType;
+      }
+      
+      const apiUrl = `/notification/get-page/${userId}`;
+      logDebug(`Gọi API: ${apiUrl} với tham số:`, params);
+      
+      try {
+        const response = await getNotifications(userId, params);
+        logDebug(`Nhận phản hồi từ API:`, response);
+        
+        // Log chi tiết dữ liệu thông báo nhận được
+        logDebug(`Dữ liệu thông báo nhận được:`, JSON.stringify(response.data.items, null, 2));
+        
+        if (response.statusCode === 200) {
+          logDebug(`Tổng số thông báo: ${response.data.total}, Trang: ${response.data.page}/${response.data.totalPages}`);
+          
+          const mappedNotifications = response.data.items.map(mapApiNotificationToUI);
+          
+          // Nếu nạp thêm, thêm vào danh sách hiện có
+          if (shouldAppend && page > 1) {
+            setNotifications(prev => [...prev, ...mappedNotifications]);
+          } else {
+            setNotifications(mappedNotifications);
+          }
+          
+          setCurrentPage(response.data.page);
+          setTotalPages(response.data.totalPages);
+          
+          logDebug(`Đã ánh xạ ${mappedNotifications.length} thông báo vào UI`);
+        } else {
+          logDebug(`API trả về mã lỗi: ${response.statusCode}, Message: ${response.message}`);
+          setError(`Không thể tải thông báo: ${response.message || 'Lỗi không xác định'}`);
+        }
+      } catch (axiosError: any) {
+        // Log chi tiết lỗi từ Axios
+        const status = axiosError.response?.status;
+        const statusText = axiosError.response?.statusText;
+        const responseData = axiosError.response?.data;
+        const requestUrl = axiosError.config?.url;
+        const requestMethod = axiosError.config?.method;
+        
+        logDebug("Chi tiết lỗi API:", {
+          status,
+          statusText,
+          requestUrl,
+          requestMethod,
+          responseData,
+          message: axiosError.message,
+          requestParams: params
+        });
+        
+        console.error("Lỗi khi gọi API:", axiosError);
+        throw axiosError; // Ném lại lỗi để xử lý ở catch ngoài
+      }
+    } catch (err: any) {
+      // Log thông tin chi tiết về lỗi
+      logDebug("Lỗi khi tải thông báo:", err);
+      logDebug("Stack trace:", err.stack);
+      console.error("Lỗi khi tải thông báo:", err);
+      
+      // Hiển thị lỗi chi tiết
+      const errorMsg = err.message || "Không thể kết nối với máy chủ";
+      setError(`Lỗi: ${errorMsg}`);
+    } finally {
+      setLoading(false);
       setRefreshing(false);
-    }, 1000);
-  };
-
-  // Handle notification press
-  const handleNotificationPress = (notification: Notification) => {
-    if (notification.actionUrl) {
-      router.push(notification.actionUrl);
-    } else {
-      // Show notification details in an alert if no action URL
-      Alert.alert(notification.title, notification.description, [
-        { text: "OK", onPress: () => console.log("OK Pressed") },
-      ]);
+      setIsLoadingMore(false);
     }
   };
-
-  // Mark notification as read
-  const markAsRead = (id: string) => {
-    setNotifications(
-      notifications.map((notification) =>
-        notification.id === id
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
+  
+  // Load notifications on component mount
+  useEffect(() => {
+    if (userId) {
+      logDebug(`useEffect - userId thay đổi: ${userId}, gọi fetchNotifications`);
+      fetchNotifications();
+    }
+  }, [userId]);
+  
+  // Load notifications when filter changes
+  useEffect(() => {
+    if (userId) {
+      logDebug(`useEffect - filter thay đổi: ${filter}, gọi fetchNotifications`);
+      setLoading(true);
+      fetchNotifications(1, filter === "all" ? undefined : filter);
+    }
+  }, [filter, userId]);
+  
+  // Handle refresh
+  const onRefresh = () => {
+    logDebug("onRefresh - Làm mới danh sách thông báo");
+    setRefreshing(true);
+    fetchNotifications(1, filter === "all" ? undefined : filter);
   };
-
-  // Mark all as read
-  const markAllAsRead = () => {
-    setNotifications(
-      notifications.map((notification) => ({ ...notification, isRead: true }))
-    );
+  
+  // Handle notification press
+  const handleNotificationPress = async (notification: Notification) => {
+    logDebug(`handleNotificationPress - ID: ${notification.id}, ActionUrl: ${notification.actionUrl}`);
+    
+    // Hiển thị thông tin chi tiết thông báo trước khi chuyển hướng
+    const showNotificationDetails = () => {
+      // Hiển thị modal hoặc alert tùy thuộc vào nội dung
+      if (notification.description && notification.description.length > 50) {
+        // Hiển thị modal cho nội dung dài
+        Alert.alert(
+          notification.title,
+          notification.description,
+          [
+            { 
+              text: "Đóng", 
+              style: "cancel" 
+            },
+            notification.actionUrl ? { 
+              text: "Xem chi tiết", 
+              onPress: () => {
+                logDebug(`Chuyển hướng đến: ${notification.actionUrl}`);
+                router.push(notification.actionUrl as any);
+              } 
+            } : undefined
+          ].filter(Boolean) as any[]
+        );
+      } else if (notification.actionUrl) {
+        // Chuyển hướng trực tiếp cho thông báo có actionUrl và nội dung ngắn
+        logDebug(`Chuyển hướng đến: ${notification.actionUrl}`);
+        router.push(notification.actionUrl as any);
+      } else {
+        // Hiển thị alert đơn giản cho thông báo không có actionUrl
+        Alert.alert(
+          notification.title, 
+          notification.description, 
+          [{ text: "OK" }]
+        );
+      }
+    };
+    
+    // Hiệu ứng chuyển đổi trạng thái và cập nhật UI
+    if (!notification.isRead) {
+      // Cập nhật UI ngay lập tức với optimistic update
+      setNotifications(prevNotifications => 
+        prevNotifications.map(n => 
+          n.id === notification.id 
+            ? { ...n, isRead: true } 
+            : n
+        )
+      );
+      
+      // Hiển thị chi tiết thông báo
+      showNotificationDetails();
+      
+      try {
+        // Gọi API để đánh dấu đã đọc trong background
+        const result = await markNotificationAsRead(notification.id);
+        if (!result.success && __DEV__) {
+          console.error('Không thể đánh dấu thông báo đã đọc:', result.message);
+        }
+      } catch (error) {
+        // Xử lý lỗi một cách im lặng, không làm gián đoạn UX
+        if (__DEV__) {
+          console.error('Lỗi khi đánh dấu thông báo đã đọc:', error);
+        }
+      }
+    } else {
+      // Đối với thông báo đã đọc, chỉ hiển thị chi tiết
+      showNotificationDetails();
+    }
   };
-
-  // Filter notifications
-  const filteredNotifications =
-    filter === "all"
-      ? notifications
-      : notifications.filter((notification) => notification.type === filter);
-
+  
+  // Mark notification as read with animation
+  const markAsRead = async (id: string) => {
+    logDebug(`markAsRead - Đánh dấu thông báo đã đọc, ID: ${id}`);
+    
+    try {
+      // Lưu trạng thái thông báo ban đầu để có thể khôi phục nếu cần
+      const originalNotifications = [...notifications];
+      
+      // Tìm thông báo cần đánh dấu đã đọc
+      const notificationToMark = notifications.find(n => n.id === id);
+      if (!notificationToMark) {
+        logDebug(`Không tìm thấy thông báo với ID: ${id}`);
+        return;
+      }
+      
+      // Cập nhật UI với optimistic update
+      // Nếu đang ở tab "Chưa đọc", sử dụng hiệu ứng fade-out trước khi loại bỏ
+      if (filter === "unread") {
+        logDebug(`Đang ở tab "Chưa đọc", loại bỏ thông báo với hiệu ứng`);
+        
+        // Cập nhật UI để hiển thị thông báo đã đọc trước khi loại bỏ
+        setNotifications(prevNotifications => 
+          prevNotifications.map(n => 
+            n.id === id ? { ...n, isRead: true } : n
+          )
+        );
+        
+        // Sau một khoảng thời gian ngắn, loại bỏ thông báo khỏi danh sách
+        setTimeout(() => {
+          setNotifications(prev => prev.filter(n => n.id !== id));
+        }, 300);
+      }
+      else if (filter === "read") {
+        // Nếu đang ở tab "Đã đọc", không cần thay đổi gì
+        logDebug(`Đang ở tab "Đã đọc", giữ nguyên thông báo trong danh sách`);
+      }
+      else {
+        // Nếu đang ở các tab khác, cập nhật trạng thái isRead
+        logDebug(`Đang ở tab khác, cập nhật trạng thái isRead`);
+        setNotifications(prevNotifications => 
+          prevNotifications.map(n => 
+            n.id === id ? { ...n, isRead: true } : n
+          )
+        );
+      }
+      
+      // Gọi API để đánh dấu đã đọc (trong background)
+      try {
+        const result = await markNotificationAsRead(id);
+        
+        // Log kết quả nếu cần
+        if (__DEV__) {
+          if (result.success) {
+            logDebug(`Đã đánh dấu thông báo ID: ${id} đã đọc thành công`);
+          } else {
+            console.warn(`Thất bại khi đánh dấu thông báo đã đọc: ${result.message}`);
+            
+            // Chỉ khôi phục UI nếu thực sự cần thiết
+            // setNotifications(originalNotifications);
+          }
+        }
+      } catch (error) {
+        // Xử lý lỗi một cách im lặng để không làm gián đoạn UX
+        if (__DEV__) {
+          console.error('Lỗi khi đánh dấu thông báo đã đọc:', error);
+        }
+        
+        // Không khôi phục UI để giữ trải nghiệm người dùng mượt mà
+        // setNotifications(originalNotifications);
+      }
+    } catch (err: any) {
+      logDebug("Lỗi khi đánh dấu đã đọc:", err);
+      console.error("Lỗi khi đánh dấu đã đọc:", err);
+    }
+  };
+  
+  // Mark all as read with animation
+  const markAllAsRead = async () => {
+    logDebug(`markAllAsRead - Đánh dấu tất cả thông báo đã đọc`);
+    
+    try {
+      if (!userId) {
+        logDebug("Không tìm thấy userId, không thể đánh dấu tất cả đã đọc");
+        return;
+      }
+      
+      // Lưu trạng thái ban đầu
+      const originalNotifications = [...notifications];
+      
+      // Cập nhật UI dựa trên tab đang hiển thị
+      if (filter === "unread") {
+        // Nếu đang ở tab "Chưa đọc", đánh dấu tất cả là đã đọc trước
+        logDebug(`Đang ở tab "Chưa đọc", đánh dấu tất cả đã đọc với hiệu ứng`);
+        
+        // Cập nhật UI để hiển thị tất cả đã đọc trước khi loại bỏ
+        setNotifications(prevNotifications => 
+          prevNotifications.map(n => ({ ...n, isRead: true }))
+        );
+        
+        // Sau một khoảng thời gian ngắn, làm trống danh sách
+        setTimeout(() => {
+          setNotifications([]);
+        }, 300);
+      } 
+      else {
+        // Nếu đang ở tab khác, chỉ cập nhật trạng thái
+        logDebug(`Đang ở tab khác, cập nhật trạng thái isRead cho tất cả`);
+        setNotifications(prevNotifications => 
+          prevNotifications.map(n => ({ ...n, isRead: true }))
+        );
+      }
+      
+      // Gọi API để đánh dấu tất cả đã đọc
+      try {
+        const result = await markAllNotificationsAsRead(userId);
+        
+        if (__DEV__) {
+          if (result.success) {
+            logDebug(`Đã đánh dấu tất cả thông báo đã đọc thành công`);
+          } else {
+            console.warn(`Thất bại khi đánh dấu tất cả thông báo đã đọc: ${result.message}`);
+            
+            // Chỉ khôi phục UI nếu thực sự cần thiết
+            // setNotifications(originalNotifications);
+          }
+        }
+      } catch (error) {
+        // Xử lý lỗi một cách im lặng
+        if (__DEV__) {
+          console.error('Lỗi khi đánh dấu tất cả thông báo đã đọc:', error);
+        }
+        
+        // Không khôi phục UI để giữ trải nghiệm người dùng mượt mà
+        // setNotifications(originalNotifications);
+      }
+    } catch (err: any) {
+      logDebug("Lỗi khi đánh dấu tất cả đã đọc:", err);
+      console.error("Lỗi khi đánh dấu tất cả đã đọc:", err);
+    }
+  };
+  
+  // Xóa thông báo
+  const handleDeleteNotification = async (id: string) => {
+    logDebug(`handleDeleteNotification - Xóa thông báo, ID: ${id}`);
+    
+    try {
+      // Lưu trạng thái thông báo ban đầu để có thể khôi phục nếu cần
+      const originalNotifications = [...notifications];
+      
+      // Cập nhật UI ngay lập tức (optimistic update)
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      
+      // Gọi API để xóa thông báo
+      try {
+        const result = await deleteNotification(id);
+        
+        if (__DEV__) {
+          if (result.success) {
+            logDebug(`Đã xóa thông báo ID: ${id} thành công`);
+          } else {
+            console.warn(`Thất bại khi xóa thông báo: ${result.message}`);
+            
+            // Khôi phục UI nếu xóa thất bại
+            setNotifications(originalNotifications);
+            
+            // Thông báo lỗi
+            Alert.alert("Lỗi", "Không thể xóa thông báo. Vui lòng thử lại sau.");
+          }
+        }
+      } catch (error) {
+        // Xử lý lỗi
+        if (__DEV__) {
+          console.error('Lỗi khi xóa thông báo:', error);
+        }
+        
+        // Khôi phục UI nếu có lỗi
+        setNotifications(originalNotifications);
+        Alert.alert("Lỗi", "Không thể xóa thông báo. Vui lòng thử lại sau.");
+      }
+    } catch (err: any) {
+      logDebug("Lỗi khi xóa thông báo:", err);
+      console.error("Lỗi khi xóa thông báo:", err);
+    }
+  };
+  
+  // Filter options
+  const filterOptions = [
+    { label: "Tất cả", value: "all" },
+    { label: "Chưa đọc", value: "unread" },
+    { label: "Đã đọc", value: "read" },
+    { label: "Đăng ký", value: NotificationType.Registration },
+    { label: "Sự kiện", value: NotificationType.Show },
+    { label: "Thanh toán", value: NotificationType.Payment },
+    { label: "Hệ thống", value: NotificationType.System },
+  ];
+  
   // Count unread notifications
   const unreadCount = notifications.filter(
     (notification) => !notification.isRead
   ).length;
-
-  // Filter options
-  const filterOptions = [
-    { label: "All", value: "all" },
-    { label: "Events", value: NotificationType.EVENT },
-    { label: "Registration", value: NotificationType.REGISTRATION },
-    { label: "Purchases", value: NotificationType.PURCHASE },
-    { label: "Results", value: NotificationType.RESULT },
-  ];
-
+  
+  logDebug(`Rendering component với ${notifications.length} thông báo, ${unreadCount} chưa đọc`);
+  
+  // Handle scroll to end
+  const handleLoadMore = () => {
+    if (currentPage < totalPages && !isLoadingMore && !refreshing) {
+      logDebug(`handleLoadMore - Tải thêm thông báo, Page: ${currentPage + 1}`);
+      fetchNotifications(currentPage + 1, filter === "all" ? undefined : filter, true);
+    }
+  };
+  
+  // Sửa lại hiệu ứng animation cho empty icon - chỉ sử dụng scale để tránh lỗi
+  useEffect(() => {
+    if (notifications.length === 0 && !loading) {
+      // Tạo hiệu ứng đơn giản cho icon với chỉ scale
+      Animated.sequence([
+        Animated.timing(emptyIconScale, {
+          toValue: 1.1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(emptyIconScale, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        })
+      ]).start(() => {
+        // Lặp lại hiệu ứng sau 3 giây
+        setTimeout(() => {
+          if (notifications.length === 0) {
+            Animated.loop(
+              Animated.sequence([
+                Animated.timing(emptyIconScale, {
+                  toValue: 1.1,
+                  duration: 800,
+                  useNativeDriver: true
+                }),
+                Animated.timing(emptyIconScale, {
+                  toValue: 1,
+                  duration: 800,
+                  useNativeDriver: true
+                })
+              ]),
+              { iterations: 2 }
+            ).start();
+          }
+        }, 3000);
+      });
+    }
+  }, [notifications.length, loading]);
+  
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/frame-12.png",
-            }}
-            style={styles.backIcon}
-          />
-        </TouchableOpacity>
-        <Text style={styles.title}>Notifications</Text>
+        <Pressable
+          onPress={() => {
+            logDebug("Nhấn nút quay lại");
+            router.back();
+          }}
+          android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: true }}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && Platform.OS === 'ios' ? { opacity: 0.7 } : {}
+          ]}>
+          <Ionicons name="arrow-back" size={24} color="#333333" />
+        </Pressable>
+        <Text style={styles.title}>Thông báo</Text>
         {unreadCount > 0 && (
-          <TouchableOpacity
-            onPress={markAllAsRead}
-            style={styles.markAllReadButton}>
-            <Text style={styles.markAllReadText}>Mark all read</Text>
-          </TouchableOpacity>
+          <Pressable
+            onPress={() => {
+              logDebug(`Nhấn nút đánh dấu tất cả đã đọc (${unreadCount} thông báo)`);
+              markAllAsRead();
+            }}
+            android_ripple={{ color: 'rgba(74, 144, 226, 0.1)', borderless: true }}
+            style={({ pressed }) => [
+              styles.markAllReadButton,
+              pressed && Platform.OS === 'ios' ? { opacity: 0.7 } : {}
+            ]}>
+            <Text style={styles.markAllReadText}>Đánh dấu đã đọc</Text>
+          </Pressable>
         )}
       </View>
 
@@ -356,13 +898,19 @@ const Notifications: React.FC = () => {
         style={styles.filterContainer}
         contentContainerStyle={styles.filterContent}>
         {filterOptions.map((option) => (
-          <TouchableOpacity
+          <Pressable
             key={option.value}
-            style={[
+            style={({ pressed }) => [
               styles.filterTab,
               filter === option.value && styles.activeFilterTab,
+              pressed && styles.filterTabPressed
             ]}
-            onPress={() => setFilter(option.value as NotificationType | "all")}>
+            onPress={() => {
+              if (filter !== option.value) {
+                logDebug(`Thay đổi bộ lọc từ "${filter}" sang "${option.value}"`);
+                setFilter(option.value);
+              }
+            }}>
             <Text
               style={[
                 styles.filterText,
@@ -370,66 +918,116 @@ const Notifications: React.FC = () => {
               ]}>
               {option.label}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </ScrollView>
 
+      {/* Error message */}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity 
+            style={styles.retryButton}
+            onPress={() => {
+              logDebug("Nhấn nút thử lại sau khi gặp lỗi");
+              setLoading(true);
+              fetchNotifications();
+            }}>
+            <Text style={styles.retryText}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Notifications list */}
-      {loading ? (
+      {loading && !isLoadingMore ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4A90E2" />
         </View>
-      ) : filteredNotifications.length === 0 ? (
+      ) : notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/empty-notifications.png",
-            }}
-            style={styles.emptyIcon}
-          />
-          <Text style={styles.emptyText}>No notifications</Text>
+          <Animated.View style={{
+            transform: [
+              { scale: emptyIconScale }
+            ]
+          }}>
+            <Ionicons name="notifications-off-outline" size={80} color="#CCCCCC" style={styles.emptyIcon} />
+          </Animated.View>
+          <Text style={styles.emptyText}>Không có thông báo</Text>
           <Text style={styles.emptySubtext}>
-            You don't have any notifications at the moment
+            Bạn chưa có thông báo nào {filter !== "all" ? `trong mục "${filterOptions.find(o => o.value === filter)?.label || filter}"` : ""}
           </Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.refreshButton,
+              pressed && { opacity: 0.8 }
+            ]}
+            android_ripple={{ color: 'rgba(74, 144, 226, 0.2)' }}
+            onPress={onRefresh}>
+            <Text style={styles.refreshButtonText}>Làm mới</Text>
+          </Pressable>
         </View>
       ) : (
         <ScrollView
+          ref={scrollViewRef}
           style={styles.notificationsContainer}
           contentContainerStyle={styles.scrollViewContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }>
-          {filteredNotifications.map((notification) => (
+          }
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            const paddingToBottom = 20;
+            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= 
+              contentSize.height - paddingToBottom;
+            
+            if (isCloseToBottom) {
+              handleLoadMore();
+            }
+          }}
+          scrollEventThrottle={400}>
+          {notifications.map((notification) => (
             <NotificationItem
               key={notification.id}
               notification={notification}
               onPress={handleNotificationPress}
               onMarkAsRead={markAsRead}
+              onDelete={handleDeleteNotification}
             />
           ))}
+          
+          {/* Loading indicator at the bottom when loading more */}
+          {isLoadingMore && (
+            <View style={styles.loadMoreIndicator}>
+              <ActivityIndicator size="small" color="#4A90E2" />
+              <Text style={styles.loadMoreText}>Đang tải thêm...</Text>
+            </View>
+          )}
+          
+          {/* "No more notifications" message if on the last page */}
+          {currentPage === totalPages && notifications.length > 0 && !isLoadingMore && (
+            <Text style={styles.noMoreNotificationsText}>
+              Không còn thêm thông báo nào
+            </Text>
+          )}
         </ScrollView>
       )}
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNavigation}>
-        <TouchableOpacity
-          style={styles.iconContainer}
-          onPress={() => router.push("/(tabs)/home/homepage")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/frame-14.png",
-            }}
-            style={styles.icon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.iconContainer, styles.activeIconContainer]}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/frame-16.png",
-            }}
-            style={[styles.icon, styles.activeIcon]}
-          />
+        <Pressable
+          style={({ pressed }) => [
+            styles.iconContainer,
+            pressed && Platform.OS === 'ios' ? { opacity: 0.7 } : {}
+          ]}
+          android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: true }}
+          onPress={() => {
+            logDebug("Nhấn nút điều hướng đến trang chủ");
+            router.push("/(tabs)/home/homepage");
+          }}>
+          <Ionicons name="home-outline" size={24} color="#666666" />
+        </Pressable>
+        <View style={[styles.iconContainer, styles.activeIconContainer]}>
+          <Ionicons name="notifications" size={24} color="#4A90E2" />
           {unreadCount > 0 && (
             <View style={styles.badgeContainer}>
               <Text style={styles.badgeText}>
@@ -437,17 +1035,19 @@ const Notifications: React.FC = () => {
               </Text>
             </View>
           )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.iconContainer}
-          onPress={() => router.push("/(tabs)/home/UserMenu")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/frame-15.png",
-            }}
-            style={styles.icon}
-          />
-        </TouchableOpacity>
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.iconContainer,
+            pressed && Platform.OS === 'ios' ? { opacity: 0.7 } : {}
+          ]}
+          android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: true }}
+          onPress={() => {
+            logDebug("Nhấn nút điều hướng đến menu người dùng");
+            router.push("/(tabs)/home/UserMenu");
+          }}>
+          <Ionicons name="person-outline" size={24} color="#666666" />
+        </Pressable>
       </View>
     </View>
   );
@@ -480,7 +1080,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontFamily: "Poppins",
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
     fontSize: 24,
     fontWeight: "700",
     color: "#030303",
@@ -510,9 +1110,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: "#F5F5F5",
+    marginHorizontal: 4,
   },
   activeFilterTab: {
     backgroundColor: "#4A90E2",
+  },
+  filterTabPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
   filterText: {
     fontSize: 14,
@@ -534,8 +1139,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyIcon: {
-    width: 80,
-    height: 80,
     marginBottom: 16,
   },
   emptyText: {
@@ -548,6 +1151,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666666",
     textAlign: "center",
+    marginBottom: 20,
   },
   notificationsContainer: {
     flex: 1,
@@ -558,20 +1162,70 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingBottom: 20,
   },
+  // Error Styles
+  errorContainer: {
+    padding: 16,
+    backgroundColor: "#FEE7E7",
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: "#E74C3C",
+    flex: 1,
+  },
+  retryButton: {
+    padding: 8,
+    backgroundColor: "#E74C3C",
+    borderRadius: 4,
+  },
+  retryText: {
+    color: "#FFFFFF",
+    fontWeight: "500",
+  },
+  // Pagination Styles
+  paginationContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  paginationButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#4A90E2",
+    borderRadius: 4,
+  },
+  paginationButtonDisabled: {
+    backgroundColor: "#CCCCCC",
+  },
+  paginationButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "500",
+  },
+  paginationText: {
+    marginHorizontal: 16,
+    color: "#666666",
+  },
   // Notification Item Styles
   itemContainer: {
     width: "100%",
     marginVertical: 6,
     borderRadius: 12,
-    backgroundColor: "#FFFFFF",
+    overflow: 'hidden',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+    backgroundColor: 'transparent',
   },
   itemRead: {
-    opacity: 0.7,
+    opacity: 0.9,
   },
   itemContent: {
     flex: 1,
@@ -581,16 +1235,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   iconBackground: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
-  },
-  itemIcon: {
-    width: 20,
-    height: 20,
   },
   itemTextContainer: {
     flex: 1,
@@ -598,18 +1248,29 @@ const styles = StyleSheet.create({
   },
   itemTitle: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#333333",
     marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  itemTitleRead: {
+    fontWeight: "500",
+    color: "#666666",
   },
   itemDescription: {
     fontSize: 14,
+    fontWeight: "400",
     color: "#666666",
     marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+  },
+  itemDescriptionRead: {
+    color: "#888888",
   },
   itemDate: {
     fontSize: 12,
     color: "#999999",
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   unreadIndicator: {
     width: 10,
@@ -619,9 +1280,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   itemChevron: {
-    width: 16,
-    height: 16,
     marginLeft: 8,
+    opacity: 0.6,
   },
   // Bottom Navigation Styles
   bottomNavigation: {
@@ -643,14 +1303,6 @@ const styles = StyleSheet.create({
   activeIconContainer: {
     backgroundColor: "#F5F5F5",
   },
-  icon: {
-    width: 24,
-    height: 24,
-    resizeMode: "contain",
-  },
-  activeIcon: {
-    tintColor: "#4A90E2",
-  },
   badgeContainer: {
     position: "absolute",
     top: 0,
@@ -667,6 +1319,43 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "700",
+  },
+  // Delete button styles
+  deleteButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#FEE7E7',
+  },
+  // Loading more indicator
+  loadMoreIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  loadMoreText: {
+    color: '#666666',
+    fontSize: 14,
+  },
+  noMoreNotificationsText: {
+    textAlign: 'center',
+    color: '#999999',
+    fontSize: 14,
+    paddingVertical: 16,
+    fontStyle: 'italic',
+  },
+  refreshButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: "#4A90E2",
+    borderRadius: 25,
+    marginTop: 16,
+  },
+  refreshButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 16,
   },
 });
 

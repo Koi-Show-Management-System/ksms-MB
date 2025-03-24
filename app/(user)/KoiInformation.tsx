@@ -24,10 +24,13 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 // --- Interfaces ---
 interface Achievement {
-  icon: string;
+  id: string;
+  icon?: string;
   title: string;
   category: string;
   year: number;
+  show: string;
+  location?: string;
 }
 
 // Mở rộng interface KoiProfile để thêm competitionHistory
@@ -42,6 +45,7 @@ interface CompetitionEntry {
 // Tạo interface mở rộng từ KoiProfile gốc 
 interface KoiProfile extends BaseKoiProfile {
   competitionHistory?: CompetitionEntry[];
+  achievements?: Achievement[];
 }
 
 // --- Main Component ---
@@ -145,6 +149,28 @@ export default function KoiInformation() {
     }
   }, [selectedMedia, selectedMediaType, videoPlayer]);
 
+  // Dữ liệu mẫu cho thành tích nếu không có từ API
+  const sampleAchievements: Achievement[] = [
+    {
+      id: '1',
+      title: 'Grand Champion',
+      category: 'Kohaku',
+      year: 2022,
+      show: 'All Japan Koi Show',
+      location: 'Tokyo, Japan',
+      icon: 'trophy'
+    },
+    {
+      id: '2',
+      title: 'First Place',
+      category: 'Small Fish Champion',
+      year: 2021,
+      show: 'International Koi Expo',
+      location: 'Osaka, Japan',
+      icon: 'medal'
+    }
+  ];
+
   useEffect(() => {
     const fetchKoiData = async () => {
       try {
@@ -159,7 +185,14 @@ export default function KoiInformation() {
         
         if (response.statusCode === 200) {
           console.log("Nhận được dữ liệu cá Koi:", response.data);
-          setKoiData(response.data);
+          
+          // Nếu không có thành tích trong dữ liệu API, thêm dữ liệu mẫu
+          const koiDataWithAchievements = {
+            ...response.data,
+            achievements: (response.data as any).achievements || sampleAchievements
+          };
+          
+          setKoiData(koiDataWithAchievements);
           
           // Lưu trữ tất cả media
           if (response.data.koiMedia && response.data.koiMedia.length > 0) {
@@ -413,6 +446,42 @@ export default function KoiInformation() {
               </View>
             )}
           </View>
+          
+          {/* Phần thành tích */}
+          {koiData.achievements && koiData.achievements.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Thành tích</Text>
+              <View style={styles.achievementsList}>
+                {koiData.achievements.map((achievement, index) => (
+                  <View key={index} style={styles.achievementCard}>
+                    <View style={styles.achievementHeader}>
+                      <View style={[styles.achievementIcon, index === 0 ? styles.goldIcon : styles.silverIcon]}>
+                        <Text style={styles.achievementIconText}>
+                          {achievement.icon === 'trophy' ? '🏆' : '🥇'}
+                        </Text>
+                      </View>
+                      <View style={styles.achievementTitleContainer}>
+                        <Text style={styles.achievementTitle}>{achievement.title}</Text>
+                        <Text style={styles.achievementSubtitle}>
+                          {achievement.show} - {achievement.year}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.achievementDetails}>
+                      <Text style={styles.achievementDetail}>
+                        <Text style={styles.achievementDetailLabel}>Danh mục:</Text> {achievement.category}
+                      </Text>
+                      {achievement.location && (
+                        <Text style={styles.achievementDetail}>
+                          <Text style={styles.achievementDetailLabel}>Địa điểm:</Text> {achievement.location}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
 
           {/* Phần hình ảnh và video */}
           <Text style={styles.sectionTitle}>Hình ảnh & Video</Text>
@@ -994,5 +1063,72 @@ const styles = StyleSheet.create({
   footerIcon: {
     width: 28,
     height: 28,
+  },
+
+  // Achievement Styles
+  achievementsList: {
+    marginBottom: 24,
+  },
+  achievementCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  achievementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  achievementIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  goldIcon: {
+    backgroundColor: '#FFCC00',
+  },
+  silverIcon: {
+    backgroundColor: '#C0C0C0',
+  },
+  achievementIconText: {
+    fontSize: 20,
+  },
+  achievementTitleContainer: {
+    flex: 1,
+  },
+  achievementTitle: {
+    fontSize: 16,
+    fontFamily: 'Poppins_700Bold',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  achievementSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Poppins_400Regular',
+    color: '#4B5563',
+  },
+  achievementDetails: {
+    marginTop: 4,
+  },
+  achievementDetail: {
+    fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
+    color: '#4B5563',
+    marginBottom: 4,
+  },
+  achievementDetailLabel: {
+    fontFamily: 'Poppins_700Bold',
+    color: '#4B5563',
   },
 });
