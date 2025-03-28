@@ -1,6 +1,6 @@
 import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState, useCallback, memo } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -11,10 +11,10 @@ import {
   View,
   FlatList,
 } from "react-native";
-import { getKoiShowById, KoiShow } from "../../../services/showService";
-import { CompetitionCategory, getCompetitionCategories } from "../../../services/registrationService";
-import KoiContestants from "./KoiContestants";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import KoiContestants from "./KoiContestants";
+import { KoiShowProvider, useKoiShow } from "../../../context/KoiShowContext";
+import { CompetitionCategory } from "../../../services/registrationService";
 
 // Skeleton Component
 const SkeletonLoader = () => {
@@ -90,14 +90,64 @@ const SkeletonLoader = () => {
   );
 };
 
+// Wrapper component
 const KoiShowInformation: React.FC = () => {
   const params = useLocalSearchParams();
   const id = params.id as string;
 
-  const [showData, setShowData] = useState<KoiShow | null>(null);
-  const [categories, setCategories] = useState<CompetitionCategory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  return (
+    <KoiShowProvider showId={id}>
+      <KoiShowInformationContent />
+    </KoiShowProvider>
+  );
+};
+
+// Memoized CategoryItem
+const CategoryItem = memo(({ item }: { item: CompetitionCategory }) => (
+  <View style={styles.categoryCard}>
+    <View style={styles.categoryHeader}>
+      <Text style={styles.categoryName}>{item.name}</Text>
+    </View>
+    
+    <View style={styles.categoryFeeContainer}>
+      <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
+      <Text style={styles.categoryFee}>{item.registrationFee.toLocaleString('vi-VN')} đ</Text>
+    </View>
+    
+    <View style={styles.categoryDetailsContainer}>
+      <View style={styles.categoryDetailItem}>
+        <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
+        <Text style={styles.categoryDetailValue}>{item.sizeMin} - {item.sizeMax} cm</Text>
+      </View>
+      
+      <View style={styles.categoryDetailItem}>
+        <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
+        <Text style={styles.categoryDetailValue}>{item.maxEntries} Koi</Text>
+      </View>
+    </View>
+    
+    {item.description && (
+      <Text style={styles.categoryDescription}>{item.description}</Text>
+    )}
+    
+    {item.varieties && item.varieties.length > 0 && (
+      <View style={styles.varietiesContainer}>
+        <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
+        <View style={styles.varietiesList}>
+          {item.varieties.map((variety, index) => (
+            <View key={index} style={styles.varietyTag}>
+              <Text style={styles.varietyTagText}>{variety}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    )}
+  </View>
+));
+
+// Main content component
+const KoiShowInformationContent: React.FC = () => {
+  const { showData, categories, isLoading, error, refetch } = useKoiShow();
   const [expandedSections, setExpandedSections] = useState({
     eventDetails: true, // Open by default
     categories: true, // Open categories section by default
@@ -106,60 +156,20 @@ const KoiShowInformation: React.FC = () => {
     timeline: false, // Renamed from enteringKoi
   });
   const [activeTab, setActiveTab] = useState('info'); // 'info' or 'contestants'
-
-  // Fetch show data
-  useEffect(() => {
-    const fetchShowData = async () => {
-      try {
-        setLoading(true);
-        const data = await getKoiShowById(id);
-        setShowData(data);
-        setError("");
-        
-        // Sau khi lấy dữ liệu cuộc thi, lấy danh sách hạng mục
-        await fetchCategories(id);
-      } catch (err) {
-        console.error("Failed to fetch show details:", err);
-        setError("Failed to load show details. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchShowData();
-    } else {
-      setError("No show ID provided");
-      setLoading(false);
-    }
-  }, [id]);
   
-  // Fetch categories
-  const fetchCategories = async (showId: string) => {
-    try {
-      const response = await getCompetitionCategories(showId);
-      if (response && response.data && response.data.items) {
-        setCategories(response.data.items);
-        console.log(`Loaded ${response.data.items.length} categories`);
-      } else {
-        console.error("Invalid response format in fetchCategories:", response);
-      }
-    } catch (err) {
-      console.error("Failed to fetch categories:", err);
-      // Vẫn hiển thị thông tin show ngay cả khi không lấy được hạng mục
-    }
-  };
+  // Memo key extractor for FlatList
+  const keyExtractor = useCallback((item: CompetitionCategory) => item.id, []);
 
   // Toggle section expansion
-  const toggleSection = (section: keyof typeof expandedSections) => {
+  const toggleSection = useCallback((section: keyof typeof expandedSections) => {
     setExpandedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
     }));
-  };
+  }, []);
 
   // Format date function to display in a nicer way
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     try {
       const date = new Date(dateString);
       return date.toLocaleDateString("vi-VN", {
@@ -171,10 +181,10 @@ const KoiShowInformation: React.FC = () => {
       console.error("Date formatting error:", error);
       return dateString;
     }
-  };
+  }, []);
 
   // Format time function
-  const formatTime = (dateString: string) => {
+  const formatTime = useCallback((dateString: string) => {
     try {
       const date = new Date(dateString);
       return date.toLocaleTimeString("vi-VN", {
@@ -185,10 +195,10 @@ const KoiShowInformation: React.FC = () => {
       console.error("Time formatting error:", error);
       return "";
     }
-  };
+  }, []);
 
   // Check if date is today
-  const isToday = (dateString: string) => {
+  const isToday = useCallback((dateString: string) => {
     const today = new Date();
     const date = new Date(dateString);
     return (
@@ -196,10 +206,10 @@ const KoiShowInformation: React.FC = () => {
       date.getMonth() === today.getMonth() &&
       date.getFullYear() === today.getFullYear()
     );
-  };
+  }, []);
 
   // Format timeline content để đảm bảo là string
-  const formatTimelineContent = (content: any): string => {
+  const formatTimelineContent = useCallback((content: any): string => {
     if (typeof content === 'string') return content;
     if (content && typeof content === 'object') {
       if (content.title && content.content) {
@@ -208,10 +218,10 @@ const KoiShowInformation: React.FC = () => {
       return JSON.stringify(content);
     }
     return String(content || '');
-  };
+  }, []);
 
   // Format rule content để đảm bảo là string
-  const formatRuleContent = (rule: any): string => {
+  const formatRuleContent = useCallback((rule: any): string => {
     if (typeof rule === 'string') return rule;
     if (rule && typeof rule === 'object') {
       if (rule.id && rule.title && rule.content) {
@@ -222,10 +232,10 @@ const KoiShowInformation: React.FC = () => {
       return JSON.stringify(rule);
     }
     return String(rule || '');
-  };
+  }, []);
 
   // Format criterion content để đảm bảo là string
-  const formatCriterionContent = (criterion: any): string => {
+  const formatCriterionContent = useCallback((criterion: any): string => {
     if (typeof criterion === 'string') return criterion;
     if (criterion && typeof criterion === 'object') {
       if (criterion.id && criterion.title && criterion.content) {
@@ -236,53 +246,18 @@ const KoiShowInformation: React.FC = () => {
       return JSON.stringify(criterion);
     }
     return String(criterion || '');
-  };
+  }, []);
 
-  // Add this function to render categories
-  const renderCategoryItem = ({ item }: { item: CompetitionCategory }) => (
-    <View style={styles.categoryCard}>
-      <View style={styles.categoryHeader}>
-        <Text style={styles.categoryName}>{item.name}</Text>
-      </View>
-      
-      <View style={styles.categoryFeeContainer}>
-        <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
-        <Text style={styles.categoryFee}>{item.registrationFee.toLocaleString('vi-VN')} đ</Text>
-      </View>
-      
-      <View style={styles.categoryDetailsContainer}>
-        <View style={styles.categoryDetailItem}>
-          <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
-          <Text style={styles.categoryDetailValue}>{item.sizeMin} - {item.sizeMax} cm</Text>
-        </View>
-        
-        <View style={styles.categoryDetailItem}>
-          <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
-          <Text style={styles.categoryDetailValue}>{item.maxEntries} Koi</Text>
-        </View>
-      </View>
-      
-      {item.description && (
-        <Text style={styles.categoryDescription}>{item.description}</Text>
-      )}
-      
-      {item.varieties && item.varieties.length > 0 && (
-        <View style={styles.varietiesContainer}>
-          <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
-          <View style={styles.varietiesList}>
-            {item.varieties.map((variety, index) => (
-              <View key={index} style={styles.varietyTag}>
-                <Text style={styles.varietyTagText}>{variety}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      )}
-    </View>
-  );
+  // Memoized renderItem function for FlatList
+  const renderCategoryItem = useCallback(({ item }: { item: CompetitionCategory }) => (
+    <CategoryItem item={item} />
+  ), []);
+
+  // Spacer component for FlatList
+  const ItemSeparator = useCallback(() => <View style={{ width: 12 }} />, []);
 
   // Nếu đang loading, hiển thị skeleton
-  if (loading) {
+  if (isLoading) {
     return <SkeletonLoader />;
   }
 
@@ -291,7 +266,22 @@ const KoiShowInformation: React.FC = () => {
     return (
       <View style={styles.errorContainer}>
         <MaterialIcons name="error-outline" size={64} color="#e74c3c" />
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>{error.message}</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>Quay lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Nếu không có dữ liệu
+  if (!showData) {
+    return (
+      <View style={styles.errorContainer}>
+        <MaterialIcons name="info-outline" size={64} color="#3498db" />
+        <Text style={styles.errorText}>Không tìm thấy thông tin cuộc thi</Text>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}>
@@ -477,8 +467,7 @@ const KoiShowInformation: React.FC = () => {
             )}
           </View>
 
-          {/* Giữ các section khác như cũ */}
-          {/* Categories Section */}
+          {/* Categories Section - Sử dụng FlatList với performance optimization */}
           <View style={styles.sectionContainer}>
             <TouchableOpacity
               style={[
@@ -505,11 +494,15 @@ const KoiShowInformation: React.FC = () => {
                   <FlatList
                     data={categories}
                     renderItem={renderCategoryItem}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={keyExtractor}
                     horizontal={true}
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.categoriesContainer}
-                    ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+                    ItemSeparatorComponent={ItemSeparator}
+                    initialNumToRender={3}
+                    maxToRenderPerBatch={5}
+                    windowSize={5}
+                    removeClippedSubviews={true}
                   />
                 ) : (
                   <View style={styles.emptyStateContainer}>
@@ -714,7 +707,7 @@ const KoiShowInformation: React.FC = () => {
         </ScrollView>
       ) : (
         // Tab Thí sinh
-        <KoiContestants showId={id} />
+        <KoiContestants showId={showData.id} />
       )}
 
       {/* Footer with action buttons */}
@@ -724,7 +717,7 @@ const KoiShowInformation: React.FC = () => {
           onPress={() =>
             router.push({
               pathname: "/(tabs)/shows/BuyTickets",
-              params: { showId: id },
+              params: { showId: showData.id },
             })
           }>
           <MaterialIcons name="confirmation-number" size={20} color="#ffffff" />
@@ -734,8 +727,8 @@ const KoiShowInformation: React.FC = () => {
           style={[styles.actionButton, styles.registerButton]}
           onPress={() =>
             router.push({
-              pathname: "/(tabs)/shows/koiRegistration",
-              params: { showId: id },
+              pathname: "/(tabs)/shows/KoiRegistration",
+              params: { showId: showData.id },
             })
           }>
           <MaterialIcons name="app-registration" size={20} color="#ffffff" />
