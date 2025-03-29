@@ -67,102 +67,98 @@ const Footer: React.FC<FooterProps> = ({
   };
 
   return (
-    <LinearGradient
-      colors={['rgba(255,255,255,0.8)', '#FFFFFF']}
-      style={styles.footerContainer}
-    >
-      <BlurView intensity={80} style={styles.footerBlur}>
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={[styles.footerItem, activeTab === 'home' && styles.activeFooterItem]} 
-            onPress={handleHomePress}
-          >
+    <View style={styles.footerWrapper}>
+      <View style={styles.footerBorder} />
+      <View style={styles.footerContent}>
+        <TouchableOpacity 
+          style={[styles.footerItem, activeTab === 'home' && styles.activeFooterItem]} 
+          onPress={handleHomePress}
+        >
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-5.png",
+            }}
+            style={[styles.footerIcon, activeTab === 'home' && styles.activeFooterIcon]}
+          />
+          <Text style={[styles.footerText, activeTab === 'home' && styles.activeFooterText]}>Trang chủ</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.footerItem, activeTab === 'shows' && styles.activeFooterItem]}
+          onPress={handleShowsPress}
+        >
+          <Image
+            source={{
+              uri: "https://img.icons8.com/material-rounded/24/000000/calendar.png",
+            }}
+            style={[styles.footerIcon, activeTab === 'shows' && styles.activeFooterIcon]}
+          />
+          <Text style={[styles.footerText, activeTab === 'shows' && styles.activeFooterText]}>Sự kiện</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.footerCameraButton]}
+          onPress={handleCameraPress}
+        >
+          <View style={styles.footerCameraCircle}>
             <Image
               source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-5.png",
+                uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-6.png",
               }}
-              style={[styles.footerIcon, activeTab === 'home' && styles.activeFooterIcon]}
+              style={styles.footerCameraIcon}
             />
-            <Text style={[styles.footerText, activeTab === 'home' && styles.activeFooterText]}>Trang chủ</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.footerItem, activeTab === 'shows' && styles.activeFooterItem]}
-            onPress={handleShowsPress}
-          >
-            <Image
-              source={{
-                uri: "https://img.icons8.com/material-rounded/24/000000/calendar.png",
-              }}
-              style={[styles.footerIcon, activeTab === 'shows' && styles.activeFooterIcon]}
-            />
-            <Text style={[styles.footerText, activeTab === 'shows' && styles.activeFooterText]}>Sự kiện</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.footerCameraButton]}
-            onPress={handleCameraPress}
-          >
-            <View style={styles.footerCameraCircle}>
-              <Image
-                source={{
-                  uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-6.png",
-                }}
-                style={styles.footerCameraIcon}
-              />
-            </View>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.footerItem, activeTab === 'notifications' && styles.activeFooterItem]}
-            onPress={handleNotificationPress}
-          >
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-7.png",
-              }}
-              style={[styles.footerIcon, activeTab === 'notifications' && styles.activeFooterIcon]}
-            />
-            <Text style={[styles.footerText, activeTab === 'notifications' && styles.activeFooterText]}>Thông báo</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.footerItem, activeTab === 'profile' && styles.activeFooterItem]}
-            onPress={handleProfilePress}
-          >
-            <Image
-              source={{
-                uri: "https://img.icons8.com/material-rounded/24/000000/user.png",
-              }}
-              style={[styles.footerIcon, activeTab === 'profile' && styles.activeFooterIcon]}
-            />
-            <Text style={[styles.footerText, activeTab === 'profile' && styles.activeFooterText]}>Tài khoản</Text>
-          </TouchableOpacity>
-        </View>
-      </BlurView>
-    </LinearGradient>
+          </View>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.footerItem, activeTab === 'notifications' && styles.activeFooterItem]}
+          onPress={handleNotificationPress}
+        >
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-7.png",
+            }}
+            style={[styles.footerIcon, activeTab === 'notifications' && styles.activeFooterIcon]}
+          />
+          <Text style={[styles.footerText, activeTab === 'notifications' && styles.activeFooterText]}>Thông báo</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.footerItem, activeTab === 'profile' && styles.activeFooterItem]}
+          onPress={handleProfilePress}
+        >
+          <Image
+            source={{
+              uri: "https://img.icons8.com/material-rounded/24/000000/user.png",
+            }}
+            style={[styles.footerIcon, activeTab === 'profile' && styles.activeFooterIcon]}
+          />
+          <Text style={[styles.footerText, activeTab === 'profile' && styles.activeFooterText]}>Tài khoản</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  footerContainer: {
+  footerWrapper: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 80,
-  },
-  footerBlur: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  footer: {
+    backgroundColor: '#FFFFFF',
     height: 70,
+  },
+  footerBorder: {
+    height: 1,
+    width: '100%',
+    backgroundColor: '#F1F5F9',
+  },
+  footerContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
+    height: '100%',
     paddingBottom: Platform.OS === 'ios' ? 20 : 0,
   },
   footerItem: {
