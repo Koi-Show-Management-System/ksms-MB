@@ -30,7 +30,7 @@
     "@react-native-picker/picker": "2.9.0",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
-    "@tanstack/react-query": "^5.69.0",
+    "@tanstack/react-query": "^5.70.0",
     "axios": "^1.8.1",
     "date-fns": "^4.1.0",
     "expo": "^52.0.40",
@@ -92,7 +92,8 @@
     "react-devtools": "^6.1.1",
     "react-native-cli": "latest",
     "react-test-renderer": "19.0.0",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "cursor-tools": "latest"
   },
   "private": true,
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"

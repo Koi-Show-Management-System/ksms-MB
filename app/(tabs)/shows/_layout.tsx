@@ -17,7 +17,7 @@ export default function ShowsLayout() {
       <Stack.Screen name="StreamingShow" options={{ headerShown: false }} />
       <Stack.Screen name="LiveStream" options={{ headerShown: false }} />
       <Stack.Screen name="BuyTickets" options={{ headerShown: false }} />
-      <Stack.Screen name="koiRegistration" options={{ headerShown: false }} />
+      <Stack.Screen name="KoiRegistration" options={{ headerShown: false }} />
       <Stack.Screen name="ConfirmRegister" options={{ headerShown: false }} />
       <Stack.Screen name="AwardScreen" options={{ headerShown: false }} />
       <Stack.Screen name="Rule&FAQ" options={{ headerShown: false }} />

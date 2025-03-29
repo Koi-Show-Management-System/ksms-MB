@@ -439,65 +439,67 @@ const MyOrders: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Đơn hàng của tôi</Text>
-        <View style={{ width: 24 }} />
-      </View>
+    <View style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Đơn hàng của tôi</Text>
+          <View style={{ width: 24 }} />
+        </View>
 
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => handleTabChange("all")}>
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "all" && styles.activeTabText,
-            ]}>
-            Tất cả
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => handleTabChange("pending")}>
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "pending" && styles.activeTabText,
-            ]}>
-            Chờ thanh toán
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => handleTabChange("paid")}>
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "paid" && styles.activeTabText,
-            ]}>
-            Đã thanh toán
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.tab}
-          onPress={() => handleTabChange("cancelled")}>
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "cancelled" && styles.activeTabText,
-            ]}>
-            Đã hủy
-          </Text>
-        </TouchableOpacity>
-        <Animated.View style={[styles.indicator, indicatorStyle]} />
-        <View style={styles.bottomBorder} />
-      </View>
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => handleTabChange("all")}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "all" && styles.activeTabText,
+              ]}>
+              Tất cả
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => handleTabChange("pending")}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "pending" && styles.activeTabText,
+              ]}>
+              Chờ thanh toán
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => handleTabChange("paid")}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "paid" && styles.activeTabText,
+              ]}>
+              Đã thanh toán
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => handleTabChange("cancelled")}>
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "cancelled" && styles.activeTabText,
+              ]}>
+              Đã hủy
+            </Text>
+          </TouchableOpacity>
+          <Animated.View style={[styles.indicator, indicatorStyle]} />
+          <View style={styles.bottomBorder} />
+        </View>
 
-      {renderContent()}
+        {renderContent()}
+      </View>
     </View>
   );
 };

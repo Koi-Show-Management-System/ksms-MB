@@ -621,33 +621,6 @@ export default function KoiInformation() {
           )}
         </SafeAreaView>
       </Modal>
-
-      <View style={styles.footer}>
-        <TouchableOpacity onPress={() => router.push("/")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/frame-4.png",
-            }}
-            style={styles.footerIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/UserProfile")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/frame-5.png",
-            }}
-            style={styles.footerIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.push("/KoiList")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/frame-6.png",
-            }}
-            style={styles.footerIcon}
-          />
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -1048,21 +1021,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontFamily: 'Poppins_700Bold',
     fontSize: 16,
-  },
-
-  // Footer
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    height: 60,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
-  },
-  footerIcon: {
-    width: 28,
-    height: 28,
   },
 
   // Achievement Styles

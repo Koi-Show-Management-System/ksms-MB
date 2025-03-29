@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { router } from "expo-router";
+import Footer from "../../../components/Footer";
 
 interface AwardCardProps {
   title: string;
@@ -90,7 +92,7 @@ const AwardScreen: React.FC = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.homeButton}>
+        <TouchableOpacity style={styles.homeButton} onPress={() => router.push("/(tabs)/home/homepage")}>
           <Text style={styles.homeText}>Home</Text>
         </TouchableOpacity>
         <View style={styles.headerRight}>
@@ -105,7 +107,7 @@ const AwardScreen: React.FC = () => {
         </View>
       </View>
 
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Hero Section */}
         <View style={styles.heroSection}>
           <Text style={styles.title}>Koi Show Competition 2025</Text>
@@ -198,6 +200,9 @@ const AwardScreen: React.FC = () => {
           ))}
         </View>
       </ScrollView>
+      
+      {/* Thêm Footer */}
+      <Footer activeTab="shows" />
     </View>
   );
 };
@@ -205,10 +210,13 @@ const AwardScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F8F9FA",
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 80, // Thêm padding để tránh bị footer che phủ
   },
   header: {
     height: 64,

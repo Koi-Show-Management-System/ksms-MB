@@ -22,6 +22,17 @@ interface TransactionCardProps {
 }
 
 const TransactionCard: React.FC<TransactionCardProps> = ({ transaction }) => {
+  // Helper function để xác định style dựa trên trạng thái
+  const getStatusStyle = () => {
+    if (transaction.status === "Completed") {
+      return styles.completed;
+    } else if (transaction.status === "Pending") {
+      return styles.pending;
+    } else {
+      return styles.failed;
+    }
+  };
+  
   return (
     <View style={styles.card}>
       <View style={styles.cardContent}>
@@ -36,8 +47,7 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction }) => {
       </View>
       <View style={styles.cardContent}>
         <Text style={styles.cardDate}>{transaction.date}</Text>
-        <Text
-          style={[styles.cardStatus, styles[transaction.status.toLowerCase()]]}>
+        <Text style={[styles.cardStatus, getStatusStyle()]}>
           {transaction.status}
         </Text>
       </View>
@@ -168,7 +178,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     alignItems: "center",
-    paddingBottom: 20,
+    paddingBottom: 80,
   },
   // Transaction Card Styles
   card: {
@@ -214,6 +224,9 @@ const styles = StyleSheet.create({
   },
   pending: {
     color: "orange",
+  },
+  failed: {
+    color: "red",
   },
   // Bottom Navigation Styles
   bottomNavigation: {

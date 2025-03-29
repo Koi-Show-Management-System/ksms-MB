@@ -93,7 +93,7 @@ const KoiRegister: React.FC = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.scrollViewContainer}>
         {/* Header */}
         <View style={styles.header}>
@@ -206,8 +206,6 @@ const KoiRegister: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      {/* Footer */}
     </View>
   );
 };

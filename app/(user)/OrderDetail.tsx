@@ -611,7 +611,9 @@ const OrderDetail = () => {
         <View style={{ width: 24 }} />
       </View>
 
-      {renderContent()}
+      <View style={styles.contentContainer}>
+        {renderContent()}
+      </View>
     </View>
   );
 };
@@ -619,7 +621,10 @@ const OrderDetail = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#F8F9FA',
+  },
+  contentContainer: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -744,7 +749,8 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 80, // Add padding to prevent footer overlap
   },
   sectionContainer: {
     backgroundColor: '#FFF',

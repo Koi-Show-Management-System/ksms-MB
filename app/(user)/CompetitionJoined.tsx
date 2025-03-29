@@ -1,7 +1,7 @@
 // app/(user)/CompetitionJoined.tsx
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -355,45 +355,6 @@ const CompetitionJoined: React.FC = () => {
           }
         />
       )}
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => router.push("/(tabs)/home/homepage")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/home-icon.png",
-            }}
-            style={styles.footerIcon}
-          />
-          <Text style={styles.footerText}>Trang chủ</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => router.push("/(user)/Notification")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/notification-icon.png",
-            }}
-            style={styles.footerIcon}
-          />
-          <Text style={styles.footerText}>Thông báo</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => router.push("/(tabs)/home/UserMenu")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/profile-icon.png",
-            }}
-            style={styles.footerIcon}
-          />
-          <Text style={styles.footerText}>Hồ sơ</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };

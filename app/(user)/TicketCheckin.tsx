@@ -283,39 +283,6 @@ const TicketCheckin: React.FC = () => {
         <QRCodeSection />
         <RegisteredKoiFish koiFish={ticket.koiFish} />
       </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/(tabs)/home/homepage")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame-2.png",
-            }}
-            style={styles.footerIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/(user)/Notification")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame-4.png",
-            }}
-            style={styles.footerIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/(tabs)/home/UserMenu")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame-3.png",
-            }}
-            style={styles.footerIcon}
-          />
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
@@ -395,9 +362,7 @@ const styles = StyleSheet.create({
 
   // ScrollView
   scrollViewContent: {
-    flexGrow: 1,
-    alignItems: "center",
-    paddingBottom: 20,
+    paddingBottom: 80, // Add padding to prevent footer overlap
     width: "100%",
   },
 
@@ -556,26 +521,6 @@ const styles = StyleSheet.create({
     fontFamily: "Roboto",
     color: "#4b5563",
     marginBottom: 4,
-  },
-
-  // Footer Styles
-  footer: {
-    width: "100%",
-    height: 70,
-    backgroundColor: "#FFFFFF",
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#E5E5E5",
-  },
-  navItem: {
-    padding: 10,
-  },
-  footerIcon: {
-    width: 28,
-    height: 28,
-    resizeMode: "contain",
   },
 });
 

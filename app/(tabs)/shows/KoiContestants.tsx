@@ -269,127 +269,128 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={true}>
-      {/* Breadcrumb navigation */}
-      <View style={styles.breadcrumbContainer}>
-        <Text style={styles.breadcrumbText}>
-          {selectedCategoryName}
-          {selectedRoundType ? ` > ${roundTypeLabels[selectedRoundType]}` : ''}
-          {selectedRound && rounds.find(r => r.id === selectedRound) ? 
-            ` > ${rounds.find(r => r.id === selectedRound)?.name}` : ''}
-        </Text>
-      </View>
-
-      {/* Danh sách hạng mục */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Hạng mục thi đấu</Text>
-        <FlatList
-          data={categories}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={item => item.id}
-          renderItem={renderCategoryItem}
-          contentContainerStyle={styles.horizontalListContent}
-          nestedScrollEnabled={true}
-        />
-      </View>
-
-      {/* Danh sách loại vòng đấu */}
-      {selectedCategory && (
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Vòng đấu</Text>
-          <FlatList
-            data={roundTypes}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={item => item}
-            renderItem={renderRoundTypeItem}
-            contentContainerStyle={styles.horizontalListContent}
-            nestedScrollEnabled={true}
-          />
+    <View style={styles.container}>
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContentContainer}>
+        {/* Breadcrumb navigation */}
+        <View style={styles.breadcrumbContainer}>
+          <Text style={styles.breadcrumbText}>
+            {selectedCategoryName}
+            {selectedRoundType ? ` > ${roundTypeLabels[selectedRoundType]}` : ''}
+            {selectedRound && rounds.find(r => r.id === selectedRound) ? 
+              ` > ${rounds.find(r => r.id === selectedRound)?.name}` : ''}
+          </Text>
         </View>
-      )}
 
-      {/* Danh sách vòng đấu phụ */}
-      {selectedRoundType && rounds.length > 0 && (
+        {/* Danh sách hạng mục */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Vòng đấu phụ</Text>
+          <Text style={styles.sectionTitle}>Hạng mục thi đấu</Text>
           <FlatList
-            data={rounds}
+            data={categories}
             horizontal
             showsHorizontalScrollIndicator={false}
             keyExtractor={item => item.id}
-            renderItem={renderRoundItem}
+            renderItem={renderCategoryItem}
             contentContainerStyle={styles.horizontalListContent}
             nestedScrollEnabled={true}
           />
         </View>
-      )}
 
-      {/* Loading indicator */}
-      {loading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000000" />
-          <Text style={styles.loadingText}>Đang tải...</Text>
-        </View>
-      )}
-
-      {/* Error message */}
-      {!loading && error && (
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
-
-      {/* Danh sách thí sinh */}
-      {!loading && !error && contestants.length > 0 && (
-        <View style={styles.contestantsContainer}>
-          <Text style={styles.contestantsTitle}>
-            Thí sinh ({contestants.length})
-          </Text>
-          <View style={[
-            styles.contestantsWrapper, 
-            showAllContestants && styles.contestantsWrapperExpanded
-          ]}>
+        {/* Danh sách loại vòng đấu */}
+        {selectedCategory && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Vòng đấu</Text>
             <FlatList
-              data={contestants}
-              numColumns={2}
-              keyExtractor={item => item.id}
-              contentContainerStyle={styles.contestantsGrid}
-              renderItem={renderContestantItem}
-              showsVerticalScrollIndicator={false}
+              data={roundTypes}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={item => item}
+              renderItem={renderRoundTypeItem}
+              contentContainerStyle={styles.horizontalListContent}
               nestedScrollEnabled={true}
-              scrollEnabled={false}
             />
           </View>
-          
-          {!showAllContestants && contestants.length > 6 && (
-            <TouchableOpacity 
-              style={styles.showMoreButton}
-              onPress={handleShowMoreContestants}>
-              <Text style={styles.showMoreText}>Xem thêm</Text>
-              <MaterialIcons name="keyboard-arrow-down" size={20} color="#3498db" />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+        )}
 
-      {/* Chi tiết thí sinh (Modal) */}
+        {/* Danh sách vòng đấu phụ */}
+        {selectedRoundType && rounds.length > 0 && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Vòng đấu phụ</Text>
+            <FlatList
+              data={rounds}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={item => item.id}
+              renderItem={renderRoundItem}
+              contentContainerStyle={styles.horizontalListContent}
+              nestedScrollEnabled={true}
+            />
+          </View>
+        )}
+
+        {/* Loading indicator */}
+        {loading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#000000" />
+            <Text style={styles.loadingText}>Đang tải...</Text>
+          </View>
+        )}
+
+        {/* Error message */}
+        {!loading && error && (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Danh sách thí sinh */}
+        {!loading && !error && contestants.length > 0 && (
+          <View style={styles.contestantsContainer}>
+            <Text style={styles.contestantsTitle}>
+              Thí sinh ({contestants.length})
+            </Text>
+            <View style={[
+              styles.contestantsWrapper, 
+              showAllContestants && styles.contestantsWrapperExpanded
+            ]}>
+              <FlatList
+                data={contestants}
+                numColumns={2}
+                keyExtractor={item => item.id}
+                contentContainerStyle={styles.contestantsGrid}
+                renderItem={renderContestantItem}
+                showsVerticalScrollIndicator={false}
+                nestedScrollEnabled={true}
+                scrollEnabled={false}
+              />
+            </View>
+            
+            {!showAllContestants && contestants.length > 6 && (
+              <TouchableOpacity 
+                style={styles.showMoreButton}
+                onPress={handleShowMoreContestants}>
+                <Text style={styles.showMoreText}>Xem thêm</Text>
+                <MaterialIcons name="keyboard-arrow-down" size={20} color="#3498db" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Modal */}
       <Modal
         visible={showModal}
         animationType="fade"
         transparent={true}
-        onRequestClose={() => setShowModal(false)}
-      >
+        onRequestClose={() => setShowModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setShowModal(false)}>
               <MaterialIcons name="close" size={24} color="#000000" />
             </TouchableOpacity>
-
+            
             {selectedContestant ? (
               <View style={styles.fullDetailsContainer}>
                 {/* Tab Navigation */}
@@ -586,7 +587,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -606,6 +607,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    paddingBottom: 80, // Add padding to prevent footer overlap
   },
   breadcrumbContainer: {
     paddingHorizontal: 16,

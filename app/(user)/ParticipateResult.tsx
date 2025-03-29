@@ -360,149 +360,112 @@ const ParticipateResult: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="dark" />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/back-icon.png",
-            }}
-            style={styles.backIcon}
-          />
-          <Text style={styles.backText}>Quay lại</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chi tiết cuộc thi</Text>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/error-icon.png",
-            }}
-            style={styles.errorIcon}
-          />
-          <Text style={styles.errorTitle}>Đã xảy ra lỗi</Text>
-          <Text style={styles.errorText}>{error}</Text>
+    <View style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="dark" />
+        
+        {/* Header */}
+        <View style={styles.header}>
           <TouchableOpacity
-            style={styles.retryButton}
+            style={styles.backButton}
             onPress={() => router.back()}>
-            <Text style={styles.retryButtonText}>Quay lại</Text>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/back-icon.png",
+              }}
+              style={styles.backIcon}
+            />
+            <Text style={styles.backText}>Quay lại</Text>
           </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chi tiết cuộc thi</Text>
         </View>
-      ) : showDetail ? (
-        <Animated.ScrollView 
-          contentContainerStyle={styles.scrollContent} 
-          showsVerticalScrollIndicator={false}
-          style={{ opacity: fadeAnim }}
-        >
-          <CompetitionDetails showDetail={showDetail} />
-          
-          {showDetail.registrations.length > 0 ? (
-            <View style={styles.fishListContainer}>
-              {showDetail.registrations.map((registration) => (
-                <FishDetailsCard 
-                  key={registration.registrationId} 
-                  registration={registration} 
-                  onPress={() => handleViewFishDetail(registration)}
-                  onShare={() => handleShareResults(registration)}
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4A90E2" />
+            <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/error-icon.png",
+              }}
+              style={styles.errorIcon}
+            />
+            <Text style={styles.errorTitle}>Đã xảy ra lỗi</Text>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={() => router.back()}>
+              <Text style={styles.retryButtonText}>Quay lại</Text>
+            </TouchableOpacity>
+          </View>
+        ) : showDetail ? (
+          <Animated.ScrollView 
+            contentContainerStyle={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+            style={{ opacity: fadeAnim }}
+          >
+            <CompetitionDetails showDetail={showDetail} />
+            
+            {showDetail.registrations.length > 0 ? (
+              <View style={styles.fishListContainer}>
+                {showDetail.registrations.map((registration) => (
+                  <FishDetailsCard 
+                    key={registration.registrationId} 
+                    registration={registration} 
+                    onPress={() => handleViewFishDetail(registration)}
+                    onShare={() => handleShareResults(registration)}
+                  />
+                ))}
+                
+                <TouchableOpacity
+                  style={styles.joinOtherButton}
+                  onPress={handleJoinOtherCompetitions}>
+                  <LinearGradient
+                    colors={['#4A90E2', '#007AFF']}
+                    style={styles.gradientButton}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.joinOtherButtonText}>Tham gia cuộc thi khác</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Image
+                  source={{
+                    uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/empty-icon.png",
+                  }}
+                  style={styles.emptyIcon}
                 />
-              ))}
-              
-              <TouchableOpacity
-                style={styles.joinOtherButton}
-                onPress={handleJoinOtherCompetitions}>
-                <LinearGradient
-                  colors={['#4A90E2', '#007AFF']}
-                  style={styles.gradientButton}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.joinOtherButtonText}>Tham gia cuộc thi khác</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.emptyContainer}>
-              <Image
-                source={{
-                  uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/empty-icon.png",
-                }}
-                style={styles.emptyIcon}
-              />
-              <Text style={styles.emptyTitle}>Không có dữ liệu</Text>
-              <Text style={styles.emptyText}>Bạn chưa đăng ký cá nào cho cuộc thi này</Text>
-              
-              <TouchableOpacity
-                style={styles.joinOtherButton}
-                onPress={handleJoinOtherCompetitions}>
-                <LinearGradient
-                  colors={['#4A90E2', '#007AFF']}
-                  style={styles.gradientButton}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.joinOtherButtonText}>Tham gia cuộc thi</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          )}
-        </Animated.ScrollView>
-      ) : (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Không có dữ liệu</Text>
-        </View>
-      )}
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => router.push("/(tabs)/home/homepage")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/home-icon.png",
-            }}
-            style={styles.footerIcon}
-          />
-          <Text style={styles.footerText}>Trang chủ</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => router.push("/(user)/Notification")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/notification-icon.png",
-            }}
-            style={styles.footerIcon}
-          />
-          <Text style={styles.footerText}>Thông báo</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => router.push("/(tabs)/home/UserMenu")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/profile-icon.png",
-            }}
-            style={styles.footerIcon}
-          />
-          <Text style={styles.footerText}>Hồ sơ</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+                <Text style={styles.emptyTitle}>Không có dữ liệu</Text>
+                <Text style={styles.emptyText}>Bạn chưa đăng ký cá nào cho cuộc thi này</Text>
+                
+                <TouchableOpacity
+                  style={styles.joinOtherButton}
+                  onPress={handleJoinOtherCompetitions}>
+                  <LinearGradient
+                    colors={['#4A90E2', '#007AFF']}
+                    style={styles.gradientButton}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Text style={styles.joinOtherButtonText}>Tham gia cuộc thi</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Animated.ScrollView>
+        ) : (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Không có dữ liệu</Text>
+          </View>
+        )}
+      </SafeAreaView>
+    </View>
   );
 };
 
@@ -908,34 +871,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 20,
-  },
-  // Footer
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-    paddingBottom: 20, // Extra padding for iPhone home indicator
-    elevation: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  footerButton: {
-    alignItems: "center",
-  },
-  footerIcon: {
-    width: 24,
-    height: 24,
-    marginBottom: 4,
-  },
-  footerText: {
-    fontSize: 12,
-    color: "#666666",
   },
 });
 

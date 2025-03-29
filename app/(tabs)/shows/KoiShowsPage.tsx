@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Dimensions,
   Image,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     paddingTop: 8,
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   headerContainer: {
     backgroundColor: "#FFFFFF",

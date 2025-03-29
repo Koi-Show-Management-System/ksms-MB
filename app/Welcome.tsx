@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Footer from "../components/Footer";
 
 interface WelcomeScreenProps {
   onGetStarted?: () => void;
@@ -33,6 +34,8 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <Text style={styles.getStartedButtonText}>Get started</Text>
         </TouchableOpacity>
       </View>
+      
+      <Footer activeTab="home" />
     </View>
   );
 };

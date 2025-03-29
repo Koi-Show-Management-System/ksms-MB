@@ -147,39 +147,6 @@ const CompetitionTicket: React.FC = () => {
           </View>
         )}
       </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/(tabs)/home/homepage")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame-2.png",
-            }}
-            style={styles.footerIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/(user)/Notification")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame-4.png",
-            }}
-            style={styles.footerIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/(tabs)/home/UserMenu")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79OFXnogYAtZdZe/frame-3.png",
-            }}
-            style={styles.footerIcon}
-          />
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
@@ -225,7 +192,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollViewContent: {
-    padding: 16,
+    paddingBottom: 80, // Add padding to prevent footer overlap
+    paddingHorizontal: 16,
   },
   ticketCard: {
     backgroundColor: "#FFFFFF",
@@ -341,23 +309,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#FFFFFF",
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    height: 70,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E5E5",
-    backgroundColor: "#FFFFFF",
-  },
-  navItem: {
-    padding: 10,
-  },
-  footerIcon: {
-    width: 28,
-    height: 28,
-    resizeMode: "contain",
   },
 });
 

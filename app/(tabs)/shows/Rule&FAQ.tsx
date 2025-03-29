@@ -1,7 +1,6 @@
 // RuleAndFAQ.tsx
 import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons'; // Or any other icon library
 
 // --- Interfaces ---
 interface FAQItem {
@@ -118,23 +117,6 @@ const FAQSection: React.FC = () => {
   );
 };
 
-// --- Footer Component ---
-const Footer: React.FC = () => {
-  return (
-    <View style={styles.footerContainer}>
-      <TouchableOpacity style={styles.footerIconButton} onPress={() => { /* Navigate Home */ }}>
-        <Icon name="home" size={24} color="#000" />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.footerIconButton} onPress={() => { /* Navigate Notifications */ }}>
-        <Icon name="notifications" size={24} color="#000" />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.footerIconButton} onPress={() => { /* Navigate Profile */ }}>
-        <Icon name="person" size={24} color="#000" />
-      </TouchableOpacity>
-    </View>
-  );
-};
-
 // --- Main Component ---
 const RuleAndFAQ: React.FC = () => {
   return (
@@ -145,7 +127,6 @@ const RuleAndFAQ: React.FC = () => {
         <EnteringKoiSection />
         <FAQSection />
       </ScrollView>
-      <Footer />
     </View>
   );
 };
@@ -158,11 +139,11 @@ const styles = StyleSheet.create({
   },
 
   // ScrollView
-    scrollViewContent: {
-        flexGrow: 1, // Ensure it takes up all available space
-        paddingHorizontal: 16, // Add horizontal padding
-        paddingBottom: 20
-    },
+  scrollViewContent: {
+    flexGrow: 1, // Ensure it takes up all available space
+    paddingHorizontal: 16, // Add horizontal padding
+    paddingBottom: 80 // Increased to prevent footer overlap
+  },
 
   // Header Styles
   header: {
@@ -296,22 +277,6 @@ const styles = StyleSheet.create({
     color: '#666666',
     lineHeight: 20,
   },
-    // Footer Styles
-  footerContainer: {
-        width: '100%',
-        height: 70,
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        borderTopWidth: 1,
-        borderTopColor: '#E0E0E0', // Lighter border color
-        backgroundColor: '#FFFFFF', // White background
-    },
-  footerIconButton: {
-        padding: 10,
-    },
-
 });
 
 export default RuleAndFAQ;

@@ -168,7 +168,7 @@ const Homepage: React.FC = () => {
     {
       text: "Register",
       icon: "create-outline" as const,
-      route: "/(tabs)/shows/koiRegistration"
+      route: "/(tabs)/shows/KoiRegistration"
     },
     {
       text: "Judge",
@@ -185,7 +185,7 @@ const Homepage: React.FC = () => {
   // Update the registration button press handler
   const handleRegistrationPress = (show: KoiShow) => {
     router.push({
-      pathname: "/(tabs)/shows/koiRegistration" as const,
+      pathname: "/(tabs)/shows/KoiRegistration" as const,
       params: { id: show.id }
     });
   };
@@ -481,6 +481,9 @@ const Homepage: React.FC = () => {
             )}
           </View>
         </View>
+        
+        {/* Add bottom padding to avoid content being hidden by footer */}
+        <View style={{ height: 80 }} />
       </ScrollView>
     </SafeAreaView>
   );

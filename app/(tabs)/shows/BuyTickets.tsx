@@ -400,7 +400,7 @@ const BuyTickets: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Header />
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <Text style={styles.pageTitle}>Select Your Ticket</Text>
 
         {error && <Text style={styles.errorText}>{error}</Text>}
@@ -465,6 +465,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+  },
+  contentContainer: {
+    paddingBottom: 80, // Thêm padding để tránh bị footer che phủ
   },
   header: {
     flexDirection: "row",

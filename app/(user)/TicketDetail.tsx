@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     padding: 16,
-    paddingBottom: 40, // Add bottom padding to ensure content isn't cut off
+    paddingBottom: 80, // Tăng padding để tránh bị footer che phủ
   },
   eventDetailsContainer: {
     backgroundColor: "#FFFFFF",

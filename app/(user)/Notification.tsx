@@ -970,7 +970,7 @@ const Notifications: React.FC = () => {
         <ScrollView
           ref={scrollViewRef}
           style={styles.notificationsContainer}
-          contentContainerStyle={styles.scrollViewContent}
+          contentContainerStyle={[styles.scrollViewContent, { paddingBottom: 90 }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -1011,44 +1011,6 @@ const Notifications: React.FC = () => {
           )}
         </ScrollView>
       )}
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNavigation}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.iconContainer,
-            pressed && Platform.OS === 'ios' ? { opacity: 0.7 } : {}
-          ]}
-          android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: true }}
-          onPress={() => {
-            logDebug("Nhấn nút điều hướng đến trang chủ");
-            router.push("/(tabs)/home/homepage");
-          }}>
-          <Ionicons name="home-outline" size={24} color="#666666" />
-        </Pressable>
-        <View style={[styles.iconContainer, styles.activeIconContainer]}>
-          <Ionicons name="notifications" size={24} color="#4A90E2" />
-          {unreadCount > 0 && (
-            <View style={styles.badgeContainer}>
-              <Text style={styles.badgeText}>
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </Text>
-            </View>
-          )}
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            styles.iconContainer,
-            pressed && Platform.OS === 'ios' ? { opacity: 0.7 } : {}
-          ]}
-          android_ripple={{ color: 'rgba(0, 0, 0, 0.1)', borderless: true }}
-          onPress={() => {
-            logDebug("Nhấn nút điều hướng đến menu người dùng");
-            router.push("/(tabs)/home/UserMenu");
-          }}>
-          <Ionicons name="person-outline" size={24} color="#666666" />
-        </Pressable>
-      </View>
     </View>
   );
 };
@@ -1282,43 +1244,6 @@ const styles = StyleSheet.create({
   itemChevron: {
     marginLeft: 8,
     opacity: 0.6,
-  },
-  // Bottom Navigation Styles
-  bottomNavigation: {
-    width: "100%",
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    paddingVertical: 10,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-    paddingBottom: 20, // Extra padding for iPhone home indicator
-  },
-  iconContainer: {
-    padding: 10,
-    borderRadius: 8,
-  },
-  activeIconContainer: {
-    backgroundColor: "#F5F5F5",
-  },
-  badgeContainer: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    backgroundColor: "#E74C3C",
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 4,
-  },
-  badgeText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "700",
   },
   // Delete button styles
   deleteButton: {

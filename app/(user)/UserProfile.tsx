@@ -178,51 +178,6 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
   );
 };
 
-// --- Footer Component ---
-const Footer: React.FC = () => {
-  return (
-    <View style={styles.footerContainer}>
-      <TouchableOpacity
-        style={styles.footerIconButton}
-        onPress={() => router.push("/(tabs)/home/homepage")}>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/frame-2.png",
-          }}
-          style={styles.footerIcon}
-        />
-        <Text style={styles.footerText}>Home</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.footerIconButton}
-        onPress={() => router.push("/(user)/Notification")}>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/frame-4.png",
-          }}
-          style={styles.footerIcon}
-        />
-        <Text style={styles.footerText}>Notifications</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.footerIconButton, styles.activeFooterButton]}
-        onPress={() => {}}>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/frame-3.png",
-          }}
-          style={[styles.footerIcon, styles.activeFooterIcon]}
-        />
-        <Text style={[styles.footerText, styles.activeFooterText]}>
-          Profile
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
-
 // --- Password Change Modal ---
 interface PasswordModalProps {
   visible: boolean;
@@ -332,21 +287,19 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
 
 // --- Main UserProfile Component ---
 const UserProfile: React.FC = () => {
-  // Mock user data - in a real app, this would come from an API or context
-  const [userData, setUserData] = useState<UserData>({
-    username: "JohnDoe",
+  const [userData] = useState<UserData>({
+    username: "John Doe",
     email: "john.doe@example.com",
-    location: "New York, USA",
-    koiCount: 20,
-    phoneNumber: "+1 555 123 4567",
+    location: "San Francisco, CA",
+    koiCount: 15,
+    phoneNumber: "+1 234 567 8901",
     profileImage:
-      "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/group-9.png",
+      "https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     coverImage:
-      "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/koi-cover.jpg",
-    joinDate: "January 2022",
-    bio: "Passionate koi collector and enthusiast. I love attending koi exhibitions and sharing my knowledge with fellow enthusiasts.",
+      "https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    joinDate: "January 15, 2021",
+    bio: "Passionate koi collector and enthusiast for over 10 years.",
   });
-
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -410,8 +363,6 @@ const UserProfile: React.FC = () => {
         />
       </ScrollView>
 
-      <Footer />
-
       <PasswordChangeModal
         visible={passwordModalVisible}
         onClose={() => setPasswordModalVisible(false)}
@@ -430,7 +381,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    paddingBottom: 20,
+    paddingBottom: 80,
   },
 
   // Header Styles
@@ -622,46 +573,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     fontFamily: "Poppins",
-  },
-
-  // Footer Styles
-  footerContainer: {
-    width: "100%",
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-    paddingBottom: 10,
-  },
-  footerIconButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  activeFooterButton: {
-    borderTopWidth: 2,
-    borderTopColor: "#4A90E2",
-    paddingTop: 6,
-  },
-  footerIcon: {
-    width: 24,
-    height: 24,
-    marginBottom: 4,
-  },
-  activeFooterIcon: {
-    tintColor: "#4A90E2",
-  },
-  footerText: {
-    fontSize: 12,
-    color: "#666666",
-  },
-  activeFooterText: {
-    color: "#4A90E2",
-    fontWeight: "600",
   },
 
   // Modal Styles

@@ -1194,54 +1194,6 @@ const KoiList: React.FC = () => {
             </View>
           </BlurView>
         </Modal>
-
-        {/* Footer */}
-        <LinearGradient
-          colors={['rgba(255,255,255,0.8)', '#FFFFFF']}
-          style={styles.footerContainer}
-        >
-          <BlurView intensity={80} style={styles.footerBlur}>
-            <View style={styles.footer}>
-              <TouchableOpacity 
-                style={styles.footerItem} 
-                onPress={() => router.push("/")}
-              >
-                <Image
-                  source={{
-                    uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-5.png",
-                  }}
-                  style={styles.footerIcon}
-                />
-                <Text style={styles.footerText}>Trang chủ</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.footerItem}
-                onPress={() => router.push("/Notification")}
-              >
-                <Image
-                  source={{
-                    uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-7.png",
-                  }}
-                  style={styles.footerIcon}
-                />
-                <Text style={styles.footerText}>Thông báo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.footerCameraButton]}
-                onPress={() => alert("Đang phát triển tính năng camera")}
-              >
-                <View style={styles.footerCameraCircle}>
-                  <Image
-                    source={{
-                      uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-6.png",
-                    }}
-                    style={styles.footerCameraIcon}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-          </BlurView>
-        </LinearGradient>
       </View>
     </SafeAreaView>
   );

@@ -744,100 +744,64 @@ const FishStatus: React.FC = () => {
     "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png";
   
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/back-icon.png",
-            }}
-            style={styles.backIcon}
-          />
-          <Text style={styles.backText}>Quay lại</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chi tiết cá Koi</Text>
-      </View>
-      
-      <ScrollView contentContainerStyle={styles.scrollViewContent} showsVerticalScrollIndicator={false}>
-        <FishProfileHeader
-          fishName={fishData.koiName}
-          fishImage={fishImage}
-        />
+    <View style={{ flex: 1 }}>
+      <StatusBar style="auto" />
+      <SafeAreaView style={styles.container}>
+        <StatusBar style="dark" />
         
-        <FishDetails
-          breed={fishData.variety}
-          size={fishData.size.toString()}
-          age={fishData.age ? fishData.age.toString() : undefined}
-          gender={fishData.gender || undefined}
-          bloodline={fishData.bloodLine || undefined}
-          category={fishData.categoryName}
-        />
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/back-icon.png",
+              }}
+              style={styles.backIcon}
+            />
+            <Text style={styles.backText}>Quay lại</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chi tiết cá Koi</Text>
+        </View>
         
-        <CurrentStatus
-          status={fishData.status}
-          currentRound={fishData.currentRound || undefined}
-          award={fishData.award || undefined}
-          rank={fishData.rank !== null ? fishData.rank : undefined}
-          totalParticipants={totalParticipants}
-        />
-        
-        <PaymentInfo
-          paymentMethod={fishData.payment?.paymentMethod}
-          paidAmount={fishData.payment?.paidAmount}
-          paymentDate={fishData.payment?.paymentDate}
-          transactionCode={fishData.payment?.transactionCode}
-          status={fishData.payment?.status}
-        />
-        
-        <MediaGallery
-          media={fishData.media}
-        />
-      </ScrollView>
-      
-      {/* Footer */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => router.push("/(tabs)/home/homepage")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/home-icon.png",
-            }}
-            style={styles.footerIcon}
+        <ScrollView contentContainerStyle={styles.scrollViewContent} showsVerticalScrollIndicator={false}>
+          <FishProfileHeader
+            fishName={fishData.koiName}
+            fishImage={fishImage}
           />
-          <Text style={styles.footerText}>Trang chủ</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => router.push("/(user)/Notification")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/notification-icon.png",
-            }}
-            style={styles.footerIcon}
+          
+          <FishDetails
+            breed={fishData.variety}
+            size={fishData.size.toString()}
+            age={fishData.age ? fishData.age.toString() : undefined}
+            gender={fishData.gender || undefined}
+            bloodline={fishData.bloodLine || undefined}
+            category={fishData.categoryName}
           />
-          <Text style={styles.footerText}>Thông báo</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.footerButton}
-          onPress={() => router.push("/(tabs)/home/UserMenu")}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/profile-icon.png",
-            }}
-            style={styles.footerIcon}
+          
+          <CurrentStatus
+            status={fishData.status}
+            currentRound={fishData.currentRound || undefined}
+            award={fishData.award || undefined}
+            rank={fishData.rank !== null ? fishData.rank : undefined}
+            totalParticipants={totalParticipants}
           />
-          <Text style={styles.footerText}>Hồ sơ</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+          
+          <PaymentInfo
+            paymentMethod={fishData.payment?.paymentMethod}
+            paidAmount={fishData.payment?.paidAmount}
+            paymentDate={fishData.payment?.paymentDate}
+            transactionCode={fishData.payment?.transactionCode}
+            status={fishData.payment?.status}
+          />
+          
+          <MediaGallery
+            media={fishData.media}
+          />
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 };
 

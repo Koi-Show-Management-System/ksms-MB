@@ -132,68 +132,72 @@ const App: React.FC = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Header />
-      {/* ... (Rest of the code remains the same until the Featured Koi section) ... */}
-      <View style={styles.mainImageContainer}>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z7yr-COoSyo_4k6R/vector.png",
-          }}
-          style={styles.mainImage}
-          resizeMode="cover"
+    <View style={styles.container}>
+      <ScrollView 
+        style={styles.scrollView} 
+        contentContainerStyle={styles.scrollViewContent}
+      >
+        <Header />
+        <View style={styles.mainImageContainer}>
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7yr-COoSyo_4k6R/vector.png",
+            }}
+            style={styles.mainImage}
+            resizeMode="cover"
+          />
+        </View>
+        <Text style={styles.mainTitle}>Live Koi Show</Text>
+        <Text style={styles.description}>
+          Join our live stream to witness the beauty and elegance of koi fish from
+          around the world.
+        </Text>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: "#4A90E2" }]}
+            onPress={handleWatchLivePress}
+            activeOpacity={0.7}>
+            <Text style={[styles.buttonText, { color: "#FFFFFF" }]}>
+              Watch Live
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.button,
+              {
+                backgroundColor: "#FFFFFF",
+                borderWidth: 1,
+                borderColor: "#4A90E2",
+              },
+            ]}
+            onPress={handleChatPress}
+            activeOpacity={0.7}>
+            <Text style={[styles.buttonText, { color: "#4A90E2" }]}>Chat</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionTitle}>Upcoming Shows</Text>
+        <FlatList
+          data={upcomingShowsData}
+          renderItem={({ item }) => <UpcomingShowItem item={item} />}
+          keyExtractor={(item) => item.id}
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.showsCarouselContainer}
         />
-      </View>
-      <Text style={styles.mainTitle}>Live Koi Show</Text>
-      <Text style={styles.description}>
-        Join our live stream to witness the beauty and elegance of koi fish from
-        around the world.
-      </Text>
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: "#4A90E2" }]}
-          onPress={handleWatchLivePress}
-          activeOpacity={0.7}>
-          <Text style={[styles.buttonText, { color: "#FFFFFF" }]}>
-            Watch Live
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.button,
-            {
-              backgroundColor: "#FFFFFF",
-              borderWidth: 1,
-              borderColor: "#4A90E2",
-            },
-          ]}
-          onPress={handleChatPress}
-          activeOpacity={0.7}>
-          <Text style={[styles.buttonText, { color: "#4A90E2" }]}>Chat</Text>
-        </TouchableOpacity>
-      </View>
 
-      <Text style={styles.sectionTitle}>Upcoming Shows</Text>
-      <FlatList
-        data={upcomingShowsData}
-        renderItem={({ item }) => <UpcomingShowItem item={item} />}
-        keyExtractor={(item) => item.id}
-        horizontal={true}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.showsCarouselContainer}
-      />
-
-      <Text style={styles.sectionTitle}>Featured Koi</Text>
-      {/* --- Featured Koi Carousel --- */}
-      <FlatList
-        data={featuredKoiData}
-        renderItem={({ item }) => <FeaturedKoiItem item={item} />}
-        keyExtractor={(item) => item.id}
-        horizontal={true}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.featuredCarouselContainer}
-      />
-    </ScrollView>
+        <Text style={styles.sectionTitle}>Featured Koi</Text>
+        {/* --- Featured Koi Carousel --- */}
+        <FlatList
+          data={featuredKoiData}
+          renderItem={({ item }) => <FeaturedKoiItem item={item} />}
+          keyExtractor={(item) => item.id}
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.featuredCarouselContainer}
+        />
+      </ScrollView>
+    </View>
   );
 };
 
@@ -203,7 +207,13 @@ const windowHeight = Dimensions.get("window").height;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFFFFF",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    paddingBottom: 80, // Add padding to prevent footer overlap
   },
   headerContainer: {
     flexDirection: "row",

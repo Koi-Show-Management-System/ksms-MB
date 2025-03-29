@@ -370,7 +370,7 @@ const KoiShowInformationContent: React.FC = () => {
 
       {/* Nội dung Tab */}
       {activeTab === 'info' ? (
-        <ScrollView style={styles.scrollView}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
           {/* Chi tiết sự kiện */}
           <View style={styles.sectionContainer}>
             <TouchableOpacity
@@ -746,6 +746,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollViewContent: {
+    paddingBottom: 80, // Thêm padding để tránh bị footer che phủ
   },
   bannerContainer: {
     height: 200,
