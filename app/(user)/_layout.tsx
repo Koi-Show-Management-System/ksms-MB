@@ -1,10 +1,10 @@
 import { Stack } from "expo-router";
 import React from "react";
-import LayoutWithFooter from "../../components/LayoutWithFooter";
+import MainLayout from "../../components/MainLayout";
 
 export default function userLayout() {
   return (
-    <LayoutWithFooter>
+    <MainLayout title="KSMS" description="User Management">
       <Stack>
         <Stack.Screen name="KoiRegister" options={{ headerShown: false }} />
         <Stack.Screen name="KoiList" options={{ headerShown: false }} />
@@ -18,6 +18,6 @@ export default function userLayout() {
         <Stack.Screen name="OrderDetail" options={{ headerShown: false }} />
         <Stack.Screen name="TicketDetail" options={{ headerShown: false }} />
       </Stack>
-    </LayoutWithFooter>
+    </MainLayout>
   );
 }

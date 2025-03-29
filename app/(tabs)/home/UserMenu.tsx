@@ -93,29 +93,6 @@ const UserMenu: React.FC<UserMenuProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Home</Text>
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={() => {
-              /* Add search functionality here if needed */
-            }}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-6.png",
-              }}
-              style={styles.searchIcon}
-            />
-          </TouchableOpacity>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/group-6.png",
-            }}
-            style={styles.profileImage}
-          />
-        </View>
-      </View>
       <View style={styles.menuContainer}>
         {menuItems.map((item) => (
           <TouchableOpacity
@@ -144,37 +121,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    marginTop: 20,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    fontFamily: "Poppins",
-    color: "#030303",
-  },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  searchButton: {
-    padding: 8,
-  },
-  searchIcon: {
-    width: 18,
-    height: 18,
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
   },
   menuContainer: {
     paddingHorizontal: 16,

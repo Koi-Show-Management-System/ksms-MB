@@ -13,37 +13,6 @@ import {
   View,
 } from "react-native";
 
-// --- Header Component ---
-interface HeaderProps {
-  viewerCount: number;
-}
-
-const Header: React.FC<HeaderProps> = ({ viewerCount }) => {
-  return (
-    <View style={styles.headerContainer}>
-      <View style={styles.headerLogoContainer}>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z8Mislj1kitRpYQD/frame-4.png",
-          }}
-          style={styles.headerLogo}
-          resizeMode="contain"
-        />
-      </View>
-      <View style={styles.headerViewerCountContainer}>
-        <Image
-          source={{
-            uri: "https://dashboard.codeparrot.ai/api/image/Z8Mislj1kitRpYQD/group-16.png",
-          }}
-          style={styles.headerViewerIcon}
-          resizeMode="contain"
-        />
-        <Text style={styles.headerViewerCount}>{viewerCount}</Text>
-      </View>
-    </View>
-  );
-};
-
 // --- User Profile Icons Component ---
 const UserProfileIcons: React.FC = () => {
   // Sample profile data.  Replace with data from your API.
@@ -307,7 +276,6 @@ const StreamingShow: React.FC = () => {
           style={StyleSheet.absoluteFill} // This makes the image cover the entire container
           resizeMode="cover"
         />
-        <Header viewerCount={viewerCount} />
         <View style={styles.contentContainer}>
           <UserProfileIcons />
           <CommentsSection ref={commentsSectionRef} />
@@ -337,46 +305,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#000", // Black background, assuming a video will be behind
     justifyContent: "space-between", // Distribute space between components
     alignItems: "stretch", // Stretch components to full width
-  },
-
-  // Header Styles
-  headerContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    height: 60,
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // Semi-transparent background
-    position: "absolute", // Position at the top, over the video
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10, // Ensure it's above other content
-  },
-  headerLogoContainer: {
-    height: 40,
-    width: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerLogo: {
-    width: "100%",
-    height: "100%",
-  },
-  headerViewerCountContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  headerViewerIcon: {
-    width: 39,
-    height: 13,
-    marginRight: 8,
-  },
-  headerViewerCount: {
-    fontFamily: "Aleo", // Make sure this font is loaded
-    fontWeight: "700",
-    fontSize: 14, // Increased size
-    color: "#FFFFFF",
   },
 
   // User Profile Icons Styles

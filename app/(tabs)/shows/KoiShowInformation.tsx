@@ -709,32 +709,6 @@ const KoiShowInformationContent: React.FC = () => {
         // Tab Thí sinh
         <KoiContestants showId={showData.id} />
       )}
-
-      {/* Footer with action buttons */}
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.ticketButton]}
-          onPress={() =>
-            router.push({
-              pathname: "/(tabs)/shows/BuyTickets",
-              params: { showId: showData.id },
-            })
-          }>
-          <MaterialIcons name="confirmation-number" size={20} color="#ffffff" />
-          <Text style={styles.buttonText}>Mua vé tham quan</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.registerButton]}
-          onPress={() =>
-            router.push({
-              pathname: "/(tabs)/shows/KoiRegistration",
-              params: { showId: showData.id },
-            })
-          }>
-          <MaterialIcons name="app-registration" size={20} color="#ffffff" />
-          <Text style={styles.buttonText}>Đăng ký tham gia</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };

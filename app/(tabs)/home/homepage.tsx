@@ -15,7 +15,6 @@ import {
   View,
 } from "react-native";
 import { getKoiShows, KoiShow } from "../../../services/showService";
-import Header from "../../../components/Header";
 import { LinearGradient } from "expo-linear-gradient";
 
 const { width } = Dimensions.get("window");
@@ -311,7 +310,6 @@ const Homepage: React.FC = () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      <Header title="KSMS" description="" />
       <ScrollView style={[styles.scrollView, { backgroundColor: "#FFFFFF" }]}>
         {/* Dynamic Hero Section with Show Data */}
         <View style={styles.heroSection}>

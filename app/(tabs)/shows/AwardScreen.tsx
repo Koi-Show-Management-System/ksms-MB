@@ -9,7 +9,6 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
-import Footer from "../../../components/Footer";
 
 interface AwardCardProps {
   title: string;
@@ -88,132 +87,110 @@ const AwardScreen: React.FC = () => {
     </View>
   );
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.homeButton} onPress={() => router.push("/(tabs)/home/homepage")}>
-          <Text style={styles.homeText}>Home</Text>
-        </TouchableOpacity>
-        <View style={styles.headerRight}>
-          <TouchableOpacity>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z7wYT1CHtJJZ6wH5/group-2.png",
-              }}
-              style={styles.profileImage}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Hero Section */}
-        <View style={styles.heroSection}>
-          <Text style={styles.title}>Koi Show Competition 2025</Text>
-          <Text style={styles.title}>Winning Koi Results</Text>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7wYT1CHtJJZ6wH5/group-4.png",
-            }}
-            style={[
-              styles.heroImage,
-              { width: Math.min(windowWidth - 32, 300) },
-            ]}
-          />
-          <View style={styles.descriptionContainer}>
-            <Text style={styles.description}>
-              Congratulations to all winners of the 2024
-            </Text>
-            <Text style={styles.description}>
-              International Koi Show & Competition!
-            </Text>
-            <Text style={styles.description}>
-              Thank you to all participants and visitors.
-            </Text>
-          </View>
-          <Text style={styles.details}>Event Date: October 12-14, 2024</Text>
-          <Text style={styles.details}>
-            Venue: Tokyo International Exhibition Center
-          </Text>
-          <Text style={styles.details}>Total Participants: 150 breeders</Text>
-        </View>
-
-        {/* Major Awards Section */}
-        <Text style={styles.sectionTitle}>Major Awards</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.awardsContainer}>
-          <AwardCard
-            {...majorAwards.grandChampion}
-            onViewDetails={() => console.log("Grand Champion details")}
-          />
-          <AwardCard
-            {...majorAwards.matureChampion}
-            onViewDetails={() => console.log("Mature Champion details")}
-          />
-        </ScrollView>
-
-        {/* All Awards Section */}
-        <View style={styles.allAwardsSection}>
-          <Text style={styles.sectionTitle}>All Award-Winning Koi</Text>
-          <View style={styles.categoriesHeader}>
-            {Object.keys(awardsByCategory).map((category) => (
+  const renderAwardSections = () => {
+    return (
+      <View>
+        {Object.entries(awardsByCategory).map(([category, awards]) => (
+          <View key={category} style={styles.allAwardsSection}>
+            <View style={styles.categoriesHeader}>
               <TouchableOpacity
-                key={category}
-                onPress={() => setSelectedCategory(category)}
                 style={[
                   styles.categoryButton,
                   selectedCategory === category && styles.selectedCategory,
-                ]}>
+                ]}
+                onPress={() => setSelectedCategory(category)}>
                 <Text
                   style={[
                     styles.categoryLabel,
-                    selectedCategory === category &&
-                      styles.selectedCategoryText,
+                    selectedCategory === category && styles.selectedCategoryText,
                   ]}>
                   {category}
                 </Text>
               </TouchableOpacity>
+            </View>
+            {awards.map((award, index) => (
+              <View key={index} style={styles.listAwardCard}>
+                <Text style={styles.cardTitle}>{award.title}</Text>
+                <View style={styles.cardContent}>
+                  <Image
+                    source={{ uri: award.image }}
+                    style={styles.koiImageSmall}
+                  />
+                  <View style={styles.koiDetails}>
+                    <Text style={styles.koiName}>Koi: {award.koiName}</Text>
+                    <Text style={styles.ownerName}>Owner: {award.owner}</Text>
+                  </View>
+                  <TouchableOpacity style={styles.viewDetailsButton}>
+                    <Text style={styles.buttonText}>Details</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             ))}
           </View>
-          {awardsByCategory[
-            selectedCategory as keyof typeof awardsByCategory
-          ].map((winner, index) => (
-            <View key={index} style={styles.listAwardCard}>
-              <Text style={styles.cardTitle}>{winner.title}</Text>
-              <View style={styles.cardContent}>
-                <Image
-                  source={{ uri: winner.image }}
-                  style={styles.koiImageSmall}
-                />
-                <View style={styles.koiDetails}>
-                  <Text style={styles.koiName}>Koi Name: {winner.koiName}</Text>
-                  <Text style={styles.ownerName}>Owner: {winner.owner}</Text>
-                </View>
-                <TouchableOpacity style={styles.viewDetailsButton}>
-                  <Text style={styles.buttonText}>View Details</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+        ))}
+      </View>
+    );
+  };
+
+  return (
+    <ScrollView style={styles.scrollView}>
+      <View style={styles.container}>
+        {/* Banner */}
+        <View style={styles.banner}>
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z63xHAHZk1kkvbvp/frame-28.png",
+            }}
+            style={styles.bannerImage}
+          />
         </View>
-      </ScrollView>
-      
-      {/* Thêm Footer */}
-      <Footer activeTab="shows" />
-    </View>
+
+        {/* Main Content */}
+        <View style={styles.mainContent}>
+          {/* Title Section */}
+          <View style={styles.titleSection}>
+            <Text style={styles.title}>Kết quả cuộc thi</Text>
+          </View>
+
+          {/* Award Sections */}
+          {renderAwardSections()}
+        </View>
+      </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F8F9FA",
-  },
   scrollView: {
     flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  container: {
+    flex: 1,
+    backgroundColor: "#FAFAFA",
+  },
+  banner: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#E9E9E9',
+  },
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  mainContent: {
+    padding: 16,
+  },
+  titleSection: {
+    marginVertical: 16,
+    alignItems: 'center',
+  },
+  title: {
+    fontFamily: 'Poppins',
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#030303',
   },
   scrollContent: {
     paddingBottom: 80, // Thêm padding để tránh bị footer che phủ
@@ -258,13 +235,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     backgroundColor: "#FFFFFF",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    textAlign: "center",
-    color: "#000000",
-    marginBottom: 4,
   },
   heroImage: {
     height: 150,

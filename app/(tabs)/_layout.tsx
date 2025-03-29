@@ -2,11 +2,11 @@
 import { Stack } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
-import LayoutWithFooter from "../../components/LayoutWithFooter";
+import MainLayout from "../../components/MainLayout";
 
 export default function TabLayout() {
   return (
-    <LayoutWithFooter>
+    <MainLayout title="KSMS" description="">
       <Stack
         screenOptions={{
           headerShown: false,
@@ -17,6 +17,6 @@ export default function TabLayout() {
         <Stack.Screen name="home" options={{ headerShown: false }} />
         <Stack.Screen name="shows" options={{ headerShown: false }} />
       </Stack>
-    </LayoutWithFooter>
+    </MainLayout>
   );
 }

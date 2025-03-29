@@ -33,8 +33,6 @@ function testpage() {
         <Button title="Go to Sign In" onPress={navigateToSignin} />
         <Button title="Go to live stream" onPress={navigateToRegistration} />
       </View>
-      
-      <Footer activeTab="home" />
     </View>
   );
 }

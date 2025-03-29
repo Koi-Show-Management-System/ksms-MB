@@ -1937,33 +1937,6 @@ const KoiRegistrationScreen: React.FC = () => {
   return (
     <ScrollView style={styles.scrollView}>
       <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.leftSection}>
-            <TouchableOpacity onPress={() => router.back()}>
-              <Text style={styles.backText}>Back</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.rightSection}>
-            <TouchableOpacity style={styles.searchIconContainer}>
-              <Image
-                source={{
-                  uri: "https://dashboard.codeparrot.ai/api/image/Z6I0Rqvsm-LWpeaP/frame-3.png",
-                }}
-                style={styles.searchIcon}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.profileContainer}>
-              <Image
-                source={{
-                  uri: "https://dashboard.codeparrot.ai/api/image/Z6I0Rqvsm-LWpeaP/group-6.png",
-                }}
-                style={styles.profileImage}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Banner */}
         {renderBanner()}
 
@@ -2233,52 +2206,13 @@ const KoiRegistrationScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  scrollView: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
   container: {
     flex: 1,
+    backgroundColor: "#FAFAFA",
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-    height: 60,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
-  },
-  leftSection: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  rightSection: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  backText: {
-    fontFamily: "Poppins",
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#030303",
-  },
-  searchIconContainer: {
-    marginRight: 8,
-    padding: 4,
-  },
-  searchIcon: {
-    width: 13,
-    height: 13,
-  },
-  profileContainer: {
-    padding: 4,
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  scrollView: {
+    flex: 1,
+    backgroundColor: "#FAFAFA",
   },
   titleSection: {
     padding: 20,

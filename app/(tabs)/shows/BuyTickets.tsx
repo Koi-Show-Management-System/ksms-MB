@@ -276,18 +276,7 @@ const BuyTickets: React.FC = () => {
     </View>
   );
 
-  // Header Component
-  const Header = () => (
-    <View style={styles.header}>
-      <TouchableOpacity style={styles.homeButton} onPress={() => router.back()}>
-        <Text style={styles.homeText}>Back</Text>
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>{showName}</Text>
-    </View>
-  );
-
   // Payment Modal Component
-
   const PaymentModal = () => (
     <Modal
       animationType="slide"
@@ -399,7 +388,6 @@ const BuyTickets: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header />
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <Text style={styles.pageTitle}>Select Your Ticket</Text>
 
@@ -468,37 +456,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 80, // Thêm padding để tránh bị footer che phủ
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E5E5",
-    backgroundColor: "#fff",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  homeButton: {
-    padding: 8,
-  },
-  homeText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#030303",
-    fontFamily: "Roboto",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#030303",
-    flex: 1,
-    textAlign: "center",
-    marginRight: 40,
   },
   pageTitle: {
     fontSize: 24,

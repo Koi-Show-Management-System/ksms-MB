@@ -1,39 +1,13 @@
 // RuleAndFAQ.tsx
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView, SectionList } from 'react-native';
+import { router } from "expo-router";
 
 // --- Interfaces ---
 interface FAQItem {
   question: string;
   answer: string;
 }
-
-// --- Header Component ---
-const Header: React.FC = () => {
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => { /* Navigate Home */ }} style={styles.headerIconButton}>
-        <Image
-          source={{ uri: 'https://dashboard.codeparrot.ai/api/image/Z8YbIshTinWyM7HF/group-43.png' }}
-          style={styles.headerHomeIcon}
-        />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>Official Koi Show Rules</Text>
-      <View style={styles.headerRightIcons}>
-        <TouchableOpacity onPress={() => { /* Navigate Search */ }} style={styles.headerIconButton}>
-          <Image
-            source={{ uri: 'https://dashboard.codeparrot.ai/api/image/Z8YbIshTinWyM7HF/frame-4.png' }}
-            style={styles.headerSearchIcon}
-          />
-        </TouchableOpacity>
-        <Image
-          source={{ uri: 'https://dashboard.codeparrot.ai/api/image/Z8YbIshTinWyM7HF/group-42.png' }}
-          style={styles.headerProfileIcon}
-        />
-      </View>
-    </View>
-  );
-};
 
 // --- Rules Section Component ---
 const RulesSection: React.FC = () => {
@@ -79,39 +53,138 @@ const EnteringKoiSection: React.FC = () => {
 
 // --- FAQ Section Component ---
 const FAQSection: React.FC = () => {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
-  const faqs: FAQItem[] = [
-    { question: 'How to Enter Koi Show', answer: 'Register your koi today! Add a koi entry or sign up for an account. Use your dashboard to manage entries.' },
-    { question: 'What Should I Say About My Koi?', answer: 'Describe your Koi\'s history, pattern information, age, and breeder information.' },
-    { question: 'How Do I Take High Quality Koi Photos?', answer: 'Read our blog post about taking clear photos or videos of your koi.' },
+  // Toggle section expansion
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  };
+
+  // Data structure for rules and FAQs
+  const data = [
+    {
+      title: "General Rules",
+      data: [
+        {
+          id: "g1",
+          question: "Who can enter the competition?",
+          answer: "Any Koi hobbyist or breeder may enter Koi in the competition, provided the fish meets eligibility requirements and proper registration procedures are followed."
+        },
+        {
+          id: "g2",
+          question: "What are the entry requirements?",
+          answer: "All Koi must be owned by the registrant for at least 6 months prior to the show. Each entry must include complete registration information and appropriate entry fees."
+        },
+        {
+          id: "g3",
+          question: "How many fish can I enter?",
+          answer: "Each participant may enter up to 5 Koi per size and variety category, with a maximum of 15 total entries per participant."
+        }
+      ]
+    },
+    {
+      title: "Judging Criteria",
+      data: [
+        {
+          id: "j1",
+          question: "How are Koi judged?",
+          answer: "Koi are judged on body conformation, skin quality, pattern, color intensity and contrast, and overall impression. Different varieties have specific criteria relevant to their classification."
+        },
+        {
+          id: "j2",
+          question: "Who will judge the competition?",
+          answer: "Judging will be conducted by certified judges from the All Japan Nishikigoi Promotion Association (AJNPA) and the Zen Nippon Airinkai (ZNA)."
+        }
+      ]
+    },
+    {
+      title: "Size Categories",
+      data: [
+        {
+          id: "s1",
+          question: "What are the size classifications?",
+          answer: "Size 1: Under 20cm\nSize 2: 20-30cm\nSize 3: 30-40cm\nSize 4: 40-50cm\nSize 5: 50-60cm\nSize 6: Over 60cm"
+        }
+      ]
+    },
+    {
+      title: "Awards & Recognition",
+      data: [
+        {
+          id: "a1",
+          question: "What awards will be given?",
+          answer: "Awards include Grand Champion, Adult Champion, Young Champion, and 1st, 2nd, and 3rd place in each size and variety category. Special awards for Best in Variety will also be presented."
+        },
+        {
+          id: "a2",
+          question: "When will winners be announced?",
+          answer: "Judging will take place on the second day of the show, with awards presented during the evening ceremony."
+        }
+      ]
+    },
+    {
+      title: "Handling & Care",
+      data: [
+        {
+          id: "h1",
+          question: "How are the Koi handled during judging?",
+          answer: "Only trained staff will handle Koi during the judging process. Fish are carefully netted and placed in viewing bowls for judging, with minimal handling to reduce stress."
+        },
+        {
+          id: "h2",
+          question: "What health precautions are in place?",
+          answer: "All tanks are equipped with filtration and aeration systems. Water quality is monitored continuously. Emergency veterinary services are available on-site."
+        }
+      ]
+    }
   ];
 
-  const toggleExpand = (index: number) => {
-    setExpandedIndex(expandedIndex === index ? null : index);
-  };
+  // Render a section header
+  const renderSectionHeader = ({ section }: { section: { title: string } }) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionHeaderText}>{section.title}</Text>
+    </View>
+  );
+
+  // Render an item (question and answer)
+  const renderItem = ({ item }: { item: { id: string; question: string; answer: string } }) => (
+    <TouchableOpacity 
+      style={styles.itemContainer}
+      onPress={() => toggleSection(item.id)}
+    >
+      <View style={styles.questionContainer}>
+        <Text style={styles.questionText}>{item.question}</Text>
+        <Image 
+          source={{ 
+            uri: expandedSections[item.id] 
+              ? "https://dashboard.codeparrot.ai/api/image/Z6Ibg3avl-LWpeaf/up-arrow.png"
+              : "https://dashboard.codeparrot.ai/api/image/Z6Ibg3avl-LWpeaf/down-arrow.png"
+          }}
+          style={styles.arrowIcon}
+        />
+      </View>
+      
+      {expandedSections[item.id] && (
+        <Text style={styles.answerText}>{item.answer}</Text>
+      )}
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.faqSection}>
       <Text style={styles.faqTitle}>FAQ</Text>
       <View style={styles.faqContainer}>
-        {faqs.map((faq, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.faqItem}
-            onPress={() => toggleExpand(index)}
-          >
-            <View style={styles.faqQuestionContainer}>
-              <Text style={styles.faqQuestion}>{faq.question}</Text>
-              <Text style={styles.faqExpandIcon}>
-                {expandedIndex === index ? '-' : '+'}
-              </Text>
-            </View>
-            {expandedIndex === index && (
-              <Text style={styles.faqAnswer}>{faq.answer}</Text>
-            )}
-          </TouchableOpacity>
-        ))}
+        <SectionList
+          sections={data}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          contentContainerStyle={styles.listContent}
+          stickySectionHeadersEnabled={true}
+        />
       </View>
     </View>
   );
@@ -121,7 +194,6 @@ const FAQSection: React.FC = () => {
 const RuleAndFAQ: React.FC = () => {
   return (
     <View style={styles.container}>
-      <Header />
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <RulesSection />
         <EnteringKoiSection />
@@ -142,52 +214,14 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1, // Ensure it takes up all available space
     paddingHorizontal: 16, // Add horizontal padding
-    paddingBottom: 80 // Increased to prevent footer overlap
-  },
-
-  // Header Styles
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16, // Add horizontal padding
-     marginTop: 20, // Add top margin
-    width: '100%', // Take full width
-    borderBottomWidth: 1, // Add a subtle bottom border
-    borderBottomColor: '#E0E0E0', // Light grey border
-  },
-  headerIconButton: {
-    padding: 8,
-  },
-  headerHomeIcon: {
-    width: 47,
-    height: 12,
-  },
-  headerSearchIcon: {
-    width: 13,
-    height: 13,
-  },
-  headerProfileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  headerRightIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000000',
+    paddingBottom: 80, // Increased to prevent footer overlap
+    paddingTop: 16, // Add padding at the top since we removed the header
   },
 
   // Rules Section Styles
   rulesSection: {
     marginTop: 24,
-      width: '100%',
+    width: '100%',
   },
   rulesSectionTitle: {
     fontSize: 18, // Slightly smaller title
@@ -197,7 +231,7 @@ const styles = StyleSheet.create({
   },
   rulesList: {
     gap: 8,
-      width: '100%'
+    width: '100%'
   },
   ruleText: {
     fontSize: 14,
@@ -208,7 +242,7 @@ const styles = StyleSheet.create({
   // Entering Koi Section Styles
   enteringSection: {
     marginTop: 24,
-      width: '100%'
+    width: '100%'
   },
   enteringSectionTitle: {
     fontSize: 18, // Consistent with other sections
@@ -224,11 +258,11 @@ const styles = StyleSheet.create({
 
   // FAQ Section Styles
   faqSection: {
-      width: '100%',
+    width: '100%',
     paddingVertical: 16, // Add some vertical padding
-      paddingHorizontal: 5, // Add some vertical padding
+    paddingHorizontal: 5, // Add some vertical padding
     backgroundColor: 'inherit',
-      marginTop: 24
+    marginTop: 24
   },
   faqTitle: {
     fontSize: 24,
@@ -237,44 +271,49 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
   faqContainer: {
-      width: '100%',
+    width: '100%',
   },
-  faqItem: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+  listContent: {
+    paddingBottom: 20,
+  },
+  sectionHeader: {
+    backgroundColor: "#F3F4F6",
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  sectionHeaderText: {
+    fontSize: 18,
+    fontFamily: "Roboto",
+    fontWeight: "700",
+    color: "#111827",
+  },
+  itemContainer: {
     padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2, // For Android shadow
-      width: '100%'
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
   },
-  faqQuestionContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  questionContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  faqQuestion: {
+  questionText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#000000',
-    flex: 1, // Ensure text wraps if needed
+    fontFamily: "Roboto",
+    fontWeight: "500",
+    color: "#111827",
+    flex: 1,
   },
-  faqExpandIcon: {
-    fontSize: 20,
-    fontWeight: '500',
-    color: '#666666',
-    marginLeft: 8,
+  arrowIcon: {
+    width: 20,
+    height: 20,
   },
-  faqAnswer: {
-    marginTop: 12,
+  answerText: {
     fontSize: 14,
-    color: '#666666',
+    fontFamily: "Roboto",
+    color: "#4B5563",
+    marginTop: 12,
     lineHeight: 20,
   },
 });

@@ -27,57 +27,8 @@ interface UserData {
   coverImage: string;
   joinDate: string;
   bio: string;
+  fullName: string;
 }
-
-// --- Header Component ---
-interface HeaderProps {
-  userData: UserData;
-  onBackPress: () => void;
-  onEditPress: () => void;
-}
-
-const Header: React.FC<HeaderProps> = ({
-  userData,
-  onBackPress,
-  onEditPress,
-}) => {
-  return (
-    <View style={styles.headerWrapper}>
-      <Image source={{ uri: userData.coverImage }} style={styles.coverImage} />
-      <LinearGradient
-        colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.7)"]}
-        style={styles.coverGradient}
-      />
-      <View style={styles.headerContainer}>
-        <TouchableOpacity onPress={onBackPress} style={styles.backButton}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/frame.png",
-            }}
-            style={styles.backIcon}
-          />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={onEditPress} style={styles.editButton}>
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.profileImageContainer}>
-        <Image
-          source={{ uri: userData.profileImage }}
-          style={styles.profileImage}
-        />
-        <Text style={styles.usernameText}>{userData.username}</Text>
-        <Text style={styles.joinDateText}>
-          Member since {userData.joinDate}
-        </Text>
-        <Text style={styles.bioText}>{userData.bio}</Text>
-      </View>
-    </View>
-  );
-};
 
 // --- Profile Section Component ---
 interface ProfileSectionProps {
@@ -299,9 +250,11 @@ const UserProfile: React.FC = () => {
       "https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     joinDate: "January 15, 2021",
     bio: "Passionate koi collector and enthusiast for over 10 years.",
+    fullName: "John Doe",
   });
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const handleChangePassword = (
     currentPassword: string,
@@ -341,35 +294,157 @@ const UserProfile: React.FC = () => {
     ]);
   };
 
+  const handleImageUpload = () => {
+    // Implement image upload logic
+    console.log("Image upload logic not implemented");
+  };
+
+  const renderEditFields = () => {
+    // Implement renderEditFields logic
+    console.log("Edit fields rendering logic not implemented");
+    return null;
+  };
+
+  const renderUserInfo = () => {
+    // Implement renderUserInfo logic
+    console.log("User info rendering logic not implemented");
+    return null;
+  };
+
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}>
+      {/* Profile Information Section */}
+      <View style={styles.profileInfoSection}>
+        <View style={styles.profileImageContainer}>
+          {userData.profileImage ? (
+            <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
+          ) : (
+            <View style={styles.placeholderImage}>
+              <Text style={styles.placeholderText}>
+                {getUserInitials(userData.fullName || "User Profile")}
+              </Text>
+            </View>
+          )}
 
-      <ScrollView
-        contentContainerStyle={styles.scrollViewContent}
-        showsVerticalScrollIndicator={false}>
-        <Header
-          userData={userData}
-          onBackPress={() => router.back()}
-          onEditPress={handleUpdateInformation}
-        />
+          {/* Image Upload Button */}
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={handleImageUpload}>
+            <Text style={styles.uploadButtonText}>Upload Photo</Text>
+          </TouchableOpacity>
+        </View>
 
-        <ProfileSection userData={userData} />
+        <View style={styles.profileDetailsContainer}>
+          <View style={styles.profileNameContainer}>
+            <Text style={styles.profileName}>
+              {userData.fullName || "Loading..."}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setIsEditing(!isEditing)}
+              style={styles.editButton}>
+              <Text style={styles.editButtonText}>
+                {isEditing ? "Cancel" : "Edit"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          {isEditing ? renderEditFields() : renderUserInfo()}
+        </View>
+      </View>
 
-        <ActionButtons
-          onChangePassword={() => setPasswordModalVisible(true)}
-          onUpdateInformation={handleUpdateInformation}
-          onLogout={handleLogout}
-        />
-      </ScrollView>
-
-      <PasswordChangeModal
-        visible={passwordModalVisible}
-        onClose={() => setPasswordModalVisible(false)}
-        onSubmit={handleChangePassword}
-        loading={loading}
-      />
-    </View>
+      {/* Settings Section */}
+      <View style={styles.settingsSection}>
+        <Text style={styles.sectionTitle}>Settings</Text>
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingIconContainer}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/bell.png",
+              }}
+              style={styles.settingIcon}
+            />
+          </View>
+          <Text style={styles.settingText}>Notification</Text>
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
+            }}
+            style={styles.arrowIcon}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingIconContainer}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/lock.png",
+              }}
+              style={styles.settingIcon}
+            />
+          </View>
+          <Text style={styles.settingText}>Privacy & Security</Text>
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
+            }}
+            style={styles.arrowIcon}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.settingItem}
+          onPress={handleChangePassword}>
+          <View style={styles.settingIconContainer}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/key.png",
+              }}
+              style={styles.settingIcon}
+            />
+          </View>
+          <Text style={styles.settingText}>Change Password</Text>
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
+            }}
+            style={styles.arrowIcon}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.settingItem}>
+          <View style={styles.settingIconContainer}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/help.png",
+              }}
+              style={styles.settingIcon}
+            />
+          </View>
+          <Text style={styles.settingText}>Help & Support</Text>
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
+            }}
+            style={styles.arrowIcon}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
+          <View style={styles.settingIconContainer}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/logout.png",
+              }}
+              style={styles.settingIcon}
+            />
+          </View>
+          <Text style={[styles.settingText, styles.logoutText]}>Log Out</Text>
+          <Image
+            source={{
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
+            }}
+            style={styles.arrowIcon}
+          />
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 };
 
@@ -377,78 +452,18 @@ const UserProfile: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "#FFFFFF",
   },
-  scrollViewContent: {
-    flexGrow: 1,
-    paddingBottom: 80,
+  contentContainer: {
+    paddingBottom: 40,
   },
-
-  // Header Styles
-  headerWrapper: {
-    width: "100%",
-    height: 300,
-    position: "relative",
-  },
-  coverImage: {
-    width: "100%",
-    height: "100%",
-    position: "absolute",
-  },
-  coverGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: "100%",
-  },
-  headerContainer: {
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 50,
-    zIndex: 10,
-  },
-  backButton: {
+  profileInfoSection: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.2)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  backIcon: {
-    width: 20,
-    height: 20,
-    tintColor: "#FFFFFF",
-  },
-  backText: {
-    fontFamily: "Poppins",
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    marginLeft: 8,
-  },
-  editButton: {
-    backgroundColor: "#4A90E2",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  editButtonText: {
-    fontFamily: "Poppins",
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#FFFFFF",
+    padding: 16,
   },
   profileImageContainer: {
-    alignItems: "center",
-    position: "absolute",
-    bottom: -50,
-    left: 0,
-    right: 0,
+    position: "relative",
   },
   profileImage: {
     width: 100,
@@ -457,30 +472,62 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: "#FFFFFF",
   },
-  usernameText: {
+  placeholderImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 4,
+    borderColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderText: {
     fontFamily: "Poppins",
     fontSize: 24,
     fontWeight: "700",
     color: "#FFFFFF",
-    marginTop: 8,
   },
-  joinDateText: {
+  uploadButton: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "#4A90E2",
+    padding: 8,
+    borderRadius: 20,
+  },
+  uploadButtonText: {
     fontFamily: "Poppins",
     fontSize: 14,
+    fontWeight: "600",
     color: "#FFFFFF",
-    opacity: 0.8,
   },
-  bioText: {
+  profileDetailsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+  },
+  profileNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  profileName: {
+    fontFamily: "Poppins",
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#333333",
+  },
+  editButton: {
+    backgroundColor: "#4A90E2",
+    padding: 8,
+    borderRadius: 20,
+  },
+  editButtonText: {
     fontFamily: "Poppins",
     fontSize: 14,
+    fontWeight: "600",
     color: "#FFFFFF",
-    textAlign: "center",
-    marginTop: 8,
-    paddingHorizontal: 32,
-    opacity: 0.9,
   },
-
-  // Section Title
   sectionTitle: {
     fontFamily: "Poppins",
     fontSize: 20,
@@ -489,8 +536,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginLeft: 16,
   },
-
-  // Profile Section Styles
   profileContainer: {
     width: "100%",
     marginTop: 60,
@@ -533,8 +578,6 @@ const styles = StyleSheet.create({
     maxWidth: "60%",
     textAlign: "right",
   },
-
-  // Action Buttons Styles
   actionsContainer: {
     width: "100%",
     paddingHorizontal: 16,
@@ -574,8 +617,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: "Poppins",
   },
-
-  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -638,6 +679,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#333333",
+  },
+  settingsSection: {
+    padding: 16,
+  },
+  settingItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+  },
+  settingIconContainer: {
+    width: 24,
+    height: 24,
+    marginRight: 16,
+  },
+  settingIcon: {
+    width: "100%",
+    height: "100%",
+  },
+  settingText: {
+    fontFamily: "Poppins",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333333",
+  },
+  arrowIcon: {
+    width: 16,
+    height: 16,
+    tintColor: "#666666",
+  },
+  logoutText: {
+    color: "#E74C3C",
   },
 });
 
