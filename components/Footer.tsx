@@ -81,6 +81,7 @@ const Footer: React.FC<FooterProps> = ({
             style={[styles.footerIcon, activeTab === 'home' && styles.activeFooterIcon]}
           />
           <Text style={[styles.footerText, activeTab === 'home' && styles.activeFooterText]}>Trang chủ</Text>
+          {activeTab === 'home' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -94,6 +95,7 @@ const Footer: React.FC<FooterProps> = ({
             style={[styles.footerIcon, activeTab === 'shows' && styles.activeFooterIcon]}
           />
           <Text style={[styles.footerText, activeTab === 'shows' && styles.activeFooterText]}>Sự kiện</Text>
+          {activeTab === 'shows' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -121,6 +123,7 @@ const Footer: React.FC<FooterProps> = ({
             style={[styles.footerIcon, activeTab === 'notifications' && styles.activeFooterIcon]}
           />
           <Text style={[styles.footerText, activeTab === 'notifications' && styles.activeFooterText]}>Thông báo</Text>
+          {activeTab === 'notifications' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -134,6 +137,7 @@ const Footer: React.FC<FooterProps> = ({
             style={[styles.footerIcon, activeTab === 'profile' && styles.activeFooterIcon]}
           />
           <Text style={[styles.footerText, activeTab === 'profile' && styles.activeFooterText]}>Tài khoản</Text>
+          {activeTab === 'profile' && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
       </View>
     </View>
@@ -152,7 +156,7 @@ const styles = StyleSheet.create({
   footerBorder: {
     height: 1,
     width: '100%',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F5F5F5',
   },
   footerContent: {
     flexDirection: "row",
@@ -167,7 +171,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   activeFooterItem: {
-    // Có thể thêm style khi tab được chọn nếu cần
+    backgroundColor: 'rgba(229, 57, 53, 0.05)',
+    borderRadius: 8,
   },
   footerIcon: {
     width: 24,
@@ -175,7 +180,7 @@ const styles = StyleSheet.create({
     tintColor: '#64748b',
   },
   activeFooterIcon: {
-    tintColor: '#5664F5',
+    tintColor: '#E53935',
   },
   footerText: {
     fontFamily: "Lexend Deca",
@@ -184,7 +189,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   activeFooterText: {
-    color: '#5664F5',
+    color: '#E53935',
     fontWeight: '500',
   },
   footerCameraButton: {
@@ -195,21 +200,29 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#5664F5',
+    backgroundColor: '#1A237E',
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#5664F5',
+    shadowColor: '#1A237E',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderColor: '#FFC107',
   },
   footerCameraIcon: {
     width: 24,
     height: 24,
     tintColor: '#FFFFFF',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    bottom: -8,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#FFC107',
   },
 });
 

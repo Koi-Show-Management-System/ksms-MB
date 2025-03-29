@@ -4,7 +4,7 @@ import MainLayout from "../../components/MainLayout";
 
 export default function userLayout() {
   return (
-    <MainLayout title="KSMS" description="User Management">
+    <MainLayout title="KSMS" description="">
       <Stack>
         <Stack.Screen name="KoiRegister" options={{ headerShown: false }} />
         <Stack.Screen name="KoiList" options={{ headerShown: false }} />

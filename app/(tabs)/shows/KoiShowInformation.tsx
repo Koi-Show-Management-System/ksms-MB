@@ -709,6 +709,29 @@ const KoiShowInformationContent: React.FC = () => {
         // Tab Thí sinh
         <KoiContestants showId={showData.id} />
       )}
+
+      {/* Footer với 2 nút: đăng ký thi đấu và mua vé */}
+      <View style={styles.footer}>
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.registerButton]} 
+          onPress={() => router.push({
+            pathname: `/shows/KoiRegistration`,
+            params: { showId: showData.id }
+          })}>
+          <FontAwesome5 name="fish" size={18} color="#FFFFFF" />
+          <Text style={styles.buttonText}>Đăng ký thi đấu</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.ticketButton]} 
+          onPress={() => router.push({
+            pathname: `/shows/BuyTickets`,
+            params: { showId: showData.id }
+          })}>
+          <MaterialIcons name="confirmation-number" size={20} color="#FFFFFF" />
+          <Text style={styles.buttonText}>Mua vé tham dự</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -1022,10 +1045,11 @@ const styles = StyleSheet.create({
   footer: {
     backgroundColor: "#ffffff",
     padding: 16,
-    flexDirection: "column",
+    flexDirection: "row",
     borderTopWidth: 1,
     borderTopColor: "#e5e7eb",
     gap: 12,
+    justifyContent: "space-between",
   },
   actionButton: {
     borderRadius: 8,
@@ -1033,12 +1057,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    flex: 1,
   },
   ticketButton: {
-    backgroundColor: "#000000",
+    backgroundColor: "#1e88e5",
   },
   registerButton: {
-    backgroundColor: '#000000',
+    backgroundColor: '#e53935',
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
