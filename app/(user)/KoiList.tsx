@@ -674,7 +674,7 @@ const KoiList: React.FC = () => {
 
         {isLoading && !isRefreshing && !isLoadingMore ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#5664F5" />
+            <ActivityIndicator size="large" color="#FFA500" />
             <Text style={styles.loadingText}>Đang tải thông tin...</Text>
           </View>
         ) : (
@@ -690,7 +690,7 @@ const KoiList: React.FC = () => {
                     styles.sectionToggleText, 
                     { 
                       opacity: myKoiHeaderOpacity, 
-                      color: activeTab === 'myKoi' ? '#5664F5' : '#8190A5',
+                      color: activeTab === 'myKoi' ? '#FFA500' : '#8190A5',
                       fontWeight: activeTab === 'myKoi' ? '700' : '500',
                     }
                   ]}
@@ -718,7 +718,7 @@ const KoiList: React.FC = () => {
                     styles.sectionToggleText, 
                     { 
                       opacity: addNewKoiHeaderOpacity,
-                      color: activeTab === 'addNewKoi' ? '#5664F5' : '#8190A5',
+                      color: activeTab === 'addNewKoi' ? '#FFA500' : '#8190A5',
                       fontWeight: activeTab === 'addNewKoi' ? '700' : '500',
                     }
                   ]}
@@ -761,7 +761,7 @@ const KoiList: React.FC = () => {
                   style={{ alignSelf: 'flex-end', paddingVertical: 8, marginTop: 8 }}
                   onPress={resetFilters}
                 >
-                  <Text style={{ color: '#5664F5', fontWeight: '500', fontSize: 14 }}>
+                  <Text style={{ color: '#FFA500', fontWeight: '500', fontSize: 14 }}>
                     Đặt lại bộ lọc
                   </Text>
                 </TouchableOpacity>
@@ -785,7 +785,7 @@ const KoiList: React.FC = () => {
                 ) : koiList.length === 0 ? (
                   <View style={styles.centerContainer}>
                     <Image 
-                      source={{ uri: "https://illustatus.herokuapp.com/?title=No%20Koi&fill=%234f46e5" }}
+                      source={{ uri: "https://illustatus.herokuapp.com/?title=No%20Koi&fill=%23FFA500" }}
                       style={styles.emptyImage} 
                     />
                     <Text style={styles.messageText}>Bạn chưa có cá Koi nào. Hãy thêm cá Koi mới!</Text>
@@ -806,8 +806,8 @@ const KoiList: React.FC = () => {
                       <RefreshControl
                         refreshing={isRefreshing}
                         onRefresh={onRefresh}
-                        colors={["#5664F5"]}
-                        tintColor="#5664F5"
+                        colors={["#FFA500"]}
+                        tintColor="#FFA500"
                       />
                     }
                     onEndReached={loadMore}
@@ -815,7 +815,7 @@ const KoiList: React.FC = () => {
                     ListFooterComponent={
                       isLoadingMore ? (
                         <View style={styles.loadingMore}>
-                          <ActivityIndicator size="small" color="#5664F5" />
+                          <ActivityIndicator size="small" color="#FFA500" />
                           <Text style={styles.loadingMoreText}>Đang tải thêm...</Text>
                         </View>
                       ) : null
@@ -1000,7 +1000,7 @@ const KoiList: React.FC = () => {
                                 onPress={handleImageUpload}
                               >
                                 <LinearGradient
-                                  colors={['#5664F5', '#7D8BFF']}
+                                  colors={['#FFA500', '#FFD700']}
                                   start={{ x: 0, y: 0 }}
                                   end={{ x: 1, y: 0 }}
                                   style={styles.addMoreMediaGradient}
@@ -1058,7 +1058,7 @@ const KoiList: React.FC = () => {
                                 onPress={handleVideoUpload}
                               >
                                 <LinearGradient
-                                  colors={['#5664F5', '#7D8BFF']}
+                                  colors={['#FFA500', '#FFD700']}
                                   start={{ x: 0, y: 0 }}
                                   end={{ x: 1, y: 0 }}
                                   style={styles.addMoreMediaGradient}
@@ -1091,7 +1091,7 @@ const KoiList: React.FC = () => {
                   <View style={styles.buttonContainer}>
                     <TouchableOpacity style={styles.addButtonEnhanced} onPress={handleAddKoi}>
                       <LinearGradient
-                        colors={['#5664F5', '#7D8BFF']}
+                        colors={['#FFA500', '#FFD700']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.buttonGradient}
@@ -1291,11 +1291,11 @@ const styles = StyleSheet.create({
   },
   activeIndicator: {
     position: "absolute",
-    bottom: -1,
-    left: "25%",
-    right: "25%",
+    bottom: 0,
+    left: 8,
+    right: 8,
     height: 3,
-    backgroundColor: "#5664F5",
+    backgroundColor: "#FFA500",
     borderRadius: 1.5,
   },
   filterShadow: {
@@ -1336,14 +1336,11 @@ const styles = StyleSheet.create({
     color: "#1A2138",
   },
   filterButton: {
-    backgroundColor: "#5664F5",
-    height: 40,
+    backgroundColor: "#FFA500",
     paddingHorizontal: 16,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 0,
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginLeft: 8,
   },
   filterButtonText: {
     fontSize: 14,
@@ -1434,10 +1431,10 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   maleTag: {
-    backgroundColor: "#5664F5",
+    backgroundColor: "#22A1F0",
   },
   femaleTag: {
-    backgroundColor: "#FF5656",
+    backgroundColor: "#FFA500",
   },
   loadingMore: {
     padding: 16,
@@ -1895,10 +1892,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
+    backgroundColor: "#FFA500",
     paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: "#5664F5",
+    paddingHorizontal: 20,
     borderRadius: 8,
+    marginTop: 16,
   },
   retryButtonText: {
     fontSize: 14,
@@ -1918,10 +1916,11 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   addNewButton: {
-    paddingVertical: 14,
+    backgroundColor: "#FFA500",
+    paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#5664F5',
     borderRadius: 8,
+    marginTop: 20,
   },
   addNewButtonText: {
     fontSize: 14,

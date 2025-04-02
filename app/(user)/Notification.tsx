@@ -455,11 +455,52 @@ const Notifications: React.FC = () => {
         if (response.statusCode === 200) {
           logDebug(`Tổng số thông báo: ${response.data.total}, Trang: ${response.data.page}/${response.data.totalPages}`);
           
-          const mappedNotifications = response.data.items.map(mapApiNotificationToUI);
+          // Map dữ liệu từ API sang UI
+          let mappedNotifications = response.data.items.map(mapApiNotificationToUI);
+          
+          // Sắp xếp thông báo: chưa đọc ở trên cùng
+          // Chỉ sắp xếp khi không trong tab đã đọc/chưa đọc (vì những tab đó đã lọc sẵn)
+          if (filterType !== "unread" && filterType !== "read") {
+            logDebug("Sắp xếp thông báo: thông báo chưa đọc hiển thị ở trên cùng");
+            mappedNotifications = mappedNotifications.sort((a, b) => {
+              // Thông báo chưa đọc ưu tiên lên trên
+              if (a.isRead !== b.isRead) {
+                return a.isRead ? 1 : -1;
+              }
+              // Nếu cùng trạng thái đọc, thì sắp xếp theo thời gian mới nhất lên trên
+              return new Date(b.date).getTime() - new Date(a.date).getTime();
+            });
+          } else {
+            // Ngay cả khi đã lọc theo trạng thái đọc, vẫn sắp xếp theo thời gian
+            logDebug("Sắp xếp thông báo theo thời gian (mới nhất lên trên)");
+            mappedNotifications = mappedNotifications.sort((a, b) => 
+              new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+          }
           
           // Nếu nạp thêm, thêm vào danh sách hiện có
           if (shouldAppend && page > 1) {
-            setNotifications(prev => [...prev, ...mappedNotifications]);
+            // Khi nạp thêm, vẫn phải sắp xếp lại toàn bộ danh sách
+            setNotifications(prev => {
+              const combined = [...prev, ...mappedNotifications];
+              
+              // Nếu không ở tab đã đọc/chưa đọc, sắp xếp lại
+              if (filterType !== "unread" && filterType !== "read") {
+                return combined.sort((a, b) => {
+                  // Thông báo chưa đọc ưu tiên lên trên
+                  if (a.isRead !== b.isRead) {
+                    return a.isRead ? 1 : -1;
+                  }
+                  // Nếu cùng trạng thái đọc, thì sắp xếp theo thời gian
+                  return new Date(b.date).getTime() - new Date(a.date).getTime();
+                });
+              } else {
+                // Khi ở tab đã đọc/chưa đọc, chỉ sắp xếp theo thời gian
+                return combined.sort((a, b) => 
+                  new Date(b.date).getTime() - new Date(a.date).getTime()
+                );
+              }
+            });
           } else {
             setNotifications(mappedNotifications);
           }
@@ -467,7 +508,7 @@ const Notifications: React.FC = () => {
           setCurrentPage(response.data.page);
           setTotalPages(response.data.totalPages);
           
-          logDebug(`Đã ánh xạ ${mappedNotifications.length} thông báo vào UI`);
+          logDebug(`Đã ánh xạ và sắp xếp ${mappedNotifications.length} thông báo vào UI`);
         } else {
           logDebug(`API trả về mã lỗi: ${response.statusCode}, Message: ${response.message}`);
           setError(`Không thể tải thông báo: ${response.message || 'Lỗi không xác định'}`);
@@ -589,15 +630,20 @@ const Notifications: React.FC = () => {
       
       try {
         // Gọi API để đánh dấu đã đọc trong background
+        logDebug(`Gọi API đánh dấu đã đọc - ID: ${notification.id}`);
         const result = await markNotificationAsRead(notification.id);
-        if (!result.success && __DEV__) {
-          console.error('Không thể đánh dấu thông báo đã đọc:', result.message);
+        
+        // Xử lý kết quả từ API
+        if (result.success) {
+          logDebug(`Đánh dấu thông báo đã đọc thành công - ID: ${notification.id}`);
+        } else {
+          // Log lỗi nhưng không cần hiển thị cho người dùng
+          console.warn(`Không thể đánh dấu thông báo đã đọc: ${result.message}`);
         }
-      } catch (error) {
+      } catch (error: any) {
         // Xử lý lỗi một cách im lặng, không làm gián đoạn UX
-        if (__DEV__) {
-          console.error('Lỗi khi đánh dấu thông báo đã đọc:', error);
-        }
+        console.error('Lỗi khi đánh dấu thông báo đã đọc:', error?.message || error);
+        logDebug(`Lỗi chi tiết: ${JSON.stringify(error)}`);
       }
     } else {
       // Đối với thông báo đã đọc, chỉ hiển thị chi tiết
@@ -610,9 +656,6 @@ const Notifications: React.FC = () => {
     logDebug(`markAsRead - Đánh dấu thông báo đã đọc, ID: ${id}`);
     
     try {
-      // Lưu trạng thái thông báo ban đầu để có thể khôi phục nếu cần
-      const originalNotifications = [...notifications];
-      
       // Tìm thông báo cần đánh dấu đã đọc
       const notificationToMark = notifications.find(n => n.id === id);
       if (!notificationToMark) {
@@ -642,41 +685,47 @@ const Notifications: React.FC = () => {
         logDebug(`Đang ở tab "Đã đọc", giữ nguyên thông báo trong danh sách`);
       }
       else {
-        // Nếu đang ở các tab khác, cập nhật trạng thái isRead
-        logDebug(`Đang ở tab khác, cập nhật trạng thái isRead`);
-        setNotifications(prevNotifications => 
-          prevNotifications.map(n => 
+        // Nếu đang ở các tab khác, cập nhật trạng thái isRead và sắp xếp lại danh sách
+        logDebug(`Đang ở tab khác, cập nhật trạng thái isRead và sắp xếp lại danh sách`);
+        
+        // Cập nhật UI và sắp xếp lại để đảm bảo thông báo chưa đọc vẫn ở trên cùng
+        setNotifications(prevNotifications => {
+          // Đầu tiên cập nhật trạng thái đã đọc
+          const updatedNotifications = prevNotifications.map(n => 
             n.id === id ? { ...n, isRead: true } : n
-          )
-        );
+          );
+          
+          // Sau đó sắp xếp lại để thông báo chưa đọc ở trên cùng
+          return updatedNotifications.sort((a, b) => {
+            // Thông báo chưa đọc ưu tiên lên trên
+            if (a.isRead !== b.isRead) {
+              return a.isRead ? 1 : -1;
+            }
+            // Nếu cùng trạng thái đọc, thì sắp xếp theo thời gian mới nhất
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+          });
+        });
       }
       
       // Gọi API để đánh dấu đã đọc (trong background)
       try {
+        logDebug(`Gọi API đánh dấu đã đọc - ID: ${id}`);
         const result = await markNotificationAsRead(id);
         
-        // Log kết quả nếu cần
-        if (__DEV__) {
-          if (result.success) {
-            logDebug(`Đã đánh dấu thông báo ID: ${id} đã đọc thành công`);
-          } else {
-            console.warn(`Thất bại khi đánh dấu thông báo đã đọc: ${result.message}`);
-            
-            // Chỉ khôi phục UI nếu thực sự cần thiết
-            // setNotifications(originalNotifications);
-          }
+        // Xử lý kết quả API
+        if (result.success) {
+          logDebug(`Đánh dấu thông báo đã đọc thành công - ID: ${id}`);
+        } else {
+          console.warn(`Không thể đánh dấu thông báo đã đọc: ${result.message}`);
+          logDebug(`Lỗi khi đánh dấu đã đọc: ${result.message}`);
         }
-      } catch (error) {
+      } catch (error: any) {
         // Xử lý lỗi một cách im lặng để không làm gián đoạn UX
-        if (__DEV__) {
-          console.error('Lỗi khi đánh dấu thông báo đã đọc:', error);
-        }
-        
-        // Không khôi phục UI để giữ trải nghiệm người dùng mượt mà
-        // setNotifications(originalNotifications);
+        console.error('Lỗi khi đánh dấu thông báo đã đọc:', error?.message || error);
+        logDebug(`Lỗi chi tiết: ${JSON.stringify(error)}`);
       }
     } catch (err: any) {
-      logDebug("Lỗi khi đánh dấu đã đọc:", err);
+      logDebug(`Lỗi tổng thể trong markAsRead: ${err?.message || err}`);
       console.error("Lỗi khi đánh dấu đã đọc:", err);
     }
   };
@@ -691,8 +740,13 @@ const Notifications: React.FC = () => {
         return;
       }
       
-      // Lưu trạng thái ban đầu
-      const originalNotifications = [...notifications];
+      // Đếm số thông báo chưa đọc
+      const unreadNotifications = notifications.filter(n => !n.isRead);
+      if (unreadNotifications.length === 0) {
+        logDebug("Không có thông báo chưa đọc");
+        Alert.alert("Thông báo", "Không có thông báo chưa đọc");
+        return;
+      }
       
       // Cập nhật UI dựa trên tab đang hiển thị
       if (filter === "unread") {
@@ -719,29 +773,23 @@ const Notifications: React.FC = () => {
       
       // Gọi API để đánh dấu tất cả đã đọc
       try {
+        logDebug(`Gọi API đánh dấu tất cả đã đọc - userId: ${userId}`);
         const result = await markAllNotificationsAsRead(userId);
         
-        if (__DEV__) {
-          if (result.success) {
-            logDebug(`Đã đánh dấu tất cả thông báo đã đọc thành công`);
-          } else {
-            console.warn(`Thất bại khi đánh dấu tất cả thông báo đã đọc: ${result.message}`);
-            
-            // Chỉ khôi phục UI nếu thực sự cần thiết
-            // setNotifications(originalNotifications);
-          }
+        // Xử lý kết quả API
+        if (result.success) {
+          logDebug(`Đánh dấu tất cả thông báo đã đọc thành công - userId: ${userId}`);
+        } else {
+          console.warn(`Không thể đánh dấu tất cả thông báo đã đọc: ${result.message}`);
+          logDebug(`Lỗi khi đánh dấu tất cả đã đọc: ${result.message}`);
         }
-      } catch (error) {
-        // Xử lý lỗi một cách im lặng
-        if (__DEV__) {
-          console.error('Lỗi khi đánh dấu tất cả thông báo đã đọc:', error);
-        }
-        
-        // Không khôi phục UI để giữ trải nghiệm người dùng mượt mà
-        // setNotifications(originalNotifications);
+      } catch (error: any) {
+        // Xử lý lỗi một cách im lặng để không làm gián đoạn UX
+        console.error('Lỗi khi đánh dấu tất cả thông báo đã đọc:', error?.message || error);
+        logDebug(`Lỗi chi tiết: ${JSON.stringify(error)}`);
       }
     } catch (err: any) {
-      logDebug("Lỗi khi đánh dấu tất cả đã đọc:", err);
+      logDebug(`Lỗi tổng thể trong markAllAsRead: ${err?.message || err}`);
       console.error("Lỗi khi đánh dấu tất cả đã đọc:", err);
     }
   };

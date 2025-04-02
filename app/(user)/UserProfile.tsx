@@ -2,7 +2,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -15,20 +15,45 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import api from "@/services/api";
+import * as ImagePicker from "expo-image-picker";
 
 // --- User Data Interface ---
 interface UserData {
+  id?: string;
   username: string;
   email: string;
-  location: string;
-  koiCount: number;
-  phoneNumber: string;
-  profileImage: string;
-  coverImage: string;
-  joinDate: string;
-  bio: string;
+  location?: string;
+  koiCount?: number;
+  phoneNumber?: string;
+  phone?: string;
+  profileImage?: string | null;
+  avatar?: string | null;
+  coverImage?: string;
+  joinDate?: string;
+  bio?: string;
   fullName: string;
+  role?: string;
+  status?: string;
 }
+
+// API response interface
+interface ApiResponse<T> {
+  data: T;
+  statusCode: number;
+  message: string;
+}
+
+// --- Hàm trích xuất chữ cái đầu của họ tên ---
+const getUserInitials = (name: string): string => {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .substring(0, 2);
+};
 
 // --- Profile Section Component ---
 interface ProfileSectionProps {
@@ -238,23 +263,173 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
 
 // --- Main UserProfile Component ---
 const UserProfile: React.FC = () => {
-  const [userData] = useState<UserData>({
-    username: "John Doe",
-    email: "john.doe@example.com",
-    location: "San Francisco, CA",
-    koiCount: 15,
-    phoneNumber: "+1 234 567 8901",
-    profileImage:
-      "https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=2080&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    coverImage:
-      "https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    joinDate: "January 15, 2021",
-    bio: "Passionate koi collector and enthusiast for over 10 years.",
-    fullName: "John Doe",
+  const [userData, setUserData] = useState<UserData>({
+    username: "",
+    email: "",
+    location: "",
+    koiCount: 0,
+    phoneNumber: "",
+    profileImage: null,
+    coverImage: "",
+    joinDate: "",
+    bio: "",
+    fullName: "",
   });
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [updateData, setUpdateData] = useState({
+    fullName: "",
+    username: "",
+    phone: "",
+  });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchUserData();
+  }, []);
+
+  const fetchUserData = async () => {
+    setLoading(true);
+    try {
+      const userId = await AsyncStorage.getItem("userId");
+      
+      if (!userId) {
+        throw new Error("Không tìm thấy ID người dùng");
+      }
+
+      const response = await api.get<ApiResponse<UserData>>(`/api/v1/account/${userId}`);
+      
+      if (response.data.statusCode === 200) {
+        const userInfo = response.data.data;
+        setUserData({
+          ...userInfo,
+          phoneNumber: userInfo.phone, // Ánh xạ phone sang phoneNumber để tương thích với giao diện cũ
+          profileImage: userInfo.avatar, // Ánh xạ avatar sang profileImage để tương thích với giao diện cũ
+        });
+        setUpdateData({
+          fullName: userInfo.fullName || "",
+          username: userInfo.username || "",
+          phone: userInfo.phone || "",
+        });
+      } else {
+        throw new Error(response.data.message || "Không thể tải dữ liệu người dùng");
+      }
+    } catch (error: any) {
+      console.error("Lỗi khi tải dữ liệu người dùng:", error);
+      setError(error.message || "Có lỗi xảy ra khi tải dữ liệu người dùng");
+      Alert.alert("Lỗi", "Không thể tải thông tin người dùng");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    setLoading(true);
+    try {
+      const userId = await AsyncStorage.getItem("userId");
+      
+      if (!userId) {
+        throw new Error("Không tìm thấy ID người dùng");
+      }
+
+      // Tạo FormData object để gửi cả dữ liệu văn bản và tệp
+      const formData = new FormData();
+      formData.append("FullName", updateData.fullName);
+      formData.append("Username", updateData.username);
+      formData.append("Phone", updateData.phone);
+
+      const response = await api.put(`/api/v1/account/${userId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.statusCode === 200) {
+        Alert.alert("Thành công", "Cập nhật thông tin thành công");
+        setIsEditing(false);
+        fetchUserData(); // Tải lại dữ liệu sau khi cập nhật
+      } else {
+        throw new Error(response.data.message || "Không thể cập nhật thông tin");
+      }
+    } catch (error: any) {
+      console.error("Lỗi khi cập nhật thông tin:", error);
+      Alert.alert("Lỗi", error.message || "Có lỗi xảy ra khi cập nhật thông tin");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUploadAvatar = async () => {
+    try {
+      // Yêu cầu quyền truy cập thư viện ảnh
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Lỗi', 'Cần cấp quyền truy cập thư viện ảnh để tải lên ảnh đại diện');
+        return;
+      }
+      
+      // Mở thư viện ảnh để chọn
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setUploadingImage(true);
+        
+        try {
+          const userId = await AsyncStorage.getItem("userId");
+          
+          if (!userId) {
+            throw new Error("Không tìm thấy ID người dùng");
+          }
+          
+          // Tạo form data để upload ảnh
+          const formData = new FormData();
+          const localUri = result.assets[0].uri;
+          const filename = localUri.split('/').pop() || 'avatar.jpg';
+          
+          // Xác định kiểu MIME
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : 'image/jpeg';
+          
+          // @ts-ignore - React Native's FormData is not fully compatible with TypeScript definitions
+          formData.append('AvatarUrl', {
+            uri: localUri,
+            name: filename,
+            type
+          });
+          
+          const response = await api.put(`/api/v1/account/${userId}`, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          
+          if (response.data.statusCode === 200) {
+            Alert.alert("Thành công", "Cập nhật ảnh đại diện thành công");
+            fetchUserData(); // Tải lại dữ liệu sau khi cập nhật
+          } else {
+            throw new Error(response.data.message || "Không thể cập nhật ảnh đại diện");
+          }
+        } catch (error: any) {
+          console.error("Lỗi khi tải lên ảnh đại diện:", error);
+          Alert.alert("Lỗi", error.message || "Có lỗi xảy ra khi tải lên ảnh đại diện");
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+    } catch (error: any) {
+      console.error("Lỗi khi chọn ảnh:", error);
+      Alert.alert("Lỗi", "Không thể chọn ảnh. Vui lòng thử lại.");
+      setUploadingImage(false);
+    }
+  };
 
   const handleChangePassword = (
     currentPassword: string,
@@ -269,47 +444,122 @@ const UserProfile: React.FC = () => {
       setPasswordModalVisible(false);
 
       // Show success message
-      Alert.alert("Success", "Your password has been changed successfully.", [
+      Alert.alert("Thành công", "Mật khẩu của bạn đã được thay đổi thành công.", [
         { text: "OK" },
       ]);
     }, 1500);
   };
 
   const handleUpdateInformation = () => {
-    // Navigate to edit profile screen
-    router.push("/(user)/EditProfile");
+    setIsEditing(true);
   };
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
+    Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất không?", [
+      { text: "Hủy", style: "cancel" },
       {
-        text: "Logout",
+        text: "Đăng xuất",
         style: "destructive",
-        onPress: () => {
-          // Handle logout logic
-          router.replace("/(auth)/signIn");
+        onPress: async () => {
+          try {
+            // Xóa tất cả dữ liệu người dùng khỏi AsyncStorage
+            await AsyncStorage.multiRemove([
+              "userToken",
+              "userId",
+              "userEmail",
+              "userRole",
+              "userFullName",
+            ]);
+            // Chuyển hướng đến màn hình đăng nhập
+            router.replace("/(auth)/signIn");
+          } catch (error) {
+            console.error("Lỗi khi đăng xuất:", error);
+            Alert.alert("Lỗi", "Không thể đăng xuất. Vui lòng thử lại.");
+          }
         },
       },
     ]);
   };
 
-  const handleImageUpload = () => {
-    // Implement image upload logic
-    console.log("Image upload logic not implemented");
-  };
-
   const renderEditFields = () => {
-    // Implement renderEditFields logic
-    console.log("Edit fields rendering logic not implemented");
-    return null;
+    return (
+      <View style={styles.editFieldsContainer}>
+        <View style={styles.editField}>
+          <Text style={styles.editLabel}>Họ tên</Text>
+          <TextInput
+            style={styles.editInput}
+            value={updateData.fullName}
+            onChangeText={(text) => setUpdateData({ ...updateData, fullName: text })}
+            placeholder="Nhập họ tên"
+            placeholderTextColor="#999"
+          />
+        </View>
+        
+        <View style={styles.editField}>
+          <Text style={styles.editLabel}>Tên người dùng</Text>
+          <TextInput
+            style={styles.editInput}
+            value={updateData.username}
+            onChangeText={(text) => setUpdateData({ ...updateData, username: text })}
+            placeholder="Nhập tên người dùng"
+            placeholderTextColor="#999"
+          />
+        </View>
+        
+        <View style={styles.editField}>
+          <Text style={styles.editLabel}>Số điện thoại</Text>
+          <TextInput
+            style={styles.editInput}
+            value={updateData.phone}
+            onChangeText={(text) => setUpdateData({ ...updateData, phone: text })}
+            placeholder="Nhập số điện thoại"
+            placeholderTextColor="#999"
+            keyboardType="phone-pad"
+          />
+        </View>
+        
+        <View style={styles.editButtonsContainer}>
+          <TouchableOpacity
+            style={[styles.editActionButton, styles.cancelButton]}
+            onPress={() => setIsEditing(false)}
+            disabled={loading}>
+            <Text style={styles.cancelButtonText}>Hủy</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.editActionButton, styles.saveButton]}
+            onPress={handleUpdateProfile}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.saveButtonText}>Lưu</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   const renderUserInfo = () => {
-    // Implement renderUserInfo logic
-    console.log("User info rendering logic not implemented");
-    return null;
+    return (
+      <View style={styles.userInfoContainer}>
+        <Text style={styles.userEmail}>{userData.email}</Text>
+        <Text style={styles.userStatus}>
+          {userData.role || "Thành viên"} | {userData.status || "Đang hoạt động"}
+        </Text>
+      </View>
+    );
   };
+
+  if (loading && !userData.email) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#4A90E2" />
+        <Text style={styles.loadingText}>Đang tải thông tin...</Text>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -331,21 +581,26 @@ const UserProfile: React.FC = () => {
           {/* Image Upload Button */}
           <TouchableOpacity
             style={styles.uploadButton}
-            onPress={handleImageUpload}>
-            <Text style={styles.uploadButtonText}>Upload Photo</Text>
+            onPress={handleUploadAvatar}
+            disabled={uploadingImage}>
+            {uploadingImage ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.uploadButtonText}>Tải ảnh</Text>
+            )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.profileDetailsContainer}>
           <View style={styles.profileNameContainer}>
             <Text style={styles.profileName}>
-              {userData.fullName || "Loading..."}
+              {userData.fullName || "Đang tải..."}
             </Text>
             <TouchableOpacity
               onPress={() => setIsEditing(!isEditing)}
               style={styles.editButton}>
               <Text style={styles.editButtonText}>
-                {isEditing ? "Cancel" : "Edit"}
+                {isEditing ? "Hủy" : "Chỉnh sửa"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -353,9 +608,53 @@ const UserProfile: React.FC = () => {
         </View>
       </View>
 
+      {/* Profile Fields Section */}
+      <View style={styles.profileContainer}>
+        <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+
+        <View style={styles.profileInfoRow}>
+          <View style={styles.profileLabelContainer}>
+            <Image 
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/email-icon.png",
+              }} 
+              style={styles.profileItemIcon} 
+            />
+            <Text style={styles.profileLabel}>Email</Text>
+          </View>
+          <Text style={styles.profileValue}>{userData.email}</Text>
+        </View>
+
+        <View style={styles.profileInfoRow}>
+          <View style={styles.profileLabelContainer}>
+            <Image 
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/phone-icon.png",
+              }} 
+              style={styles.profileItemIcon} 
+            />
+            <Text style={styles.profileLabel}>Điện thoại</Text>
+          </View>
+          <Text style={styles.profileValue}>{userData.phone || "Chưa cập nhật"}</Text>
+        </View>
+
+        <View style={styles.profileInfoRow}>
+          <View style={styles.profileLabelContainer}>
+            <Image 
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/user-icon.png",
+              }} 
+              style={styles.profileItemIcon} 
+            />
+            <Text style={styles.profileLabel}>Vai trò</Text>
+          </View>
+          <Text style={styles.profileValue}>{userData.role || "Thành viên"}</Text>
+        </View>
+      </View>
+
       {/* Settings Section */}
       <View style={styles.settingsSection}>
-        <Text style={styles.sectionTitle}>Settings</Text>
+        <Text style={styles.sectionTitle}>Cài đặt</Text>
         <TouchableOpacity style={styles.settingItem}>
           <View style={styles.settingIconContainer}>
             <Image
@@ -365,7 +664,7 @@ const UserProfile: React.FC = () => {
               style={styles.settingIcon}
             />
           </View>
-          <Text style={styles.settingText}>Notification</Text>
+          <Text style={styles.settingText}>Thông báo</Text>
           <Image
             source={{
               uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
@@ -382,7 +681,7 @@ const UserProfile: React.FC = () => {
               style={styles.settingIcon}
             />
           </View>
-          <Text style={styles.settingText}>Privacy & Security</Text>
+          <Text style={styles.settingText}>Quyền riêng tư & Bảo mật</Text>
           <Image
             source={{
               uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
@@ -392,7 +691,7 @@ const UserProfile: React.FC = () => {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.settingItem}
-          onPress={handleChangePassword}>
+          onPress={() => setPasswordModalVisible(true)}>
           <View style={styles.settingIconContainer}>
             <Image
               source={{
@@ -401,7 +700,7 @@ const UserProfile: React.FC = () => {
               style={styles.settingIcon}
             />
           </View>
-          <Text style={styles.settingText}>Change Password</Text>
+          <Text style={styles.settingText}>Đổi mật khẩu</Text>
           <Image
             source={{
               uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
@@ -418,7 +717,7 @@ const UserProfile: React.FC = () => {
               style={styles.settingIcon}
             />
           </View>
-          <Text style={styles.settingText}>Help & Support</Text>
+          <Text style={styles.settingText}>Trợ giúp & Hỗ trợ</Text>
           <Image
             source={{
               uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
@@ -435,7 +734,7 @@ const UserProfile: React.FC = () => {
               style={styles.settingIcon}
             />
           </View>
-          <Text style={[styles.settingText, styles.logoutText]}>Log Out</Text>
+          <Text style={[styles.settingText, styles.logoutText]}>Đăng xuất</Text>
           <Image
             source={{
               uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
@@ -444,6 +743,14 @@ const UserProfile: React.FC = () => {
           />
         </TouchableOpacity>
       </View>
+
+      {/* Password Change Modal */}
+      <PasswordChangeModal
+        visible={passwordModalVisible}
+        onClose={() => setPasswordModalVisible(false)}
+        onSubmit={handleChangePassword}
+        loading={loading}
+      />
     </ScrollView>
   );
 };
@@ -456,6 +763,18 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#666666",
+    fontFamily: "Poppins",
   },
   profileInfoSection: {
     flexDirection: "row",
@@ -480,6 +799,7 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#4A90E2",
   },
   placeholderText: {
     fontFamily: "Poppins",
@@ -494,6 +814,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#4A90E2",
     padding: 8,
     borderRadius: 20,
+    minWidth: 40,
+    justifyContent: "center",
+    alignItems: "center",
   },
   uploadButtonText: {
     fontFamily: "Poppins",
@@ -502,18 +825,17 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   profileDetailsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
+    flex: 1,
+    marginLeft: 16,
   },
   profileNameContainer: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
   },
   profileName: {
     fontFamily: "Poppins",
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
     color: "#333333",
   },
@@ -528,6 +850,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFFFFF",
   },
+  userInfoContainer: {
+    marginTop: 8,
+  },
+  userEmail: {
+    fontFamily: "Poppins",
+    fontSize: 14,
+    color: "#666666",
+  },
+  userStatus: {
+    fontFamily: "Poppins",
+    fontSize: 14,
+    color: "#4A90E2",
+    marginTop: 4,
+  },
   sectionTitle: {
     fontFamily: "Poppins",
     fontSize: 20,
@@ -538,7 +874,7 @@ const styles = StyleSheet.create({
   },
   profileContainer: {
     width: "100%",
-    marginTop: 60,
+    marginTop: 20,
     paddingVertical: 16,
   },
   profileInfoRow: {
@@ -578,44 +914,94 @@ const styles = StyleSheet.create({
     maxWidth: "60%",
     textAlign: "right",
   },
-  actionsContainer: {
-    width: "100%",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  editFieldsContainer: {
+    marginTop: 16,
   },
-  actionButton: {
+  editField: {
+    marginBottom: 12,
+  },
+  editLabel: {
+    fontFamily: "Poppins",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333333",
+    marginBottom: 4,
+  },
+  editInput: {
+    backgroundColor: "#F5F5F5",
+    borderRadius: 8,
+    padding: 10,
+    fontFamily: "Poppins",
+    fontSize: 14,
+    color: "#333333",
+  },
+  editButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 16,
+  },
+  editActionButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#F5F5F5",
+    marginRight: 8,
+  },
+  saveButton: {
+    backgroundColor: "#4A90E2",
+    marginLeft: 8,
+  },
+  cancelButtonText: {
+    fontFamily: "Poppins",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333333",
+  },
+  saveButtonText: {
+    fontFamily: "Poppins",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  settingsSection: {
+    padding: 16,
+    marginTop: 20,
+  },
+  settingItem: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    height: 56,
-    marginBottom: 16,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    justifyContent: "space-between",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
   },
-  actionButtonIcon: {
+  settingIconContainer: {
     width: 24,
     height: 24,
-    marginRight: 12,
-    tintColor: "#FFFFFF",
+    marginRight: 16,
   },
-  changePasswordButton: {
-    backgroundColor: "#4A90E2",
+  settingIcon: {
+    width: "100%",
+    height: "100%",
   },
-  updateInfoButton: {
-    backgroundColor: "#50C878",
-  },
-  logoutButton: {
-    backgroundColor: "#E74C3C",
-  },
-  actionButtonText: {
-    color: "#FFFFFF",
+  settingText: {
+    fontFamily: "Poppins",
     fontSize: 16,
     fontWeight: "600",
-    fontFamily: "Poppins",
+    color: "#333333",
+    flex: 1,
+  },
+  arrowIcon: {
+    width: 16,
+    height: 16,
+    tintColor: "#666666",
+  },
+  logoutText: {
+    color: "#E74C3C",
   },
   modalOverlay: {
     flex: 1,
@@ -666,13 +1052,44 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  cancelButton: {
-    backgroundColor: "#F5F5F5",
-    marginRight: 8,
+  actionsContainer: {
+    width: "100%",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
-  submitButton: {
+  actionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 56,
+    marginBottom: 16,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionButtonIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
+    tintColor: "#FFFFFF",
+  },
+  changePasswordButton: {
     backgroundColor: "#4A90E2",
-    marginLeft: 8,
+  },
+  updateInfoButton: {
+    backgroundColor: "#50C878",
+  },
+  logoutButton: {
+    backgroundColor: "#E74C3C",
+  },
+  actionButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: "Poppins",
   },
   modalButtonText: {
     fontFamily: "Poppins",
@@ -680,39 +1097,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333333",
   },
-  settingsSection: {
-    padding: 16,
-  },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-  },
-  settingIconContainer: {
-    width: 24,
-    height: 24,
-    marginRight: 16,
-  },
-  settingIcon: {
-    width: "100%",
-    height: "100%",
-  },
-  settingText: {
-    fontFamily: "Poppins",
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333333",
-  },
-  arrowIcon: {
-    width: 16,
-    height: 16,
-    tintColor: "#666666",
-  },
-  logoutText: {
-    color: "#E74C3C",
+  submitButton: {
+    backgroundColor: "#4A90E2",
+    marginLeft: 8,
   },
 });
 

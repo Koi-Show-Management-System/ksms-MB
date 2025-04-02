@@ -40,6 +40,7 @@ interface CompetitionEntry {
   showStatus: string; 
   location: string;
   result: string;
+  eliminationRound?: string;
 }
 
 // Tạo interface mở rộng từ KoiProfile gốc 
@@ -186,10 +187,11 @@ export default function KoiInformation() {
         if (response.statusCode === 200) {
           console.log("Nhận được dữ liệu cá Koi:", response.data);
           
-          // Nếu không có thành tích trong dữ liệu API, thêm dữ liệu mẫu
-          const koiDataWithAchievements = {
+          // Nếu không có thành tích trong dữ liệu API, KHÔNG thêm dữ liệu mẫu nữa
+          const koiDataWithAchievements: KoiProfile = {
             ...response.data,
-            achievements: (response.data as any).achievements || sampleAchievements
+            // Giữ mảng achievements rỗng nếu không có từ API
+            achievements: (response.data as any).achievements || []
           };
           
           setKoiData(koiDataWithAchievements);
@@ -356,7 +358,7 @@ export default function KoiInformation() {
         showsVerticalScrollIndicator={false}
       >
         {/* Media Carousel sử dụng FlatList */}
-        {mediaItems.length > 0 && (
+        {mediaItems.length > 0 ? (
           <View style={styles.heroSection}>
             <FlatList
               ref={flatListRef}
@@ -392,12 +394,18 @@ export default function KoiInformation() {
               ))}
             </View>
           </View>
+        ) : (
+          <View style={styles.noMediaContainer}>
+            <Text style={styles.noMediaText}>Chưa có hình ảnh hoặc video</Text>
+          </View>
         )}
 
         <View style={styles.contentContainer}>
           {/* Tiêu đề và trạng thái */}
-          <Text style={styles.koiName}>{koiData.name}</Text>
-          <Text style={styles.statusText}>Trạng thái: {koiData.status}</Text>
+          <Text style={styles.koiName}>{koiData.name || "Không có tên"}</Text>
+          <Text style={styles.statusText}>
+            Trạng thái: {koiData.status === "active" ? "Hoạt động" : koiData.status || "Không xác định"}
+          </Text>
           
           {/* Thông tin chi tiết */}
           <Text style={styles.sectionTitle}>Thông tin chi tiết</Text>
@@ -405,29 +413,33 @@ export default function KoiInformation() {
             <View style={styles.detailRow}>
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Giống:</Text>
-                <Text style={styles.detailValue}>{koiData.variety?.name}</Text>
+                <Text style={styles.detailValue}>{koiData.variety?.name || "Không xác định"}</Text>
               </View>
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Kích thước:</Text>
-                <Text style={styles.detailValue}>{koiData.size} cm</Text>
+                <Text style={styles.detailValue}>{koiData.size ? `${koiData.size} cm` : "Chưa cập nhật"}</Text>
               </View>
             </View>
             
             <View style={styles.detailRow}>
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Tuổi:</Text>
-                <Text style={styles.detailValue}>{koiData.age} năm</Text>
+                <Text style={styles.detailValue}>{koiData.age ? `${koiData.age} năm` : "Chưa cập nhật"}</Text>
               </View>
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Giới tính:</Text>
-                <Text style={styles.detailValue}>{koiData.gender}</Text>
+                <Text style={styles.detailValue}>
+                  {koiData.gender === "Female" ? "Cái" : 
+                   koiData.gender === "Male" ? "Đực" : 
+                   koiData.gender || "Chưa xác định"}
+                </Text>
               </View>
             </View>
             
             <View style={styles.detailRow}>
               <View style={styles.detailItem}>
                 <Text style={styles.detailLabel}>Dòng máu:</Text>
-                <Text style={styles.detailValue}>{koiData.bloodline}</Text>
+                <Text style={styles.detailValue}>{koiData.bloodline || "Chưa cập nhật"}</Text>
               </View>
               {koiData.createdAt && (
                 <View style={styles.detailItem}>
@@ -439,54 +451,56 @@ export default function KoiInformation() {
               )}
             </View>
             
-            {koiData.variety?.description && (
+            {koiData.variety?.description ? (
               <View style={styles.descriptionContainer}>
                 <Text style={styles.descriptionLabel}>Mô tả:</Text>
-                <Text style={styles.descriptionText}>{koiData.variety?.description}</Text>
+                <Text style={styles.descriptionText}>{koiData.variety.description}</Text>
               </View>
-            )}
+            ) : null}
           </View>
           
           {/* Phần thành tích */}
-          {koiData.achievements && koiData.achievements.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Thành tích</Text>
-              <View style={styles.achievementsList}>
-                {koiData.achievements.map((achievement, index) => (
-                  <View key={index} style={styles.achievementCard}>
-                    <View style={styles.achievementHeader}>
-                      <View style={[styles.achievementIcon, index === 0 ? styles.goldIcon : styles.silverIcon]}>
-                        <Text style={styles.achievementIconText}>
-                          {achievement.icon === 'trophy' ? '🏆' : '🥇'}
-                        </Text>
-                      </View>
-                      <View style={styles.achievementTitleContainer}>
-                        <Text style={styles.achievementTitle}>{achievement.title}</Text>
-                        <Text style={styles.achievementSubtitle}>
-                          {achievement.show} - {achievement.year}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.achievementDetails}>
-                      <Text style={styles.achievementDetail}>
-                        <Text style={styles.achievementDetailLabel}>Danh mục:</Text> {achievement.category}
+          <Text style={styles.sectionTitle}>Thành tích</Text>
+          {koiData.achievements && koiData.achievements.length > 0 ? (
+            <View style={styles.achievementsList}>
+              {koiData.achievements.map((achievement, index) => (
+                <View key={index} style={styles.achievementCard}>
+                  <View style={styles.achievementHeader}>
+                    <View style={[styles.achievementIcon, index === 0 ? styles.goldIcon : styles.silverIcon]}>
+                      <Text style={styles.achievementIconText}>
+                        {achievement.icon === 'trophy' ? '🏆' : '🥇'}
                       </Text>
-                      {achievement.location && (
-                        <Text style={styles.achievementDetail}>
-                          <Text style={styles.achievementDetailLabel}>Địa điểm:</Text> {achievement.location}
-                        </Text>
-                      )}
+                    </View>
+                    <View style={styles.achievementTitleContainer}>
+                      <Text style={styles.achievementTitle}>{achievement.title}</Text>
+                      <Text style={styles.achievementSubtitle}>
+                        {achievement.show} - {achievement.year}
+                      </Text>
                     </View>
                   </View>
-                ))}
-              </View>
-            </>
+                  <View style={styles.achievementDetails}>
+                    <Text style={styles.achievementDetail}>
+                      <Text style={styles.achievementDetailLabel}>Danh mục:</Text> {achievement.category}
+                    </Text>
+                    {achievement.location && (
+                      <Text style={styles.achievementDetail}>
+                        <Text style={styles.achievementDetailLabel}>Địa điểm:</Text> {achievement.location}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Cá Koi này chưa có thành tích nào</Text>
+            </View>
           )}
 
           {/* Phần hình ảnh và video */}
           <Text style={styles.sectionTitle}>Hình ảnh & Video</Text>
           <View style={styles.mediaSection}>
-            {images.length > 0 && (
+            {images.length > 0 ? (
               <View style={styles.mediaCategory}>
                 <Text style={styles.mediaCategoryTitle}>Hình ảnh ({images.length})</Text>
                 <FlatList
@@ -507,9 +521,13 @@ export default function KoiInformation() {
                   contentContainerStyle={styles.mediaThumbnailList}
                 />
               </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Không có hình ảnh</Text>
+              </View>
             )}
             
-            {videos.length > 0 && (
+            {videos.length > 0 ? (
               <View style={styles.mediaCategory}>
                 <Text style={styles.mediaCategoryTitle}>Video ({videos.length})</Text>
                 <FlatList
@@ -535,40 +553,55 @@ export default function KoiInformation() {
                   contentContainerStyle={styles.mediaThumbnailList}
                 />
               </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Không có video</Text>
+              </View>
             )}
           </View>
 
           {/* Hiển thị lịch sử thi đấu nếu có */}
-          {koiData.competitionHistory && koiData.competitionHistory.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Lịch sử thi đấu</Text>
-              <View style={styles.competitionList}>
-                {koiData.competitionHistory.map((competition, index) => (
-                  <View key={index} style={styles.competitionCard}>
-                    <Text style={styles.competitionTitle}>
-                      {competition.year} - {competition.showName}
-                    </Text>
+          <Text style={styles.sectionTitle}>Lịch sử thi đấu</Text>
+          {koiData.competitionHistory && koiData.competitionHistory.length > 0 ? (
+            <View style={styles.competitionList}>
+              {koiData.competitionHistory.map((competition, index) => (
+                <View key={index} style={styles.competitionCard}>
+                  <Text style={styles.competitionTitle}>
+                    {competition.year} - {competition.showName}
+                  </Text>
+                  <Text style={styles.competitionDetail}>
+                    <Text style={styles.competitionLabel}>Địa điểm:</Text> {competition.location || "Không có thông tin"}
+                  </Text>
+                  <Text style={styles.competitionDetail}>
+                    <Text style={styles.competitionLabel}>Kết quả:</Text> {competition.result || "Chưa có kết quả"}
+                  </Text>
+                  {competition.eliminationRound && (
                     <Text style={styles.competitionDetail}>
-                      <Text style={styles.competitionLabel}>Địa điểm:</Text> {competition.location}
+                      <Text style={styles.competitionLabel}>Vòng loại:</Text> {competition.eliminationRound}
                     </Text>
-                    <Text style={styles.competitionDetail}>
-                      <Text style={styles.competitionLabel}>Kết quả:</Text> {competition.result}
+                  )}
+                  <View style={styles.competitionStatusContainer}>
+                    <Text style={[
+                      styles.competitionStatus,
+                      competition.showStatus === "upcoming" ? styles.statusUpcoming : 
+                      competition.showStatus === "inprogress" ? styles.statusInProgress :
+                      styles.statusFinished
+                    ]}>
+                      {competition.showStatus === "upcoming" ? "Sắp diễn ra" : 
+                      competition.showStatus === "inprogress" ? "Đang diễn ra" :
+                      "Đã kết thúc"}
                     </Text>
-                    <View style={styles.competitionStatusContainer}>
-                      <Text style={[
-                        styles.competitionStatus,
-                        competition.showStatus === "upcoming" ? styles.statusUpcoming : styles.statusFinished
-                      ]}>
-                        {competition.showStatus === "upcoming" ? "Sắp diễn ra" : "Đã kết thúc"}
-                      </Text>
-                      <TouchableOpacity style={styles.viewDetailsButton}>
-                        <Text style={styles.viewDetailsText}>Xem chi tiết</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity style={styles.viewDetailsButton}>
+                      <Text style={styles.viewDetailsText}>Xem chi tiết</Text>
+                    </TouchableOpacity>
                   </View>
-                ))}
-              </View>
-            </>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Cá Koi này chưa tham gia cuộc thi nào</Text>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -957,6 +990,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     color: '#6B7280',
   },
+  statusInProgress: {
+    backgroundColor: '#FFF9C4',
+    color: '#FFA000',
+  },
   viewDetailsButton: {
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -1088,5 +1125,37 @@ const styles = StyleSheet.create({
   achievementDetailLabel: {
     fontFamily: 'Poppins_700Bold',
     color: '#4B5563',
+  },
+
+  // No Media Styles
+  noMediaContainer: {
+    width: "100%",
+    height: 280,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f7f7f7',
+  },
+  noMediaText: {
+    fontSize: 16,
+    color: '#4B5563',
+    fontFamily: 'Poppins_400Regular',
+  },
+
+  // Empty Styles
+  emptyContainer: {
+    padding: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#4B5563',
+    fontFamily: 'Poppins_400Regular',
+    textAlign: 'center',
   },
 });

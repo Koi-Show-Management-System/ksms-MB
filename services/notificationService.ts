@@ -99,36 +99,87 @@ export const getNotifications = async (
 export const markNotificationAsRead = async (
   notificationId: string
 ): Promise<{ success: boolean; message: string }> => {
+  if (__DEV__) {
+    console.log(`Bắt đầu đánh dấu thông báo đã đọc: ${notificationId}`);
+  }
+  
   try {
-    // Sửa lỗi: thêm dấu / giữa endpoint và ID
-    const url = `/api/v1/notification/mark-as-read/${notificationId}`;
-    console.log(`Gọi API đánh dấu đã đọc: ${url}`);
-    
-    const response = await api.patch(url);
-    
-    // Log chi tiết response trong môi trường phát triển
-    if (__DEV__) {
-      console.log('Phản hồi đánh dấu đã đọc:', response.data);
+    // Kiểm tra ID hợp lệ
+    if (!notificationId || notificationId.trim() === '') {
+      console.error("ID thông báo không hợp lệ:", notificationId);
+      return {
+        success: false,
+        message: "ID thông báo không hợp lệ"
+      };
     }
     
-    return { 
-      success: response.data?.statusCode === 200, 
-      message: response.data?.message || "Đánh dấu đã đọc thành công" 
-    };
+    // Sử dụng endpoint đúng với phương thức PATCH
+    const url = `/api/v1/notification/mark-as-read${notificationId}`;
+    
+    if (__DEV__) {
+      console.log(`Gọi API với URL: ${api.defaults.baseURL}${url}`);
+      console.log('Phương thức: PATCH');
+      console.log('ID thông báo:', notificationId);
+    }
+    
+    // Sử dụng tùy chọn API đầy đủ để debug
+    const response = await api.request({
+      method: 'PATCH',
+      url: url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      validateStatus: function (status) {
+        // Chấp nhận tất cả mã trạng thái để xử lý lỗi theo cách thủ công
+        return true;
+      }
+    });
+    
+    // Log chi tiết response
+    if (__DEV__) {
+      console.log('Status response:', response.status);
+      console.log('Headers response:', JSON.stringify(response.headers));
+      console.log('Data response:', JSON.stringify(response.data));
+    }
+    
+    // Kiểm tra status
+    if (response.status >= 200 && response.status < 300) {
+      return {
+        success: true,
+        message: response.data?.message || "Đánh dấu đã đọc thành công"
+      };
+    } else {
+      console.error(`Lỗi API với status: ${response.status}`);
+      return {
+        success: false,
+        message: response.data?.message || `Lỗi API (${response.status})`
+      };
+    }
   } catch (error: any) {
     // Log chi tiết lỗi
-    console.error("Lỗi khi đánh dấu thông báo đã đọc:", error);
-    if (__DEV__ && error.response) {
+    console.error("Lỗi ngoại lệ khi đánh dấu thông báo đã đọc:", error);
+    
+    if (error.response) {
+      // Lỗi từ phản hồi server
       console.error("Chi tiết lỗi:", {
         status: error.response.status,
-        data: error.response.data,
+        statusText: error.response.statusText,
+        data: JSON.stringify(error.response.data),
         url: error.config?.url
       });
+    } else if (error.request) {
+      // Lỗi không nhận được phản hồi
+      console.error("Không nhận được phản hồi:", error.request);
+    } else {
+      // Lỗi khi thiết lập request
+      console.error("Lỗi thiết lập request:", error.message);
     }
     
+    // Trả về thông báo lỗi phù hợp
     return { 
       success: false, 
-      message: error.response?.data?.message || "Không thể đánh dấu thông báo đã đọc" 
+      message: error.message || "Không thể đánh dấu thông báo đã đọc"
     };
   }
 };
@@ -142,36 +193,87 @@ export const markNotificationAsRead = async (
 export const markAllNotificationsAsRead = async (
   accountId: string
 ): Promise<{ success: boolean; message: string }> => {
+  if (__DEV__) {
+    console.log(`Bắt đầu đánh dấu tất cả thông báo đã đọc cho tài khoản: ${accountId}`);
+  }
+  
   try {
-    // Đúng format API
-    const url = `/api/v1/notification/mark-as-read-all/${accountId}`;
-    console.log(`Gọi API đánh dấu tất cả đã đọc: ${url}`);
-    
-    const response = await api.patch(url);
-    
-    // Log chi tiết response trong môi trường phát triển
-    if (__DEV__) {
-      console.log('Phản hồi đánh dấu tất cả đã đọc:', response.data);
+    // Kiểm tra ID tài khoản hợp lệ
+    if (!accountId || accountId.trim() === '') {
+      console.error("ID tài khoản không hợp lệ:", accountId);
+      return {
+        success: false,
+        message: "ID tài khoản không hợp lệ"
+      };
     }
     
-    return { 
-      success: response.data?.statusCode === 200, 
-      message: response.data?.message || "Đánh dấu tất cả đã đọc thành công" 
-    };
+    // Sử dụng endpoint đúng với phương thức PATCH
+    const url = `/api/v1/notification/mark-as-read-all/${accountId}`;
+    
+    if (__DEV__) {
+      console.log(`Gọi API với URL: ${api.defaults.baseURL}${url}`);
+      console.log('Phương thức: PATCH');
+      console.log('ID tài khoản:', accountId);
+    }
+    
+    // Sử dụng tùy chọn API đầy đủ để debug
+    const response = await api.request({
+      method: 'PATCH',
+      url: url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      validateStatus: function (status) {
+        // Chấp nhận tất cả mã trạng thái để xử lý lỗi theo cách thủ công
+        return true;
+      }
+    });
+    
+    // Log chi tiết response
+    if (__DEV__) {
+      console.log('Status response:', response.status);
+      console.log('Headers response:', JSON.stringify(response.headers));
+      console.log('Data response:', JSON.stringify(response.data));
+    }
+    
+    // Kiểm tra status
+    if (response.status >= 200 && response.status < 300) {
+      return {
+        success: true,
+        message: response.data?.message || "Đánh dấu tất cả đã đọc thành công"
+      };
+    } else {
+      console.error(`Lỗi API với status: ${response.status}`);
+      return {
+        success: false,
+        message: response.data?.message || `Lỗi API (${response.status})`
+      };
+    }
   } catch (error: any) {
     // Log chi tiết lỗi
-    console.error("Lỗi khi đánh dấu tất cả thông báo đã đọc:", error);
-    if (__DEV__ && error.response) {
+    console.error("Lỗi ngoại lệ khi đánh dấu tất cả thông báo đã đọc:", error);
+    
+    if (error.response) {
+      // Lỗi từ phản hồi server
       console.error("Chi tiết lỗi:", {
         status: error.response.status,
-        data: error.response.data,
+        statusText: error.response.statusText,
+        data: JSON.stringify(error.response.data),
         url: error.config?.url
       });
+    } else if (error.request) {
+      // Lỗi không nhận được phản hồi
+      console.error("Không nhận được phản hồi:", error.request);
+    } else {
+      // Lỗi khi thiết lập request
+      console.error("Lỗi thiết lập request:", error.message);
     }
     
+    // Trả về thông báo lỗi phù hợp
     return { 
       success: false, 
-      message: error.response?.data?.message || "Không thể đánh dấu tất cả thông báo đã đọc" 
+      message: error.message || "Không thể đánh dấu tất cả thông báo đã đọc"
     };
   }
 };
@@ -185,20 +287,87 @@ export const markAllNotificationsAsRead = async (
 export const deleteNotification = async (
   notificationId: string
 ): Promise<{ success: boolean; message: string }> => {
+  if (__DEV__) {
+    console.log(`Bắt đầu xóa thông báo: ${notificationId}`);
+  }
+  
   try {
-    const url = `/api/v1/notification/${notificationId}`;
-    console.log(`Gọi API xóa thông báo: ${url}`);
+    // Kiểm tra ID thông báo hợp lệ
+    if (!notificationId || notificationId.trim() === '') {
+      console.error("ID thông báo không hợp lệ:", notificationId);
+      return {
+        success: false,
+        message: "ID thông báo không hợp lệ"
+      };
+    }
     
-    const response = await api.delete(url);
-    return { 
-      success: response.status === 200, 
-      message: "Xóa thông báo thành công" 
-    };
-  } catch (error) {
-    console.error("Lỗi khi xóa thông báo:", error);
+    // Đúng định dạng API
+    const url = `/api/v1/notification/${notificationId}`;
+    
+    if (__DEV__) {
+      console.log(`Gọi API với URL: ${api.defaults.baseURL}${url}`);
+      console.log('Phương thức: DELETE');
+      console.log('ID thông báo:', notificationId);
+    }
+    
+    // Sử dụng tùy chọn API đầy đủ để debug
+    const response = await api.request({
+      method: 'DELETE',
+      url: url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      validateStatus: function (status) {
+        // Chấp nhận tất cả mã trạng thái để xử lý lỗi theo cách thủ công
+        return true;
+      }
+    });
+    
+    // Log chi tiết response
+    if (__DEV__) {
+      console.log('Status response:', response.status);
+      console.log('Headers response:', JSON.stringify(response.headers));
+      console.log('Data response:', JSON.stringify(response.data));
+    }
+    
+    // Kiểm tra status
+    if (response.status >= 200 && response.status < 300) {
+      return {
+        success: true,
+        message: response.data?.message || "Xóa thông báo thành công"
+      };
+    } else {
+      console.error(`Lỗi API với status: ${response.status}`);
+      return {
+        success: false,
+        message: response.data?.message || `Lỗi API (${response.status})`
+      };
+    }
+  } catch (error: any) {
+    // Log chi tiết lỗi
+    console.error("Lỗi ngoại lệ khi xóa thông báo:", error);
+    
+    if (error.response) {
+      // Lỗi từ phản hồi server
+      console.error("Chi tiết lỗi:", {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: JSON.stringify(error.response.data),
+        url: error.config?.url
+      });
+    } else if (error.request) {
+      // Lỗi không nhận được phản hồi
+      console.error("Không nhận được phản hồi:", error.request);
+    } else {
+      // Lỗi khi thiết lập request
+      console.error("Lỗi thiết lập request:", error.message);
+    }
+    
+    // Trả về thông báo lỗi phù hợp
     return { 
       success: false, 
-      message: "Không thể xóa thông báo" 
+      message: error.message || "Không thể xóa thông báo"
     };
   }
 }; 

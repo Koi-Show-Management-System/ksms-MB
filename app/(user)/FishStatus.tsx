@@ -21,6 +21,7 @@ import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { Video, ResizeMode } from "expo-av";
 
+
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
 
@@ -60,6 +61,7 @@ interface FishDetailsProps {
   gender?: string;
   bloodline?: string;
   category: string;
+  registrationNumber?: string | null;
 }
 
 const FishDetails: React.FC<FishDetailsProps> = ({ 
@@ -68,7 +70,8 @@ const FishDetails: React.FC<FishDetailsProps> = ({
   age, 
   gender, 
   bloodline,
-  category 
+  category,
+  registrationNumber
 }) => {
   return (
     <View style={styles.detailsContainer}>
@@ -78,49 +81,50 @@ const FishDetails: React.FC<FishDetailsProps> = ({
       </View>
       
       <View style={styles.detailsContent}>
+        {registrationNumber && (
+          <View style={styles.detailRow}>
+            <View style={styles.detailItemFull}>
+              <Text style={styles.detailLabel}>Số đăng ký:</Text>
+              <Text style={styles.detailValue}>{registrationNumber}</Text>
+            </View>
+          </View>
+        )}
+        
         <View style={styles.detailRow}>
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>Giống:</Text>
-            <Text style={styles.detailValue}>{breed}</Text>
+            <Text style={styles.detailValue}>{breed || 'Chưa có thông tin'}</Text>
           </View>
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>Kích thước:</Text>
-            <Text style={styles.detailValue}>{size} cm</Text>
+            <Text style={styles.detailValue}>{size ? `${size} cm` : 'Chưa có thông tin'}</Text>
           </View>
         </View>
         
-        {(age || gender) && (
-          <View style={styles.detailRow}>
-            {age && (
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Tuổi:</Text>
-                <Text style={styles.detailValue}>{age} tháng</Text>
-              </View>
-            )}
-            {gender && (
-              <View style={styles.detailItem}>
-                <Text style={styles.detailLabel}>Giới tính:</Text>
-                <Text style={styles.detailValue}>{gender}</Text>
-              </View>
-            )}
+        <View style={styles.detailRow}>
+          <View style={styles.detailItem}>
+            <Text style={styles.detailLabel}>Tuổi:</Text>
+            <Text style={styles.detailValue}>{age ? `${age} tháng` : 'Chưa có thông tin'}</Text>
           </View>
-        )}
+          <View style={styles.detailItem}>
+            <Text style={styles.detailLabel}>Giới tính:</Text>
+            <Text style={styles.detailValue}>{gender || 'Chưa có thông tin'}</Text>
+          </View>
+        </View>
         
         <View style={styles.detailRow}>
           <View style={styles.detailItemFull}>
             <Text style={styles.detailLabel}>Hạng mục:</Text>
-            <Text style={styles.detailValue}>{category}</Text>
+            <Text style={styles.detailValue}>{category || 'Chưa có thông tin'}</Text>
           </View>
         </View>
         
-        {bloodline && (
-          <View style={styles.detailRow}>
-            <View style={styles.detailItemFull}>
-              <Text style={styles.detailLabel}>Dòng máu:</Text>
-              <Text style={styles.detailValue}>{bloodline}</Text>
-            </View>
+        <View style={styles.detailRow}>
+          <View style={styles.detailItemFull}>
+            <Text style={styles.detailLabel}>Dòng máu:</Text>
+            <Text style={styles.detailValue}>{bloodline || 'Chưa có thông tin'}</Text>
           </View>
-        )}
+        </View>
       </View>
     </View>
   );
@@ -133,6 +137,7 @@ interface CurrentStatusProps {
   award?: string;
   rank?: number;
   totalParticipants?: number;
+  eliminatedAtRound?: string;
 }
 
 const CurrentStatus: React.FC<CurrentStatusProps> = ({ 
@@ -140,7 +145,8 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
   currentRound, 
   award, 
   rank,
-  totalParticipants 
+  totalParticipants,
+  eliminatedAtRound
 }) => {
   const getStatusText = (status: string): string => {
     switch (status.toLowerCase()) {
@@ -156,6 +162,8 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
         return 'Đã hủy';
       case 'rejected':
         return 'Đã từ chối';
+      case 'eliminated':
+        return 'Đã bị loại';
       default:
         return status;
     }
@@ -175,12 +183,14 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
         return '#E74C3C';
       case 'rejected':
         return '#E74C3C';
+      case 'eliminated':
+        return '#FF6B6B';
       default:
         return '#666666';
     }
   };
   
-  const hasCompetitionInfo = currentRound || award || rank;
+  const hasCompetitionInfo = currentRound || award || rank || eliminatedAtRound;
   
   return (
     <View style={styles.statusContainer}>
@@ -194,23 +204,33 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
           <Text style={styles.statusText}>{getStatusText(status)}</Text>
         </View>
         
-        {currentRound && (
+        {currentRound ? (
           <View style={styles.statusInfoRow}>
             <Text style={styles.statusLabel}>Vòng hiện tại:</Text>
             <Text style={styles.statusValue}>{currentRound}</Text>
           </View>
+        ) : status.toLowerCase() !== 'cancelled' && status.toLowerCase() !== 'rejected' && (
+          <View style={styles.statusInfoRow}>
+            <Text style={styles.statusLabel}>Vòng hiện tại:</Text>
+            <Text style={styles.statusValueNeutral}>Chưa có thông tin</Text>
+          </View>
         )}
         
-        {rank && (
+        {rank !== null && rank !== undefined ? (
           <View style={styles.statusInfoRow}>
             <Text style={styles.statusLabel}>Xếp hạng:</Text>
             <Text style={styles.statusValue}>
               {rank}{totalParticipants ? `/${totalParticipants}` : ''}
             </Text>
           </View>
-        )}
+        ) : status.toLowerCase() === 'completed' || status.toLowerCase() === 'eliminated' ? (
+          <View style={styles.statusInfoRow}>
+            <Text style={styles.statusLabel}>Xếp hạng:</Text>
+            <Text style={styles.statusValueNeutral}>Chưa có thông tin xếp hạng</Text>
+          </View>
+        ) : null}
         
-        {award && (
+        {award ? (
           <View style={styles.awardContainer}>
             <Image
               source={{
@@ -219,6 +239,17 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
               style={styles.awardIcon}
             />
             <Text style={styles.awardText}>{award}</Text>
+          </View>
+        ) : status.toLowerCase() === 'completed' ? (
+          <View style={styles.noAwardContainer}>
+            <Text style={styles.noAwardText}>Không có giải thưởng</Text>
+          </View>
+        ) : null}
+
+        {eliminatedAtRound && (
+          <View style={styles.eliminatedContainer}>
+            <Text style={styles.eliminatedLabel}>Bị loại tại:</Text>
+            <Text style={styles.eliminatedValue}>{eliminatedAtRound}</Text>
           </View>
         )}
         
@@ -238,6 +269,7 @@ interface PaymentInfoProps {
   paidAmount?: number;
   paymentDate?: string;
   transactionCode?: string;
+  qrcodeData?: string | null;
   status?: string;
 }
 
@@ -246,12 +278,13 @@ const PaymentInfo: React.FC<PaymentInfoProps> = ({
   paidAmount,
   paymentDate,
   transactionCode,
+  qrcodeData,
   status
 }) => {
-  if (!paymentMethod) return null;
+  if (!paymentMethod && !paidAmount && !status) return null;
   
   const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
+    if (!dateString) return 'Chưa có thông tin';
     
     const date = new Date(dateString);
     return date.toLocaleDateString('vi-VN', {
@@ -263,10 +296,12 @@ const PaymentInfo: React.FC<PaymentInfoProps> = ({
     });
   };
   
-  const formattedAmount = new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND'
-  }).format(paidAmount || 0);
+  const formattedAmount = paidAmount 
+    ? new Intl.NumberFormat('vi-VN', {
+        style: 'currency',
+        currency: 'VND'
+      }).format(paidAmount)
+    : 'Chưa có thông tin';
   
   return (
     <View style={styles.paymentContainer}>
@@ -278,7 +313,7 @@ const PaymentInfo: React.FC<PaymentInfoProps> = ({
       <View style={styles.paymentContent}>
         <View style={styles.paymentRow}>
           <Text style={styles.paymentLabel}>Phương thức:</Text>
-          <Text style={styles.paymentValue}>{paymentMethod}</Text>
+          <Text style={styles.paymentValue}>{paymentMethod || 'Chưa có thông tin'}</Text>
         </View>
         
         <View style={styles.paymentRow}>
@@ -286,35 +321,69 @@ const PaymentInfo: React.FC<PaymentInfoProps> = ({
           <Text style={styles.paymentValue}>{formattedAmount}</Text>
         </View>
         
-        {paymentDate && (
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Ngày thanh toán:</Text>
-            <Text style={styles.paymentValue}>{formatDate(paymentDate)}</Text>
-          </View>
-        )}
+        <View style={styles.paymentRow}>
+          <Text style={styles.paymentLabel}>Ngày thanh toán:</Text>
+          <Text style={styles.paymentValue}>{formatDate(paymentDate)}</Text>
+        </View>
         
-        {transactionCode && (
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Mã giao dịch:</Text>
-            <Text style={styles.paymentValue}>{transactionCode}</Text>
-          </View>
-        )}
+        <View style={styles.paymentRow}>
+          <Text style={styles.paymentLabel}>Mã giao dịch:</Text>
+          <Text style={styles.paymentValue}>{transactionCode || 'Chưa có thông tin'}</Text>
+        </View>
         
         {status && (
           <View style={styles.paymentStatusContainer}>
             <View style={[
               styles.paymentStatusBadge, 
-              { backgroundColor: status.toLowerCase() === 'paid' ? '#22C55E' : '#FFA500' }
+              { backgroundColor: getPaymentStatusColor(status) }
             ]}>
               <Text style={styles.paymentStatusText}>
-                {status.toLowerCase() === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                {getPaymentStatusText(status)}
               </Text>
             </View>
+          </View>
+        )}
+        
+        {qrcodeData && (
+          <View style={styles.qrcodeContainer}>
+            <Text style={styles.qrcodeLabel}>Mã QR thanh toán:</Text>
+            <Image 
+              source={{ uri: qrcodeData }} 
+              style={styles.qrcodeImage} 
+              resizeMode="contain"
+            />
           </View>
         )}
       </View>
     </View>
   );
+};
+
+// Hàm trợ giúp xử lý trạng thái thanh toán
+const getPaymentStatusColor = (status: string): string => {
+  switch (status.toLowerCase()) {
+    case 'paid':
+      return '#22C55E';
+    case 'pending':
+      return '#FFA500';
+    case 'cancelled':
+      return '#E74C3C';
+    default:
+      return '#888888';
+  }
+};
+
+const getPaymentStatusText = (status: string): string => {
+  switch (status.toLowerCase()) {
+    case 'paid':
+      return 'Đã thanh toán';
+    case 'pending':
+      return 'Chờ thanh toán';
+    case 'cancelled':
+      return 'Đã hủy thanh toán';
+    default:
+      return status;
+  }
 };
 
 // --- Media Gallery ---
@@ -332,13 +401,24 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ media }) => {
   const [allVideos, setAllVideos] = useState<Array<{id: string; mediaUrl: string; mediaType: string;}>>([]);
   const videoRef = useRef(null);
   
-  if (!media || media.length === 0) return null;
+  if (!media || media.length === 0) {
+    return (
+      <View style={styles.galleryContainer}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionIndicator} />
+          <Text style={styles.sectionTitle}>Thư viện ảnh & video</Text>
+        </View>
+        
+        <View style={styles.emptyMediaContainer}>
+          <Text style={styles.emptyMediaText}>Chưa có ảnh hoặc video nào</Text>
+        </View>
+      </View>
+    );
+  }
   
   // Phân loại media
   const videos = media.filter(item => item.mediaType === 'Video');
   const images = media.filter(item => item.mediaType === 'Image');
-  
-  if (media.length === 0) return null;
   
   // Xử lý xem video
   const handleOpenVideo = (videoUrl: string) => {
@@ -767,7 +847,7 @@ const FishStatus: React.FC = () => {
         
         <ScrollView contentContainerStyle={styles.scrollViewContent} showsVerticalScrollIndicator={false}>
           <FishProfileHeader
-            fishName={fishData.koiName}
+            fishName={fishData.koiName || 'Cá Koi'}
             fishImage={fishImage}
           />
           
@@ -778,6 +858,7 @@ const FishStatus: React.FC = () => {
             gender={fishData.gender || undefined}
             bloodline={fishData.bloodLine || undefined}
             category={fishData.categoryName}
+            registrationNumber={fishData.registrationNumber}
           />
           
           <CurrentStatus
@@ -786,6 +867,7 @@ const FishStatus: React.FC = () => {
             award={fishData.award || undefined}
             rank={fishData.rank !== null ? fishData.rank : undefined}
             totalParticipants={totalParticipants}
+            eliminatedAtRound={fishData.eliminatedAtRound || undefined}
           />
           
           <PaymentInfo
@@ -793,6 +875,7 @@ const FishStatus: React.FC = () => {
             paidAmount={fishData.payment?.paidAmount}
             paymentDate={fishData.payment?.paymentDate}
             transactionCode={fishData.payment?.transactionCode}
+            qrcodeData={fishData.payment?.qrcodeData}
             status={fishData.payment?.status}
           />
           
@@ -975,6 +1058,11 @@ const styles = StyleSheet.create({
     color: "#333333",
     fontWeight: "600",
   },
+  statusValueNeutral: {
+    fontSize: 14,
+    color: "#888888",
+    fontWeight: "500",
+  },
   awardContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -994,6 +1082,32 @@ const styles = StyleSheet.create({
     color: "#B8860B",
     fontWeight: "600",
     fontSize: 14,
+  },
+  noAwardContainer: {
+    padding: 16,
+    backgroundColor: "#FFFDF0",
+    borderRadius: 8,
+    marginTop: 8,
+    width: "100%",
+  },
+  noAwardText: {
+    color: "#888888",
+    fontStyle: "italic",
+  },
+  eliminatedContainer: {
+    padding: 16,
+    backgroundColor: "#FFFDF0",
+    borderRadius: 8,
+    marginTop: 8,
+    width: "100%",
+  },
+  eliminatedLabel: {
+    color: "#888888",
+    fontWeight: "500",
+  },
+  eliminatedValue: {
+    color: "#333333",
+    fontWeight: "600",
   },
   noInfoText: {
     fontSize: 14,
@@ -1411,6 +1525,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#CCCCCC",
     textAlign: "center",
+  },
+  qrcodeContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  qrcodeLabel: {
+    fontSize: 14,
+    color: "#666666",
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  qrcodeImage: {
+    width: "100%",
+    height: 120,
+  },
+  emptyMediaContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyMediaText: {
+    fontSize: 16,
+    color: "#666666",
+    fontStyle: "italic",
   },
 });
 

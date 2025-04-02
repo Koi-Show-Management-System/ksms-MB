@@ -127,6 +127,7 @@ export interface ShowDetailRegistration {
   rank: number | null;
   award: string | null;
   currentRound: string | null;
+  eliminatedAtRound: string | null;
   payment: ShowDetailPayment;
   media: RegistrationMedia[];
 }
