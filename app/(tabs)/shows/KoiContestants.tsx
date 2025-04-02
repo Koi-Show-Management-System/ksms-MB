@@ -34,8 +34,13 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
   const [showModal, setShowModal] = useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [showAllContestants, setShowAllContestants] = useState(false);
   const [activeTabInModal, setActiveTabInModal] = useState('info');
+  
+  // Thêm state phân trang
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalContestants, setTotalContestants] = useState(0);
 
   // Lấy danh sách hạng mục thi đấu
   useEffect(() => {
@@ -103,9 +108,11 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await getContestants(selectedRound);
+        const response = await getContestants(selectedRound, currentPage, pageSize);
         if (response?.data?.items) {
           setContestants(response.data.items);
+          setTotalPages(response.data.totalPages);
+          setTotalContestants(response.data.total);
           if (response.data.items.length === 0) {
             setError("Chưa có thí sinh nào trong vòng đấu này");
           }
@@ -123,7 +130,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
     if (selectedRound) {
       fetchContestants();
     }
-  }, [selectedRound]);
+  }, [selectedRound, currentPage, pageSize]);
 
   // Hiển thị chi tiết thí sinh
   const handleContestantPress = (contestant: KoiContestant) => {
@@ -143,9 +150,11 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
     setContestants([]);
   };
 
-  // Thêm hàm xử lý sự kiện khi click vào nút "Xem thêm"
-  const handleShowMoreContestants = () => {
-    setShowAllContestants(true);
+  // Hàm xử lý chuyển trang
+  const handlePageChange = (newPage: number) => {
+    if (newPage > 0 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
   };
 
   // Render hạng mục
@@ -220,6 +229,11 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
     const imageMedia = item.registration.koiMedia.find(m => m.mediaType === 'Image');
     const hasVideo = item.registration.koiMedia.some(m => m.mediaType === 'Video');
     
+    // Lấy kết quả mới nhất (nếu có)
+    const latestResult = item.roundResults && item.roundResults.length > 0 
+      ? item.roundResults[item.roundResults.length - 1] 
+      : null;
+    
     return (
       <TouchableOpacity
         style={styles.contestantCard}
@@ -241,6 +255,13 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               <MaterialIcons name="play-circle-filled" size={24} color="#ffffff" />
             </View>
           )}
+          
+          {/* Hiển thị rank (nếu có) */}
+          {item.rank > 0 && (
+            <View style={styles.rankBadge}>
+              <Text style={styles.rankText}>{item.rank}</Text>
+            </View>
+          )}
         </View>
         <View style={styles.contestantInfo}>
           <Text style={styles.contestantName} numberOfLines={1}>
@@ -257,6 +278,32 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               {item.registration.koiProfile.gender}
             </Text>
           </View>
+          
+          {/* Hiển thị kết quả vòng đấu (nếu có) */}
+          {latestResult && latestResult.isPublic && (
+            <View style={[
+              styles.scoreContainer,
+              latestResult.status === 'Pass' ? styles.passScore : styles.failScore
+            ]}>
+              {selectedRoundType === 'Preliminary' ? (
+                <View style={styles.preliminaryStatusContainer}>
+                  <Text style={styles.scoreStatus}>
+                    {latestResult.status === 'Pass' ? 'Đạt' : 'Không đạt'}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.scoreText}>
+                    {latestResult.totalScore} điểm
+                  </Text>
+                  <Text style={styles.scoreStatus}>
+                    {latestResult.status === 'Pass' ? 'Đạt' : 'Không đạt'}
+                  </Text>
+                </>
+              )}
+            </View>
+          )}
+          
           {item.tankName && (
             <View style={styles.tankNameContainer}>
               <MaterialIcons name="pool" size={14} color="#3498db" />
@@ -265,6 +312,33 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
           )}
         </View>
       </TouchableOpacity>
+    );
+  };
+
+  // Thêm UI phân trang
+  const renderPagination = () => {
+    if (totalPages <= 1) return null;
+    
+    return (
+      <View style={styles.paginationContainer}>
+        <TouchableOpacity 
+          style={[styles.paginationButton, currentPage === 1 && styles.disabledButton]}
+          onPress={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}>
+          <MaterialIcons name="chevron-left" size={24} color={currentPage === 1 ? "#cccccc" : "#000000"} />
+        </TouchableOpacity>
+        
+        <Text style={styles.paginationText}>
+          Trang {currentPage}/{totalPages} ({totalContestants} thí sinh)
+        </Text>
+        
+        <TouchableOpacity 
+          style={[styles.paginationButton, currentPage === totalPages && styles.disabledButton]}
+          onPress={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}>
+          <MaterialIcons name="chevron-right" size={24} color={currentPage === totalPages ? "#cccccc" : "#000000"} />
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -347,32 +421,105 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
         {!loading && !error && contestants.length > 0 && (
           <View style={styles.contestantsContainer}>
             <Text style={styles.contestantsTitle}>
-              Thí sinh ({contestants.length})
+              Thí sinh ({totalContestants})
             </Text>
-            <View style={[
-              styles.contestantsWrapper, 
-              showAllContestants && styles.contestantsWrapperExpanded
-            ]}>
-              <FlatList
-                data={contestants}
-                numColumns={2}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.contestantsGrid}
-                renderItem={renderContestantItem}
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled={true}
-                scrollEnabled={false}
-              />
+            <View style={styles.contestantsWrapper}>
+              <View style={styles.contestantsGrid}>
+                {contestants.map((item) => {
+                  const imageMedia = item.registration.koiMedia.find(m => m.mediaType === 'Image');
+                  const hasVideo = item.registration.koiMedia.some(m => m.mediaType === 'Video');
+                  
+                  // Lấy kết quả mới nhất (nếu có)
+                  const latestResult = item.roundResults && item.roundResults.length > 0 
+                    ? item.roundResults[item.roundResults.length - 1] 
+                    : null;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.contestantCard}
+                      onPress={() => handleContestantPress(item)}>
+                      <View style={styles.contestantImageContainer}>
+                        {imageMedia ? (
+                          <Image
+                            source={{ uri: imageMedia.mediaUrl }}
+                            style={styles.contestantImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.noImageContainer}>
+                            <Ionicons name="fish" size={32} color="#cccccc" />
+                          </View>
+                        )}
+                        {hasVideo && (
+                          <View style={styles.videoIndicator}>
+                            <MaterialIcons name="play-circle-filled" size={24} color="#ffffff" />
+                          </View>
+                        )}
+                        
+                        {/* Hiển thị rank (nếu có) */}
+                        {item.rank > 0 && (
+                          <View style={styles.rankBadge}>
+                            <Text style={styles.rankText}>{item.rank}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.contestantInfo}>
+                        <Text style={styles.contestantName} numberOfLines={1}>
+                          {item.registration.koiProfile.name}
+                        </Text>
+                        <Text style={styles.contestantVariety} numberOfLines={1}>
+                          {item.registration.koiProfile.variety.name}
+                        </Text>
+                        <View style={styles.contestantDetailRow}>
+                          <Text style={styles.contestantDetail}>
+                            {item.registration.koiSize}cm
+                          </Text>
+                          <Text style={styles.contestantDetail}>
+                            {item.registration.koiProfile.gender}
+                          </Text>
+                        </View>
+                        
+                        {/* Hiển thị kết quả vòng đấu (nếu có) */}
+                        {latestResult && latestResult.isPublic && (
+                          <View style={[
+                            styles.scoreContainer,
+                            latestResult.status === 'Pass' ? styles.passScore : styles.failScore
+                          ]}>
+                            {selectedRoundType === 'Preliminary' ? (
+                              <View style={styles.preliminaryStatusContainer}>
+                                <Text style={styles.scoreStatus}>
+                                  {latestResult.status === 'Pass' ? 'Đạt' : 'Không đạt'}
+                                </Text>
+                              </View>
+                            ) : (
+                              <>
+                                <Text style={styles.scoreText}>
+                                  {latestResult.totalScore} điểm
+                                </Text>
+                                <Text style={styles.scoreStatus}>
+                                  {latestResult.status === 'Pass' ? 'Đạt' : 'Không đạt'}
+                                </Text>
+                              </>
+                            )}
+                          </View>
+                        )}
+                        
+                        {item.tankName && (
+                          <View style={styles.tankNameContainer}>
+                            <MaterialIcons name="pool" size={14} color="#3498db" />
+                            <Text style={styles.tankName}>{item.tankName}</Text>
+                          </View>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
             
-            {!showAllContestants && contestants.length > 6 && (
-              <TouchableOpacity 
-                style={styles.showMoreButton}
-                onPress={handleShowMoreContestants}>
-                <Text style={styles.showMoreText}>Xem thêm</Text>
-                <MaterialIcons name="keyboard-arrow-down" size={20} color="#3498db" />
-              </TouchableOpacity>
-            )}
+            {/* Phân trang */}
+            {renderPagination()}
           </View>
         )}
       </ScrollView>
@@ -764,11 +911,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   contestantsWrapper: {
-    maxHeight: 400,
     overflow: 'hidden',
-  },
-  contestantsWrapperExpanded: {
-    maxHeight: undefined,
   },
   contestantsTitle: {
     fontSize: 16,
@@ -777,6 +920,9 @@ const styles = StyleSheet.create({
     color: '#333333',
   },
   contestantsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     paddingBottom: 16,
   },
   contestantCard: {
@@ -784,8 +930,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
     marginBottom: 12,
-    marginHorizontal: 6,
-    flex: 1,
+    width: '48%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -1040,23 +1185,6 @@ const styles = StyleSheet.create({
   activeMediaDot: {
     backgroundColor: '#ffffff',
   },
-  showMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    backgroundColor: '#f8f8f8',
-    borderRadius: 8,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  showMoreText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#3498db',
-    marginRight: 4,
-  },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.3)',
@@ -1081,6 +1209,79 @@ const styles = StyleSheet.create({
   mediaThumbnail: {
     width: '100%',
     height: '100%',
+  },
+  rankBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FFD700',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  rankText: {
+    color: '#000000',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  scoreContainer: {
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  preliminaryStatusContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  passScore: {
+    backgroundColor: '#e6f7ef',
+  },
+  failScore: {
+    backgroundColor: '#ffebee',
+  },
+  scoreText: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginRight: 4,
+  },
+  scoreStatus: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  paginationButton: {
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 20,
+    backgroundColor: '#f8f8f8',
+  },
+  disabledButton: {
+    borderColor: '#f0f0f0',
+    backgroundColor: '#f5f5f5',
+  },
+  paginationText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: '#555555',
   },
 });
 
