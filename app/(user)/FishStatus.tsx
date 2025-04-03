@@ -164,8 +164,6 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
         return 'Đã từ chối';
       case 'eliminated':
         return 'Đã bị loại';
-      case 'prizewinner':
-        return 'Đạt giải';
       default:
         return status;
     }
@@ -187,18 +185,12 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
         return '#E74C3C';
       case 'eliminated':
         return '#FF6B6B';
-      case 'prizewinner':
-        return '#B8860B'; // Màu vàng đồng cho trạng thái đạt giải
       default:
         return '#666666';
     }
   };
   
   const hasCompetitionInfo = currentRound || award || rank || eliminatedAtRound;
-  const shouldShowCurrentRound = status.toLowerCase() !== 'cancelled' && 
-                                status.toLowerCase() !== 'rejected' && 
-                                status.toLowerCase() !== 'eliminated' && 
-                                status.toLowerCase() !== 'prizewinner';
   
   return (
     <View style={styles.statusContainer}>
@@ -212,12 +204,12 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
           <Text style={styles.statusText}>{getStatusText(status)}</Text>
         </View>
         
-        {currentRound && shouldShowCurrentRound ? (
+        {currentRound ? (
           <View style={styles.statusInfoRow}>
             <Text style={styles.statusLabel}>Vòng hiện tại:</Text>
             <Text style={styles.statusValue}>{currentRound}</Text>
           </View>
-        ) : shouldShowCurrentRound && (
+        ) : status.toLowerCase() !== 'cancelled' && status.toLowerCase() !== 'rejected' && (
           <View style={styles.statusInfoRow}>
             <Text style={styles.statusLabel}>Vòng hiện tại:</Text>
             <Text style={styles.statusValueNeutral}>Chưa có thông tin</Text>
@@ -227,7 +219,9 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
         {rank !== null && rank !== undefined ? (
           <View style={styles.statusInfoRow}>
             <Text style={styles.statusLabel}>Xếp hạng:</Text>
-            <Text style={styles.statusValue}>{rank}</Text>
+            <Text style={styles.statusValue}>
+              {rank}{totalParticipants ? `/${totalParticipants}` : ''}
+            </Text>
           </View>
         ) : status.toLowerCase() === 'completed' || status.toLowerCase() === 'eliminated' ? (
           <View style={styles.statusInfoRow}>

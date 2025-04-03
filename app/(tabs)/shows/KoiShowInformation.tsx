@@ -208,47 +208,6 @@ const KoiShowInformationContent: React.FC = () => {
     );
   }, []);
 
-  // Kiểm tra xem có thể đăng ký thi đấu hay không (trong thời gian RegistrationOpen)
-  const canRegisterKoi = useCallback(() => {
-    if (!showData?.showStatuses || showData.showStatuses.length === 0) return false;
-    
-    // Tìm status RegistrationOpen
-    const registrationStatus = showData.showStatuses.find(
-      status => status.statusName === "RegistrationOpen"
-    );
-    
-    if (!registrationStatus) return false;
-    
-    // Lấy thời gian hiện tại ở múi giờ UTC+7 (Hanoi)
-    const now = new Date();
-    // Chuyển đổi startDate và endDate về múi giờ UTC+7 để so sánh
-    const startDate = new Date(registrationStatus.startDate);
-    const endDate = new Date(registrationStatus.endDate);
-    
-    // Kiểm tra thời gian hiện tại có nằm trong khoảng đăng ký không
-    return now >= startDate && now <= endDate;
-  }, [showData?.showStatuses]);
-
-  // Kiểm tra xem có thể mua vé tham dự hay không (trước CheckIn)
-  const canBuyTickets = useCallback(() => {
-    if (!showData?.showStatuses || showData.showStatuses.length === 0) return false;
-    
-    // Tìm status CheckIn
-    const checkInStatus = showData.showStatuses.find(
-      status => status.statusName === "CheckIn"
-    );
-    
-    if (!checkInStatus) return true; // Nếu không có CheckIn, cho phép mua vé
-    
-    // Lấy thời gian hiện tại ở múi giờ UTC+7 (Hanoi)
-    const now = new Date();
-    // Chuyển đổi startDate về múi giờ UTC+7 để so sánh
-    const checkInStartDate = new Date(checkInStatus.startDate);
-    
-    // Kiểm tra thời gian hiện tại có trước thời điểm check-in không
-    return now < checkInStartDate;
-  }, [showData?.showStatuses]);
-
   // Format timeline content để đảm bảo là string
   const formatTimelineContent = useCallback((content: any): string => {
     if (typeof content === 'string') return content;
@@ -677,84 +636,62 @@ const KoiShowInformationContent: React.FC = () => {
               <View style={styles.sectionContent}>
                 {showData?.showStatuses && showData.showStatuses.length > 0 ? (
                   <View style={styles.timelineContainer}>
-                    {/* Sắp xếp showStatuses theo startDate trước khi hiển thị */}
-                    {[...showData.showStatuses]
-                      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-                      .map((status, index, sortedStatuses) => {
-                        const isLast = index === sortedStatuses.length - 1;
-                        
-                        // Tìm index của status đang active
-                        const activeIndex = sortedStatuses.findIndex(s => s.isActive);
-                        
-                        // Xác định trạng thái hiển thị dựa trên vị trí tương đối so với status active
-                        let displayStatus = "Sắp diễn ra";
-                        
-                        if (status.isActive) {
-                          displayStatus = "Đang diễn ra";
-                        } else if (activeIndex > -1) {
-                          // Nếu có status active
-                          if (index < activeIndex) {
-                            displayStatus = "Đã hoàn thành";
-                          } else {
-                            displayStatus = "Sắp diễn ra";
-                          }
-                        } else {
-                          // Nếu không có status active nào, dựa vào thời gian
-                          if (new Date(status.endDate) < new Date()) {
-                            displayStatus = "Đã hoàn thành";
-                          }
-                        }
-                        
-                        return (
-                          <View key={status.id}>
-                            <View style={styles.timelineItemContainer}>
-                              <View style={styles.timelineLeftColumn}>
-                                <Text style={styles.timelineDate}>
-                                  {formatDate(status.startDate)}
-                                </Text>
-                                <Text style={styles.timelineTime}>
-                                  {formatTime(status.startDate)} -{" "}
-                                  {formatTime(status.endDate)}
-                                </Text>
-                              </View>
+                    {showData.showStatuses.map((status, index) => {
+                      const isLast = index === showData.showStatuses.length - 1;
+                      return (
+                        <View key={status.id}>
+                          <View style={styles.timelineItemContainer}>
+                            <View style={styles.timelineLeftColumn}>
+                              <Text style={styles.timelineDate}>
+                                {formatDate(status.startDate)}
+                              </Text>
+                              <Text style={styles.timelineTime}>
+                                {formatTime(status.startDate)} -{" "}
+                                {formatTime(status.endDate)}
+                              </Text>
+                            </View>
 
-                              <View style={styles.timelineCenterColumn}>
-                                <View
-                                  style={[
-                                    styles.timelineDot,
-                                    status.isActive && styles.timelineDotActive,
-                                  ]}
-                                />
-                                {!isLast && <View style={styles.timelineLine} />}
-                              </View>
+                            <View style={styles.timelineCenterColumn}>
+                              <View
+                                style={[
+                                  styles.timelineDot,
+                                  status.isActive && styles.timelineDotActive,
+                                ]}
+                              />
+                              {!isLast && <View style={styles.timelineLine} />}
+                            </View>
 
-                              <View style={styles.timelineRightColumn}>
-                                <View
+                            <View style={styles.timelineRightColumn}>
+                              <View
+                                style={[
+                                  styles.timelineContent,
+                                  status.isActive && styles.timelineContentActive,
+                                ]}>
+                                <Text
                                   style={[
-                                    styles.timelineContent,
-                                    status.isActive && styles.timelineContentActive,
+                                    styles.timelineTitle,
+                                    status.isActive && styles.timelineTitleActive,
                                   ]}>
-                                  <Text
-                                    style={[
-                                      styles.timelineTitle,
-                                      status.isActive && styles.timelineTitleActive,
-                                    ]}>
-                                    {formatTimelineContent(status.description)}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.timelineStatus,
-                                      status.isActive &&
-                                        styles.timelineStatusActive,
-                                    ]}>
-                                    {displayStatus}
-                                  </Text>
-                                </View>
+                                  {formatTimelineContent(status.description)}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.timelineStatus,
+                                    status.isActive &&
+                                      styles.timelineStatusActive,
+                                  ]}>
+                                  {status.isActive
+                                    ? "Đang diễn ra"
+                                    : new Date(status.endDate) < new Date()
+                                    ? "Đã hoàn thành"
+                                    : "Sắp diễn ra"}
+                                </Text>
                               </View>
                             </View>
                           </View>
-                        );
-                      })}
+                        </View>
+                      );
+                    })}
                   </View>
                 ) : (
                   <View style={styles.emptyStateContainer}>
@@ -775,39 +712,25 @@ const KoiShowInformationContent: React.FC = () => {
 
       {/* Footer với 2 nút: đăng ký thi đấu và mua vé */}
       <View style={styles.footer}>
-        {canRegisterKoi() ? (
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.registerButton]} 
-            onPress={() => router.push({
-              pathname: `/shows/KoiRegistration`,
-              params: { showId: showData.id }
-            })}>
-            <FontAwesome5 name="fish" size={18} color="#FFFFFF" />
-            <Text style={styles.buttonText}>Đăng ký thi đấu</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.actionButton, styles.disabledButton]}>
-            <FontAwesome5 name="fish" size={18} color="#FFFFFF" />
-            <Text style={styles.buttonText}>Đăng ký đã đóng</Text>
-          </View>
-        )}
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.registerButton]} 
+          onPress={() => router.push({
+            pathname: `/shows/KoiRegistration`,
+            params: { showId: showData.id }
+          })}>
+          <FontAwesome5 name="fish" size={18} color="#FFFFFF" />
+          <Text style={styles.buttonText}>Đăng ký thi đấu</Text>
+        </TouchableOpacity>
         
-        {canBuyTickets() ? (
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.ticketButton]} 
-            onPress={() => router.push({
-              pathname: `/shows/BuyTickets`,
-              params: { showId: showData.id }
-            })}>
-            <MaterialIcons name="confirmation-number" size={20} color="#FFFFFF" />
-            <Text style={styles.buttonText}>Mua vé tham dự</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={[styles.actionButton, styles.disabledButton]}>
-            <MaterialIcons name="confirmation-number" size={20} color="#FFFFFF" />
-            <Text style={styles.buttonText}>Bán vé đã đóng</Text>
-          </View>
-        )}
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.ticketButton]} 
+          onPress={() => router.push({
+            pathname: `/shows/BuyTickets`,
+            params: { showId: showData.id }
+          })}>
+          <MaterialIcons name="confirmation-number" size={20} color="#FFFFFF" />
+          <Text style={styles.buttonText}>Mua vé tham dự</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -1056,8 +979,8 @@ const styles = StyleSheet.create({
     borderColor: "#888888",
   },
   timelineDotActive: {
-    backgroundColor: "#2ecc71",
-    borderColor: "#27ae60",
+    backgroundColor: "#000000",
+    borderColor: "#000000",
     width: 16,
     height: 16,
     borderRadius: 8,
@@ -1079,9 +1002,8 @@ const styles = StyleSheet.create({
     borderLeftColor: "#c0c0c0",
   },
   timelineContentActive: {
-    backgroundColor: "#eafaf1",
-    borderLeftColor: "#2ecc71",
-    borderLeftWidth: 4,
+    backgroundColor: "#f8f8f8",
+    borderLeftColor: "#000000",
   },
   timelineTitle: {
     fontSize: 14,
@@ -1090,7 +1012,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   timelineTitleActive: {
-    color: "#27ae60",
+    color: "#000000",
     fontWeight: "700",
   },
   timelineStatus: {
@@ -1098,7 +1020,7 @@ const styles = StyleSheet.create({
     color: "#666666",
   },
   timelineStatusActive: {
-    color: "#2ecc71",
+    color: "#000000",
     fontWeight: "500",
   },
   emptyStateContainer: {
@@ -1426,13 +1348,6 @@ const styles = StyleSheet.create({
   activeTabText: {
     color: '#000000',
     fontWeight: '600',
-  },
-  disabledButton: {
-    backgroundColor: '#9e9e9e', // Màu xám
-    opacity: 0.7,
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: 'center',
   },
 });
 

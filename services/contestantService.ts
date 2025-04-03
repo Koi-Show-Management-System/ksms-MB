@@ -28,19 +28,8 @@ export interface Round {
   status: 'upcoming' | 'active' | 'completed';
 }
 
-export interface RoundResult {
-  id: string;
-  totalScore: number;
-  isPublic: boolean;
-  comments: string | null;
-  status: string;
-  createdAt: string;
-  updatedAt: string | null;
-}
-
 export interface KoiContestant {
   id: string;
-  rank: number;
   registration: {
     id: string;
     registrationNumber: string | null;
@@ -88,7 +77,7 @@ export interface KoiContestant {
   tankName: string;
   status: string;
   notes: string | null;
-  roundResults: RoundResult[];
+  roundResults: any[]; // Có thể định nghĩa chi tiết hơn nếu cần
 }
 
 // Type cho response từ API
@@ -139,12 +128,12 @@ export const getRounds = async (competitionCategoryId: string, roundType: string
 };
 
 // Lấy danh sách thí sinh trong vòng đấu
-export const getContestants = async (roundId: string, page: number = 1, size: number = 50): Promise<ApiResponse<KoiContestant>> => {
+export const getContestants = async (roundId: string): Promise<ApiResponse<KoiContestant>> => {
   try {
     const response = await api.get(`/api/v1/registration-round/${roundId}`, {
       params: {
-        page,
-        size
+        page: 1,
+        size: 1000
       }
     });
     return response.data;
