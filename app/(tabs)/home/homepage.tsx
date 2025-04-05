@@ -16,6 +16,8 @@ import {
 } from "react-native";
 import { getKoiShows, KoiShow } from "../../../services/showService";
 import { LinearGradient } from "expo-linear-gradient";
+import Carousel3DAdvanced from "../../../components/Carousel3DAdvanced";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width * 0.8;
@@ -51,7 +53,12 @@ const SkeletonBox = ({ width, height, style }: { width: string | number; height:
 
 const HeroSkeleton = () => (
   <View style={styles.heroSection}>
-    <SkeletonBox width="100%" height={253} />
+    <View style={styles.carouselWrapper}>
+      <SkeletonBox width="80%" height={30} style={{ marginBottom: 20, marginTop: 12, alignSelf: 'center' }} />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <SkeletonBox width={200} height={320} style={{ borderRadius: 12 }} />
+      </View>
+    </View>
   </View>
 );
 
@@ -124,13 +131,6 @@ const Homepage: React.FC = () => {
     }
   };
 
-  const handleShowPress = (show: KoiShow) => {
-    router.push({
-      pathname: "/(tabs)/shows/KoiShowInformation",
-      params: { id: show.id },
-    });
-  };
-
   // Format date function to avoid errors
   const formatDate = (dateString: string) => {
     try {
@@ -141,21 +141,61 @@ const Homepage: React.FC = () => {
     }
   };
 
-  // Add viewability change handler
-  const onViewableItemsChanged = useRef(({ 
-    viewableItems 
-  }: {
-    viewableItems: Array<{
-      index: number | null;
-      item: KoiShow;
-      key: string;
-      isViewable: boolean;
-    }>;
-  }) => {
-    if (viewableItems.length > 0 && viewableItems[0].index !== null) {
-      setCurrentHeroIndex(viewableItems[0].index);
+  // Prepare carousel data from shows
+  const getCarouselItems = () => {
+    if (!shows || shows.length === 0) return [];
+    
+    // Tạo danh sách các items từ shows hiện có
+    const carouselItems = shows.map(show => {
+      // Tạo mô tả ngắn gọn và hấp dẫn hơn
+      const shortDescription = show.description && show.description.length > 80 
+        ? show.description.substring(0, 80) + '...' 
+        : show.description || `Diễn ra từ ${formatDate(show.startDate)} - ${formatDate(show.endDate)}`;
+      
+      return {
+        uri: show.imgUrl && show.imgUrl.startsWith("http")
+          ? show.imgUrl
+          : "https://images.unsplash.com/photo-1616989161881-6c788f319bd7?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+        title: show.name || "Unnamed Show",
+        description: shortDescription,
+        showData: show // Lưu trữ dữ liệu show đầy đủ để sử dụng khi click
+      };
+    });
+    
+    // Nếu số lượng show quá ít (dưới 5), hãy duplicate các item để có hiệu ứng carousel đẹp hơn
+    if (carouselItems.length < 5) {
+      // Lặp lại các item để đảm bảo có ít nhất 5 items
+      const duplicatedItems = [...carouselItems];
+      while (duplicatedItems.length < 5) {
+        duplicatedItems.push(...carouselItems);
+      }
+      // Cắt bớt để còn đúng 5 items nếu có quá nhiều
+      return duplicatedItems.slice(0, 8);
     }
-  }).current;
+    
+    return carouselItems;
+  };
+
+  const handleCardPress = (item: any) => {
+    if (item.showData) {
+      handleShowPress(item.showData);
+    }
+  };
+
+  const handleShowPress = (show: KoiShow) => {
+    router.push({
+      pathname: "/(tabs)/shows/KoiShowInformation",
+      params: { id: show.id },
+    });
+  };
+
+  // Cập nhật handler cho registration
+  const handleRegistrationPress = (show: KoiShow) => {
+    router.push({
+      pathname: "/(tabs)/shows/KoiRegistration" as const,
+      params: { id: show.id }
+    });
+  };
 
   // Quick access routes
   const quickAccessRoutes = [
@@ -180,14 +220,6 @@ const Homepage: React.FC = () => {
       route: "/(tabs)/user/UserProfile"
     }
   ];
-
-  // Update the registration button press handler
-  const handleRegistrationPress = (show: KoiShow) => {
-    router.push({
-      pathname: "/(tabs)/shows/KoiRegistration" as const,
-      params: { id: show.id }
-    });
-  };
 
   // Update the quick access button rendering
   const renderQuickAccessButtons = () => (
@@ -309,181 +341,136 @@ const Homepage: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      <ScrollView style={[styles.scrollView, { backgroundColor: "#FFFFFF" }]}>
-        {/* Dynamic Hero Section with Show Data */}
-        <View style={styles.heroSection}>
-          {loading ? (
-            <HeroSkeleton />
-          ) : shows.length > 0 ? (
-            <>
-              <FlatList
-                ref={flatListRef}
-                data={shows}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onViewableItemsChanged={onViewableItemsChanged}
-                viewabilityConfig={viewabilityConfig}
-                renderItem={({ item: show }) => (
-                  <View style={[styles.heroSlide, { width }]}>
-                    <Image
-                      source={{
-                        uri:
-                          show.imgUrl && show.imgUrl.startsWith("http")
-                            ? show.imgUrl
-                            : "https://images.unsplash.com/photo-1616989161881-6c788f319bd7?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-                      }}
-                      style={styles.heroImage}
-                      defaultSource={require("../../../assets/images/test_image.png")}
-                    />
-                    <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.8)']}
-                      style={styles.heroGradient}
-                    />
-                    <View style={styles.heroContent}>
-                      <Text style={styles.heroTitle}>{show.name}</Text>
-                      <Text style={styles.heroDescription} numberOfLines={2}>
-                        {show.description}
-                      </Text>
-                      <View style={styles.heroButtonContainer}>
-                        <TouchableOpacity
-                          style={styles.heroButton}
-                          onPress={() => handleShowPress(show)}>
-                          <Text style={styles.heroButtonText}>Chi tiết</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.heroButton, styles.registerButton]}
-                          onPress={() => handleRegistrationPress(show)}>
-                          <Text style={styles.registerButtonText}>Đăng ký</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                )}
-                keyExtractor={(item) => item.id}
-              />
-
-              {/* Pagination Dots */}
-              <View style={styles.paginationContainer}>
-                {shows.slice(0, 5).map((_, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.paginationDot,
-                      index === currentHeroIndex && styles.paginationDotActive,
-                    ]}
-                    onPress={() => {
-                      flatListRef.current?.scrollToIndex({
-                        index,
-                        animated: true,
-                      });
-                    }}
-                  />
-                ))}
-              </View>
-            </>
-          ) : (
-            <View style={styles.noShowsContainer}>
-              <Text style={styles.noShowsText}>Không có cuộc thi nào</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Quick Access Section */}
-        <View style={styles.quickAccess}>
-          <Text style={styles.sectionTitle}>Truy cập nhanh</Text>
-          {renderQuickAccessButtons()}
-        </View>
-
-        {/* Error message display */}
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-        {/* Featured Shows - All Shows */}
-        {loading ? (
-          <CarouselSkeleton title="Cuộc thi nổi bật" />
-        ) : (
-          renderShowCarousel(shows, "Cuộc thi nổi bật")
-        )}
-
-        {/* Published Shows */}
-        {loading ? (
-          <CarouselSkeleton title="Cuộc thi đã đăng ký" />
-        ) : (
-          renderShowCarousel(publishedShows, "Cuộc thi đã đăng ký")
-        )}
-
-        {/* Upcoming Shows */}
-        {loading ? (
-          <CarouselSkeleton title="Cuộc thi sắp tới" />
-        ) : (
-          renderShowCarousel(upcomingShows, "Cuộc thi sắp tới")
-        )}
-
-        {/* News and Blogs */}
-        <View style={styles.newsAndBlogs}>
-          <Text style={styles.sectionTitleWhite}>Tin tức & Bài viết</Text>
-          <View style={styles.searchContainer}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Tìm kiếm bài viết"
-              placeholderTextColor="#E1E1E1"
-            />
-            <Ionicons name="search-outline" size={18} color="#E1E1E1" />
-          </View>
-          <View style={styles.articles}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+        <ScrollView style={[styles.scrollView, { backgroundColor: "#FFFFFF" }]}>
+          {/* Hero Section với Carousel3D */}
+          <View style={styles.heroSection}>
             {loading ? (
-              // Skeleton for articles
-              [1, 2].map((index) => (
-                <View key={index} style={styles.articleCard}>
-                  <SkeletonBox width="100%" height={120} />
-                  <View style={{ padding: 10 }}>
-                    <SkeletonBox width="90%" height={18} style={{ marginBottom: 8 }} />
-                    <SkeletonBox width="100%" height={12} style={{ marginBottom: 4 }} />
-                    <SkeletonBox width="80%" height={12} />
-                  </View>
-                </View>
-              ))
+              <HeroSkeleton />
+            ) : shows.length > 0 ? (
+              <View style={styles.carouselWrapper}>
+                <Text style={styles.heroSectionTitle}>
+                  {shows.length > 0 ? 'Cuộc thi nổi bật' : 'Vietnam Koi Show 2024'}
+                </Text>
+                <Carousel3DAdvanced
+                  items={getCarouselItems()}
+                  autoPlay={true}
+                  autoPlayInterval={3000}
+                  showControls={false}
+                  onCardPress={handleCardPress}
+                  containerStyle={{
+                    height: '90%',
+                    padding: 0,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    transform: [{scale: 0.9}] // Thu nhỏ để hiển thị các card phụ rõ hơn
+                  }}
+                  backgroundColor="#222"
+                />
+              </View>
             ) : (
-              [
-                {
-                  image:
-                    "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                  title: "Cách nuôi cá Koi",
-                  description:
-                    "Những mẹo hữu ích giúp bạn nuôi cá Koi khỏe mạnh và phát triển tốt...",
-                },
-                {
-                  image:
-                    "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                  title: "Mẹo chăm sóc cá Koi",
-                  description:
-                    "Các phương pháp chăm sóc cá Koi đúng cách để cá luôn đẹp và khỏe mạnh...",
-                },
-              ].map((article, index) => (
-                <View key={index} style={styles.articleCard}>
-                  <Image
-                    source={{
-                      uri: article.image,
-                    }}
-                    style={styles.articleImage}
-                  />
-                  <View style={styles.articleContent}>
-                    <Text style={styles.articleTitle}>{article.title}</Text>
-                    <Text style={styles.articleDescription}>
-                      {article.description}
-                    </Text>
-                  </View>
-                </View>
-              ))
+              <View style={styles.noShowsContainer}>
+                <Text style={styles.noShowsText}>Không có cuộc thi nào</Text>
+              </View>
             )}
           </View>
-        </View>
-        
-        {/* Add bottom padding to avoid content being hidden by footer */}
-        <View style={{ height: 80 }} />
-      </ScrollView>
-    </SafeAreaView>
+
+          {/* Quick Access Section */}
+          <View style={styles.quickAccess}>
+            <Text style={styles.sectionTitle}>Truy cập nhanh</Text>
+            {renderQuickAccessButtons()}
+          </View>
+
+          {/* Error message display */}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          {/* Featured Shows - All Shows */}
+          {loading ? (
+            <CarouselSkeleton title="Cuộc thi nổi bật" />
+          ) : (
+            renderShowCarousel(shows, "Cuộc thi nổi bật")
+          )}
+
+          {/* Published Shows */}
+          {loading ? (
+            <CarouselSkeleton title="Cuộc thi đã đăng ký" />
+          ) : (
+            renderShowCarousel(publishedShows, "Cuộc thi đã đăng ký")
+          )}
+
+          {/* Upcoming Shows */}
+          {loading ? (
+            <CarouselSkeleton title="Cuộc thi sắp tới" />
+          ) : (
+            renderShowCarousel(upcomingShows, "Cuộc thi sắp tới")
+          )}
+
+          {/* News and Blogs */}
+          <View style={styles.newsAndBlogs}>
+            <Text style={styles.sectionTitleWhite}>Tin tức & Bài viết</Text>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Tìm kiếm bài viết"
+                placeholderTextColor="#E1E1E1"
+              />
+              <Ionicons name="search-outline" size={18} color="#E1E1E1" />
+            </View>
+            <View style={styles.articles}>
+              {loading ? (
+                // Skeleton for articles
+                [1, 2].map((index) => (
+                  <View key={index} style={styles.articleCard}>
+                    <SkeletonBox width="100%" height={120} />
+                    <View style={{ padding: 10 }}>
+                      <SkeletonBox width="90%" height={18} style={{ marginBottom: 8 }} />
+                      <SkeletonBox width="100%" height={12} style={{ marginBottom: 4 }} />
+                      <SkeletonBox width="80%" height={12} />
+                    </View>
+                  </View>
+                ))
+              ) : (
+                [
+                  {
+                    image:
+                      "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                    title: "Cách nuôi cá Koi",
+                    description:
+                      "Những mẹo hữu ích giúp bạn nuôi cá Koi khỏe mạnh và phát triển tốt...",
+                  },
+                  {
+                    image:
+                      "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                    title: "Mẹo chăm sóc cá Koi",
+                    description:
+                      "Các phương pháp chăm sóc cá Koi đúng cách để cá luôn đẹp và khỏe mạnh...",
+                  },
+                ].map((article, index) => (
+                  <View key={index} style={styles.articleCard}>
+                    <Image
+                      source={{
+                        uri: article.image,
+                      }}
+                      style={styles.articleImage}
+                    />
+                    <View style={styles.articleContent}>
+                      <Text style={styles.articleTitle}>{article.title}</Text>
+                      <Text style={styles.articleDescription}>
+                        {article.description}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
+          
+          {/* Add bottom padding to avoid content being hidden by footer */}
+          <View style={{ height: 80 }} />
+        </ScrollView>
+      </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 
@@ -498,8 +485,36 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     width: "100%",
-    height: 253,
+    height: 500, // Tăng chiều cao thêm nữa để hiển thị carousel tốt hơn
     position: "relative",
+    backgroundColor: "#222", // Màu nền tối để tạo độ tương phản
+    marginBottom: 16,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    overflow: 'hidden',
+  },
+  carouselWrapper: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    paddingTop: 10,
+    paddingHorizontal: 0, // Đảm bảo không có padding ngang để hiển thị các card xung quanh
+  },
+  heroSectionTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#FFF",
+    textAlign: "center",
+    marginVertical: 12,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3
+  },
+  carousel3DContainer: {
+    height: '90%', // Đảm bảo carousel lấp đầy chiều cao của hero section
+    padding: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   heroImage: {
     width: "100%",
@@ -811,31 +826,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  heroSlide: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  paginationContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    position: "absolute",
-    bottom: 10,
-    left: 0,
-    right: 0,
-  },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.6)",
-    marginHorizontal: 4,
-  },
-  paginationDotActive: {
-    backgroundColor: "#FFA500",
-    width: 10,
-    height: 10,
-    borderRadius: 5,
   },
   noShowsContainer: {
     flex: 1,
