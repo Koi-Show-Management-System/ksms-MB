@@ -1,4 +1,3 @@
-// app/_layout.tsx
 import { useColorScheme } from "@/hooks/useColorScheme";
 import {
   DarkTheme,
@@ -11,10 +10,11 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
 import "react-native-reanimated";
-import { BackButtonHandler } from "../components/BackButtonHandler";
 import { QueryProvider } from "../context/QueryProvider";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { enableScreens } from "react-native-screens";
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+enableScreens(true);
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -34,19 +34,28 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <BackButtonHandler />
-        <Stack initialRouteName="index">
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(user)" options={{ headerShown: false }} />
-          <Stack.Screen name="(payments)" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" options={{ headerShown: false }} />
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </QueryProvider>
+    <SafeAreaProvider>
+      <QueryProvider>
+        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+          <Stack 
+            screenOptions={{
+              headerShown: false,
+              animation: 'fade',
+              contentStyle: {
+                backgroundColor: colorScheme === 'dark' ? '#000' : '#fff',
+              }
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(user)" options={{ headerShown: false }} />
+            <Stack.Screen name="(payments)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" options={{ headerShown: false }} />
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </QueryProvider>
+    </SafeAreaProvider>
   );
 }
