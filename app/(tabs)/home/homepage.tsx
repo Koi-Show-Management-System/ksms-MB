@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { getKoiShows, KoiShow } from "../../../services/showService";
 import { LinearGradient } from "expo-linear-gradient";
-import Carousel3DAdvanced from "../../../components/Carousel3DAdvanced";
+import Carousel3DLandscape from "../../../components/Carousel3DLandscape";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 const { width } = Dimensions.get("window");
@@ -147,10 +147,20 @@ const Homepage: React.FC = () => {
     
     // Tạo danh sách các items từ shows hiện có
     const carouselItems = shows.map(show => {
-      // Tạo mô tả ngắn gọn và hấp dẫn hơn
-      const shortDescription = show.description && show.description.length > 80 
-        ? show.description.substring(0, 80) + '...' 
-        : show.description || `Diễn ra từ ${formatDate(show.startDate)} - ${formatDate(show.endDate)}`;
+      // Tạo mô tả ngắn gọn và hấp dẫn hơn cho carousel theo chiều ngang
+      let shortDescription = '';
+      
+      // Kết hợp ngày và địa điểm vào mô tả
+      if (show.location) {
+        shortDescription = `Địa điểm: ${show.location} • `;
+      }
+      
+      shortDescription += `${formatDate(show.startDate)} - ${formatDate(show.endDate)}`;
+      
+      // Thêm phí đăng ký nếu có
+      if (show.registrationFee) {
+        shortDescription += ` • ${show.registrationFee.toLocaleString()} VND`;
+      }
       
       return {
         uri: show.imgUrl && show.imgUrl.startsWith("http")
@@ -169,15 +179,15 @@ const Homepage: React.FC = () => {
       while (duplicatedItems.length < 5) {
         duplicatedItems.push(...carouselItems);
       }
-      // Cắt bớt để còn đúng 5 items nếu có quá nhiều
+      // Giới hạn số lượng item tối đa là 8
       return duplicatedItems.slice(0, 8);
     }
     
     return carouselItems;
   };
 
-  const handleCardPress = (item: any) => {
-    if (item.showData) {
+  const handleCardPress = (item: any, index: number) => {
+    if (item && item.showData) {
       handleShowPress(item.showData);
     }
   };
@@ -353,7 +363,7 @@ const Homepage: React.FC = () => {
                 <Text style={styles.heroSectionTitle}>
                   {shows.length > 0 ? 'Cuộc thi nổi bật' : 'Vietnam Koi Show 2024'}
                 </Text>
-                <Carousel3DAdvanced
+                <Carousel3DLandscape
                   items={getCarouselItems()}
                   autoPlay={true}
                   autoPlayInterval={3000}
@@ -364,7 +374,6 @@ const Homepage: React.FC = () => {
                     padding: 0,
                     justifyContent: 'center',
                     alignItems: 'center',
-                    transform: [{scale: 0.9}] // Thu nhỏ để hiển thị các card phụ rõ hơn
                   }}
                   backgroundColor="#222"
                 />
@@ -485,9 +494,9 @@ const styles = StyleSheet.create({
   },
   heroSection: {
     width: "100%",
-    height: 500, // Tăng chiều cao thêm nữa để hiển thị carousel tốt hơn
+    height: 450, // Điều chỉnh chiều cao để phù hợp với Carousel3DLandscape
     position: "relative",
-    backgroundColor: "#222", // Màu nền tối để tạo độ tương phản
+    backgroundColor: "#111", // Màu nền tối hơn để tăng độ tương phản
     marginBottom: 16,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
@@ -498,6 +507,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     paddingTop: 10,
+    paddingBottom: 20,
     paddingHorizontal: 0, // Đảm bảo không có padding ngang để hiển thị các card xung quanh
   },
   heroSectionTitle: {
@@ -508,7 +518,8 @@ const styles = StyleSheet.create({
     marginVertical: 12,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3
+    textShadowRadius: 3,
+    zIndex: 10, // Đảm bảo tiêu đề hiển thị phía trên carousel
   },
   carousel3DContainer: {
     height: '90%', // Đảm bảo carousel lấp đầy chiều cao của hero section
