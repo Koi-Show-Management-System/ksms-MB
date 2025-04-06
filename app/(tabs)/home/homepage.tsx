@@ -699,6 +699,8 @@ const Homepage: React.FC = () => {
                       title: "Cách nuôi cá Koi",
                       description:
                         "Những mẹo hữu ích giúp bạn nuôi cá Koi khỏe mạnh và phát triển tốt...",
+                      readTime: "5 phút",
+                      date: "20/07/2024",
                     },
                     {
                       image:
@@ -706,6 +708,8 @@ const Homepage: React.FC = () => {
                       title: "Mẹo chăm sóc cá Koi",
                       description:
                         "Các phương pháp chăm sóc cá Koi đúng cách để cá luôn đẹp và khỏe mạnh...",
+                      readTime: "7 phút",
+                      date: "15/07/2024",
                     },
                   ].map((article, index) => (
                     <ParallaxItem
@@ -717,19 +721,59 @@ const Homepage: React.FC = () => {
                       direction={index % 2 === 0 ? "horizontal" : "vertical"}
                     >
                       <FadeInView delay={index * 200 + 800} duration={500} from={{ opacity: 0, scale: 0.9 }}>
-                        <MicroInteraction scaleOnPress={true} springConfig={{ damping: 10, stiffness: 100 }}>
+                        <MicroInteraction 
+                          scaleOnPress={true} 
+                          springConfig={{ damping: 10, stiffness: 100 }}
+                          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                        >
                           <View style={styles.articleCard}>
-                            <Image
-                              source={{
-                                uri: article.image,
-                              }}
-                              style={styles.articleImage}
-                            />
+                            <View style={styles.articleImageContainer}>
+                              <Image
+                                source={{
+                                  uri: article.image,
+                                }}
+                                style={styles.articleImage}
+                              />
+                              <LinearGradient
+                                colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
+                                style={styles.articleImageGradient}
+                              />
+                            </View>
                             <View style={styles.articleContent}>
-                              <Text style={styles.articleTitle}>{article.title}</Text>
-                              <Text style={styles.articleDescription}>
-                                {article.description}
-                              </Text>
+                              <View>
+                                <Text style={styles.articleTitle}>{article.title}</Text>
+                                <Text style={styles.articleDescription} numberOfLines={3}>
+                                  {article.description}
+                                </Text>
+                              </View>
+
+                              <View style={styles.articleFooter}>
+                                <View style={styles.articleMetaRow}>
+                                  <View style={styles.articleMetaItem}>
+                                    <Ionicons name="time-outline" size={14} color="#FFF" />
+                                    <Text style={styles.articleMetaText}>{article.readTime}</Text>
+                                  </View>
+                                  <View style={styles.articleMetaItem}>
+                                    <Ionicons name="calendar-outline" size={14} color="#FFF" />
+                                    <Text style={styles.articleMetaText}>{article.date}</Text>
+                                  </View>
+                                </View>
+                                <MicroInteraction 
+                                  scaleOnPress={true} 
+                                  springConfig={{ damping: 8, stiffness: 80 }}
+                                  onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                                >
+                                  <LinearGradient
+                                    colors={['#FF8C00', '#FFA500', '#FFD700'] as readonly [string, string, ...string[]]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 0 }}
+                                    style={styles.readMoreButton}
+                                  >
+                                    <Text style={styles.readMoreText}>Đọc tiếp</Text>
+                                    <Ionicons name="arrow-forward" size={14} color="#FFF" />
+                                  </LinearGradient>
+                                </MicroInteraction>
+                              </View>
                             </View>
                           </View>
                         </MicroInteraction>
@@ -1072,38 +1116,56 @@ const styles = StyleSheet.create({
     height: 20,
   },
   articles: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    width: "100%",
   },
   articleCard: {
-    width: "48%",
+    width: "100%",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 16,
     marginBottom: 16,
     overflow: "hidden",
+    flexDirection: "row",
+    height: 150,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 5,
+        elevation: 8,
       },
     }),
   },
+  articleImageContainer: {
+    position: 'relative',
+    width: 150,
+    height: "100%",
+  },
   articleImage: {
     width: "100%",
-    height: 130,
+    height: "100%",
+    resizeMode: "cover",
+  },
+  articleImageGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '100%',
   },
   articleContent: {
-    padding: 14,
+    flex: 1,
+    padding: 16,
+    justifyContent: 'space-between',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255, 255, 255, 0.1)',
   },
   articleTitle: {
     fontFamily: "Roboto",
-    fontSize: 16,
+    fontSize: 18,
     color: COLORS.text.light,
     marginBottom: 8,
     fontWeight: "700",
@@ -1115,6 +1177,56 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.8)",
     lineHeight: 18,
     fontWeight: "400",
+    maxWidth: '95%',
+  },
+  articleFooter: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  articleMetaRow: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  articleMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  articleMetaText: {
+    color: '#FFF',
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  readMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  readMoreText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginRight: 4,
   },
 
   // Enhanced show carousel styles
