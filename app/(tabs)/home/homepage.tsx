@@ -1,11 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
-  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -40,6 +39,7 @@ import ParallaxItem from "../../../components/animations/ParallaxItem";
 import MicroInteraction from "../../../components/animations/MicroInteraction";
 import { BlurView } from "expo-blur";
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width * 0.8;
@@ -69,7 +69,7 @@ const COLORS = {
 };
 
 // Skeleton components for loading states with shimmer effect
-const SkeletonBox = ({ width, height, style }: { width: string | number; height: string | number; style?: any }) => (
+const SkeletonBox = memo(({ width, height, style }: { width: string | number; height: string | number; style?: any }) => (
   <ShimmerEffect
     width={width}
     height={height}
@@ -77,9 +77,9 @@ const SkeletonBox = ({ width, height, style }: { width: string | number; height:
     shimmerColors={['#E8E8E8', '#F5F5F5', '#E0E0E0']}
     shimmerDuration={1800}
   />
-);
+));
 
-const HeroSkeleton = () => (
+const HeroSkeleton = memo(() => (
   <View style={styles.heroSection}>
     <View style={styles.carouselWrapper}>
       <SkeletonBox width="80%" height={30} style={{ marginBottom: 20, marginTop: 12, alignSelf: 'center' }} />
@@ -88,9 +88,9 @@ const HeroSkeleton = () => (
       </View>
     </View>
   </View>
-);
+));
 
-const ShowCardSkeleton = () => (
+const ShowCardSkeleton = memo(() => (
   <View style={[styles.showCard, { backgroundColor: COLORS.background }]}>
     <SkeletonBox width="100%" height={160} style={{ marginBottom: 12, borderRadius: 12 }} />
     <View style={{ padding: 16 }}>
@@ -112,9 +112,9 @@ const ShowCardSkeleton = () => (
       </View>
     </View>
   </View>
-);
+));
 
-const CarouselSkeleton = ({ title }: { title: string }) => (
+const CarouselSkeleton = memo(({ title }: { title: string }) => (
   <FadeInView delay={300} duration={600}>
     <View style={styles.featuredShows}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -131,7 +131,7 @@ const CarouselSkeleton = ({ title }: { title: string }) => (
       </ScrollView>
     </View>
   </FadeInView>
-);
+));
 
 const Homepage: React.FC = () => {
   const [shows, setShows] = useState<KoiShow[]>([]);
@@ -159,16 +159,30 @@ const Homepage: React.FC = () => {
     },
   });
 
-  // Filtered shows based on search query
-  const filteredShows = shows.filter(show =>
-    show.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    show.location?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Filtered shows based on search query - memoized để tránh tính toán lại khi component re-render
+  const filteredShows = useMemo(() =>
+    shows.filter(show =>
+      show.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      show.location?.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [shows, searchQuery]
   );
 
-  // Group shows by status
-  const publishedShows = filteredShows.filter((show) => show.status === "published");
-  const upcomingShows = filteredShows.filter((show) => show.status === "upcoming");
-  const completedShows = filteredShows.filter((show) => show.status === "completed");
+  // Group shows by status - memoized để tránh tính toán lại khi component re-render
+  const publishedShows = useMemo(() =>
+    filteredShows.filter((show) => show.status === "published"),
+    [filteredShows]
+  );
+
+  const upcomingShows = useMemo(() =>
+    filteredShows.filter((show) => show.status === "upcoming"),
+    [filteredShows]
+  );
+
+  const completedShows = useMemo(() =>
+    filteredShows.filter((show) => show.status === "completed"),
+    [filteredShows]
+  );
 
   useEffect(() => {
     fetchShows();
@@ -199,50 +213,50 @@ const Homepage: React.FC = () => {
     }
   };
 
-  const handleSearch = (text: string) => {
+  const handleSearch = useCallback((text: string) => {
     setSearchQuery(text);
     if (text.length > 0) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  };
+  }, []);
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     setSearchQuery("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     searchInputRef.current?.blur();
-  };
+  }, []);
 
-  // Format date function to avoid errors
-  const formatDate = (dateString: string) => {
+  // Format date function to avoid errors - memoized để tránh tạo lại hàm khi component re-render
+  const formatDate = useCallback((dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString();
     } catch (error) {
       console.error("Invalid date format:", dateString);
       return "N/A";
     }
-  };
+  }, []);
 
-  // Prepare carousel data from shows
-  const getCarouselItems = () => {
+  // Prepare carousel data from shows - memoized để tránh tính toán lại khi component re-render
+  const getCarouselItems = useMemo(() => {
     if (!shows || shows.length === 0) return [];
-    
+
     // Tạo danh sách các items từ shows hiện có
     const carouselItems = shows.map(show => {
       // Tạo mô tả ngắn gọn và hấp dẫn hơn cho carousel theo chiều ngang
       let shortDescription = '';
-      
+
       // Kết hợp ngày và địa điểm vào mô tả
       if (show.location) {
         shortDescription = `Địa điểm: ${show.location} • `;
       }
-      
+
       shortDescription += `${formatDate(show.startDate)} - ${formatDate(show.endDate)}`;
-      
+
       // Thêm phí đăng ký nếu có
       if (show.registrationFee) {
         shortDescription += ` • ${show.registrationFee.toLocaleString()} VND`;
       }
-      
+
       return {
         uri: show.imgUrl && show.imgUrl.startsWith("http")
           ? show.imgUrl
@@ -252,7 +266,7 @@ const Homepage: React.FC = () => {
         showData: show // Lưu trữ dữ liệu show đầy đủ để sử dụng khi click
       };
     });
-    
+
     // Nếu số lượng show quá ít (dưới 5), hãy duplicate các item để có hiệu ứng carousel đẹp hơn
     if (carouselItems.length < 5) {
       // Lặp lại các item để đảm bảo có ít nhất 5 items
@@ -263,33 +277,33 @@ const Homepage: React.FC = () => {
       // Giới hạn số lượng item tối đa là 8
       return duplicatedItems.slice(0, 8);
     }
-    
+
     return carouselItems;
-  };
+  }, [shows, formatDate]);
 
-  const handleCardPress = (item: any, index: number) => {
-    if (item && item.showData) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      handleShowPress(item.showData);
-    }
-  };
-
-  const handleShowPress = (show: KoiShow) => {
+  const handleShowPress = useCallback((show: KoiShow) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
       pathname: "/(tabs)/shows/KoiShowInformation",
       params: { id: show.id },
     });
-  };
+  }, []);
+
+  const handleCardPress = useCallback((item: any, index: number) => {
+    if (item && item.showData) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      handleShowPress(item.showData);
+    }
+  }, [handleShowPress]);
 
   // Cập nhật handler cho registration
-  const handleRegistrationPress = (show: KoiShow) => {
+  const handleRegistrationPress = useCallback((show: KoiShow) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
       pathname: "/(tabs)/shows/KoiRegistration" as const,
       params: { id: show.id }
     });
-  };
+  }, []);
 
   // Quick access routes
   const quickAccessRoutes = [
@@ -316,55 +330,57 @@ const Homepage: React.FC = () => {
   ];
 
   // Update the quick access button rendering with micro-interactions and gradients
-  const renderQuickAccessButtons = () => (
-    <View style={styles.quickAccessButtons}>
-      {quickAccessRoutes.map((item, index) => {
-        // Chọn gradient khác nhau cho mỗi nút
-        const gradientColors = index % 2 === 0
-          ? COLORS.primaryGradient
-          : COLORS.secondaryGradient;
+  const renderQuickAccessButtons = useCallback(() => {
+    return (
+      <View style={styles.quickAccessButtons}>
+        {quickAccessRoutes.map((item, index) => {
+          // Chọn gradient khác nhau cho mỗi nút
+          const gradientColors = index % 2 === 0
+            ? COLORS.primaryGradient
+            : COLORS.secondaryGradient;
 
-        return (
-          <MicroInteraction
-            key={index}
-            scaleOnPress={true}
-            pulseOnMount={true}
-            springConfig={{ damping: 8, stiffness: 100 }}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              router.push(item.route as any);
-            }}
-            style={styles.quickAccessButtonContainer}
-          >
-            <LinearGradient
-              colors={gradientColors}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.quickAccessButton}
+          return (
+            <MicroInteraction
+              key={index}
+              scaleOnPress={true}
+              pulseOnMount={true}
+              springConfig={{ damping: 8, stiffness: 100 }}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                router.push(item.route as any);
+              }}
+              style={styles.quickAccessButtonContainer}
             >
-              <View style={styles.quickAccessIconContainer}>
-                <Ionicons name={item.icon} size={24} color="#FFFFFF" />
-              </View>
-              <Text style={styles.quickAccessText}>{item.text}</Text>
-            </LinearGradient>
-          </MicroInteraction>
-        );
-      })}
-    </View>
-  );
+              <LinearGradient
+                colors={gradientColors}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.quickAccessButton}
+              >
+                <View style={styles.quickAccessIconContainer}>
+                  <Ionicons name={item.icon} size={24} color="#FFFFFF" />
+                </View>
+                <Text style={styles.quickAccessText}>{item.text}</Text>
+              </LinearGradient>
+            </MicroInteraction>
+          );
+        })}
+      </View>
+    );
+  }, [quickAccessRoutes]);
 
   // Update the registration fee display with improved styling
-  const renderRegistrationFee = (show: KoiShow) => {
+  const renderRegistrationFee = useCallback((show: KoiShow) => {
     const fee = show.registrationFee || 0;
     return (
       <Text style={styles.registrationFee}>
         {fee.toLocaleString()} <Text style={styles.currencyText}>VND</Text>
       </Text>
     );
-  };
+  }, []);
 
   // Render a carousel for shows with parallax effect
-  const renderShowCarousel = (statusShows: KoiShow[], title: string, sectionPosition = 600, showSearch = false) => {
+  const renderShowCarousel = useCallback((statusShows: KoiShow[], title: string, sectionPosition = 600, showSearch = false) => {
     // Luôn hiển thị section, ngay cả khi không có shows
     return (
       <>
@@ -440,7 +456,10 @@ const Homepage: React.FC = () => {
                                 : "https://ugc.futurelearn.com/uploads/images/d5/6d/d56d20b4-1072-48c0-b832-deecf6641d49.jpg",
                           }}
                           style={styles.showImage}
-                          defaultSource={require("../../../assets/images/test_image.png")}
+                          contentFit="cover"
+                          transition={300}
+                          placeholder={require("../../../assets/images/test_image.png")}
+                          cachePolicy="memory-disk"
                         />
                         <LinearGradient
                           colors={['transparent', 'rgba(0,0,0,0.85)']}
@@ -529,10 +548,10 @@ const Homepage: React.FC = () => {
         </View>
       </>
     );
-  };
+  }, [scrollY, isSearchFocused, loading, searchQuery, handleShowPress, formatDate, renderRegistrationFee, renderShowSearchBar]);
 
   // Render search bar component for shows
-  const renderShowSearchBar = () => {
+  const renderShowSearchBar = useCallback(() => {
     if (!isSearchFocused) return null;
 
     return (
@@ -563,7 +582,7 @@ const Homepage: React.FC = () => {
         )}
       </View>
     );
-  };
+  }, [isSearchFocused, searchQuery, handleSearch, clearSearch]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -598,7 +617,7 @@ const Homepage: React.FC = () => {
                   </Text>
                 </FadeInView>
                 <Carousel3DLandscape
-                  items={getCarouselItems()}
+                  items={getCarouselItems}
                   autoPlay={true}
                   autoPlayInterval={3000}
                   showControls={false}
@@ -733,6 +752,9 @@ const Homepage: React.FC = () => {
                                   uri: article.image,
                                 }}
                                 style={styles.articleImage}
+                                contentFit="cover"
+                                transition={300}
+                                cachePolicy="memory-disk"
                               />
                               <LinearGradient
                                 colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
