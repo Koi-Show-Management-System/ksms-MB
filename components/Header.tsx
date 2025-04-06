@@ -2,17 +2,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router"; // Import the router
 import React, { useState, useEffect } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native"; // Added Image
 import { Feather } from '@expo/vector-icons';
 
 interface HeaderProps {
   title: string;
-  description: string;
+  // description: string; // Removed description
 }
 
-const Header: React.FC<HeaderProps> = ({ title, description }) => {
+const Header: React.FC<HeaderProps> = ({ title }) => { // Removed description
   const [userFullName, setUserFullName] = useState<string>("");
-  
+
   // Lấy tên người dùng từ AsyncStorage khi component mount
   useEffect(() => {
     const getUserName = async () => {
@@ -25,7 +25,7 @@ const Header: React.FC<HeaderProps> = ({ title, description }) => {
         console.error("Lỗi khi lấy tên người dùng:", error);
       }
     };
-    
+
     getUserName();
   }, []);
 
@@ -34,14 +34,26 @@ const Header: React.FC<HeaderProps> = ({ title, description }) => {
     router.push("/(tabs)/home/UserMenu");
   };
 
+  // Function to navigate to Home screen
+  const navigateToHome = () => {
+    router.push("/(tabs)/home/homepage");
+  };
+
   return (
     <View style={styles.header}>
-      <TouchableOpacity>
+      {/* Left side: Logo and Title */}
+      <View style={styles.headerLeftContainer}>
+        <TouchableOpacity onPress={navigateToHome}>
+          <Image
+            source={require('@/assets/images/logoMobile.png')} // Use require for static images
+            style={styles.logoStyle}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
         <Text style={styles.homeText}>{title}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity>
-        <Text style={styles.homeText}>{description || ""}</Text>
-      </TouchableOpacity>
+      </View>
+
+      {/* Right side: User greeting and profile icon */}
       <View style={styles.headerRightContainer}>
         <Text style={styles.homeText}>Xin Chào {userFullName}</Text>
         <TouchableOpacity onPress={navigateToUserMenu}>
@@ -68,6 +80,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#030303",
+  },
+  headerLeftContainer: { // Style for logo and title group
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8, // Adjust gap as needed
+  },
+  logoStyle: { // Style for the logo
+    width: 30, // Adjust size as needed
+    height: 30, // Adjust size as needed
   },
   headerRightContainer: {
     flexDirection: "row",

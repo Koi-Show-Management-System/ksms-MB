@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View, Platform, StatusBar, Dimensions } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { router } from "expo-router";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Lấy kích thước màn hình
 const { width, height } = Dimensions.get('window');
@@ -24,6 +25,18 @@ const Footer: React.FC<FooterProps> = ({
   onProfilePress,
   onShowsPress,
 }) => {
+  const insets = useSafeAreaInsets();
+  const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
+  
+  // Lắng nghe sự thay đổi kích thước màn hình (xảy ra khi navigation bar ẩn/hiện)
+  useEffect(() => {
+    const dimensionsHandler = Dimensions.addEventListener('change', ({ window }) => {
+      setScreenHeight(window.height);
+    });
+    
+    return () => dimensionsHandler.remove();
+  }, []);
+
   // Xử lý các sự kiện nếu không được truyền vào
   const handleHomePress = () => {
     if (onHomePress) {
@@ -67,7 +80,10 @@ const Footer: React.FC<FooterProps> = ({
   };
 
   return (
-    <View style={styles.footerWrapper}>
+    <View style={[
+      styles.footerWrapper,
+      { paddingBottom: insets.bottom > 0 ? insets.bottom : Platform.OS === 'android' ? 15 : 0 }
+    ]}>
       <View style={styles.footerBorder} />
       <View style={styles.footerContent}>
         <TouchableOpacity 
@@ -151,7 +167,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    height: 70,
+    zIndex: 1000,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   footerBorder: {
     height: 1,
@@ -163,7 +184,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-around",
     height: '100%',
-    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+    paddingBottom: 0,
   },
   footerItem: {
     alignItems: 'center',

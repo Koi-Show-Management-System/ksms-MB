@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -13,42 +13,70 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
+  RefreshControl,
 } from "react-native";
 import { getKoiShows, KoiShow } from "../../../services/showService";
 import { LinearGradient } from "expo-linear-gradient";
 import Carousel3DLandscape from "../../../components/Carousel3DLandscape";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  interpolate,
+  Extrapolate,
+  withTiming,
+  withDelay,
+  withSpring,
+  withSequence,
+  Easing,
+} from "react-native-reanimated";
+import ShimmerEffect from "../../../components/animations/ShimmerEffect";
+import FadeInView from "../../../components/animations/FadeInView";
+import ParallaxHeroSection from "../../../components/animations/ParallaxHeroSection";
+import ParallaxSection from "../../../components/animations/ParallaxSection";
+import ParallaxItem from "../../../components/animations/ParallaxItem";
+import MicroInteraction from "../../../components/animations/MicroInteraction";
+import { BlurView } from "expo-blur";
+import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width * 0.8;
 
-// Skeleton components for loading states
+// Định nghĩa bảng màu gradient cho ứng dụng
+const COLORS = {
+  primary: '#FF8C00', // Cam đậm
+  primaryLight: '#FFA500', // Cam nhạt
+  primaryGradient: ['#FF8C00', '#FFA500', '#FFD700'], // Gradient cam đến vàng
+  secondary: '#1E88E5', // Xanh dương
+  secondaryLight: '#64B5F6', // Xanh dương nhạt
+  secondaryGradient: ['#1E88E5', '#64B5F6', '#90CAF9'], // Gradient xanh dương
+  dark: '#222222', // Đen đậm
+  darkGradient: ['#222222', '#333333', '#444444'], // Gradient đen
+  light: '#FFFFFF', // Trắng
+  lightGradient: ['#FFFFFF', '#F5F5F5', '#EEEEEE'], // Gradient trắng
+  background: '#F8F9FA', // Nền chính
+  card: '#FFFFFF', // Nền thẻ
+  text: {
+    primary: '#212121', // Chữ chính
+    secondary: '#757575', // Chữ phụ
+    light: '#FFFFFF', // Chữ trên nền tối
+    accent: '#FF8C00', // Chữ nhấn mạnh
+  },
+  border: '#E0E0E0', // Viền
+  shadow: 'rgba(0, 0, 0, 0.1)', // Bóng đổ
+};
+
+// Skeleton components for loading states with shimmer effect
 const SkeletonBox = ({ width, height, style }: { width: string | number; height: string | number; style?: any }) => (
-  <View
-    style={[
-      {
-        width,
-        height,
-        backgroundColor: "#E0E0E0",
-        borderRadius: 8,
-        overflow: "hidden",
-      },
-      style,
-    ]}
-  >
-    <View
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: "#F5F5F5",
-        transform: [{ translateX: -width }],
-        opacity: 0.5,
-      }}
-    />
-  </View>
+  <ShimmerEffect
+    width={width}
+    height={height}
+    style={[{ borderRadius: 8 }, style]}
+    shimmerColors={['#E8E8E8', '#F5F5F5', '#E0E0E0']}
+    shimmerDuration={1800}
+  />
 );
 
 const HeroSkeleton = () => (
@@ -63,58 +91,98 @@ const HeroSkeleton = () => (
 );
 
 const ShowCardSkeleton = () => (
-  <View style={[styles.showCard, { backgroundColor: "#F8F8F8" }]}>
-    <SkeletonBox width="100%" height={160} style={{ marginBottom: 12 }} />
-    <View style={{ padding: 14 }}>
-      <SkeletonBox width="80%" height={20} style={{ marginBottom: 12 }} />
-      <SkeletonBox width="60%" height={16} style={{ marginBottom: 8 }} />
-      <SkeletonBox width="70%" height={16} style={{ marginBottom: 12 }} />
+  <View style={[styles.showCard, { backgroundColor: COLORS.background }]}>
+    <SkeletonBox width="100%" height={160} style={{ marginBottom: 12, borderRadius: 12 }} />
+    <View style={{ padding: 16 }}>
+      <SkeletonBox width="80%" height={22} style={{ marginBottom: 14, borderRadius: 6 }} />
+      <SkeletonBox width="60%" height={16} style={{ marginBottom: 10, borderRadius: 4 }} />
+      <SkeletonBox width="70%" height={16} style={{ marginBottom: 14, borderRadius: 4 }} />
       <View
         style={{
           flexDirection: "row",
           justifyContent: "space-between",
-          marginTop: 8,
+          marginTop: 10,
+          paddingTop: 12,
+          borderTopWidth: 1,
+          borderTopColor: COLORS.border,
         }}
       >
-        <SkeletonBox width="40%" height={16} />
-        <SkeletonBox width="30%" height={16} />
+        <SkeletonBox width="40%" height={18} style={{ borderRadius: 4 }} />
+        <SkeletonBox width="30%" height={18} style={{ borderRadius: 4 }} />
       </View>
     </View>
   </View>
 );
 
 const CarouselSkeleton = ({ title }: { title: string }) => (
-  <View style={styles.featuredShows}>
-    <Text style={styles.sectionTitle}>{title}</Text>
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}
-    >
-      {[1, 2, 3].map((item) => (
-        <ShowCardSkeleton key={item} />
-      ))}
-    </ScrollView>
-  </View>
+  <FadeInView delay={300} duration={600}>
+    <View style={styles.featuredShows}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}
+      >
+        {[1, 2, 3].map((item) => (
+          <FadeInView key={item} delay={item * 150} duration={500} from={{ opacity: 0, translateX: 50 }}>
+            <ShowCardSkeleton />
+          </FadeInView>
+        ))}
+      </ScrollView>
+    </View>
+  </FadeInView>
 );
 
 const Homepage: React.FC = () => {
   const [shows, setShows] = useState<KoiShow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState("");
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const searchInputRef = useRef<TextInput>(null);
   const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
 
+  // Animation values
+  const scrollY = useSharedValue(0);
+  const heroScale = useSharedValue(1);
+  const heroOpacity = useSharedValue(1);
+
+  // Handle scroll events
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  // Filtered shows based on search query
+  const filteredShows = shows.filter(show =>
+    show.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    show.location?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   // Group shows by status
-  const publishedShows = shows.filter((show) => show.status === "published");
-  const upcomingShows = shows.filter((show) => show.status === "upcoming");
-  const completedShows = shows.filter((show) => show.status === "completed");
+  const publishedShows = filteredShows.filter((show) => show.status === "published");
+  const upcomingShows = filteredShows.filter((show) => show.status === "upcoming");
+  const completedShows = filteredShows.filter((show) => show.status === "completed");
 
   useEffect(() => {
     fetchShows();
+  }, []);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await fetchShows();
+    } finally {
+      setRefreshing(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
   }, []);
 
   const fetchShows = async () => {
@@ -129,6 +197,19 @@ const Homepage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+    if (text.length > 0) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    searchInputRef.current?.blur();
   };
 
   // Format date function to avoid errors
@@ -188,11 +269,13 @@ const Homepage: React.FC = () => {
 
   const handleCardPress = (item: any, index: number) => {
     if (item && item.showData) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       handleShowPress(item.showData);
     }
   };
 
   const handleShowPress = (show: KoiShow) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
       pathname: "/(tabs)/shows/KoiShowInformation",
       params: { id: show.id },
@@ -201,6 +284,7 @@ const Homepage: React.FC = () => {
 
   // Cập nhật handler cho registration
   const handleRegistrationPress = (show: KoiShow) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push({
       pathname: "/(tabs)/shows/KoiRegistration" as const,
       params: { id: show.id }
@@ -231,39 +315,88 @@ const Homepage: React.FC = () => {
     }
   ];
 
-  // Update the quick access button rendering
+  // Update the quick access button rendering with micro-interactions and gradients
   const renderQuickAccessButtons = () => (
     <View style={styles.quickAccessButtons}>
-      {quickAccessRoutes.map((item, index) => (
-        <TouchableOpacity
-          key={index}
-          style={styles.quickAccessButton}
-          onPress={() => router.push(item.route as any)}>
-          <Ionicons name={item.icon} size={22} color="#FFFFFF" />
-          <Text style={styles.quickAccessText}>{item.text}</Text>
-        </TouchableOpacity>
-      ))}
+      {quickAccessRoutes.map((item, index) => {
+        // Chọn gradient khác nhau cho mỗi nút
+        const gradientColors = index % 2 === 0
+          ? COLORS.primaryGradient
+          : COLORS.secondaryGradient;
+
+        return (
+          <MicroInteraction
+            key={index}
+            scaleOnPress={true}
+            pulseOnMount={true}
+            springConfig={{ damping: 8, stiffness: 100 }}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push(item.route as any);
+            }}
+            style={styles.quickAccessButtonContainer}
+          >
+            <LinearGradient
+              colors={gradientColors}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.quickAccessButton}
+            >
+              <View style={styles.quickAccessIconContainer}>
+                <Ionicons name={item.icon} size={24} color="#FFFFFF" />
+              </View>
+              <Text style={styles.quickAccessText}>{item.text}</Text>
+            </LinearGradient>
+          </MicroInteraction>
+        );
+      })}
     </View>
   );
 
-  // Update the registration fee display
+  // Update the registration fee display with improved styling
   const renderRegistrationFee = (show: KoiShow) => {
     const fee = show.registrationFee || 0;
     return (
       <Text style={styles.registrationFee}>
-        {fee.toLocaleString()} VND
+        {fee.toLocaleString()} <Text style={styles.currencyText}>VND</Text>
       </Text>
     );
   };
 
-  // Render a carousel for shows
-  const renderShowCarousel = (statusShows: KoiShow[], title: string) => {
-    if (statusShows.length === 0 && !loading) return null;
-
+  // Render a carousel for shows with parallax effect
+  const renderShowCarousel = (statusShows: KoiShow[], title: string, sectionPosition = 600, showSearch = false) => {
+    // Luôn hiển thị section, ngay cả khi không có shows
     return (
       <>
         <View style={styles.featuredShows}>
-          <Text style={styles.sectionTitle}>{title}</Text>
+          <ParallaxItem
+            scrollY={scrollY}
+            startPosition={sectionPosition - 200}
+            endPosition={sectionPosition + 200}
+            parallaxFactor={0.2}
+          >
+            <View style={styles.sectionTitleRow}>
+              <Text style={styles.sectionTitle}>{title}</Text>
+              {showSearch && (
+                <TouchableOpacity
+                  style={styles.searchButton}
+                  onPress={() => {
+                    setIsSearchFocused(!isSearchFocused);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }}
+                >
+                  <Ionicons
+                    name={isSearchFocused ? "close-outline" : "search-outline"}
+                    size={22}
+                    color={COLORS.text.primary}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          </ParallaxItem>
+
+          {showSearch && isSearchFocused && renderShowSearchBar()}
+
           {loading ? (
             <ScrollView
               horizontal
@@ -273,96 +406,197 @@ const Homepage: React.FC = () => {
                 <ShowCardSkeleton key={item} />
               ))}
             </ScrollView>
-          ) : (
+          ) : statusShows.length > 0 ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
-              {statusShows.map((show) => (
-                <TouchableOpacity
+              {statusShows.map((show, index) => (
+                <ParallaxItem
                   key={show.id}
-                  style={styles.showCard}
-                  onPress={() => handleShowPress(show)}>
-                  <View style={styles.imageContainer}>
-                    <Image
-                      source={{
-                        uri:
-                          show.imgUrl && show.imgUrl.startsWith("http")
-                            ? show.imgUrl
-                            : "https://ugc.futurelearn.com/uploads/images/d5/6d/d56d20b4-1072-48c0-b832-deecf6641d49.jpg",
-                      }}
-                      style={styles.showImage}
-                      defaultSource={require("../../../assets/images/test_image.png")}
-                    />
-                    <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.7)']}
-                      style={styles.imageGradient}
-                    />
-                    <View style={styles.statusBadge}>
-                      <Text style={styles.statusText}>{show.status}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.showDetails}>
-                    <Text style={styles.showName} numberOfLines={1}>
-                      {show.name || "Unnamed Show"}
-                    </Text>
-                    <View style={styles.infoRow}>
-                      <Ionicons
-                        name="calendar-outline"
-                        size={14}
-                        color="#666"
-                      />
-                      <Text style={styles.showDate}>
-                        {formatDate(show.startDate)} -{" "}
-                        {formatDate(show.endDate)}
-                      </Text>
-                    </View>
-                    <View style={styles.infoRow}>
-                      <Ionicons
-                        name="location-outline"
-                        size={14}
-                        color="#666"
-                      />
-                      <Text style={styles.showLocation} numberOfLines={1}>
-                        {show.location || "TBA"}
-                      </Text>
-                    </View>
-                    <View style={styles.cardFooter}>
-                      {renderRegistrationFee(show)}
-                      <View style={styles.participantInfo}>
-                        <Ionicons
-                          name="people-outline"
-                          size={14}
-                          color="#666"
+                  scrollY={scrollY}
+                  startPosition={sectionPosition - 100}
+                  endPosition={sectionPosition + 300}
+                  parallaxFactor={0.1 + (index * 0.05)}
+                  direction="horizontal"
+                >
+                  <FadeInView
+                    delay={index * 100}
+                    duration={600}
+                    from={{ opacity: 0, translateX: 50 }}
+                  >
+                    <MicroInteraction
+                      scaleOnPress={true}
+                      springConfig={{ damping: 10, stiffness: 100 }}
+                      onPress={() => handleShowPress(show)}
+                      style={styles.showCard}
+                    >
+                      <View style={styles.imageContainer}>
+                        <Image
+                          source={{
+                            uri:
+                              show.imgUrl && show.imgUrl.startsWith("http")
+                                ? show.imgUrl
+                                : "https://ugc.futurelearn.com/uploads/images/d5/6d/d56d20b4-1072-48c0-b832-deecf6641d49.jpg",
+                          }}
+                          style={styles.showImage}
+                          defaultSource={require("../../../assets/images/test_image.png")}
                         />
-                        <Text style={styles.participantText}>
-                          {show.minParticipants}-{show.maxParticipants}
-                        </Text>
+                        <LinearGradient
+                          colors={['transparent', 'rgba(0,0,0,0.85)']}
+                          style={styles.imageGradient}
+                        />
+                        <LinearGradient
+                          colors={COLORS.primaryGradient}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.statusBadge}
+                        >
+                          <Text style={styles.statusText}>{show.status}</Text>
+                        </LinearGradient>
                       </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                      <View style={styles.showDetails}>
+                        <Text style={styles.showName} numberOfLines={1}>
+                          {show.name || "Unnamed Show"}
+                        </Text>
+                        <View style={styles.infoRow}>
+                          <Ionicons
+                            name="calendar-outline"
+                            size={14}
+                            color={COLORS.text.secondary}
+                          />
+                          <Text style={styles.showDate}>
+                            {formatDate(show.startDate)} -{" "}
+                            {formatDate(show.endDate)}
+                          </Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                          <Ionicons
+                            name="location-outline"
+                            size={14}
+                            color={COLORS.text.secondary}
+                          />
+                          <Text style={styles.showLocation} numberOfLines={1}>
+                            {show.location || "TBA"}
+                          </Text>
+                        </View>
+                        <LinearGradient
+                          colors={['#F8F8F8', '#FFFFFF']}
+                          style={styles.cardFooter}
+                        >
+                          <LinearGradient
+                            colors={COLORS.primaryGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.feeContainer}
+                          >
+                            {renderRegistrationFee(show)}
+                          </LinearGradient>
+                          <View style={styles.participantInfo}>
+                            <Ionicons
+                              name="people-outline"
+                              size={14}
+                              color={COLORS.text.secondary}
+                            />
+                            <Text style={styles.participantText}>
+                              {show.minParticipants}-{show.maxParticipants}
+                            </Text>
+                          </View>
+                        </LinearGradient>
+                      </View>
+                    </MicroInteraction>
+                  </FadeInView>
+                </ParallaxItem>
               ))}
             </ScrollView>
+          ) : (
+            // Hiển thị thông báo khi không có kết quả tìm kiếm
+            <View style={styles.noResultsContainer}>
+              {searchQuery.length > 0 ? (
+                <>
+                  <Ionicons name="search-outline" size={40} color={COLORS.text.secondary} style={{ marginBottom: 10 }} />
+                  <Text style={styles.noResultsText}>Không tìm thấy cuộc thi phù hợp</Text>
+                  <Text style={styles.noResultsSubText}>Thử tìm kiếm với từ khóa khác</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="calendar-outline" size={40} color={COLORS.text.secondary} style={{ marginBottom: 10 }} />
+                  <Text style={styles.noResultsText}>Không có cuộc thi nào</Text>
+                </>
+              )}
+            </View>
           )}
         </View>
       </>
     );
   };
 
+  // Render search bar component for shows
+  const renderShowSearchBar = () => {
+    if (!isSearchFocused) return null;
+
+    return (
+      <View style={styles.searchContainer}>
+        <TextInput
+          ref={searchInputRef}
+          style={styles.searchInput}
+          placeholder="Tìm kiếm cuộc thi..."
+          placeholderTextColor={COLORS.text.secondary}
+          value={searchQuery}
+          onChangeText={handleSearch}
+          onFocus={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          autoFocus={true}
+          // Đảm bảo màu chữ là đen để hiển thị rõ trên nền trắng/xám
+          color={COLORS.text.primary}
+        />
+        {searchQuery.length > 0 ? (
+          <TouchableOpacity
+            onPress={clearSearch}
+            style={styles.clearButton}
+          >
+            <Ionicons name="close-circle" size={18} color={COLORS.text.secondary} />
+          </TouchableOpacity>
+        ) : (
+          <Ionicons name="search-outline" size={18} color={COLORS.text.secondary} />
+        )}
+      </View>
+    );
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-        <ScrollView style={[styles.scrollView, { backgroundColor: "#FFFFFF" }]}>
-          {/* Hero Section với Carousel3D */}
-          <View style={styles.heroSection}>
+        <Animated.ScrollView
+          style={[styles.scrollView, { backgroundColor: "#FFFFFF" }]}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={COLORS.primary}
+              colors={[COLORS.primary, COLORS.secondary]}
+              progressBackgroundColor="#ffffff"
+            />
+          }>
+          {/* Hero Section với Carousel3D và hiệu ứng Parallax */}
+          <ParallaxHeroSection
+            height={450}
+            scrollY={scrollY}
+            parallaxFactor={0.5}
+            style={styles.heroSection}
+          >
             {loading ? (
               <HeroSkeleton />
             ) : shows.length > 0 ? (
               <View style={styles.carouselWrapper}>
-                <Text style={styles.heroSectionTitle}>
-                  {shows.length > 0 ? 'Cuộc thi nổi bật' : 'Vietnam Koi Show 2024'}
-                </Text>
+                <FadeInView delay={300} duration={800} from={{ opacity: 0, translateY: -20 }}>
+                  <Text style={styles.heroSectionTitle}>
+                    {shows.length > 0 ? 'Cuộc thi nổi bật' : 'Vietnam Koi Show 2024'}
+                  </Text>
+                </FadeInView>
                 <Carousel3DLandscape
                   items={getCarouselItems()}
                   autoPlay={true}
@@ -383,101 +617,133 @@ const Homepage: React.FC = () => {
                 <Text style={styles.noShowsText}>Không có cuộc thi nào</Text>
               </View>
             )}
-          </View>
+          </ParallaxHeroSection>
 
           {/* Quick Access Section */}
-          <View style={styles.quickAccess}>
-            <Text style={styles.sectionTitle}>Truy cập nhanh</Text>
-            {renderQuickAccessButtons()}
-          </View>
+          <FadeInView delay={400} duration={800} from={{ opacity: 0, translateY: 30 }}>
+            <View style={styles.quickAccess}>
+              <Text style={styles.sectionTitle}>Truy cập nhanh</Text>
+              {renderQuickAccessButtons()}
+            </View>
+          </FadeInView>
 
           {/* Error message display */}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {/* Featured Shows - All Shows */}
+          {/* Featured Shows - All Shows with Parallax */}
           {loading ? (
             <CarouselSkeleton title="Cuộc thi nổi bật" />
           ) : (
-            renderShowCarousel(shows, "Cuộc thi nổi bật")
-          )}
-
-          {/* Published Shows */}
-          {loading ? (
-            <CarouselSkeleton title="Cuộc thi đã đăng ký" />
-          ) : (
-            renderShowCarousel(publishedShows, "Cuộc thi đã đăng ký")
+            <FadeInView delay={500} duration={800} from={{ opacity: 0, translateY: 30 }}>
+              {renderShowCarousel(shows, "Cuộc thi nổi bật", 600, false)}
+            </FadeInView>
           )}
 
           {/* Upcoming Shows */}
           {loading ? (
             <CarouselSkeleton title="Cuộc thi sắp tới" />
           ) : (
-            renderShowCarousel(upcomingShows, "Cuộc thi sắp tới")
+            <FadeInView delay={600} duration={800} from={{ opacity: 0, translateY: 30 }}>
+              {renderShowCarousel(upcomingShows, "Cuộc thi sắp tới", 900, true)}
+            </FadeInView>
           )}
 
-          {/* News and Blogs */}
-          <View style={styles.newsAndBlogs}>
-            <Text style={styles.sectionTitleWhite}>Tin tức & Bài viết</Text>
-            <View style={styles.searchContainer}>
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Tìm kiếm bài viết"
-                placeholderTextColor="#E1E1E1"
-              />
-              <Ionicons name="search-outline" size={18} color="#E1E1E1" />
+          {/* News and Blogs with Parallax */}
+          <FadeInView delay={800} duration={800} from={{ opacity: 0, translateY: 30 }}>
+            <View style={styles.newsAndBlogs}>
+              <ParallaxItem
+                scrollY={scrollY}
+                startPosition={1500}
+                endPosition={1800}
+                parallaxFactor={0.2}
+              >
+                <Text style={styles.sectionTitleWhite}>Tin tức & Bài viết</Text>
+              </ParallaxItem>
+
+              <ParallaxItem
+                scrollY={scrollY}
+                startPosition={1550}
+                endPosition={1850}
+                parallaxFactor={0.15}
+              >
+                <View style={styles.searchContainer}>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Tìm kiếm bài viết"
+                    placeholderTextColor="#E1E1E1"
+                  />
+                  <Ionicons name="search-outline" size={18} color="#E1E1E1" />
+                </View>
+              </ParallaxItem>
+
+              <View style={styles.articles}>
+                {loading ? (
+                  // Skeleton for articles with shimmer effect
+                  [1, 2].map((index) => (
+                    <FadeInView key={index} delay={index * 200 + 800} duration={500} from={{ opacity: 0, scale: 0.9 }}>
+                      <View style={styles.articleCard}>
+                        <SkeletonBox width="100%" height={120} />
+                        <View style={{ padding: 10 }}>
+                          <SkeletonBox width="90%" height={18} style={{ marginBottom: 8 }} />
+                          <SkeletonBox width="100%" height={12} style={{ marginBottom: 4 }} />
+                          <SkeletonBox width="80%" height={12} />
+                        </View>
+                      </View>
+                    </FadeInView>
+                  ))
+                ) : (
+                  [
+                    {
+                      image:
+                        "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                      title: "Cách nuôi cá Koi",
+                      description:
+                        "Những mẹo hữu ích giúp bạn nuôi cá Koi khỏe mạnh và phát triển tốt...",
+                    },
+                    {
+                      image:
+                        "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                      title: "Mẹo chăm sóc cá Koi",
+                      description:
+                        "Các phương pháp chăm sóc cá Koi đúng cách để cá luôn đẹp và khỏe mạnh...",
+                    },
+                  ].map((article, index) => (
+                    <ParallaxItem
+                      key={index}
+                      scrollY={scrollY}
+                      startPosition={1600 + index * 50}
+                      endPosition={1900 + index * 50}
+                      parallaxFactor={0.1 + (index * 0.05)}
+                      direction={index % 2 === 0 ? "horizontal" : "vertical"}
+                    >
+                      <FadeInView delay={index * 200 + 800} duration={500} from={{ opacity: 0, scale: 0.9 }}>
+                        <MicroInteraction scaleOnPress={true} springConfig={{ damping: 10, stiffness: 100 }}>
+                          <View style={styles.articleCard}>
+                            <Image
+                              source={{
+                                uri: article.image,
+                              }}
+                              style={styles.articleImage}
+                            />
+                            <View style={styles.articleContent}>
+                              <Text style={styles.articleTitle}>{article.title}</Text>
+                              <Text style={styles.articleDescription}>
+                                {article.description}
+                              </Text>
+                            </View>
+                          </View>
+                        </MicroInteraction>
+                      </FadeInView>
+                    </ParallaxItem>
+                  ))
+                )}
+              </View>
             </View>
-            <View style={styles.articles}>
-              {loading ? (
-                // Skeleton for articles
-                [1, 2].map((index) => (
-                  <View key={index} style={styles.articleCard}>
-                    <SkeletonBox width="100%" height={120} />
-                    <View style={{ padding: 10 }}>
-                      <SkeletonBox width="90%" height={18} style={{ marginBottom: 8 }} />
-                      <SkeletonBox width="100%" height={12} style={{ marginBottom: 4 }} />
-                      <SkeletonBox width="80%" height={12} />
-                    </View>
-                  </View>
-                ))
-              ) : (
-                [
-                  {
-                    image:
-                      "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                    title: "Cách nuôi cá Koi",
-                    description:
-                      "Những mẹo hữu ích giúp bạn nuôi cá Koi khỏe mạnh và phát triển tốt...",
-                  },
-                  {
-                    image:
-                      "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                    title: "Mẹo chăm sóc cá Koi",
-                    description:
-                      "Các phương pháp chăm sóc cá Koi đúng cách để cá luôn đẹp và khỏe mạnh...",
-                  },
-                ].map((article, index) => (
-                  <View key={index} style={styles.articleCard}>
-                    <Image
-                      source={{
-                        uri: article.image,
-                      }}
-                      style={styles.articleImage}
-                    />
-                    <View style={styles.articleContent}>
-                      <Text style={styles.articleTitle}>{article.title}</Text>
-                      <Text style={styles.articleDescription}>
-                        {article.description}
-                      </Text>
-                    </View>
-                  </View>
-                ))
-              )}
-            </View>
-          </View>
-          
+          </FadeInView>
+
           {/* Add bottom padding to avoid content being hidden by footer */}
           <View style={{ height: 80 }} />
-        </ScrollView>
+        </Animated.ScrollView>
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -486,36 +752,119 @@ const Homepage: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.background,
+  },
+  searchContainer: {
+    marginBottom: 20,
+    height: 46,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 0,
+    borderRadius: 12,
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    paddingHorizontal: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  noResultsContainer: {
+    width: '100%',
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    borderRadius: 12,
+    marginVertical: 10,
+    paddingHorizontal: 20,
+  },
+  noResultsText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.text.secondary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  noResultsSubText: {
+    fontSize: 14,
+    color: COLORS.text.secondary,
+    opacity: 0.8,
+    textAlign: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: COLORS.text.primary,
+    fontFamily: 'Roboto',
+    padding: 0,
+    height: '100%',
+  },
+  clearButton: {
+    padding: 4,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
+  searchButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flexGrow: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.background,
   },
   heroSection: {
     width: "100%",
     height: 450, // Điều chỉnh chiều cao để phù hợp với Carousel3DLandscape
     position: "relative",
-    backgroundColor: "#111", // Màu nền tối hơn để tăng độ tương phản
-    marginBottom: 16,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    backgroundColor: COLORS.dark, // Màu nền tối hơn để tăng độ tương phản
+    marginBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
   },
   carouselWrapper: {
     flex: 1,
     width: "100%",
     height: "100%",
-    paddingTop: 10,
+    paddingTop: 15,
     paddingBottom: 20,
     paddingHorizontal: 0, // Đảm bảo không có padding ngang để hiển thị các card xung quanh
   },
   heroSectionTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 28,
+    fontWeight: "800",
+    fontFamily: "Roboto",
     color: "#FFF",
     textAlign: "center",
-    marginVertical: 12,
+    marginVertical: 15,
+    letterSpacing: 0.5,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
@@ -599,83 +948,124 @@ const styles = StyleSheet.create({
 
   // Quick Access styles
   quickAccess: {
-    padding: 16,
+    padding: 20,
     alignItems: "center",
-    marginVertical: 10,
+    marginVertical: 15,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "Roboto",
-    color: "#030303",
-    marginBottom: 16,
-    fontWeight: "600",
-    alignSelf: "flex-start",
+    color: COLORS.text.primary,
+    fontWeight: "700",
+    alignSelf: "center",
+    letterSpacing: 0.3,
   },
   quickAccessButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
   },
+  quickAccessButtonContainer: {
+    flex: 1,
+    marginHorizontal: 6,
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
   quickAccessButton: {
     alignItems: "center",
-    backgroundColor: "#FFA500",
-    borderRadius: 12,
-    padding: 14,
-    paddingVertical: 16,
-    flex: 1,
-    marginHorizontal: 5,
-    shadowColor: "#FFA50070",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 3,
+    justifyContent: "center",
+    padding: 16,
+    paddingVertical: 18,
+    borderRadius: 16,
+    height: 90,
   },
-  quickAccessIcon: {
-    width: 24,
-    height: 24,
+  quickAccessIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
   },
   quickAccessText: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: "Roboto",
-    fontWeight: "500",
+    fontWeight: "600",
     color: "#FFFFFF",
     textAlign: "center",
     marginTop: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   // News and Blog styles
   newsAndBlogs: {
-    padding: 16,
-    backgroundColor: "#333333",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    marginTop: 20,
+    padding: 20,
+    backgroundColor: COLORS.dark,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: 25,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
   },
   sectionTitleWhite: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "Roboto",
-    color: "#FFFFFF",
-    marginBottom: 16,
-    fontWeight: "600",
+    color: COLORS.text.light,
+    marginBottom: 20,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   searchContainer: {
-    marginBottom: 16,
-    height: 42,
+    marginBottom: 20,
+    height: 46,
     flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    borderRadius: 8,
-    backgroundColor: "#444444",
-    paddingHorizontal: 12,
+    borderWidth: 0,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    paddingHorizontal: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   searchInput: {
     flex: 1,
     height: "100%",
-    fontFamily: "Poppins",
-    fontSize: 14,
-    color: "#E1E1E1",
+    fontFamily: "Roboto",
+    fontSize: 15,
+    color: COLORS.text.light,
+    fontWeight: "500",
   },
   searchIcon: {
     width: 20,
@@ -688,70 +1078,82 @@ const styles = StyleSheet.create({
   },
   articleCard: {
     width: "48%",
-    backgroundColor: "#444444",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 16,
     marginBottom: 16,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   articleImage: {
     width: "100%",
-    height: 120,
+    height: 130,
   },
   articleContent: {
-    padding: 12,
+    padding: 14,
   },
   articleTitle: {
-    fontFamily: "Poppins-Bold",
-    fontSize: 15,
-    color: "#FFFFFF",
+    fontFamily: "Roboto",
+    fontSize: 16,
+    color: COLORS.text.light,
     marginBottom: 8,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   articleDescription: {
-    fontFamily: "Poppins-Regular",
+    fontFamily: "Roboto",
     fontSize: 13,
-    color: "#E5E5E5",
+    color: "rgba(255, 255, 255, 0.8)",
     lineHeight: 18,
+    fontWeight: "400",
   },
 
   // Enhanced show carousel styles
   featuredShows: {
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: 20,
+    marginBottom: 20,
     paddingLeft: 16,
   },
   showCard: {
     width: CARD_WIDTH,
     marginRight: 15,
     marginLeft: 5,
-    marginVertical: 8,
-    borderRadius: 16,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+    marginVertical: 10,
+    borderRadius: 20,
+    backgroundColor: COLORS.card,
     overflow: "hidden",
-    borderWidth: 0.5,
-    borderColor: "#eeeeee",
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   imageContainer: {
     position: "relative",
     width: "100%",
-    height: 160,
+    height: 180,
   },
   imageGradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: 80,
+    height: 100,
   },
   showImage: {
     width: "100%",
@@ -760,66 +1162,97 @@ const styles = StyleSheet.create({
   },
   statusBadge: {
     position: "absolute",
-    top: 10,
-    right: 10,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    backgroundColor: "#FFA500",
+    top: 12,
+    right: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
     borderRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   statusText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "bold",
+    color: COLORS.text.light,
+    fontSize: 11,
+    fontWeight: "800",
     textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   showDetails: {
-    padding: 16,
+    padding: 18,
   },
   showName: {
-    fontSize: 17,
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#222",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 10,
+    color: COLORS.text.primary,
+    letterSpacing: 0.2,
   },
   infoRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   showDate: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 6,
+    fontSize: 13,
+    color: COLORS.text.secondary,
+    marginLeft: 8,
+    fontWeight: "500",
   },
   showLocation: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 6,
+    fontSize: 13,
+    color: COLORS.text.secondary,
+    marginLeft: 8,
     flex: 1,
+    fontWeight: "500",
   },
   cardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 0.5,
-    borderTopColor: "#eee",
+    marginTop: 14,
+    paddingTop: 14,
+    paddingHorizontal: 2,
+    borderTopWidth: 0,
+    borderRadius: 12,
+  },
+  feeContainer: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
   },
   registrationFee: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#FFA500",
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.text.light,
+    letterSpacing: 0.5,
+  },
+  currencyText: {
+    fontSize: 12,
+    fontWeight: "600",
+    opacity: 0.9,
   },
   participantInfo: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
   },
   participantText: {
-    fontSize: 12,
-    color: "#666",
-    marginLeft: 4,
+    fontSize: 13,
+    color: COLORS.text.secondary,
+    marginLeft: 6,
+    fontWeight: "500",
   },
   loadingContainer: {
     height: 220,
