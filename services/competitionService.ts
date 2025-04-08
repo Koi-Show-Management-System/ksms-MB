@@ -114,6 +114,8 @@ export interface ShowDetailRegistration {
   registrationId: string;
   registrationNumber: string | null;
   status: string;
+  refundType: string | null;
+  rejectedReason: string | null;
   koiProfileId: string;
   koiName: string;
   variety: string;

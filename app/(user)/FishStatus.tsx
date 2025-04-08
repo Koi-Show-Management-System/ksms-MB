@@ -138,6 +138,8 @@ interface CurrentStatusProps {
   rank?: number;
   totalParticipants?: number;
   eliminatedAtRound?: string;
+  rejectedReason?: string;
+  refundType?: string;
 }
 
 const CurrentStatus: React.FC<CurrentStatusProps> = ({ 
@@ -146,7 +148,9 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
   award, 
   rank,
   totalParticipants,
-  eliminatedAtRound
+  eliminatedAtRound,
+  rejectedReason,
+  refundType
 }) => {
   const getStatusText = (status: string): string => {
     switch (status.toLowerCase()) {
@@ -190,6 +194,19 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
     }
   };
   
+  const getRefundTypeText = (refundType: string): string => {
+    switch (refundType) {
+      case 'NotQualified':
+        return 'Không đủ điều kiện';
+      case 'CancelledByUser':
+        return 'Hủy bởi người dùng';
+      case 'CancelledBySystem':
+        return 'Hủy bởi hệ thống';
+      default:
+        return refundType;
+    }
+  };
+  
   const hasCompetitionInfo = currentRound || award || rank || eliminatedAtRound;
   
   return (
@@ -203,6 +220,20 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) }]}>
           <Text style={styles.statusText}>{getStatusText(status)}</Text>
         </View>
+        
+        {rejectedReason && (
+          <View style={styles.statusInfoRow}>
+            <Text style={styles.statusLabel}>Lý do từ chối:</Text>
+            <Text style={styles.statusValue}>{rejectedReason}</Text>
+          </View>
+        )}
+        
+        {refundType && (
+          <View style={styles.statusInfoRow}>
+            <Text style={styles.statusLabel}>Loại hoàn tiền:</Text>
+            <Text style={styles.statusValue}>{getRefundTypeText(refundType)}</Text>
+          </View>
+        )}
         
         {currentRound ? (
           <View style={styles.statusInfoRow}>
@@ -868,6 +899,8 @@ const FishStatus: React.FC = () => {
             rank={fishData.rank !== null ? fishData.rank : undefined}
             totalParticipants={totalParticipants}
             eliminatedAtRound={fishData.eliminatedAtRound || undefined}
+            rejectedReason={fishData.rejectedReason || undefined}
+            refundType={fishData.refundType || undefined}
           />
           
           <PaymentInfo

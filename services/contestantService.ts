@@ -1,4 +1,3 @@
-// services/contestantService.ts
 import api from './api';
 
 // Interface cho các loại dữ liệu

@@ -257,9 +257,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
       <View style={styles.contestantCard}>
         <TouchableOpacity
           style={styles.contestantCardContent}
-          onPress={() => handleContestantPress(item)}
-          activeOpacity={0.7}
-          >
+          onPress={() => handleContestantPress(item)}>
           <View style={styles.contestantImageContainer}>
             {imageMedia ? (
               <Image
@@ -773,7 +771,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    paddingBottom: 120, // Tăng padding bottom để tránh bị footer che phủ
+    paddingBottom: 100, // Tăng padding bottom để tránh bị footer che phủ
   },
   breadcrumbContainer: {
     paddingHorizontal: 16,
@@ -924,7 +922,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 20,
     position: 'relative',
-    paddingBottom: 80, // Tăng paddingBottom để tạo thêm khoảng cách
+    paddingBottom: 60,
     flex: 1,
   },
   contestantsWrapper: {
@@ -949,7 +947,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
     width: Dimensions.get('window').width * 0.7,
-    marginVertical: 12, 
+    marginVertical: 12, // Thêm margin để các card không quá sát nhau
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -957,16 +955,15 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    height: 280, // Giảm chiều cao xuống một chút để tránh bị che
+    height: 300,
   },
   contestantCardContent: {
     flex: 1,
   },
   contestantImageContainer: {
-    height: 160,
+    height: 180,
     width: '100%',
     position: 'relative',
-    backgroundColor: '#f0f0f0',
   },
   contestantImage: {
     width: '100%',
@@ -989,7 +986,6 @@ const styles = StyleSheet.create({
   },
   contestantInfo: {
     padding: 12,
-    flex: 1,
   },
   contestantName: {
     fontSize: 15,
@@ -1383,12 +1379,12 @@ const styles = StyleSheet.create({
   },
   carouselContainer: {
     paddingVertical: 12,
-    marginBottom: 80, // Tăng marginBottom để tạo thêm khoảng cách với phần phân trang
-    minHeight: 350, 
+    marginBottom: 60,
+    minHeight: 350,
   },
   carouselContent: {
     paddingHorizontal: 16,
-    paddingBottom: 60, // Tăng paddingBottom để tạo khoảng cách với phần phân trang
+    paddingBottom: 20,
     alignItems: 'center',
   },
   paginationContainer: {
