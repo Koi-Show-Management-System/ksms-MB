@@ -130,14 +130,13 @@ const FilterTab: React.FC<{
 const CompetitionJoined: React.FC = () => {
   // State for filter
   const [activeFilter, setActiveFilter] = useState<
-    "all" | "upcoming" | "ongoing" | "completed"
+    "all" | "upcoming" | "ongoing" | "completed" | "cancelled"
   >("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [registrations, setRegistrations] = useState<HistoryRegisterShowItem[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [registrationStatus, setRegistrationStatus] = useState<string | null>(null);
   const [showStatus, setShowStatus] = useState<string | undefined>(undefined);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -150,6 +149,8 @@ const CompetitionJoined: React.FC = () => {
       return "Bạn chưa tham gia cuộc thi đang diễn ra nào.";
     } else if (activeFilter === "upcoming") {
       return "Bạn chưa tham gia cuộc thi sắp diễn ra nào.";
+    } else if (activeFilter === "cancelled") {
+      return "Bạn không có cuộc thi nào bị huỷ bỏ.";
     } else {
       return "Bạn chưa tham gia cuộc thi nào.";
     }
@@ -190,22 +191,70 @@ const CompetitionJoined: React.FC = () => {
   // Set filter based on activeFilter
   useEffect(() => {
     const filterParams = getFilterParams(activeFilter);
-    setRegistrationStatus(filterParams.registrationStatus);
     setShowStatus(filterParams.showStatus || undefined);
     setCurrentPage(1); // Reset về trang 1
-    fetchRegistrations(1, filterParams.showStatus || undefined, true);
+    
+    // Khi chọn "all", gọi API với size lớn
+    if (activeFilter === "all") {
+      const fetchAllShows = async () => {
+        try {
+          setLoading(true);
+          // Gọi API với size=100000 cho tab "Tất cả"
+          const response = await getRegistrationHistory(1, 100000);
+          setRegistrations(response.items);
+          setTotalPages(response.totalPages);
+          setCurrentPage(response.page);
+        } catch (error: any) {
+          console.error('Lỗi khi tải danh sách đăng ký:', error);
+          setHasError(true);
+          setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      fetchAllShows();
+    } else {
+      fetchRegistrations(1, filterParams.showStatus || undefined, true);
+    }
   }, [activeFilter]);
 
   // Load more items when reaching end of list
   const handleLoadMore = () => {
     if (currentPage < totalPages && !loading) {
-      fetchRegistrations(currentPage + 1);
+      if (activeFilter === "all") {
+        // Không cần load more cho tab "Tất cả" vì đã lấy tất cả với size=100000
+        return;
+      } else {
+        fetchRegistrations(currentPage + 1);
+      }
     }
   };
 
   // Refresh data
   const handleRefresh = () => {
-    fetchRegistrations(1, showStatus, true);
+    if (activeFilter === "all") {
+      setRefreshing(true);
+      const refreshAllShows = async () => {
+        try {
+          // Gọi API refresh với size=100000 cho tab "Tất cả"
+          const response = await getRegistrationHistory(1, 100000);
+          setRegistrations(response.items);
+          setTotalPages(response.totalPages);
+          setCurrentPage(response.page);
+        } catch (error: any) {
+          console.error('Lỗi khi làm mới dữ liệu:', error);
+          setHasError(true);
+          setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+        } finally {
+          setRefreshing(false);
+        }
+      };
+      
+      refreshAllShows();
+    } else {
+      fetchRegistrations(1, showStatus, true);
+    }
   };
 
   // Map registration data to competition data
@@ -221,7 +270,28 @@ const CompetitionJoined: React.FC = () => {
 
   // Initial fetch
   useEffect(() => {
-    fetchRegistrations();
+    if (activeFilter === "all") {
+      const initialFetchAllShows = async () => {
+        try {
+          setLoading(true);
+          // Gọi API với size=100000 cho tab "Tất cả"
+          const response = await getRegistrationHistory(1, 100000);
+          setRegistrations(response.items);
+          setTotalPages(response.totalPages);
+          setCurrentPage(response.page);
+        } catch (error: any) {
+          console.error('Lỗi khi tải danh sách đăng ký:', error);
+          setHasError(true);
+          setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      initialFetchAllShows();
+    } else {
+      fetchRegistrations();
+    }
   }, []);
 
   return (
@@ -270,6 +340,11 @@ const CompetitionJoined: React.FC = () => {
             active={activeFilter === "completed"}
             onPress={() => setActiveFilter("completed")}
           />
+          <FilterTab
+            title="Bị huỷ bỏ"
+            active={activeFilter === "cancelled"}
+            onPress={() => setActiveFilter("cancelled")}
+          />
         </ScrollView>
       </View>
 
@@ -291,7 +366,31 @@ const CompetitionJoined: React.FC = () => {
           <Text style={styles.errorText}>{errorMessage}</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => fetchRegistrations(1, showStatus, true)}>
+            onPress={() => {
+              if (activeFilter === "all") {
+                const retryAllShows = async () => {
+                  try {
+                    setLoading(true);
+                    // Gọi API với size=100000 cho tab "Tất cả"
+                    const response = await getRegistrationHistory(1, 100000);
+                    setRegistrations(response.items);
+                    setTotalPages(response.totalPages);
+                    setCurrentPage(response.page);
+                    setHasError(false);
+                  } catch (error: any) {
+                    console.error('Lỗi khi tải danh sách đăng ký:', error);
+                    setHasError(true);
+                    setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+                  } finally {
+                    setLoading(false);
+                  }
+                };
+                
+                retryAllShows();
+              } else {
+                fetchRegistrations(1, showStatus, true);
+              }
+            }}>
             <Text style={styles.retryButtonText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
@@ -307,7 +406,7 @@ const CompetitionJoined: React.FC = () => {
           <Text style={styles.emptyText}>{getEmptyStateMessage()}</Text>
           
           <View style={styles.buttonContainer}>
-            {activeFilter === "completed" && (
+            {(activeFilter === "completed" || activeFilter === "cancelled") && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.viewAllButton]}
                 onPress={() => setActiveFilter("all")}>

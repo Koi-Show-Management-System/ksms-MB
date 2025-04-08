@@ -23,6 +23,11 @@ import { LinearGradient } from "expo-linear-gradient";
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
 
+// Mở rộng kiểu dữ liệu ShowMemberDetail để thêm trường cancellationReason
+interface EnhancedShowMemberDetail extends ShowMemberDetail {
+  cancellationReason?: string | null;
+}
+
 // Mở rộng kiểu dữ liệu ShowDetailRegistration
 type EnhancedShowDetailRegistration = ShowDetailRegistration & {
   totalParticipants?: number;
@@ -40,6 +45,20 @@ const FishDetailsCard: React.FC<{
   
   // Kiểm tra xem cá có được trao giải thưởng không
   const hasAward = !!registration.award;
+  
+  // Lấy màu sắc status
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case "Confirmed": return "#15803D"; // Xanh lá
+      case "CheckIn": return "#047857"; // Xanh lá đậm
+      case "Pending": return "#EAB308"; // Vàng
+      case "WaitToPaid": return "#F59E0B"; // Cam
+      case "Rejected": return "#B91C1C"; // Đỏ
+      case "Refunded": return "#6366F1"; // Tím
+      case "Cancelled": return "#7C3AED"; // Tím đậm
+      default: return "#6B7280"; // Xám
+    }
+  };
   
   return (
     <View style={styles.fishCard}>
@@ -81,6 +100,16 @@ const FishDetailsCard: React.FC<{
             <View style={styles.detailItemFull}>
               <Text style={styles.detailLabel}>Hạng mục:</Text>
               <Text style={styles.detailValue}>{registration.categoryName}</Text>
+            </View>
+          </View>
+          
+          {/* Hiển thị trạng thái cá */}
+          <View style={styles.detailRow}>
+            <View style={styles.detailItemFull}>
+              <Text style={styles.detailLabel}>Trạng thái:</Text>
+              <View style={[styles.statusChip, { backgroundColor: getStatusColor(registration.status) }]}>
+                <Text style={styles.statusText}>{registration.status}</Text>
+              </View>
             </View>
           </View>
           
@@ -146,7 +175,7 @@ const StatBadge: React.FC<{
 
 // --- Competition Details ---
 const CompetitionDetails: React.FC<{
-  showDetail: ShowMemberDetail
+  showDetail: EnhancedShowMemberDetail
 }> = ({ showDetail }) => {
   // Tính toán số cá đã được trao giải
   const awardedFishCount = showDetail.registrations.filter(reg => reg.award).length;
@@ -158,6 +187,9 @@ const CompetitionDetails: React.FC<{
       const rankB = b.rank || 999;
       return rankA - rankB;
     })[0]?.award || "Không có";
+
+  // Kiểm tra nếu triển lãm đã bị hủy
+  const isShowCancelled = showDetail.status === "Cancelled";
 
   return (
     <View style={styles.competitionContainer}>
@@ -172,6 +204,13 @@ const CompetitionDetails: React.FC<{
         >
           <Text style={styles.competitionTitle}>{showDetail.showName}</Text>
           <Text style={styles.competitionSubtitle}>Kết quả chi tiết</Text>
+          
+          {/* Hiển thị banner khi cuộc thi bị hủy */}
+          {isShowCancelled && (
+            <View style={styles.cancelledBanner}>
+              <Text style={styles.cancelledText}>Đã hủy</Text>
+            </View>
+          )}
         </LinearGradient>
       </ImageBackground>
       
@@ -203,6 +242,21 @@ const CompetitionDetails: React.FC<{
             />
             <Text style={styles.infoText}>{showDetail.location}</Text>
           </View>
+          
+          {/* Hiển thị lý do hủy nếu triển lãm bị hủy */}
+          {isShowCancelled && showDetail.cancellationReason && (
+            <View style={styles.cancellationContainer}>
+              <Image
+                source={{
+                  uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/warning-icon.png",
+                }}
+                style={[styles.infoIcon, { tintColor: "#E11D48" }]}
+              />
+              <Text style={styles.cancellationText}>
+                Lý do hủy: {showDetail.cancellationReason}
+              </Text>
+            </View>
+          )}
           
           {showDetail.description && (
             <View style={styles.infoItem}>
@@ -258,7 +312,9 @@ const CompetitionDetails: React.FC<{
           </View>
         )}
         
-        <Text style={styles.congratulationText}>Chúc mừng bạn đã tham gia!</Text>
+        <Text style={styles.congratulationText}>
+          {isShowCancelled ? "Rất tiếc cuộc thi đã bị hủy" : "Chúc mừng bạn đã tham gia!"}
+        </Text>
       </View>
       
       <View style={styles.sectionContainer}>
@@ -285,7 +341,7 @@ const ParticipateResult: React.FC = () => {
   
   const [loading, setLoading] = useState(true);
   // Cập nhật kiểu dữ liệu với enhancedData
-  const [showDetail, setShowDetail] = useState<ShowMemberDetail & { registrations: EnhancedShowDetailRegistration[] } | null>(null);
+  const [showDetail, setShowDetail] = useState<EnhancedShowMemberDetail & { registrations: EnhancedShowDetailRegistration[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Animation state
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -871,6 +927,47 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
     lineHeight: 20,
+  },
+  // Thêm styles mới
+  cancelledBanner: {
+    backgroundColor: "#E11D48",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+    alignSelf: "flex-start",
+    marginTop: 8,
+  },
+  cancelledText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  cancellationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+    backgroundColor: "#FECDD3",
+    borderRadius: 8,
+    padding: 10,
+  },
+  cancellationText: {
+    fontSize: 14,
+    color: "#E11D48",
+    flex: 1,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
+  statusChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    marginTop: 2,
+  },
+  statusText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
 

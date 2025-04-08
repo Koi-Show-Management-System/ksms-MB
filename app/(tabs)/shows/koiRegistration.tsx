@@ -255,6 +255,7 @@ const KoiRegistrationScreen: React.FC = () => {
 
   // Categories state
   const [categories, setCategories] = useState<CompetitionCategory[]>([]);
+  const [suitableCategories, setSuitableCategories] = useState<CompetitionCategory[]>([]);
   const [showCategories, setShowCategories] = useState(true);
   const [showBanner, setShowBanner] = useState(true);
 
@@ -309,7 +310,7 @@ const KoiRegistrationScreen: React.FC = () => {
   useEffect(() => {
     loadKoiProfiles();
     loadVarieties();
-    loadCategories();
+    loadCategories(); // Tải tất cả các hạng mục của cuộc thi
     loadShowInfo();
   }, []);
 
@@ -457,7 +458,7 @@ const KoiRegistrationScreen: React.FC = () => {
       
       console.log('Category API Response:', categoryResponse);
       
-      if (!categoryResponse || !categoryResponse.data) {
+      if (!categoryResponse || !categoryResponse.data || categoryResponse.data.length === 0) {
         console.log('No category data received');
         // Reset selected category
         setSelectedCategory(null);
@@ -475,10 +476,30 @@ const KoiRegistrationScreen: React.FC = () => {
         return null;
       }
 
-      const category = categoryResponse.data;
-      setSelectedCategory(category);
-      setFormErrors(prev => ({ ...prev, category: '' }));
-      return category;
+      // Lưu danh sách các hạng mục phù hợp
+      const foundCategories = categoryResponse.data;
+      setSuitableCategories(foundCategories);
+      
+      // Nếu chỉ có một hạng mục, tự động chọn
+      if (foundCategories.length === 1) {
+        setSelectedCategory(foundCategories[0]);
+        setFormErrors(prev => ({ ...prev, category: '' }));
+        return foundCategories[0];
+      } else {
+        // Nếu có nhiều hạng mục, hiển thị modal để người dùng chọn
+        // Mặc định chọn hạng mục đầu tiên
+        setSelectedCategory(foundCategories[0]);
+        
+        // Hiển thị thông báo cho người dùng biết có thể chọn hạng mục
+        Alert.alert(
+          "Tìm thấy nhiều hạng mục phù hợp",
+          "Có nhiều hạng mục phù hợp với Koi của bạn. Vui lòng chọn hạng mục phù hợp nhất.",
+          [{ text: "Đã hiểu" }]
+        );
+        
+        setFormErrors(prev => ({ ...prev, category: '' }));
+        return foundCategories[0];
+      }
     } catch (error: any) {
       console.error("Failed to find suitable category:", error);
       
@@ -522,6 +543,7 @@ const KoiRegistrationScreen: React.FC = () => {
       
       // Reset selectedCategory mỗi khi chọn profile mới
       setSelectedCategory(null);
+      setSuitableCategories([]);
       setShowCategories(false);
       
       // Lấy thông tin profile
@@ -549,17 +571,17 @@ const KoiRegistrationScreen: React.FC = () => {
       
       setIsDropdownOpen(false);
       
-      // Sử dụng trực tiếp profile object thay vì dựa vào state đã được cập nhật
-      const category = await findCategory(profile.variety.id, profile.size.toString());
-      if (category) {
-        // Tự động mở danh sách hạng mục để người dùng có thể xem hạng mục đã được chọn
-        setShowCategories(true);
-      }
+      // Tìm các hạng mục phù hợp
+      await findCategory(profile.variety.id, profile.size.toString());
+      
+      // Hiển thị danh sách hạng mục
+      setShowCategories(true);
       
     } catch (error) {
       console.error("Failed to fetch koi profile details:", error);
       // Reset selectedCategory khi có lỗi xảy ra
       setSelectedCategory(null);
+      setSuitableCategories([]);
       Alert.alert("Lỗi", "Không thể tải thông tin koi. Vui lòng thử lại.");
     } finally {
       setIsLoadingProfile(false);
@@ -588,6 +610,7 @@ const KoiRegistrationScreen: React.FC = () => {
       console.log('Missing profile for size change:', { currentProfile, size });
       // Reset selectedCategory khi không có profile
       setSelectedCategory(null);
+      setSuitableCategories([]);
       return;
     }
 
@@ -598,6 +621,7 @@ const KoiRegistrationScreen: React.FC = () => {
       setFormErrors(prev => ({ ...prev, size: 'Vui lòng nhập kích thước hợp lệ' }));
       // Reset selectedCategory khi size không hợp lệ
       setSelectedCategory(null);
+      setSuitableCategories([]);
       return;
     }
 
@@ -610,21 +634,17 @@ const KoiRegistrationScreen: React.FC = () => {
       }));
       // Reset selectedCategory khi size ngoài phạm vi cho phép
       setSelectedCategory(null);
+      setSuitableCategories([]);
       return;
     }
     
     // Gọi hàm tìm category
     setLoading(true);
-    const category = await findCategory(currentProfile.variety.id, sizeNumber.toString());
+    await findCategory(currentProfile.variety.id, sizeNumber.toString());
     setLoading(false);
     
-    // Nếu tìm thấy hạng mục phù hợp, tự động mở danh sách hạng mục
-    if (category) {
-      setShowCategories(true);
-    } else {
-      // Nếu không tìm thấy hạng mục phù hợp, đảm bảo reset selectedCategory
-      setSelectedCategory(null);
-    }
+    // Hiển thị danh sách hạng mục
+    setShowCategories(true);
   };
 
   // Handle adding images
@@ -1175,24 +1195,101 @@ const KoiRegistrationScreen: React.FC = () => {
       return null;
     }
     
+    // Render category card
+    const renderCategoryCard = (category: CompetitionCategory, index: number) => {
+      const isSelected = selectedCategory.id === category.id;
+      
+      return (
+        <TouchableOpacity
+          key={category.id}
+          style={[
+            styles.categoryCard,
+            isSelected && styles.categoryCardSelected,
+          ]}
+          onPress={() => setSelectedCategory(category)}
+        >
+          <View style={styles.categoryHeader}>
+            <Text style={styles.categoryName}>{category.name}</Text>
+            {isSelected && (
+              <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
+            )}
+          </View>
+          
+          <View style={styles.categoryFeeContainer}>
+            <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
+            <Text style={styles.categoryFee}>
+              {category.registrationFee.toLocaleString('vi-VN')} đ
+            </Text>
+          </View>
+          
+          <View style={styles.categoryDetailsContainer}>
+            <View style={styles.categoryDetailItem}>
+              <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
+              <Text style={styles.categoryDetailValue}>
+                {category.sizeMin} - {category.sizeMax} cm
+              </Text>
+            </View>
+            
+            <View style={styles.categoryDetailItem}>
+              <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
+              <Text style={styles.categoryDetailValue}>
+                {category.maxEntries} koi
+              </Text>
+            </View>
+          </View>
+          
+          {isSelected && (
+            <View style={styles.categorySuitableIndicator}>
+              <Text style={styles.categorySuitableText}>✓ Đã chọn</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      );
+    };
+    
     return (
       <View style={styles.categoryInfo}>
         <Text style={styles.categoryTitle}>Hạng Mục Phù Hợp</Text>
-        <View style={styles.categoryContent}>
-          <View style={styles.categoryRow}>
-            <Text style={styles.categoryLabel}>Tên hạng mục:</Text>
-            <Text style={styles.categoryValue}>{selectedCategory.name}</Text>
+        
+        {suitableCategories.length > 1 ? (
+          <>
+            <Text style={styles.categorySelectionLabel}>
+              Vui lòng chọn một hạng mục phù hợp với Koi của bạn:
+            </Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={true}
+              contentContainerStyle={styles.categoryCardsContainer}
+            >
+              {suitableCategories.map((category, index) => 
+                renderCategoryCard(category, index)
+              )}
+            </ScrollView>
+          </>
+        ) : (
+          <View style={styles.singleCategoryContainer}>
+            {renderCategoryCard(selectedCategory, 0)}
           </View>
-          <View style={styles.categoryRow}>
-            <Text style={styles.categoryLabel}>Kích thước:</Text>
-            <Text style={styles.categoryValue}>{selectedCategory.sizeMin} - {selectedCategory.sizeMax} cm</Text>
-          </View>
-          <View style={styles.categoryRow}>
-            <Text style={styles.categoryLabel}>Phí đăng ký:</Text>
-            <Text style={styles.categoryValueFee}>{selectedCategory.registrationFee.toLocaleString('vi-VN')} đ</Text>
-          </View>
-          <View style={styles.categorySuitableIndicator}>
-            <Text style={styles.categorySuitableText}>✓ Phù hợp với Koi của bạn</Text>
+        )}
+        
+        <View style={styles.categorySelectedInfo}>
+          <Text style={styles.categorySelectedTitle}>Thông tin hạng mục đã chọn</Text>
+          <View style={styles.categoryContent}>
+            <View style={styles.categoryRow}>
+              <Text style={styles.categoryLabel}>Tên hạng mục:</Text>
+              <Text style={styles.categoryValue}>{selectedCategory.name}</Text>
+            </View>
+            <View style={styles.categoryRow}>
+              <Text style={styles.categoryLabel}>Kích thước:</Text>
+              <Text style={styles.categoryValue}>{selectedCategory.sizeMin} - {selectedCategory.sizeMax} cm</Text>
+            </View>
+            <View style={styles.categoryRow}>
+              <Text style={styles.categoryLabel}>Phí đăng ký:</Text>
+              <Text style={styles.categoryValueFee}>{selectedCategory.registrationFee.toLocaleString('vi-VN')} đ</Text>
+            </View>
+            <View style={styles.categorySuitableIndicator}>
+              <Text style={styles.categorySuitableText}>✓ Phù hợp với Koi của bạn</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -1482,11 +1579,26 @@ const KoiRegistrationScreen: React.FC = () => {
           
           console.log('Category response for new profile:', categoryResponse);
           
-          if (categoryResponse && categoryResponse.data) {
-            setSelectedCategory(categoryResponse.data);
+          if (categoryResponse && categoryResponse.data && categoryResponse.data.length > 0) {
+            // Lưu danh sách các hạng mục phù hợp
+            const foundCategories = categoryResponse.data;
+            setSuitableCategories(foundCategories);
+            
+            // Mặc định chọn hạng mục đầu tiên
+            setSelectedCategory(foundCategories[0]);
             setFormErrors(prev => ({ ...prev, category: '' }));
+            
+            // Nếu có nhiều hạng mục, hiển thị thông báo cho người dùng biết có thể chọn hạng mục
+            if (foundCategories.length > 1) {
+              Alert.alert(
+                "Tìm thấy nhiều hạng mục phù hợp",
+                "Có nhiều hạng mục phù hợp với Koi của bạn. Vui lòng chọn hạng mục phù hợp nhất.",
+                [{ text: "Đã hiểu" }]
+              );
+            }
           } else {
             console.log('No suitable category found for new profile');
+            setSuitableCategories([]);
             setFormErrors(prev => ({ 
               ...prev, 
               category: 'Không tìm thấy category phù hợp cho koi mới' 
@@ -1852,7 +1964,7 @@ const KoiRegistrationScreen: React.FC = () => {
         <View style={styles.categoriesHeader}>
           <Text style={styles.categoriesTitle}>Các Hạng Mục Thi Đấu</Text>
           <Text style={styles.categoriesSubtitle}>
-            Tự động chọn hạng mục phù hợp theo kích thước và giống Koi
+            Các hạng mục của {showInfo.name}
           </Text>
         </View>
         
@@ -1925,6 +2037,74 @@ const KoiRegistrationScreen: React.FC = () => {
     );
   };
 
+  // Render all categories list - Hiển thị tất cả các hạng mục của cuộc thi
+  const renderAllCategories = () => {
+    if (categories.length === 0) return null;
+    
+    return (
+      <View style={styles.categoriesContainer}>
+        <View style={styles.categoriesHeader}>
+          <Text style={styles.categoriesTitle}>Các Hạng Mục Thi Đấu</Text>
+          <Text style={styles.categoriesSubtitle}>
+            Các hạng mục của {showInfo.name}
+          </Text>
+        </View>
+        
+        <FlatList
+          data={categories}
+          keyExtractor={(item) => item.id}
+          horizontal={true}
+          showsHorizontalScrollIndicator={false}
+          renderItem={({ item: category }) => {
+            return (
+              <View style={styles.categoryCard}>
+                <View style={styles.categoryHeader}>
+                  <Text style={styles.categoryName}>{category.name}</Text>
+                </View>
+                
+                <View style={styles.categoryFeeContainer}>
+                  <Text style={styles.categoryFeeLabel}>Phí:</Text>
+                  <Text style={styles.categoryFee}>{category.registrationFee.toLocaleString('vi-VN')} đ</Text>
+                </View>
+                
+                <View style={styles.categoryDetailsContainer}>
+                  <View style={styles.categoryDetailItem}>
+                    <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
+                    <Text style={styles.categoryDetailValue}>{category.sizeMin} - {category.sizeMax} cm</Text>
+                  </View>
+                  
+                  <View style={styles.categoryDetailItem}>
+                    <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
+                    <Text style={styles.categoryDetailValue}>{category.maxEntries} Koi</Text>
+                  </View>
+                </View>
+                
+                {category.description && (
+                  <Text style={styles.categoryDescription}>{category.description}</Text>
+                )}
+                
+                {category.varieties && category.varieties.length > 0 && (
+                  <View style={styles.varietiesContainer}>
+                    <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
+                    <View style={styles.varietiesList}>
+                      {category.varieties.map((variety, index) => (
+                        <View key={index} style={styles.varietyTag}>
+                          <Text style={styles.varietyTagText}>{variety}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+            );
+          }}
+          ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+          contentContainerStyle={{ paddingBottom: 16 }}
+        />
+      </View>
+    );
+  };
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -1977,8 +2157,8 @@ const KoiRegistrationScreen: React.FC = () => {
             <Text style={styles.title}>Đăng ký Koi tham gia thi đấu</Text>
           </View>
 
-          {/* Categories List */}
-          {renderCategories()}
+          {/* All Categories List */}
+          {renderAllCategories()}
 
           {/* Koi Selection */}
           <View style={styles.section}>
@@ -2986,6 +3166,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontStyle: 'italic',
   },
+  categoriesContainer: {
+    marginBottom: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  categoriesHeader: {
+    marginBottom: 12,
+  },
+  categoriesContainer: {
+    marginBottom: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  categoriesHeader: {
+    marginBottom: 12,
+  },
   categoryErrorTips: {
     backgroundColor: '#FEF9C3', 
     padding: 10,
@@ -3089,6 +3291,128 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
     fontStyle: 'italic',
+  },
+  // Styles for category cards
+  categoryCardsContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  categorySelectionLabel: {
+    fontFamily: "Lexend Deca",
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#374151",
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  categoryCard: {
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    width: 270,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginRight: 12,
+    marginVertical: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  categoryCardSelected: {
+    borderColor: "#5664F5",
+    borderWidth: 2,
+    backgroundColor: "#F9FAFF",
+  },
+  categoryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  categoryName: {
+    fontFamily: "Lexend Deca",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
+    flex: 1,
+  },
+  categoryFeeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    backgroundColor: '#FEF2F2',
+    padding: 8,
+    borderRadius: 6,
+  },
+  categoryFeeLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#991B1B',
+    marginRight: 4,
+  },
+  categoryFee: {
+    fontFamily: "Roboto",
+    fontSize: 16,
+    color: "#EF4444",
+    fontWeight: "600",
+  },
+  categoryDetailsContainer: {
+    backgroundColor: '#F9FAFB',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  categoryDetailItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  categoryDetailLabel: {
+    fontSize: 13,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  categoryDetailValue: {
+    fontSize: 13,
+    color: '#000000',
+    fontWeight: '500',
+  },
+  singleCategoryContainer: {
+    marginVertical: 12,
+    alignItems: 'center',
+  },
+  categorySelectedInfo: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 16,
+  },
+  categorySelectedTitle: {
+    fontFamily: "Lexend Deca",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
+    marginBottom: 8,
+  },
+  selectedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  selectedBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  varietyTagText: {
+    fontSize: 12,
+    color: '#4B5563',
   },
 });
 

@@ -1,0 +1,296 @@
+{
+    "data": {
+        "size": 10,
+        "page": 1,
+        "total": 4,
+        "totalPages": 1,
+        "items": [
+            {
+                "id": "07bedc73-a724-4f16-8ff0-26e465e9724f",
+                "rank": 4,
+                "registration": {
+                    "id": "6ccf1f21-b064-425b-804d-6b4d40f5e143",
+                    "registrationNumber": null,
+                    "registerName": "Khoa Phung",
+                    "koiSize": 18.00,
+                    "koiAge": 4,
+                    "registrationFee": 5000.00,
+                    "qrcodeData": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/qrCode%2F43d2001f-39a7-4411-bedd-95a39612a7b9.jpg?alt=media",
+                    "status": "prizewinner",
+                    "refundType": null,
+                    "rejectedReason": null,
+                    "notes": "no",
+                    "checkInExpiredDate": null,
+                    "isCheckedIn": true,
+                    "checkInTime": "2025-03-26T14:54:32.897",
+                    "checkInLocation": "Quan khu 7",
+                    "checkedInBy": "e8776932-ce47-42ae-88d9-b2aba3da1526",
+                    "createdAt": "2025-03-24T22:08:06.807",
+                    "approvedAt": "2025-03-25T09:01:28.483",
+                    "competitionCategory": {
+                        "id": "96bad4be-c790-435c-b8e0-2e4fddaf0991",
+                        "name": "Minium Tancho"
+                    },
+                    "koiMedia": [
+                        {
+                            "id": "c35026f9-ab96-4b82-9b55-0249f5f1cc94",
+                            "mediaUrl": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/registration%2F6ccf1f21-b064-425b-804d-6b4d40f5e143%2F84979-587646762_tiny.mp4?alt=media",
+                            "mediaType": "Video"
+                        },
+                        {
+                            "id": "79d9d976-eb8c-473a-aeea-f88b4ecc5895",
+                            "mediaUrl": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/registration%2F6ccf1f21-b064-425b-804d-6b4d40f5e143%2FC%C3%A1%20Koi%20Nh%E1%BA%ADt%20B%E1%BA%A3n%201.jpg?alt=media",
+                            "mediaType": "Image"
+                        }
+                    ],
+                    "koiProfile": {
+                        "name": "KhoaPhung",
+                        "gender": "Nam",
+                        "bloodline": "VietNam",
+                        "variety": {
+                            "id": "2ee16a00-d87c-4890-a61f-eee46054b626",
+                            "name": "Kohaku",
+                            "description": "Trắng tượng trưng cho sự tinh khiết, đỏ tượng trưng cho thành công và may mắn"
+                        }
+                    },
+                    "koiShow": {
+                        "id": "a48259be-a98b-4b37-8989-53b3c62bf810",
+                        "name": "Vietnam Koi Show 2028",
+                        "status": "inprogress"
+                    }
+                },
+                "checkInTime": "2025-03-28T01:13:27.227",
+                "checkOutTime": null,
+                "tankName": "Bể 1",
+                "status": "public",
+                "notes": null,
+                "roundResults": [
+                    {
+                        "id": "19f1629e-83b0-46f0-b574-a6ada5dd5908",
+                        "totalScore": 72.10,
+                        "isPublic": true,
+                        "comments": null,
+                        "status": "Pass",
+                        "createdAt": "2025-03-28T01:20:09.507",
+                        "updatedAt": null
+                    }
+                ]
+            },
+            {
+                "id": "e1a3c95a-a415-421d-9012-63ae53305427",
+                "rank": 4,
+                "registration": {
+                    "id": "df0f1d4b-a3d6-4fb6-b456-081bdd3d2e13",
+                    "registrationNumber": null,
+                    "registerName": "Minh",
+                    "koiSize": 16.00,
+                    "koiAge": 5,
+                    "registrationFee": 5000.00,
+                    "qrcodeData": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/qrCode%2F25bd0483-9b87-418b-828b-dc4e47d24907.jpg?alt=media",
+                    "status": "prizewinner",
+                    "refundType": null,
+                    "rejectedReason": null,
+                    "notes": "no",
+                    "checkInExpiredDate": null,
+                    "isCheckedIn": true,
+                    "checkInTime": "2025-03-26T14:54:23.523",
+                    "checkInLocation": "Quan khu 7",
+                    "checkedInBy": "e8776932-ce47-42ae-88d9-b2aba3da1526",
+                    "createdAt": "2025-03-22T15:14:40.23",
+                    "approvedAt": "2025-03-25T09:05:22.57",
+                    "competitionCategory": {
+                        "id": "96bad4be-c790-435c-b8e0-2e4fddaf0991",
+                        "name": "Minium Tancho"
+                    },
+                    "koiMedia": [
+                        {
+                            "id": "541744f6-17be-48c8-9883-fde1aef0ee8f",
+                            "mediaUrl": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/registration%2Fdf0f1d4b-a3d6-4fb6-b456-081bdd3d2e13%2F84979-587646762_tiny.mp4?alt=media",
+                            "mediaType": "Video"
+                        },
+                        {
+                            "id": "dba4983a-ed85-44ad-bc18-483ac2525409",
+                            "mediaUrl": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/registration%2Fdf0f1d4b-a3d6-4fb6-b456-081bdd3d2e13%2Fimages.jpg?alt=media",
+                            "mediaType": "Image"
+                        }
+                    ],
+                    "koiProfile": {
+                        "name": "Minh",
+                        "gender": "Nam",
+                        "bloodline": "VN",
+                        "variety": {
+                            "id": "2ee16a00-d87c-4890-a61f-eee46054b626",
+                            "name": "Kohaku",
+                            "description": "Trắng tượng trưng cho sự tinh khiết, đỏ tượng trưng cho thành công và may mắn"
+                        }
+                    },
+                    "koiShow": {
+                        "id": "a48259be-a98b-4b37-8989-53b3c62bf810",
+                        "name": "Vietnam Koi Show 2028",
+                        "status": "inprogress"
+                    }
+                },
+                "checkInTime": "2025-03-28T01:13:27.177",
+                "checkOutTime": null,
+                "tankName": "Bể 1",
+                "status": "public",
+                "notes": null,
+                "roundResults": [
+                    {
+                        "id": "b090830f-eded-4570-bbee-a9f5bf705f0a",
+                        "totalScore": 86.55,
+                        "isPublic": true,
+                        "comments": null,
+                        "status": "Pass",
+                        "createdAt": "2025-03-28T01:20:09.507",
+                        "updatedAt": null
+                    }
+                ]
+            },
+            {
+                "id": "4f1c10d7-1339-459c-be7b-733e6d52d8a9",
+                "rank": 4,
+                "registration": {
+                    "id": "a39a2f36-0f87-44fb-ac61-096bf1ef046e",
+                    "registrationNumber": null,
+                    "registerName": "ThienAn",
+                    "koiSize": 17.00,
+                    "koiAge": 4,
+                    "registrationFee": 5000.00,
+                    "qrcodeData": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/qrCode%2F1c71bee3-6291-4170-ad07-fa436869ebfb.jpg?alt=media",
+                    "status": "eliminated",
+                    "refundType": null,
+                    "rejectedReason": null,
+                    "notes": "no",
+                    "checkInExpiredDate": null,
+                    "isCheckedIn": true,
+                    "checkInTime": "2025-03-26T14:54:44.367",
+                    "checkInLocation": "Quan khu 7",
+                    "checkedInBy": "e8776932-ce47-42ae-88d9-b2aba3da1526",
+                    "createdAt": "2025-03-24T22:01:48.8",
+                    "approvedAt": "2025-03-25T09:05:15.607",
+                    "competitionCategory": {
+                        "id": "96bad4be-c790-435c-b8e0-2e4fddaf0991",
+                        "name": "Minium Tancho"
+                    },
+                    "koiMedia": [
+                        {
+                            "id": "38afa0f8-ea5e-41a5-b4cd-a71c3ac0b991",
+                            "mediaUrl": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/registration%2Fa39a2f36-0f87-44fb-ac61-096bf1ef046e%2F84979-587646762_tiny.mp4?alt=media",
+                            "mediaType": "Video"
+                        },
+                        {
+                            "id": "b9bf02ff-dbe6-4d33-94fc-f679392feb19",
+                            "mediaUrl": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/registration%2Fa39a2f36-0f87-44fb-ac61-096bf1ef046e%2Fca-chep-nhat_111104944.jpg?alt=media",
+                            "mediaType": "Image"
+                        }
+                    ],
+                    "koiProfile": {
+                        "name": "AnChu",
+                        "gender": "Nam",
+                        "bloodline": "VietNam",
+                        "variety": {
+                            "id": "2ee16a00-d87c-4890-a61f-eee46054b626",
+                            "name": "Kohaku",
+                            "description": "Trắng tượng trưng cho sự tinh khiết, đỏ tượng trưng cho thành công và may mắn"
+                        }
+                    },
+                    "koiShow": {
+                        "id": "a48259be-a98b-4b37-8989-53b3c62bf810",
+                        "name": "Vietnam Koi Show 2028",
+                        "status": "inprogress"
+                    }
+                },
+                "checkInTime": "2025-03-28T01:13:27.223",
+                "checkOutTime": null,
+                "tankName": "Bể 1",
+                "status": "public",
+                "notes": null,
+                "roundResults": [
+                    {
+                        "id": "2a88ea86-41c5-4da1-9727-154935a84107",
+                        "totalScore": 54.60,
+                        "isPublic": true,
+                        "comments": null,
+                        "status": "Pass",
+                        "createdAt": "2025-03-28T01:20:09.507",
+                        "updatedAt": null
+                    }
+                ]
+            },
+            {
+                "id": "32f206d3-48ee-43f8-955d-8ce91a60cea1",
+                "rank": 4,
+                "registration": {
+                    "id": "88469171-0b30-4f3c-962c-bb9538d20c00",
+                    "registrationNumber": null,
+                    "registerName": "Bin",
+                    "koiSize": 18.00,
+                    "koiAge": 4,
+                    "registrationFee": 5000.00,
+                    "qrcodeData": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/qrCode%2F54f70d2f-6a28-4ca6-8cb9-e646847ae75b.jpg?alt=media",
+                    "status": "prizewinner",
+                    "refundType": null,
+                    "rejectedReason": null,
+                    "notes": "no",
+                    "checkInExpiredDate": null,
+                    "isCheckedIn": true,
+                    "checkInTime": "2025-03-26T14:53:57.333",
+                    "checkInLocation": "Quan khu 7",
+                    "checkedInBy": "e8776932-ce47-42ae-88d9-b2aba3da1526",
+                    "createdAt": "2025-03-08T16:48:52.477",
+                    "approvedAt": "2025-03-25T09:05:30.45",
+                    "competitionCategory": {
+                        "id": "96bad4be-c790-435c-b8e0-2e4fddaf0991",
+                        "name": "Minium Tancho"
+                    },
+                    "koiMedia": [
+                        {
+                            "id": "a1aa39ae-06a3-4fcb-a014-86d7c44f800d",
+                            "mediaUrl": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/registration%2F88469171-0b30-4f3c-962c-bb9538d20c00%2Fc8449120f146418290ba4618ce953bab.jpg?alt=media",
+                            "mediaType": "Image"
+                        },
+                        {
+                            "id": "77130a80-9cfa-44a7-a330-99737a81eefa",
+                            "mediaUrl": "https://firebasestorage.googleapis.com/v0/b/diamondshop-ea47a.appspot.com/o/registration%2F88469171-0b30-4f3c-962c-bb9538d20c00%2F84979-587646762_tiny.mp4?alt=media",
+                            "mediaType": "Video"
+                        }
+                    ],
+                    "koiProfile": {
+                        "name": "SangKoi",
+                        "gender": "Nam",
+                        "bloodline": "Davinci",
+                        "variety": {
+                            "id": "2ee16a00-d87c-4890-a61f-eee46054b626",
+                            "name": "Kohaku",
+                            "description": "Trắng tượng trưng cho sự tinh khiết, đỏ tượng trưng cho thành công và may mắn"
+                        }
+                    },
+                    "koiShow": {
+                        "id": "a48259be-a98b-4b37-8989-53b3c62bf810",
+                        "name": "Vietnam Koi Show 2028",
+                        "status": "inprogress"
+                    }
+                },
+                "checkInTime": "2025-03-28T01:13:27.227",
+                "checkOutTime": null,
+                "tankName": "Bể 1",
+                "status": "public",
+                "notes": null,
+                "roundResults": [
+                    {
+                        "id": "36320e46-1b87-4ab4-85b2-7c3757d33626",
+                        "totalScore": 64.75,
+                        "isPublic": true,
+                        "comments": null,
+                        "status": "Pass",
+                        "createdAt": "2025-03-28T01:20:09.507",
+                        "updatedAt": null
+                    }
+                ]
+            }
+        ]
+    },
+    "statusCode": 200,
+    "message": "Lấy danh sách vòng thi thành công"
+}

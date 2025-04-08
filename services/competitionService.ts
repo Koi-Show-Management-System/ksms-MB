@@ -149,7 +149,7 @@ export interface ShowMemberDetail {
  * Lấy danh sách đăng ký tham gia cuộc thi theo phân trang sử dụng API mới
  * @param page Số trang (mặc định: 1)
  * @param size Số lượng mục mỗi trang (mặc định: 10)
- * @param showStatus Trạng thái cuộc thi (Pending, Published, Upcoming, InProgress, Finished)
+ * @param showStatus Trạng thái cuộc thi (Pending, Published, Upcoming, InProgress, Finished, Cancelled)
  * @returns Promise với dữ liệu phân trang của đăng ký
  */
 export const getRegistrationHistory = async (
@@ -187,32 +187,32 @@ export const getRegistrationHistory = async (
 
 /**
  * Biến đổi trạng thái filter thành parameters cho API
- * @param filter Bộ lọc (all, upcoming, ongoing, completed)
+ * @param filter Bộ lọc (all, upcoming, ongoing, completed, cancelled)
  * @returns Object chứa showStatus cho API
  */
 export const getFilterParams = (
-  filter: "all" | "upcoming" | "ongoing" | "completed"
-): { registrationStatus: string | null; showStatus: string | undefined } => {
+  filter: "all" | "upcoming" | "ongoing" | "completed" | "cancelled"
+): { showStatus: string | undefined } => {
   switch (filter) {
     case 'upcoming':
       return {
-        registrationStatus: null,
         showStatus: 'Upcoming'
       };
     case 'ongoing':
       return {
-        registrationStatus: null,
         showStatus: 'InProgress'
       };
     case 'completed':
       return {
-        registrationStatus: null,
         showStatus: 'Finished'
+      };
+    case 'cancelled':
+      return {
+        showStatus: 'Cancelled'
       };
     case 'all':
     default:
       return {
-        registrationStatus: null,
         showStatus: undefined
       };
   }
@@ -279,13 +279,15 @@ export const mapToCompetitionData = (item: HistoryRegisterShowItem) => {
   const formattedDate = `${startDate.getDate()}/${startDate.getMonth() + 1}/${startDate.getFullYear()}`;
 
   // Chuẩn hóa status để phù hợp với logic hiển thị
-  let displayStatus: "upcoming" | "ongoing" | "completed" = "upcoming";
+  let displayStatus: "upcoming" | "ongoing" | "completed" | "cancelled" = "upcoming";
   let normalizedStatus = item.status.toLowerCase();
   
   if (normalizedStatus === "finished") {
     displayStatus = "completed";
   } else if (normalizedStatus === "inprogress") {
     displayStatus = "ongoing";
+  } else if (normalizedStatus === "cancelled") {
+    displayStatus = "cancelled";
   } else {
     displayStatus = "upcoming";
   }
@@ -320,7 +322,7 @@ export const mapToCompetitionData = (item: HistoryRegisterShowItem) => {
 
 /**
  * Lấy màu trạng thái dựa trên status
- * @param status Trạng thái hiển thị (upcoming, ongoing, completed)
+ * @param status Trạng thái hiển thị (upcoming, ongoing, completed, cancelled)
  * @returns Mã màu cho trạng thái
  */
 export const getStatusColorWithRegistration = (status: string) => {
@@ -332,6 +334,8 @@ export const getStatusColorWithRegistration = (status: string) => {
       return "#50C878"; // Xanh lá
     case "completed":
       return "#E74C3C"; // Đỏ
+    case "cancelled":
+      return "#FF9800"; // Cam
     default:
       return "#95A5A6"; // Xám
   }
@@ -339,7 +343,7 @@ export const getStatusColorWithRegistration = (status: string) => {
 
 /**
  * Lấy text trạng thái hiển thị
- * @param status Trạng thái hiển thị (upcoming, ongoing, completed)
+ * @param status Trạng thái hiển thị (upcoming, ongoing, completed, cancelled)
  * @returns Text hiển thị cho trạng thái
  */
 export const getStatusTextWithRegistration = (status: string) => {
@@ -351,6 +355,8 @@ export const getStatusTextWithRegistration = (status: string) => {
       return "Đang diễn ra";
     case "completed":
       return "Đã kết thúc";
+    case "cancelled":
+      return "Bị huỷ bỏ";
     default:
       return "Không xác định";
   }

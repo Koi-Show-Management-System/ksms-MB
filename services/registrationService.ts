@@ -17,7 +17,7 @@ export interface CompetitionCategory {
 }
 
 interface CategoryResponse {
-  data: CompetitionCategory;
+  data: CompetitionCategory[];
   statusCode: number;
   message: string;
 }

@@ -1,4 +1,3 @@
-// Tạo file mới: app/(tabs)/shows/KoiContestants.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, 
@@ -36,6 +35,8 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
   const [error, setError] = useState<string | null>(null);
   const [showAllContestants, setShowAllContestants] = useState(false);
   const [activeTabInModal, setActiveTabInModal] = useState('info');
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 4;
 
   // Lấy danh sách hạng mục thi đấu
   useEffect(() => {
@@ -124,6 +125,23 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
       fetchContestants();
     }
   }, [selectedRound]);
+
+  // Tính số trang
+  const totalPages = Math.ceil(contestants.length / itemsPerPage);
+  
+  // Lấy dữ liệu cho trang hiện tại
+  const getCurrentPageData = () => {
+    const start = currentPage * itemsPerPage;
+    const end = start + itemsPerPage;
+    return contestants.slice(start, end);
+  };
+
+  // Xử lý chuyển trang
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
 
   // Hiển thị chi tiết thí sinh
   const handleContestantPress = (contestant: KoiContestant) => {
@@ -220,6 +238,14 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
     const imageMedia = item.registration.koiMedia.find(m => m.mediaType === 'Image');
     const hasVideo = item.registration.koiMedia.some(m => m.mediaType === 'Video');
     
+    // Lấy kết quả thi đấu mới nhất nếu có
+    const latestResult = item.roundResults && item.roundResults.length > 0 
+      ? item.roundResults[item.roundResults.length - 1] 
+      : null;
+    
+    // Xác định loại vòng đấu
+    const roundType = selectedRoundType;
+    
     return (
       <TouchableOpacity
         style={styles.contestantCard}
@@ -241,6 +267,13 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               <MaterialIcons name="play-circle-filled" size={24} color="#ffffff" />
             </View>
           )}
+          
+          {/* Hiển thị xếp hạng nếu có */}
+          {item.rank && (
+            <View style={styles.rankBadge}>
+              <Text style={styles.rankText}>#{item.rank}</Text>
+            </View>
+          )}
         </View>
         <View style={styles.contestantInfo}>
           <Text style={styles.contestantName} numberOfLines={1}>
@@ -257,6 +290,39 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               {item.registration.koiProfile.gender}
             </Text>
           </View>
+          
+          {/* Hiển thị điểm tổng và trạng thái trên cùng một hàng */}
+          {latestResult && (
+            <View style={styles.scoreStatusContainer}>
+              {/* Hiển thị điểm tổng cho vòng Evaluation và Final */}
+              {(roundType === 'Evaluation' || roundType === 'Final') && latestResult.totalScore !== undefined && (
+                <View style={styles.scoreContainer}>
+                  <MaterialIcons name="star" size={14} color="#f39c12" />
+                  <Text style={styles.scoreText}>{latestResult.totalScore.toFixed(2)}</Text>
+                </View>
+              )}
+              
+              {/* Hiển thị trạng thái */}
+              <View style={[
+                styles.contestantStatusBadge,
+                latestResult.status === 'Pass' ? styles.advancedStatus :
+                latestResult.status === 'Fail' ? styles.eliminatedStatus :
+                styles.pendingStatus
+              ]}>
+                <Text style={[
+                  styles.contestantStatusText,
+                  latestResult.status === 'Pass' ? {color: '#27ae60'} :
+                  latestResult.status === 'Fail' ? {color: '#e74c3c'} :
+                  {color: '#3498db'}
+                ]}>
+                  {latestResult.status === 'Pass' ? 'Đạt' :
+                   latestResult.status === 'Fail' ? 'Không đạt' :
+                   latestResult.status}
+                </Text>
+              </View>
+            </View>
+          )}
+          
           {item.tankName && (
             <View style={styles.tankNameContainer}>
               <MaterialIcons name="pool" size={14} color="#3498db" />
@@ -349,30 +415,52 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
             <Text style={styles.contestantsTitle}>
               Thí sinh ({contestants.length})
             </Text>
-            <View style={[
-              styles.contestantsWrapper, 
-              showAllContestants && styles.contestantsWrapperExpanded
-            ]}>
+            <View style={styles.carouselContainer}>
               <FlatList
-                data={contestants}
-                numColumns={2}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.contestantsGrid}
+                data={getCurrentPageData()}
                 renderItem={renderContestantItem}
-                showsVerticalScrollIndicator={false}
-                nestedScrollEnabled={true}
-                scrollEnabled={false}
+                keyExtractor={item => item.id}
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.carouselContent}
+                ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+                initialNumToRender={4} // Tăng số lượng item được render ban đầu
+                windowSize={5} // Tăng kích thước cửa sổ render
               />
+              
+              {/* Pagination */}
+              <View style={styles.paginationContainer}>
+                <TouchableOpacity 
+                  style={[styles.pageButton, currentPage === 0 && styles.pageButtonDisabled]}
+                  onPress={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 0}>
+                  <MaterialIcons name="chevron-left" size={24} color={currentPage === 0 ? "#ccc" : "#000"} />
+                </TouchableOpacity>
+                
+                <View style={styles.pageIndicatorContainer}>
+                  {Array.from({ length: totalPages }).map((_, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[styles.pageIndicator, currentPage === index && styles.activePageIndicator]}
+                      onPress={() => handlePageChange(index)}>
+                      <Text style={[
+                        styles.pageIndicatorText,
+                        currentPage === index && styles.activePageIndicatorText
+                      ]}>
+                        {index + 1}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.pageButton, currentPage === totalPages - 1 && styles.pageButtonDisabled]}
+                  onPress={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages - 1}>
+                  <MaterialIcons name="chevron-right" size={24} color={currentPage === totalPages - 1 ? "#ccc" : "#000"} />
+                </TouchableOpacity>
+              </View>
             </View>
-            
-            {!showAllContestants && contestants.length > 6 && (
-              <TouchableOpacity 
-                style={styles.showMoreButton}
-                onPress={handleShowMoreContestants}>
-                <Text style={styles.showMoreText}>Xem thêm</Text>
-                <MaterialIcons name="keyboard-arrow-down" size={20} color="#3498db" />
-              </TouchableOpacity>
-            )}
           </View>
         )}
       </ScrollView>
@@ -495,6 +583,59 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                           label="Thời gian check in" 
                           value={selectedContestant.checkInTime ? new Date(selectedContestant.checkInTime).toLocaleString('vi-VN') : "Chưa check in"} 
                         />
+                        
+                        {/* Hiển thị kết quả thi đấu */}
+                        {selectedContestant.roundResults && selectedContestant.roundResults.length > 0 && (
+                          <View style={styles.resultSection}>
+                            <Text style={styles.resultSectionTitle}>Kết quả thi đấu:</Text>
+                            {selectedContestant.roundResults.map((result, index) => {
+                              // Xác định loại vòng đấu
+                              const roundType = selectedRoundType;
+                              
+                              return (
+                                <View key={`result-${index}`} style={styles.resultItem}>
+                                  <View style={styles.resultDetailsContainer}>
+                                    {/* Hiển thị xếp hạng cho tất cả các loại vòng đấu */}
+                                    <View style={styles.resultDetail}>
+                                      <Text style={styles.resultLabel}>Xếp hạng:</Text>
+                                      <Text style={styles.resultValue}>
+                                        {selectedContestant.rank || "Chưa xếp hạng"}
+                                      </Text>
+                                    </View>
+                                    
+                                    {/* Hiển thị điểm tổng và trạng thái trên cùng một hàng */}
+                                    <View style={styles.resultDetailRow}>
+                                      {/* Hiển thị điểm tổng cho vòng Evaluation và Final */}
+                                      {(roundType === 'Evaluation' || roundType === 'Final') && (
+                                        <View style={styles.resultDetailHalf}>
+                                          <Text style={styles.resultLabel}>Điểm tổng:</Text>
+                                          <Text style={styles.resultValue}>{result.totalScore.toFixed(2)}</Text>
+                                        </View>
+                                      )}
+                                      
+                                      {/* Hiển thị trạng thái cho tất cả các loại vòng đấu */}
+                                      <View style={styles.resultDetailHalf}>
+                                        <Text style={styles.resultLabel}>Trạng thái:</Text>
+                                        <View style={[
+                                          styles.resultStatusBadge,
+                                          result.status === 'Pass' ? styles.advancedStatus :
+                                          result.status === 'Fail' ? styles.eliminatedStatus :
+                                          styles.pendingStatus
+                                        ]}>
+                                          <Text style={styles.resultStatusText}>
+                                            {result.status === 'Pass' ? 'Đạt' :
+                                             result.status === 'Fail' ? 'Không đạt' :
+                                             result.status}
+                                          </Text>
+                                        </View>
+                                      </View>
+                                    </View>
+                                  </View>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        )}
                         
                         {selectedContestant.registration.notes && (
                           <View style={styles.notesSection}>
@@ -764,7 +905,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   contestantsWrapper: {
-    maxHeight: 400,
+    maxHeight: 460, // Tăng lên để hiển thị hai hàng đầy đủ
     overflow: 'hidden',
   },
   contestantsWrapperExpanded: {
@@ -783,9 +924,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 8,
     overflow: 'hidden',
-    marginBottom: 12,
-    marginHorizontal: 6,
-    flex: 1,
+    width: Dimensions.get('window').width * 0.42, // Giảm chiều rộng để hiển thị 2 card trên mỗi hàng
+    marginVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -793,9 +933,10 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    height: 320, // Chiều cao cố định cho card
   },
   contestantImageContainer: {
-    height: 160,
+    height: 180,
     width: '100%',
     position: 'relative',
   },
@@ -855,6 +996,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#3498db',
     marginLeft: 4,
+  },
+  rankBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  rankText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  scoreStatusContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  scoreText: {
+    fontSize: 12,
+    color: '#f39c12',
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  contestantStatusBadge: {
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  contestantStatusText: {
+    fontSize: 11,
+    fontWeight: '500',
   },
   modalContainer: {
     flex: 1,
@@ -1081,6 +1263,149 @@ const styles = StyleSheet.create({
   mediaThumbnail: {
     width: '100%',
     height: '100%',
+  },
+  // Styles cho phần kết quả thi đấu
+  resultSection: {
+    marginTop: 16,
+    backgroundColor: '#f5f5f5',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3498db',
+  },
+  resultSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 12,
+  },
+  resultItem: {
+    marginBottom: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  resultRoundName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+    paddingBottom: 4,
+  },
+  resultDetailsContainer: {
+    marginTop: 4,
+  },
+  resultDetail: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  resultDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  resultDetailHalf: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flex: 1,
+    paddingRight: 8,
+  },
+  resultLabel: {
+    fontSize: 13,
+    color: '#666666',
+    flex: 1,
+  },
+  resultValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#333333',
+    flex: 1,
+    textAlign: 'right',
+  },
+  resultStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    alignSelf: 'flex-end',
+  },
+  advancedStatus: {
+    backgroundColor: '#e8f5e9',
+  },
+  eliminatedStatus: {
+    backgroundColor: '#ffebee',
+  },
+  pendingStatus: {
+    backgroundColor: '#e3f2fd',
+  },
+  resultStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  carouselContainer: {
+    paddingVertical: 12,
+    height: 360, // Chiu1ec1u cao cu1ed1 u0111u1ecbnh cho container
+  },
+  carouselContent: {
+    paddingHorizontal: 16,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  pageButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f8f8f8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
+  },
+  pageButtonDisabled: {
+    backgroundColor: '#f0f0f0',
+  },
+  pageIndicatorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  pageIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f8f8f8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  activePageIndicator: {
+    backgroundColor: '#2196F3',
+  },
+  pageIndicatorText: {
+    fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  activePageIndicatorText: {
+    color: '#ffffff',
+    fontWeight: '600',
   },
 });
 

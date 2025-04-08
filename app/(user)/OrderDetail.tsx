@@ -60,6 +60,7 @@ interface TicketsResponse {
 interface OrderInfo {
   status: string;
   createdAt: string;
+  transactionCode: string; // Thêm trường transactionCode
 }
 
 // Thêm interface cho Order từ API get-paging-orders
@@ -91,7 +92,7 @@ const OrderDetail = () => {
   const orderId = params.orderId as string;
   
   const [orderDetails, setOrderDetails] = useState<OrderDetailItem[]>([]);
-  const [orderInfo, setOrderInfo] = useState<OrderInfo>({ status: '', createdAt: '' });
+  const [orderInfo, setOrderInfo] = useState<OrderInfo>({ status: '', createdAt: '', transactionCode: '' });
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTickets, setLoadingTickets] = useState(false);
@@ -138,13 +139,15 @@ const OrderDetail = () => {
         return;
       }
       
-      // Lưu thông tin trạng thái đơn hàng
+      // Lưu thông tin trạng thái đơn hàng và mã giao dịch
       const orderStatus = currentOrder.status; // "pending", "paid", hoặc "cancelled"
       console.log("Trạng thái đơn hàng từ API:", orderStatus);
       
+      // Cập nhật orderInfo với transactionCode
       setOrderInfo({ 
         status: orderStatus, 
-        createdAt: currentOrder.orderDate 
+        createdAt: currentOrder.orderDate,
+        transactionCode: currentOrder.transactionCode
       });
       
       // 2. Sau đó, lấy chi tiết đơn hàng
@@ -278,6 +281,30 @@ const OrderDetail = () => {
       case 'pending': return 'Chờ thanh toán';
       case 'paid': return 'Đã thanh toán';
       case 'cancelled': return 'Đã hủy';
+      default: return 'Không xác định';
+    }
+  };
+  
+  // Hàm lấy màu sắc dựa trên trạng thái vé
+  const getTicketStatusColor = (status: string) => {
+    const statusLower = status?.toLowerCase() || '';
+    switch (statusLower) {
+      case 'cancelled': return '#FF9800'; // Màu cam cho vé đã bị hủy
+      case 'sold': return '#4CAF50'; // Màu xanh lá cho vé chưa sử dụng
+      case 'checkin': return '#FF3B30'; // Màu đỏ cho vé đã sử dụng
+      case 'refunded': return '#2196F3'; // Màu xanh dương cho vé đã hoàn tiền
+      default: return '#999999'; // Màu xám cho các trạng thái khác
+    }
+  };
+  
+  // Hàm lấy văn bản trạng thái dựa trên trạng thái vé
+  const getTicketStatusText = (status: string) => {
+    const statusLower = status?.toLowerCase() || '';
+    switch (statusLower) {
+      case 'cancelled': return 'Đã bị hủy chờ hoàn tiền';
+      case 'sold': return 'Chưa sử dụng';
+      case 'checkin': return 'Đã sử dụng';
+      case 'refunded': return 'Đã hoàn tiền';
       default: return 'Không xác định';
     }
   };
@@ -465,7 +492,7 @@ const OrderDetail = () => {
               <Text style={styles.orderIdLabel}>Mã đơn hàng</Text>
               <TouchableOpacity onPress={toggleOrderIdDisplay} activeOpacity={0.6}>
                 <Animated.Text style={[styles.orderIdText, animatedOrderIdTextStyle]}>
-                  {showFullOrderId ? orderId.toUpperCase() : formatId(orderId)}
+                  {showFullOrderId ? orderInfo.transactionCode.toUpperCase() : formatId(orderInfo.transactionCode)}
                 </Animated.Text>
                 <View style={styles.idTooltip}>
                   <Text style={styles.idTooltipText}>
@@ -565,9 +592,9 @@ const OrderDetail = () => {
                       <Text style={styles.ticketCardTitle}>Mã vé: {item.id.toUpperCase()}</Text>
                       <Text style={[
                         styles.ticketCardStatus, 
-                        {color: item.isCheckedIn ? '#FF3B30' : '#4CAF50'}
+                        {color: getTicketStatusColor(item.status)}
                       ]}>
-                        {item.isCheckedIn ? 'Đã sử dụng' : 'Chưa sử dụng'}
+                        {getTicketStatusText(item.status)}
                       </Text>
                       <Text style={styles.ticketCardHint}>Nhấp để xem chi tiết</Text>
                     </View>

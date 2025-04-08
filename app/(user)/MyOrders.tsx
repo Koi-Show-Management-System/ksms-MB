@@ -39,6 +39,7 @@ interface OrderItem {
     id: string;
     name: string;
   };
+  transactionCode: string;
 }
 
 interface OrderListResponse {
@@ -140,8 +141,8 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
   const orderDate = order.orderDate || order.date;
   
   // Tạo 2 phiên bản của orderId: dạng rút gọn và dạng đầy đủ
-  const shortOrderId = order.id ? formatOrderId(order.id) : "N/A";
-  const fullOrderId = order.id ? order.id.toUpperCase() : "N/A";
+  const shortOrderId = formatOrderId(order.transactionCode);
+  const fullOrderId = order.transactionCode.toUpperCase();
   
   // Xử lý khi người dùng nhấn vào mã vé
   const toggleOrderIdDisplay = () => {

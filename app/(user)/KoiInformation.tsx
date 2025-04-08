@@ -35,6 +35,7 @@ interface Achievement {
 
 // Mở rộng interface KoiProfile để thêm competitionHistory
 interface CompetitionEntry {
+  koiShowId: string; // Thêm trường ID của cuộc thi
   year: string;
   showName: string;
   showStatus: string; 
@@ -294,6 +295,14 @@ export default function KoiInformation() {
       )}
     </View>
   );
+
+  // Thêm hàm điều hướng đến màn hình thông tin cuộc thi
+  const navigateToKoiShowDetails = (koiShowId: string) => {
+    router.push({
+      pathname: "/(tabs)/shows/KoiShowInformation",
+      params: { id: koiShowId }
+    });
+  };
 
   // Hiển thị khi đang tải
   if (isLoading || !fontsLoaded) {
@@ -591,7 +600,10 @@ export default function KoiInformation() {
                       competition.showStatus === "inprogress" ? "Đang diễn ra" :
                       "Đã kết thúc"}
                     </Text>
-                    <TouchableOpacity style={styles.viewDetailsButton}>
+                    <TouchableOpacity 
+                      style={styles.viewDetailsButton}
+                      onPress={() => navigateToKoiShowDetails(competition.koiShowId)}
+                    >
                       <Text style={styles.viewDetailsText}>Xem chi tiết</Text>
                     </TouchableOpacity>
                   </View>
@@ -1105,13 +1117,13 @@ const styles = StyleSheet.create({
   achievementTitle: {
     fontSize: 16,
     fontFamily: 'Poppins_700Bold',
-    color: '#1F2937',
+    color: "#1F2937",
     marginBottom: 2,
   },
   achievementSubtitle: {
     fontSize: 12,
     fontFamily: 'Poppins_400Regular',
-    color: '#4B5563',
+    color: "#4B5563",
   },
   achievementDetails: {
     marginTop: 4,
@@ -1119,12 +1131,12 @@ const styles = StyleSheet.create({
   achievementDetail: {
     fontSize: 14,
     fontFamily: 'Poppins_400Regular',
-    color: '#4B5563',
+    color: "#4B5563",
     marginBottom: 4,
   },
   achievementDetailLabel: {
     fontFamily: 'Poppins_700Bold',
-    color: '#4B5563',
+    color: "#4B5563",
   },
 
   // No Media Styles
