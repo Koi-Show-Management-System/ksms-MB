@@ -20,8 +20,7 @@ import { getShowMemberDetail, ShowDetailRegistration } from "../../services/comp
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { Video, ResizeMode } from "expo-av";
-
-
+import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
 
@@ -152,26 +151,7 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
   rejectedReason,
   refundType
 }) => {
-  const getStatusText = (status: string): string => {
-    switch (status.toLowerCase()) {
-      case 'pending':
-        return 'Chờ xác nhận';
-      case 'confirmed':
-        return 'Đã xác nhận';
-      case 'competition':
-        return 'Đang thi đấu';
-      case 'completed':
-        return 'Đã hoàn thành';
-      case 'cancelled':
-        return 'Đã hủy';
-      case 'rejected':
-        return 'Đã từ chối';
-      case 'eliminated':
-        return 'Đã bị loại';
-      default:
-        return status;
-    }
-  };
+  // Hàm getStatusText đã được thay thế bằng translateStatus import từ utils
   
   const getStatusColor = (status: string): string => {
     switch (status.toLowerCase()) {
@@ -194,18 +174,7 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
     }
   };
   
-  const getRefundTypeText = (refundType: string): string => {
-    switch (refundType) {
-      case 'NotQualified':
-        return 'Không đủ điều kiện';
-      case 'CancelledByUser':
-        return 'Hủy bởi người dùng';
-      case 'CancelledBySystem':
-        return 'Hủy bởi hệ thống';
-      default:
-        return refundType;
-    }
-  };
+  // Hàm getRefundTypeText đã được thay thế bằng translateStatus import từ utils
   
   const hasCompetitionInfo = currentRound || award || rank || eliminatedAtRound;
   
@@ -218,7 +187,7 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
       
       <View style={styles.statusContent}>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) }]}>
-          <Text style={styles.statusText}>{getStatusText(status)}</Text>
+          <Text style={styles.statusText}>{translateStatus(status)}</Text>
         </View>
         
         {rejectedReason && (
@@ -231,7 +200,7 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
         {refundType && (
           <View style={styles.statusInfoRow}>
             <Text style={styles.statusLabel}>Loại hoàn tiền:</Text>
-            <Text style={styles.statusValue}>{getRefundTypeText(refundType)}</Text>
+            <Text style={styles.statusValue}>{translateStatus(refundType)}</Text>
           </View>
         )}
         
@@ -369,7 +338,7 @@ const PaymentInfo: React.FC<PaymentInfoProps> = ({
               { backgroundColor: getPaymentStatusColor(status) }
             ]}>
               <Text style={styles.paymentStatusText}>
-                {getPaymentStatusText(status)}
+                {translateStatus(status)}
               </Text>
             </View>
           </View>
@@ -404,18 +373,7 @@ const getPaymentStatusColor = (status: string): string => {
   }
 };
 
-const getPaymentStatusText = (status: string): string => {
-  switch (status.toLowerCase()) {
-    case 'paid':
-      return 'Đã thanh toán';
-    case 'pending':
-      return 'Chờ thanh toán';
-    case 'cancelled':
-      return 'Đã hủy thanh toán';
-    default:
-      return status;
-  }
-};
+// Hàm getPaymentStatusText đã được thay thế bằng translateStatus import từ utils
 
 // --- Media Gallery ---
 interface MediaGalleryProps {

@@ -3,6 +3,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { getKoiProfileById, KoiProfile as BaseKoiProfile, KoiMedia } from "../../services/koiProfileService";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { LinearGradient } from "expo-linear-gradient";
+import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
 import {
   ActivityIndicator,
   Image,
@@ -596,9 +597,7 @@ export default function KoiInformation() {
                       competition.showStatus === "inprogress" ? styles.statusInProgress :
                       styles.statusFinished
                     ]}>
-                      {competition.showStatus === "upcoming" ? "Sắp diễn ra" : 
-                      competition.showStatus === "inprogress" ? "Đang diễn ra" :
-                      "Đã kết thúc"}
+                      {translateStatus(competition.showStatus)}
                     </Text>
                     <TouchableOpacity 
                       style={styles.viewDetailsButton}

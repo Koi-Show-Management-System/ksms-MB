@@ -31,6 +31,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { translateStatus } from "../../../utils/statusTranslator"; // Import hàm dịch mới
 
 const { width: screenWidth } = Dimensions.get("window");
 const HEADER_MAX_HEIGHT = 100;
@@ -222,7 +223,7 @@ const KoiShowsPage: React.FC = () => {
           />
           <View style={styles.cardStatusBadge}>
             <Text style={styles.cardStatusText}>
-              {show.status === "upcoming" ? "Sắp Diễn Ra" : "Đã Kết Thúc"}
+              {translateStatus(show.status)}
             </Text>
           </View>
           <View style={styles.cardContentContainer}>

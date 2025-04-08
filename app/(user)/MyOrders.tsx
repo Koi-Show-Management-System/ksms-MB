@@ -25,7 +25,7 @@ import { Ionicons } from "@expo/vector-icons";
 import api from "../../services/api";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-
+import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
 // --- Interface Definitions ---
 interface OrderItem {
   id: string;
@@ -91,21 +91,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'pending':
-      case 'PENDING': 
-        return 'Chờ thanh toán';
-      case 'paid':
-      case 'PAID': 
-        return 'Đã thanh toán';
-      case 'cancelled':
-      case 'CANCELLED': 
-        return 'Đã hủy';
-      default: 
-        return 'Không xác định';
-    }
-  };
+  // Hàm getStatusText đã được thay thế bằng translateStatus import từ utils
   
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "N/A";
@@ -206,7 +192,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
           </TouchableOpacity>
         </Animated.View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) }]}>
-          <Text style={styles.statusText}>{getStatusText(status)}</Text>
+          <Text style={styles.statusText}>{translateStatus(status)}</Text>
         </View>
       </View>
       

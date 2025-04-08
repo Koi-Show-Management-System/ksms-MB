@@ -636,62 +636,58 @@ const KoiShowInformationContent: React.FC = () => {
               <View style={styles.sectionContent}>
                 {showData?.showStatuses && showData.showStatuses.length > 0 ? (
                   <View style={styles.timelineContainer}>
-                    {showData.showStatuses.map((status, index) => {
-                      const isLast = index === showData.showStatuses.length - 1;
-                      return (
-                        <View key={status.id}>
-                          <View style={styles.timelineItemContainer}>
-                            <View style={styles.timelineLeftColumn}>
-                              <Text style={styles.timelineDate}>
-                                {formatDate(status.startDate)}
-                              </Text>
-                              <Text style={styles.timelineTime}>
-                                {formatTime(status.startDate)} -{" "}
-                                {formatTime(status.endDate)}
-                              </Text>
-                            </View>
-
-                            <View style={styles.timelineCenterColumn}>
-                              <View
-                                style={[
-                                  styles.timelineDot,
-                                  status.isActive && styles.timelineDotActive,
-                                ]}
-                              />
-                              {!isLast && <View style={styles.timelineLine} />}
-                            </View>
-
-                            <View style={styles.timelineRightColumn}>
-                              <View
-                                style={[
-                                  styles.timelineContent,
-                                  status.isActive && styles.timelineContentActive,
+                    {[...showData.showStatuses]
+                      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                      .map((status, index, sortedArray) => {
+                        const isLast = index === sortedArray.length - 1;
+                        return (
+                          <View key={status.id}>
+                            <View style={styles.timelineItemContainer}>
+                              <View style={styles.timelineLeftColumn}>
+                                <Text style={[
+                                  styles.timelineDate,
+                                  status.isActive && { color: '#2ecc71', fontWeight: 'bold' }
                                 ]}>
-                                <Text
-                                  style={[
-                                    styles.timelineTitle,
-                                    status.isActive && styles.timelineTitleActive,
-                                  ]}>
-                                  {formatTimelineContent(status.description)}
+                                  {formatDate(status.startDate)}
                                 </Text>
-                                <Text
-                                  style={[
-                                    styles.timelineStatus,
-                                    status.isActive &&
-                                      styles.timelineStatusActive,
-                                  ]}>
-                                  {status.isActive
-                                    ? "Đang diễn ra"
-                                    : new Date(status.endDate) < new Date()
-                                    ? "Đã hoàn thành"
-                                    : "Sắp diễn ra"}
+                                <Text style={[
+                                  styles.timelineTime,
+                                  status.isActive && { color: '#2ecc71', fontWeight: 'bold' }
+                                ]}>
+                                  {formatTime(status.startDate)} -{" "}
+                                  {formatTime(status.endDate)}
                                 </Text>
+                              </View>
+
+                              <View style={styles.timelineCenterColumn}>
+                                <View
+                                  style={[
+                                    styles.timelineDot,
+                                    status.isActive && { backgroundColor: '#2ecc71', borderColor: '#2ecc71' }
+                                  ]}
+                                />
+                                {!isLast && <View style={styles.timelineLine} />}
+                              </View>
+
+                              <View style={styles.timelineRightColumn}>
+                                <View
+                                  style={[
+                                    styles.timelineContent,
+                                    status.isActive && { backgroundColor: '#e8f8e8', borderLeftColor: '#2ecc71' }
+                                  ]}>
+                                  <Text
+                                    style={[
+                                      styles.timelineTitle,
+                                      status.isActive && { color: '#2ecc71', fontWeight: 'bold' }
+                                    ]}>
+                                    {formatTimelineContent(status.description)}
+                                  </Text>
+                                </View>
                               </View>
                             </View>
                           </View>
-                        </View>
-                      );
-                    })}
+                        );
+                      })}
                   </View>
                 ) : (
                   <View style={styles.emptyStateContainer}>

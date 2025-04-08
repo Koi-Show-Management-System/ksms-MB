@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
 
 interface Transaction {
   id: string;
@@ -48,7 +49,7 @@ const TransactionCard: React.FC<TransactionCardProps> = ({ transaction }) => {
       <View style={styles.cardContent}>
         <Text style={styles.cardDate}>{transaction.date}</Text>
         <Text style={[styles.cardStatus, getStatusStyle()]}>
-          {transaction.status}
+          {translateStatus(transaction.status)}
         </Text>
       </View>
     </View>

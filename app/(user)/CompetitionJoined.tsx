@@ -15,12 +15,13 @@ import {
 } from "react-native";
 import {
   HistoryRegisterShowItem,
-  getRegistrationHistory, 
-  getFilterParams, 
-  mapToCompetitionData, 
-  getStatusColorWithRegistration, 
-  getStatusTextWithRegistration
+  getRegistrationHistory,
+  getFilterParams,
+  mapToCompetitionData,
+  getStatusColorWithRegistration,
+  // getStatusTextWithRegistration removed
 } from "../../services/competitionService";
+import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
 
 // Competition Card Component
 const CompetitionCard: React.FC<{
@@ -46,7 +47,7 @@ const CompetitionCard: React.FC<{
               { backgroundColor: getStatusColorWithRegistration(competition.status) },
             ]}>
             <Text style={styles.statusText}>
-              {getStatusTextWithRegistration(competition.status)}
+              {translateStatus(competition.status)}
             </Text>
           </View>
         </View>

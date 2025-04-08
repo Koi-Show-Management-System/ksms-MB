@@ -21,6 +21,7 @@ import Animated, {
   withSpring,
   interpolate,
 } from "react-native-reanimated";
+import { translateStatus } from '../../utils/statusTranslator'; // Import hàm dịch mới
 
 interface OrderDetailItem {
   id: string;
@@ -275,17 +276,9 @@ const OrderDetail = () => {
     }
   };
 
-  const getStatusText = (status: string) => {
-    const statusLower = status.toLowerCase();
-    switch (statusLower) {
-      case 'pending': return 'Chờ thanh toán';
-      case 'paid': return 'Đã thanh toán';
-      case 'cancelled': return 'Đã hủy';
-      default: return 'Không xác định';
-    }
-  };
+  // Hàm getStatusText và getTicketStatusText đã được thay thế bằng translateStatus
   
-  // Hàm lấy màu sắc dựa trên trạng thái vé
+  // Hàm lấy màu sắc dựa trên trạng thái vé (Giữ nguyên vì xử lý màu sắc, không phải dịch text)
   const getTicketStatusColor = (status: string) => {
     const statusLower = status?.toLowerCase() || '';
     switch (statusLower) {
@@ -294,18 +287,6 @@ const OrderDetail = () => {
       case 'checkin': return '#FF3B30'; // Màu đỏ cho vé đã sử dụng
       case 'refunded': return '#2196F3'; // Màu xanh dương cho vé đã hoàn tiền
       default: return '#999999'; // Màu xám cho các trạng thái khác
-    }
-  };
-  
-  // Hàm lấy văn bản trạng thái dựa trên trạng thái vé
-  const getTicketStatusText = (status: string) => {
-    const statusLower = status?.toLowerCase() || '';
-    switch (statusLower) {
-      case 'cancelled': return 'Đã bị hủy chờ hoàn tiền';
-      case 'sold': return 'Chưa sử dụng';
-      case 'checkin': return 'Đã sử dụng';
-      case 'refunded': return 'Đã hoàn tiền';
-      default: return 'Không xác định';
     }
   };
 
@@ -502,7 +483,7 @@ const OrderDetail = () => {
               </TouchableOpacity>
             </Animated.View>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(orderInfo.status) }]}>
-              <Text style={styles.statusText}>{getStatusText(orderInfo.status)}</Text>
+              <Text style={styles.statusText}>{translateStatus(orderInfo.status)}</Text>
             </View>
           </View>
 
@@ -591,10 +572,10 @@ const OrderDetail = () => {
                     <View style={styles.ticketCardInfo}>
                       <Text style={styles.ticketCardTitle}>Mã vé: {item.id.toUpperCase()}</Text>
                       <Text style={[
-                        styles.ticketCardStatus, 
+                        styles.ticketCardStatus,
                         {color: getTicketStatusColor(item.status)}
                       ]}>
-                        {getTicketStatusText(item.status)}
+                        {translateStatus(item.status)}
                       </Text>
                       <Text style={styles.ticketCardHint}>Nhấp để xem chi tiết</Text>
                     </View>

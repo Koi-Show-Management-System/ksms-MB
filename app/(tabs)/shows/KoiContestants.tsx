@@ -9,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from 'expo-router';
 import { Video, ResizeMode } from 'expo-av';
 import { getCompetitionCategories, getRounds, getContestants, CompetitionCategory, Round, KoiContestant } from '../../../services/contestantService';
-
+import { translateStatus } from '../../../utils/statusTranslator'; // Import hàm dịch mới
 interface KoiContestantsProps {
   showId: string;
 }
@@ -233,8 +233,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
           item.status === 'active' ? styles.activeStatus :
           styles.upcomingStatus
         ]}>
-          {item.status === 'completed' ? 'Đã kết thúc' :
-           item.status === 'active' ? 'Đang diễn ra' : 'Sắp diễn ra'}
+          {translateStatus(item.status)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -323,9 +322,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                     latestResult.status === 'Fail' ? {color: '#e74c3c'} :
                     {color: '#3498db'}
                   ]}>
-                    {latestResult.status === 'Pass' ? 'Đạt' :
-                     latestResult.status === 'Fail' ? 'Không đạt' :
-                     latestResult.status}
+                    {translateStatus(latestResult.status)}
                   </Text>
                 </View>
               </View>
@@ -586,9 +583,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                           value={
                             <View style={styles.statusBadge}>
                               <Text style={styles.statusBadgeText}>
-                                {selectedContestant.status === "active" ? "Đã công khai" : 
-                                 selectedContestant.status === "pending" ? "Chờ duyệt" : 
-                                 "Đã huỷ"}
+                                {translateStatus(selectedContestant.status)}
                               </Text>
                             </View>
                           } 
@@ -641,9 +636,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                                           styles.pendingStatus
                                         ]}>
                                           <Text style={styles.resultStatusText}>
-                                            {result.status === 'Pass' ? 'Đạt' :
-                                             result.status === 'Fail' ? 'Không đạt' :
-                                             result.status}
+                                            {translateStatus(result.status)}
                                           </Text>
                                         </View>
                                       </View>
@@ -771,7 +764,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    paddingBottom: 100, // Tăng padding bottom để tránh bị footer che phủ
+    paddingBottom: 16,
   },
   breadcrumbContainer: {
     paddingHorizontal: 16,
@@ -920,9 +913,8 @@ const styles = StyleSheet.create({
   },
   contestantsContainer: {
     paddingHorizontal: 16,
-    marginBottom: 20,
+    marginBottom: 16,
     position: 'relative',
-    paddingBottom: 60,
     flex: 1,
   },
   contestantsWrapper: {
@@ -1378,43 +1370,45 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   carouselContainer: {
-    paddingVertical: 12,
-    marginBottom: 60,
-    minHeight: 350,
+    paddingVertical: 16,
+    marginBottom: 16,
+    position: 'relative',
+    minHeight: 380,
+    paddingBottom: 60,
   },
   carouselContent: {
     paddingHorizontal: 16,
-    paddingBottom: 20,
-    alignItems: 'center',
+    paddingBottom: 8,
   },
   paginationContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
     position: 'absolute',
     bottom: 0,
-    left: 0,
-    right: 0,
+    left: 16,
+    right: 16,
     zIndex: 10,
     borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: -1 },
     shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowRadius: 2,
+    elevation: 2,
+    marginTop: 16,
   },
   pageButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 8,
+    marginHorizontal: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -1431,17 +1425,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    flexWrap: 'wrap', // Cho phép xuống dòng nếu có quá nhiều trang
-    maxWidth: 300, // Giới hạn chiều rộng để tránh tràn
+    flexWrap: 'wrap',
+    maxWidth: 200,
+    gap: 4,
+    paddingHorizontal: 8,
   },
   pageIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
-    margin: 4,
+    margin: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,

@@ -1,4 +1,5 @@
 import api from './api';
+import { translateStatus } from '../utils/statusTranslator'; // Import hàm dịch mới
 
 // Interface cho API response
 export interface ApiResponse<T> {
@@ -343,26 +344,8 @@ export const getStatusColorWithRegistration = (status: string) => {
   }
 };
 
-/**
- * Lấy text trạng thái hiển thị
- * @param status Trạng thái hiển thị (upcoming, ongoing, completed, cancelled)
- * @returns Text hiển thị cho trạng thái
- */
-export const getStatusTextWithRegistration = (status: string) => {
-  // Các trạng thái show thông thường
-  switch (status) {
-    case "upcoming":
-      return "Sắp diễn ra";
-    case "ongoing":
-      return "Đang diễn ra";
-    case "completed":
-      return "Đã kết thúc";
-    case "cancelled":
-      return "Bị huỷ bỏ";
-    default:
-      return "Không xác định";
-  }
-};
+// Hàm getStatusTextWithRegistration đã được thay thế bằng translateStatus import từ utils
+// Các component sử dụng hàm này cần được cập nhật để gọi translateStatus trực tiếp.
 
 /**
  * Lấy thông tin chi tiết của một show và danh sách cá đã đăng ký
