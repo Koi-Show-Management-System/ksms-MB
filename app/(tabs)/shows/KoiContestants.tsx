@@ -143,6 +143,13 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
     }
   };
 
+  // Xử lý khi cuối hồi danh sách
+  const handleFetchEnd = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
   // Hiển thị chi tiết thí sinh
   const handleContestantPress = (contestant: KoiContestant) => {
     console.log("Contestant pressed:", contestant.id);
@@ -247,90 +254,94 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
     const roundType = selectedRoundType;
     
     return (
-      <TouchableOpacity
-        style={styles.contestantCard}
-        onPress={() => handleContestantPress(item)}>
-        <View style={styles.contestantImageContainer}>
-          {imageMedia ? (
-            <Image
-              source={{ uri: imageMedia.mediaUrl }}
-              style={styles.contestantImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.noImageContainer}>
-              <Ionicons name="fish" size={32} color="#cccccc" />
-            </View>
-          )}
-          {hasVideo && (
-            <View style={styles.videoIndicator}>
-              <MaterialIcons name="play-circle-filled" size={24} color="#ffffff" />
-            </View>
-          )}
-          
-          {/* Hiển thị xếp hạng nếu có */}
-          {item.rank && (
-            <View style={styles.rankBadge}>
-              <Text style={styles.rankText}>#{item.rank}</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.contestantInfo}>
-          <Text style={styles.contestantName} numberOfLines={1}>
-            {item.registration.koiProfile.name}
-          </Text>
-          <Text style={styles.contestantVariety} numberOfLines={1}>
-            {item.registration.koiProfile.variety.name}
-          </Text>
-          <View style={styles.contestantDetailRow}>
-            <Text style={styles.contestantDetail}>
-              {item.registration.koiSize}cm
-            </Text>
-            <Text style={styles.contestantDetail}>
-              {item.registration.koiProfile.gender}
-            </Text>
-          </View>
-          
-          {/* Hiển thị điểm tổng và trạng thái trên cùng một hàng */}
-          {latestResult && (
-            <View style={styles.scoreStatusContainer}>
-              {/* Hiển thị điểm tổng cho vòng Evaluation và Final */}
-              {(roundType === 'Evaluation' || roundType === 'Final') && latestResult.totalScore !== undefined && (
-                <View style={styles.scoreContainer}>
-                  <MaterialIcons name="star" size={14} color="#f39c12" />
-                  <Text style={styles.scoreText}>{latestResult.totalScore.toFixed(2)}</Text>
-                </View>
-              )}
-              
-              {/* Hiển thị trạng thái */}
-              <View style={[
-                styles.contestantStatusBadge,
-                latestResult.status === 'Pass' ? styles.advancedStatus :
-                latestResult.status === 'Fail' ? styles.eliminatedStatus :
-                styles.pendingStatus
-              ]}>
-                <Text style={[
-                  styles.contestantStatusText,
-                  latestResult.status === 'Pass' ? {color: '#27ae60'} :
-                  latestResult.status === 'Fail' ? {color: '#e74c3c'} :
-                  {color: '#3498db'}
-                ]}>
-                  {latestResult.status === 'Pass' ? 'Đạt' :
-                   latestResult.status === 'Fail' ? 'Không đạt' :
-                   latestResult.status}
-                </Text>
+      <View style={styles.contestantCard}>
+        <TouchableOpacity
+          style={styles.contestantCardContent}
+          onPress={() => handleContestantPress(item)}
+          activeOpacity={0.7}
+          >
+          <View style={styles.contestantImageContainer}>
+            {imageMedia ? (
+              <Image
+                source={{ uri: imageMedia.mediaUrl }}
+                style={styles.contestantImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.noImageContainer}>
+                <Ionicons name="fish" size={32} color="#cccccc" />
               </View>
+            )}
+            {hasVideo && (
+              <View style={styles.videoIndicator}>
+                <MaterialIcons name="play-circle-filled" size={24} color="#ffffff" />
+              </View>
+            )}
+            
+            {/* Hiển thị xếp hạng nếu có */}
+            {item.rank && (
+              <View style={styles.rankBadge}>
+                <Text style={styles.rankText}>#{item.rank}</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.contestantInfo}>
+            <Text style={styles.contestantName} numberOfLines={1}>
+              {item.registration.koiProfile.name}
+            </Text>
+            <Text style={styles.contestantVariety} numberOfLines={1}>
+              {item.registration.koiProfile.variety.name}
+            </Text>
+            <View style={styles.contestantDetailRow}>
+              <Text style={styles.contestantDetail}>
+                {item.registration.koiSize}cm
+              </Text>
+              <Text style={styles.contestantDetail}>
+                {item.registration.koiProfile.gender}
+              </Text>
             </View>
-          )}
-          
-          {item.tankName && (
-            <View style={styles.tankNameContainer}>
-              <MaterialIcons name="pool" size={14} color="#3498db" />
-              <Text style={styles.tankName}>{item.tankName}</Text>
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
+            
+            {/* Hiển thị điểm tổng và trạng thái trên cùng một hàng */}
+            {latestResult && (
+              <View style={styles.scoreStatusContainer}>
+                {/* Hiển thị điểm tổng cho vòng Evaluation và Final */}
+                {(roundType === 'Evaluation' || roundType === 'Final') && latestResult.totalScore !== undefined && (
+                  <View style={styles.scoreContainer}>
+                    <MaterialIcons name="star" size={14} color="#f39c12" />
+                    <Text style={styles.scoreText}>{latestResult.totalScore.toFixed(2)}</Text>
+                  </View>
+                )}
+                
+                {/* Hiển thị trạng thái */}
+                <View style={[
+                  styles.contestantStatusBadge,
+                  latestResult.status === 'Pass' ? styles.advancedStatus :
+                  latestResult.status === 'Fail' ? styles.eliminatedStatus :
+                  styles.pendingStatus
+                ]}>
+                  <Text style={[
+                    styles.contestantStatusText,
+                    latestResult.status === 'Pass' ? {color: '#27ae60'} :
+                    latestResult.status === 'Fail' ? {color: '#e74c3c'} :
+                    {color: '#3498db'}
+                  ]}>
+                    {latestResult.status === 'Pass' ? 'Đạt' :
+                     latestResult.status === 'Fail' ? 'Không đạt' :
+                     latestResult.status}
+                  </Text>
+                </View>
+              </View>
+            )}
+            
+            {item.tankName && (
+              <View style={styles.tankNameContainer}>
+                <MaterialIcons name="pool" size={14} color="#3498db" />
+                <Text style={styles.tankName}>{item.tankName}</Text>
+              </View>
+            )}
+          </View>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -423,9 +434,18 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                 horizontal={true}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.carouselContent}
-                ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-                initialNumToRender={4} // Tăng số lượng item được render ban đầu
-                windowSize={5} // Tăng kích thước cửa sổ render
+                ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+                snapToAlignment="start"
+                decelerationRate="fast"
+                snapToInterval={Dimensions.get('window').width * 0.7 + 16}
+                initialNumToRender={4}
+                maxToRenderPerBatch={4}
+                windowSize={5}
+                getItemLayout={(data, index) => ({
+                  length: Dimensions.get('window').width * 0.7,
+                  offset: (Dimensions.get('window').width * 0.7 + 16) * index,
+                  index,
+                })}
               />
               
               {/* Pagination */}
@@ -753,7 +773,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    paddingBottom: 80, // Add padding to prevent footer overlap
+    paddingBottom: 120, // Tăng padding bottom để tránh bị footer che phủ
   },
   breadcrumbContainer: {
     paddingHorizontal: 16,
@@ -903,6 +923,9 @@ const styles = StyleSheet.create({
   contestantsContainer: {
     paddingHorizontal: 16,
     marginBottom: 20,
+    position: 'relative',
+    paddingBottom: 80, // Tăng paddingBottom để tạo thêm khoảng cách
+    flex: 1,
   },
   contestantsWrapper: {
     maxHeight: 460, // Tăng lên để hiển thị hai hàng đầy đủ
@@ -914,8 +937,9 @@ const styles = StyleSheet.create({
   contestantsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 12,
     color: '#333333',
+    paddingHorizontal: 16,
   },
   contestantsGrid: {
     paddingBottom: 16,
@@ -924,21 +948,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 8,
     overflow: 'hidden',
-    width: Dimensions.get('window').width * 0.42, // Giảm chiều rộng để hiển thị 2 card trên mỗi hàng
-    marginVertical: 8,
+    width: Dimensions.get('window').width * 0.7,
+    marginVertical: 12, 
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 3,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    height: 320, // Chiều cao cố định cho card
+    height: 280, // Giảm chiều cao xuống một chút để tránh bị che
+  },
+  contestantCardContent: {
+    flex: 1,
   },
   contestantImageContainer: {
-    height: 180,
+    height: 160,
     width: '100%',
     position: 'relative',
+    backgroundColor: '#f0f0f0',
   },
   contestantImage: {
     width: '100%',
@@ -961,6 +989,7 @@ const styles = StyleSheet.create({
   },
   contestantInfo: {
     padding: 12,
+    flex: 1,
   },
   contestantName: {
     fontSize: 15,
@@ -1354,10 +1383,13 @@ const styles = StyleSheet.create({
   },
   carouselContainer: {
     paddingVertical: 12,
-    height: 360, // Chiu1ec1u cao cu1ed1 u0111u1ecbnh cho container
+    marginBottom: 80, // Tăng marginBottom để tạo thêm khoảng cách với phần phân trang
+    minHeight: 350, 
   },
   carouselContent: {
     paddingHorizontal: 16,
+    paddingBottom: 60, // Tăng paddingBottom để tạo khoảng cách với phần phân trang
+    alignItems: 'center',
   },
   paginationContainer: {
     flexDirection: 'row',
@@ -1367,6 +1399,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 3,
   },
   pageButton: {
     width: 40,
@@ -1376,15 +1419,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
   },
   pageButtonDisabled: {
     backgroundColor: '#f0f0f0',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   pageIndicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
+    flexWrap: 'wrap', // Cho phép xuống dòng nếu có quá nhiều trang
+    maxWidth: 300, // Giới hạn chiều rộng để tránh tràn
   },
   pageIndicator: {
     width: 32,
@@ -1393,10 +1445,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 4,
+    margin: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
   },
   activePageIndicator: {
     backgroundColor: '#2196F3',
+    shadowColor: '#1976D2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   pageIndicatorText: {
     fontSize: 14,
