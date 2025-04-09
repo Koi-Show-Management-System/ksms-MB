@@ -83,7 +83,7 @@ const FishDetails: React.FC<FishDetailsProps> = ({
         {registrationNumber && (
           <View style={styles.detailRow}>
             <View style={styles.detailItemFull}>
-              <Text style={styles.detailLabel}>Số đăng ký:</Text>
+              <Text style={styles.detailLabel}>Số báo danh:</Text>
               <Text style={styles.detailValue}>{registrationNumber}</Text>
             </View>
           </View>

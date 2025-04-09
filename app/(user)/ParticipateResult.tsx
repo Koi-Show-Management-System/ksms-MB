@@ -19,6 +19,7 @@ import {
 import { getShowMemberDetail, ShowMemberDetail, ShowDetailRegistration } from "../../services/competitionService";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
+import { translateStatus } from "../../utils/statusTranslator";
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
@@ -108,7 +109,7 @@ const FishDetailsCard: React.FC<{
             <View style={styles.detailItemFull}>
               <Text style={styles.detailLabel}>Trạng thái:</Text>
               <View style={[styles.statusChip, { backgroundColor: getStatusColor(registration.status) }]}>
-                <Text style={styles.statusText}>{registration.status}</Text>
+                <Text style={styles.statusText}>{translateStatus(registration.status)}</Text>
               </View>
             </View>
           </View>
@@ -208,7 +209,7 @@ const CompetitionDetails: React.FC<{
           {/* Hiển thị banner khi cuộc thi bị hủy */}
           {isShowCancelled && (
             <View style={styles.cancelledBanner}>
-              <Text style={styles.cancelledText}>Đã hủy</Text>
+              <Text style={styles.cancelledText}>{translateStatus("Cancelled")}</Text>
             </View>
           )}
         </LinearGradient>
