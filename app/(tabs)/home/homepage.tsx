@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { translateStatus } from "../../../utils/statusTranslator";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
 import {
@@ -46,16 +47,16 @@ const CARD_WIDTH = width * 0.8;
 
 // Định nghĩa bảng màu gradient cho ứng dụng
 const COLORS = {
-  primary: '#FF8C00', // Cam đậm
-  primaryLight: '#FFA500', // Cam nhạt
-  primaryGradient: ['#FF8C00', '#FFA500', '#FFD700'], // Gradient cam đến vàng
-  secondary: '#1E88E5', // Xanh dương
-  secondaryLight: '#64B5F6', // Xanh dương nhạt
-  secondaryGradient: ['#1E88E5', '#64B5F6', '#90CAF9'], // Gradient xanh dương
-  dark: '#222222', // Đen đậm
-  darkGradient: ['#222222', '#333333', '#444444'], // Gradient đen
-  light: '#FFFFFF', // Trắng
-  lightGradient: ['#FFFFFF', '#F5F5F5', '#EEEEEE'], // Gradient trắng
+  primary: '#FF8C00' as const, // Cam đậm
+  primaryLight: '#FFA500' as const, // Cam nhạt
+  primaryGradient: ['#FF8C00', '#FFA500', '#FFD700'] as const, // Gradient cam đến vàng
+  secondary: '#1E88E5' as const, // Xanh dương
+  secondaryLight: '#64B5F6' as const, // Xanh dương nhạt
+  secondaryGradient: ['#1E88E5', '#64B5F6', '#90CAF9'] as const, // Gradient xanh dương
+  dark: '#222222' as const, // Đen đậm
+  darkGradient: ['#222222', '#333333', '#444444'] as const, // Gradient đen
+  light: '#FFFFFF' as const, // Trắng
+  lightGradient: ['#FFFFFF', '#F5F5F5', '#EEEEEE'] as const, // Gradient trắng
   background: '#F8F9FA', // Nền chính
   card: '#FFFFFF', // Nền thẻ
   text: {
@@ -73,8 +74,8 @@ const SkeletonBox = memo(({ width, height, style }: { width: string | number; he
   <ShimmerEffect
     width={width}
     height={height}
-    style={[{ borderRadius: 8 }, style]}
-    shimmerColors={['#E8E8E8', '#F5F5F5', '#E0E0E0']}
+    style={{ borderRadius: 8, ...(style as object) }}
+    shimmerColors={['#E8E8E8', '#F5F5F5', '#E0E0E0'] as const}
     shimmerDuration={1800}
   />
 ));
@@ -170,17 +171,17 @@ const Homepage: React.FC = () => {
 
   // Group shows by status - memoized để tránh tính toán lại khi component re-render
   const publishedShows = useMemo(() =>
-    filteredShows.filter((show) => show.status === "published"),
+    filteredShows.filter((show) => show.status && show.status.toLowerCase() === "published"),
     [filteredShows]
   );
 
   const upcomingShows = useMemo(() =>
-    filteredShows.filter((show) => show.status === "upcoming"),
+    filteredShows.filter((show) => show.status && show.status.toLowerCase() === "upcoming"),
     [filteredShows]
   );
 
   const completedShows = useMemo(() =>
-    filteredShows.filter((show) => show.status === "completed"),
+    filteredShows.filter((show) => show.status && show.status.toLowerCase() === "finished"),
     [filteredShows]
   );
 
@@ -206,8 +207,8 @@ const Homepage: React.FC = () => {
       setShows(data.items);
       setTotalPages(data.totalPages);
     } catch (error) {
-      console.error("Failed to fetch koi shows:", error);
-      setError("Không thể tải danh sách cuộc thi. Vui lòng thử lại.");
+      console.error("Không thể tải danh sách cuộc thi:", error);
+      setError("Không thể tải danh sách cuộc thi. Vui lòng tải lại trang.");
     } finally {
       setLoading(false);
     }
@@ -231,8 +232,8 @@ const Homepage: React.FC = () => {
     try {
       return new Date(dateString).toLocaleDateString();
     } catch (error) {
-      console.error("Invalid date format:", dateString);
-      return "N/A";
+      console.error("Ngày tháng không hợp lệ:", dateString);
+      return "Chưa cập nhật ngày";
     }
   }, []);
 
@@ -247,7 +248,7 @@ const Homepage: React.FC = () => {
 
       // Kết hợp ngày và địa điểm vào mô tả
       if (show.location) {
-        shortDescription = `Địa điểm: ${show.location} • `;
+        shortDescription = `Tại: ${show.location} • `;
       }
 
       shortDescription += `${formatDate(show.startDate)} - ${formatDate(show.endDate)}`;
@@ -261,7 +262,7 @@ const Homepage: React.FC = () => {
         uri: show.imgUrl && show.imgUrl.startsWith("http")
           ? show.imgUrl
           : "https://images.unsplash.com/photo-1616989161881-6c788f319bd7?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-        title: show.name || "Unnamed Show",
+        title: show.name || "Chưa cập nhật tên cuộc thi",
         description: shortDescription,
         showData: show // Lưu trữ dữ liệu show đầy đủ để sử dụng khi click
       };
@@ -313,17 +314,17 @@ const Homepage: React.FC = () => {
       route: "/(tabs)/shows/KoiShowsPage"
     },
     {
-      text: "Register",
+      text: "Đăng ký ngay",
       icon: "create-outline" as const,
       route: "/(tabs)/shows/KoiRegistration"
     },
     {
-      text: "Judge",
+      text: "Ban giám khảo",
       icon: "star-outline" as const,
       route: "/(tabs)/judges"
     },
     {
-      text: "Profile",
+      text: "Tài khoản",
       icon: "person-outline" as const,
       route: "/(tabs)/user/UserProfile"
     }
@@ -471,12 +472,12 @@ const Homepage: React.FC = () => {
                           end={{ x: 1, y: 0 }}
                           style={styles.statusBadge}
                         >
-                          <Text style={styles.statusText}>{show.status}</Text>
+                          <Text style={styles.statusText}>{translateStatus(show.status)}</Text>
                         </LinearGradient>
                       </View>
                       <View style={styles.showDetails}>
                         <Text style={styles.showName} numberOfLines={1}>
-                          {show.name || "Unnamed Show"}
+                          {show.name || "Chưa cập nhật tên cuộc thi"}
                         </Text>
                         <View style={styles.infoRow}>
                           <Ionicons
@@ -496,7 +497,7 @@ const Homepage: React.FC = () => {
                             color={COLORS.text.secondary}
                           />
                           <Text style={styles.showLocation} numberOfLines={1}>
-                            {show.location || "TBA"}
+                            {show.location || "Chưa cập nhật địa điểm"}
                           </Text>
                         </View>
                         <LinearGradient
@@ -534,13 +535,13 @@ const Homepage: React.FC = () => {
               {searchQuery.length > 0 ? (
                 <>
                   <Ionicons name="search-outline" size={40} color={COLORS.text.secondary} style={{ marginBottom: 10 }} />
-                  <Text style={styles.noResultsText}>Không tìm thấy cuộc thi phù hợp</Text>
-                  <Text style={styles.noResultsSubText}>Thử tìm kiếm với từ khóa khác</Text>
+                  <Text style={styles.noResultsText}>Không tìm thấy cuộc thi nào phù hợp</Text>
+                  <Text style={styles.noResultsSubText}>Vui lòng thử tìm kiếm với từ khóa khác</Text>
                 </>
               ) : (
                 <>
                   <Ionicons name="calendar-outline" size={40} color={COLORS.text.secondary} style={{ marginBottom: 10 }} />
-                  <Text style={styles.noResultsText}>Không có cuộc thi nào</Text>
+                  <Text style={styles.noResultsText}>Hiện tại chưa có cuộc thi nào</Text>
                 </>
               )}
             </View>
@@ -548,7 +549,7 @@ const Homepage: React.FC = () => {
         </View>
       </>
     );
-  }, [scrollY, isSearchFocused, loading, searchQuery, handleShowPress, formatDate, renderRegistrationFee, renderShowSearchBar]);
+  }, [scrollY, isSearchFocused, loading, searchQuery, handleShowPress, formatDate, renderRegistrationFee]);
 
   // Render search bar component for shows
   const renderShowSearchBar = useCallback(() => {
@@ -558,7 +559,7 @@ const Homepage: React.FC = () => {
       <View style={styles.searchContainer}>
         <TextInput
           ref={searchInputRef}
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: COLORS.text.primary }]}
           placeholder="Tìm kiếm cuộc thi..."
           placeholderTextColor={COLORS.text.secondary}
           value={searchQuery}
@@ -567,8 +568,6 @@ const Homepage: React.FC = () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }}
           autoFocus={true}
-          // Đảm bảo màu chữ là đen để hiển thị rõ trên nền trắng/xám
-          color={COLORS.text.primary}
         />
         {searchQuery.length > 0 ? (
           <TouchableOpacity
@@ -613,7 +612,7 @@ const Homepage: React.FC = () => {
               <View style={styles.carouselWrapper}>
                 <FadeInView delay={300} duration={800} from={{ opacity: 0, translateY: -20 }}>
                   <Text style={styles.heroSectionTitle}>
-                    {shows.length > 0 ? 'Cuộc thi nổi bật' : 'Vietnam Koi Show 2024'}
+                    {shows.length > 0 ? 'Các cuộc thi nổi bật' : 'Vietnam Koi Show 2024'}
                   </Text>
                 </FadeInView>
                 <Carousel3DLandscape
@@ -633,7 +632,7 @@ const Homepage: React.FC = () => {
               </View>
             ) : (
               <View style={styles.noShowsContainer}>
-                <Text style={styles.noShowsText}>Không có cuộc thi nào</Text>
+                <Text style={styles.noShowsText}>Hiện tại chưa có cuộc thi nào</Text>
               </View>
             )}
           </ParallaxHeroSection>
@@ -641,7 +640,7 @@ const Homepage: React.FC = () => {
           {/* Quick Access Section */}
           <FadeInView delay={400} duration={800} from={{ opacity: 0, translateY: 30 }}>
             <View style={styles.quickAccess}>
-              <Text style={styles.sectionTitle}>Truy cập nhanh</Text>
+              <Text style={styles.sectionTitle}>Truy cập tính năng</Text>
               {renderQuickAccessButtons()}
             </View>
           </FadeInView>
@@ -651,19 +650,19 @@ const Homepage: React.FC = () => {
 
           {/* Featured Shows - All Shows with Parallax */}
           {loading ? (
-            <CarouselSkeleton title="Cuộc thi nổi bật" />
+            <CarouselSkeleton title="Các cuộc thi nổi bật" />
           ) : (
             <FadeInView delay={500} duration={800} from={{ opacity: 0, translateY: 30 }}>
-              {renderShowCarousel(shows, "Cuộc thi nổi bật", 600, false)}
+              {renderShowCarousel(shows, "Các cuộc thi nổi bật", 600, false)}
             </FadeInView>
           )}
 
           {/* Upcoming Shows */}
           {loading ? (
-            <CarouselSkeleton title="Cuộc thi sắp tới" />
+            <CarouselSkeleton title="Các cuộc thi sắp diễn ra" />
           ) : (
             <FadeInView delay={600} duration={800} from={{ opacity: 0, translateY: 30 }}>
-              {renderShowCarousel(upcomingShows, "Cuộc thi sắp tới", 900, true)}
+              {renderShowCarousel(upcomingShows, "Các cuộc thi sắp diễn ra", 900, true)}
             </FadeInView>
           )}
 
@@ -676,7 +675,7 @@ const Homepage: React.FC = () => {
                 endPosition={1800}
                 parallaxFactor={0.2}
               >
-                <Text style={styles.sectionTitleWhite}>Tin tức & Bài viết</Text>
+                <Text style={styles.sectionTitleWhite}>Tin tức và bài viết mới</Text>
               </ParallaxItem>
 
               <ParallaxItem
@@ -687,8 +686,8 @@ const Homepage: React.FC = () => {
               >
                 <View style={styles.searchContainer}>
                   <TextInput
-                    style={styles.searchInput}
-                    placeholder="Tìm kiếm bài viết"
+                    style={[styles.searchInput, { color: '#FFFFFF' }]}
+                    placeholder="Tìm kiếm tin tức và bài viết..."
                     placeholderTextColor="#E1E1E1"
                   />
                   <Ionicons name="search-outline" size={18} color="#E1E1E1" />
@@ -715,20 +714,18 @@ const Homepage: React.FC = () => {
                     {
                       image:
                         "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                      title: "Cách nuôi cá Koi",
-                      description:
-                        "Những mẹo hữu ích giúp bạn nuôi cá Koi khỏe mạnh và phát triển tốt...",
-                      readTime: "5 phút",
-                      date: "20/07/2024",
-                    },
-                    {
-                      image:
-                        "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                      title: "Mẹo chăm sóc cá Koi",
-                      description:
-                        "Các phương pháp chăm sóc cá Koi đúng cách để cá luôn đẹp và khỏe mạnh...",
-                      readTime: "7 phút",
-                      date: "15/07/2024",
+                      title: "Kỹ thuật nuôi cá Koi",
+                     description:
+                       "Tổng hợp những kinh nghiệm và kỹ thuật nuôi cá Koi từ các chuyên gia hàng đầu...",
+                     date: "20/07/2024",
+                   },
+                   {
+                     image:
+                       "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
+                     title: "Bệnh thường gặp ở cá Koi",
+                     description:
+                       "Hướng dẫn nhận biết và điều trị các bệnh phổ biến ở cá Koi...",
+                     date: "15/07/2024",
                     },
                   ].map((article, index) => (
                     <ParallaxItem
@@ -772,10 +769,6 @@ const Homepage: React.FC = () => {
                               <View style={styles.articleFooter}>
                                 <View style={styles.articleMetaRow}>
                                   <View style={styles.articleMetaItem}>
-                                    <Ionicons name="time-outline" size={14} color="#FFF" />
-                                    <Text style={styles.articleMetaText}>{article.readTime}</Text>
-                                  </View>
-                                  <View style={styles.articleMetaItem}>
                                     <Ionicons name="calendar-outline" size={14} color="#FFF" />
                                     <Text style={styles.articleMetaText}>{article.date}</Text>
                                   </View>
@@ -791,8 +784,8 @@ const Homepage: React.FC = () => {
                                     end={{ x: 1, y: 0 }}
                                     style={styles.readMoreButton}
                                   >
-                                    <Text style={styles.readMoreText}>Đọc tiếp</Text>
-                                    <Ionicons name="arrow-forward" size={14} color="#FFF" />
+                                    <Text style={styles.readMoreText}>Xem thêm</Text>
+                                    <Ionicons name="chevron-forward" size={14} color="#FFF" />
                                   </LinearGradient>
                                 </MicroInteraction>
                               </View>
@@ -819,27 +812,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-  searchContainer: {
-    marginBottom: 20,
-    height: 46,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 0,
-    borderRadius: 12,
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
-    paddingHorizontal: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
   },
   noResultsContainer: {
     width: '100%',
@@ -871,6 +843,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Roboto',
     padding: 0,
     height: '100%',
+    backgroundColor: 'transparent',
   },
   clearButton: {
     padding: 4,
@@ -1104,6 +1077,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.3,
   },
+  // Search styles
   searchContainer: {
     marginBottom: 20,
     height: 46,
@@ -1124,14 +1098,6 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
-  },
-  searchInput: {
-    flex: 1,
-    height: "100%",
-    fontFamily: "Roboto",
-    fontSize: 15,
-    color: COLORS.text.light,
-    fontWeight: "500",
   },
   searchIcon: {
     width: 20,

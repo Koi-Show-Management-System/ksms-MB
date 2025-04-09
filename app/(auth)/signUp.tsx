@@ -12,7 +12,53 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { z } from "zod";
 import { register } from "../../services/authService";
+import { Ionicons } from '@expo/vector-icons';
+
+// Define validation schema using zod
+const signUpSchema = z.object({
+  fullName: z.string()
+    .min(1, "Họ tên không được để trống")
+    .min(5, "Họ tên phải có ít nhất 5 ký tự")
+    .max(50, "Họ tên không được vượt quá 50 ký tự")
+    .regex(/^[\p{L}\s]+$/u, "Họ tên chỉ được chứa chữ cái và khoảng trắng"),
+  
+  email: z.string()
+    .min(1, "Email không được để trống")
+    .email("Email không hợp lệ")
+    .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Email không đúng định dạng"),
+  
+  username: z.string()
+    .min(1, "Tên đăng nhập không được để trống")
+    .min(4, "Tên đăng nhập phải có ít nhất 4 ký tự")
+    .max(20, "Tên đăng nhập không được vượt quá 20 ký tự")
+    .regex(/^[a-zA-Z0-9_-]+$/, "Tên đăng nhập chỉ được chứa chữ cái, số, gạch ngang và gạch dưới"),
+  
+  password: z.string()
+    .min(1, "Mật khẩu không được để trống")
+    .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
+    .max(32, "Mật khẩu không được vượt quá 32 ký tự")
+    .regex(/[A-Z]/, "Mật khẩu phải chứa ít nhất 1 chữ in hoa")
+    .regex(/[a-z]/, "Mật khẩu phải chứa ít nhất 1 chữ thường")
+    .regex(/[0-9]/, "Mật khẩu phải chứa ít nhất 1 số")
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt"),
+  
+  confirmPassword: z.string()
+    .min(1, "Xác nhận mật khẩu không được để trống"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Mật khẩu xác nhận không khớp",
+  path: ["confirmPassword"],
+});
+
+// Type for validation errors state
+interface ValidationErrors {
+  fullName?: string[];
+  email?: string[];
+  username?: string[];
+  password?: string[];
+  confirmPassword?: string[];
+}
 
 interface FormData {
   fullName: string;
@@ -26,45 +72,43 @@ const Signup: React.FC = () => {
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
-    username: "", // Added username field initialization
+    username: "",
     password: "",
     confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleInputChange = (name: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
+    // Clear error when user types
+    setValidationErrors((prev) => ({
+      ...prev,
+      [name]: undefined,
+    }));
   };
 
   const handleSubmit = async () => {
-    // Clear any previous error
-    setErrorMessage("");
+    // Validate form data using zod schema
+    const validationResult = signUpSchema.safeParse(formData);
 
-    // Form validation
-    if (
-      !formData.fullName ||
-      !formData.email ||
-      !formData.username ||
-      !formData.password ||
-      !formData.confirmPassword
-    ) {
-      setErrorMessage("All fields are required");
+    if (!validationResult.success) {
+      // If validation fails, format errors and update state
+      const formattedErrors = validationResult.error.flatten().fieldErrors;
+      setValidationErrors(formattedErrors);
       return;
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      setErrorMessage("Passwords do not match!");
-      return;
-    }
-
+    // Clear validation errors if validation passes
+    setValidationErrors({});
     setIsLoading(true);
 
     try {
-      // Pass the fields in the order expected by the API and fixed function
       const result = await register(
         formData.email,
         formData.password,
@@ -72,24 +116,15 @@ const Signup: React.FC = () => {
         formData.fullName
       );
 
-      console.log("Registration result:", result);
-
-      // Check if registration was successful
       if (result.statusCode === 201) {
         Alert.alert(
-          "Registration Successful",
-          "You can now sign in with your account",
+          "Đăng ký thành công",
+          "Bạn có thể đăng nhập ngay bây giờ",
           [{ text: "OK", onPress: () => router.push("/(auth)/signIn") }]
         );
-      } else {
-        setErrorMessage(result.message || "Registration failed");
       }
     } catch (error: any) {
-      // Handle API errors
-      const message =
-        error.response?.data?.message ||
-        "Registration failed. Please try again.";
-      setErrorMessage(message);
+      console.error("Registration failed:", error);
     } finally {
       setIsLoading(false);
     }
@@ -108,7 +143,7 @@ const Signup: React.FC = () => {
           />
           <Text style={styles.title}>KSMS</Text>
           <Text style={styles.subtitle}>
-            Become a part of the Koi community!
+            Trở thành thành viên của cộng đồng Koi!
           </Text>
         </View>
 
@@ -116,89 +151,124 @@ const Signup: React.FC = () => {
         <View style={styles.form}>
           {/* Full Name Field */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name *</Text>
+            <Text style={styles.label}>Họ tên *</Text>
             <TextInput
-              style={styles.input}
-              placeholder="John Smith"
+              style={[styles.input, styles.textInput]}
+              placeholder="Nguyễn Văn A"
               value={formData.fullName}
               onChangeText={(value) => handleInputChange("fullName", value)}
             />
+            {validationErrors.fullName && (
+              <Text style={styles.fieldErrorText}>{validationErrors.fullName[0]}</Text>
+            )}
           </View>
 
           {/* Email Field */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email address *</Text>
+            <Text style={styles.label}>Email *</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Email@email.com"
+              style={[styles.input, styles.textInput]}
+              placeholder="email@email.com"
               value={formData.email}
               onChangeText={(value) => handleInputChange("email", value)}
               keyboardType="email-address"
               autoCapitalize="none"
             />
+            {validationErrors.email && (
+              <Text style={styles.fieldErrorText}>{validationErrors.email[0]}</Text>
+            )}
           </View>
 
           {/* Username Field */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Username *</Text>
+            <Text style={styles.label}>Tên đăng nhập *</Text>
             <TextInput
-              style={styles.input}
-              placeholder="johndoe"
+              style={[styles.input, styles.textInput]}
+              placeholder="username"
               value={formData.username}
               onChangeText={(value) => handleInputChange("username", value)}
               autoCapitalize="none"
             />
+            {validationErrors.username && (
+              <Text style={styles.fieldErrorText}>{validationErrors.username[0]}</Text>
+            )}
           </View>
 
           {/* Password Field */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="**********"
-              value={formData.password}
-              onChangeText={(value) => handleInputChange("password", value)}
-              secureTextEntry
-            />
+            <Text style={styles.label}>Mật khẩu *</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="******"
+                value={formData.password}
+                onChangeText={(value) => handleInputChange("password", value)}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons 
+                  name={showPassword ? "eye-outline" : "eye-off-outline"} 
+                  size={24} 
+                  color="#666"
+                />
+              </TouchableOpacity>
+            </View>
+            {validationErrors.password && (
+              <Text style={styles.fieldErrorText}>{validationErrors.password[0]}</Text>
+            )}
+            <Text style={styles.passwordHint}>
+              Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt
+            </Text>
           </View>
 
           {/* Confirm Password Field */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Confirm Password *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="**********"
-              value={formData.confirmPassword}
-              onChangeText={(value) =>
-                handleInputChange("confirmPassword", value)
-              }
-              secureTextEntry
-            />
+            <Text style={styles.label}>Xác nhận mật khẩu *</Text>
+            <View style={styles.passwordContainer}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="******"
+                value={formData.confirmPassword}
+                onChangeText={(value) => handleInputChange("confirmPassword", value)}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <Ionicons 
+                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
+                  size={24} 
+                  color="#666"
+                />
+              </TouchableOpacity>
+            </View>
+            {validationErrors.confirmPassword && (
+              <Text style={styles.fieldErrorText}>{validationErrors.confirmPassword[0]}</Text>
+            )}
           </View>
         </View>
 
-        {/* Error Message */}
-        {errorMessage ? (
-          <Text style={styles.errorText}>{errorMessage}</Text>
-        ) : null}
-
         {/* Sign Up Button */}
         <TouchableOpacity
-          style={[styles.button, isLoading && { opacity: 0.7 }]}
+          style={[styles.button, isLoading && styles.buttonDisabled]}
           onPress={handleSubmit}
           disabled={isLoading}>
           {isLoading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.buttonText}>Sign Up</Text>
+            <Text style={styles.buttonText}>Đăng ký</Text>
           )}
         </TouchableOpacity>
 
         {/* Footer Section */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Already have an account?</Text>
+          <Text style={styles.footerText}>Đã có tài khoản?</Text>
           <TouchableOpacity onPress={() => router.push("/(auth)/signIn")}>
-            <Text style={styles.footerLink}>Sign in</Text>
+            <Text style={styles.footerLink}>Đăng nhập</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -259,16 +329,41 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: "#d2d2d7",
-    padding: 10,
     backgroundColor: "#f9f9f9d6",
     fontFamily: "Poppins",
     fontSize: 14,
+    color: "#1D1D1F",
   },
-  errorText: {
-    color: "red",
+  textInput: {
+    paddingHorizontal: 15,
+  },
+  passwordContainer: {
+    position: 'relative',
+    width: '100%',
+  },
+  passwordInput: {
+    paddingHorizontal: 15,
+    paddingRight: 50, // Space for the eye icon
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 12,
+    top: 11,
+    padding: 5,
+  },
+  fieldErrorText: {
+    color: "#FF3B30",
+    fontFamily: "Poppins", 
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 5,
+  },
+  passwordHint: {
+    color: "#666666",
     fontFamily: "Poppins",
-    fontSize: 14,
-    marginBottom: 10,
+    fontSize: 11,
+    marginTop: 5,
+    marginLeft: 5,
   },
   button: {
     width: "100%",
@@ -280,6 +375,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 20,
   },
+  buttonDisabled: {
+    backgroundColor: "#888888",
+  },
   buttonText: {
     color: "#ffffff",
     fontFamily: "Poppins",
@@ -287,7 +385,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   footer: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 5,
   },
   footerText: {
     fontFamily: "Poppins",
@@ -300,7 +400,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
     color: "#030303",
-    textDecorationLine: "underline",
   },
 });
 

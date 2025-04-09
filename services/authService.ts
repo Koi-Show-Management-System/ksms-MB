@@ -39,8 +39,15 @@ export const login = async (email: string, password: string) => {
       throw new Error(response.data.message || "Login failed");
     }
   } catch (error: any) {
-    console.error("Login error:", error);
-    throw new Error(error.response?.data?.message || "Login failed. Please check your credentials.");
+    console.error("Login error:", error); // Giữ lại log để debug nếu cần
+    // Kiểm tra xem interceptor có xử lý lỗi cụ thể không (dựa trên trường 'Error')
+    if (error.response?.data?.Error) {
+        // Interceptor đã hiển thị Toast, chỉ cần ném lại lỗi gốc
+        throw error;
+    } else {
+        // Interceptor không hiển thị lỗi cụ thể, throw lỗi với message fallback
+        throw new Error(error.response?.data?.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+    }
   }
 };
 
@@ -88,7 +95,14 @@ export const register = async (
       throw new Error(response.data.message || "Registration failed");
     }
   } catch (error: any) {
-    console.error("Registration error:", error);
-    throw new Error(error.response?.data?.message || "Registration failed. Please try again.");
+    console.error("Registration error:", error); // Giữ lại log để debug nếu cần
+    // Kiểm tra xem interceptor có xử lý lỗi cụ thể không (dựa trên trường 'Error')
+    if (error.response?.data?.Error) {
+        // Interceptor đã hiển thị Toast, chỉ cần ném lại lỗi gốc
+        throw error;
+    } else {
+        // Interceptor không hiển thị lỗi cụ thể, throw lỗi với message fallback
+        throw new Error(error.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại.");
+    }
   }
 };

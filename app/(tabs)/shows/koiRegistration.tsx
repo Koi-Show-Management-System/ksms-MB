@@ -239,6 +239,7 @@ const KoiRegistrationScreen: React.FC = () => {
   const [koiVariety, setKoiVariety] = useState("");
   const [koiDescription, setKoiDescription] = useState("");
 
+  const [registerNameInput, setRegisterNameInput] = useState(""); // State mới cho tên đăng ký
   // Media and API states
   const [koiProfiles, setKoiProfiles] = useState<KoiProfile[]>([]);
   const [selectedKoiProfile, setSelectedKoiProfile] =
@@ -770,6 +771,11 @@ const KoiRegistrationScreen: React.FC = () => {
       Alert.alert("Cần lựa chọn", "Vui lòng chọn hoặc tạo một koi profile");
       return;
     }
+    if (!registerNameInput.trim()) {
+      Alert.alert("Cần thông tin", "Vui lòng nhập Tên Đăng Ký Thi Đấu");
+      return;
+    }
+
 
     if (!showId) {
       Alert.alert("Lỗi", "ID cuộc thi không tồn tại. Vui lòng quay lại và thử lại.");
@@ -811,7 +817,7 @@ const KoiRegistrationScreen: React.FC = () => {
       formData.append('KoiShowId', showId);
       formData.append('CompetitionCategoryId', selectedCategory.id);
       formData.append('KoiProfileId', selectedKoiProfile.id);
-      formData.append('RegisterName', koiName);
+      formData.append('RegisterName', registerNameInput);
       formData.append('Notes', koiDescription);
 
       // Log registration parameters
@@ -819,7 +825,7 @@ const KoiRegistrationScreen: React.FC = () => {
         KoiShowId: showId,
         CompetitionCategoryId: selectedCategory.id,
         KoiProfileId: selectedKoiProfile.id,
-        RegisterName: koiName,
+        RegisterName: registerNameInput,
         Notes: koiDescription,
         Size: koiSize,
         Category: selectedCategory.name,
@@ -2213,6 +2219,20 @@ const KoiRegistrationScreen: React.FC = () => {
                     />
                   </View>
 
+                  {/* Input for Register Name */}
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Tên Đăng Ký Thi Đấu</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Nhập tên bạn muốn hiển thị khi thi đấu"
+                      placeholderTextColor="#94a3b8"
+                      value={registerNameInput}
+                      onChangeText={setRegisterNameInput}
+                    />
+                    {/* Optional: Add validation error display here */}
+                  </View>
+
+
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Kích thước Koi</Text>
                     <View style={styles.formRow}>
@@ -2922,78 +2942,11 @@ const styles = StyleSheet.create({
     color: "#000000",
     marginBottom: 4,
   },
-  categoryCard: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: "#FFFFFF",
-    width: 270,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    marginVertical: 4,
-  },
-  categoryCardSelected: {
-    borderColor: "#5664F5",
-    borderWidth: 2,
-    backgroundColor: "#F9FAFF",
-  },
-  categoryHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  categoryName: {
-    fontFamily: "Lexend Deca",
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-  },
-  categoryFeeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    backgroundColor: '#FEF2F2',
-    padding: 8,
-    borderRadius: 6,
-  },
-  categoryFeeLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#991B1B',
-    marginRight: 4,
-  },
-  categoryFee: {
-    fontFamily: "Roboto",
-    fontSize: 16,
-    color: "#EF4444",
-    fontWeight: "600",
-  },
   categoryDescription: {
     fontFamily: "Roboto",
     fontSize: 14,
     color: "#333333",
     marginBottom: 10,
-  },
-  categoryDetailsContainer: {
-    backgroundColor: '#F9FAFB',
-    padding: 8,
-    borderRadius: 6,
-    marginBottom: 12,
-  },
-  categoryDetailItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  categoryDetailLabel: {
-    fontSize: 13,
-    color: '#4B5563',
-    fontWeight: '500',
-  },
-  categoryDetailValue: {
-    fontSize: 13,
-    color: '#000000',
-    fontWeight: '500',
   },
   varietiesContainer: {
     marginTop: 8,
@@ -3017,11 +2970,6 @@ const styles = StyleSheet.create({
     marginRight: 6,
     marginBottom: 6,
     backgroundColor: "#F9FAFB",
-  },
-  varietyTagText: {
-    fontFamily: "Roboto",
-    fontSize: 13,
-    color: "#000000",
   },
   selectionModeContainer: {
     flexDirection: "row",
@@ -3057,19 +3005,6 @@ const styles = StyleSheet.create({
     color: "#64748B",
   },
   selectionModeOptionTextActive: {
-    color: "#FFFFFF",
-  },
-  selectedBadge: {
-    padding: 6,
-    backgroundColor: "#5664F5",
-    borderRadius: 4,
-    marginTop: 12,
-    alignItems: "center",
-  },
-  selectedBadgeText: {
-    fontFamily: "Roboto",
-    fontSize: 12,
-    fontWeight: "500",
     color: "#FFFFFF",
   },
   categoryInfoError: {
@@ -3165,28 +3100,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 14,
     fontStyle: 'italic',
-  },
-  categoriesContainer: {
-    marginBottom: 20,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  categoriesHeader: {
-    marginBottom: 12,
-  },
-  categoriesContainer: {
-    marginBottom: 20,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  categoriesHeader: {
-    marginBottom: 12,
   },
   categoryErrorTips: {
     backgroundColor: '#FEF9C3', 

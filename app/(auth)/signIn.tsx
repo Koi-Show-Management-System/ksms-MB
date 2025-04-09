@@ -9,7 +9,25 @@ import {
   View,
   ActivityIndicator,
 } from "react-native";
+import { z } from "zod";
 import { login } from "../../services/authService";
+import { Ionicons } from '@expo/vector-icons';
+
+// Define validation schema using zod
+const signInSchema = z.object({
+  email: z.string()
+    .min(1, "Email không được để trống")
+    .email("Email không hợp lệ")
+    .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Email không đúng định dạng"),
+  password: z.string()
+    .min(1, "Mật khẩu không được để trống"),
+});
+
+// Type for validation errors state
+interface ValidationErrors {
+  email?: string[];
+  password?: string[];
+}
 
 interface SignInProps {
   onSignIn?: () => void;
@@ -27,30 +45,34 @@ const SignIn: React.FC<SignInProps> = ({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
 
   const handleSignIn = async () => {
-    if (!email || !password) {
-      setErrorMessage("Please enter both email and password test!!!!");
+    // Validate form data using zod schema
+    const validationResult = signInSchema.safeParse({ email, password });
+
+    if (!validationResult.success) {
+      // If validation fails, format errors and update state
+      const formattedErrors = validationResult.error.flatten().fieldErrors;
+      setValidationErrors(formattedErrors);
+      setIsLoading(false);
       return;
     }
 
+    // Clear previous errors if validation passes
+    setValidationErrors({});
     setIsLoading(true);
-    setErrorMessage("");
 
     try {
-      await login(email, password);
-
+      // Call login service with validated data
+      await login(validationResult.data.email, validationResult.data.password);
       console.log("Login successful");
-
-      // Navigate to home page
+      // Navigate on success (interceptor handles success toast if API returns message)
       router.push("/(tabs)/home/homepage");
     } catch (error: any) {
-      const message =
-        error.response?.data?.message ||
-        "Login failed. Please check your credentials.";
-      setErrorMessage(message);
-      console.error("Login failed:", message);
+      // Interceptor handles API error toasts.
+      console.error("Login failed in component catch:", error);
     } finally {
       setIsLoading(false);
     }
@@ -66,18 +88,14 @@ const SignIn: React.FC<SignInProps> = ({
       />
 
       <Text style={styles.title}>KSMS</Text>
-      <Text style={styles.subtitle}>Join the Koi community today!</Text>
+      <Text style={styles.subtitle}>Chào mừng bạn trở lại!</Text>
 
       <View style={styles.formContainer}>
-        {errorMessage ? (
-          <Text style={styles.errorText}>{errorMessage}</Text>
-        ) : null}
-
-        <Text style={styles.label}>Email address *</Text>
+        <Text style={styles.label}>Email *</Text>
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="Email@email.com"
+            placeholder="email@email.com"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -90,23 +108,35 @@ const SignIn: React.FC<SignInProps> = ({
             style={styles.inputIcon}
           />
         </View>
+        {/* Display email validation error */}
+        {validationErrors.email && (
+          <Text style={styles.fieldErrorText}>{validationErrors.email[0]}</Text>
+        )}
 
-        <Text style={styles.label}>Password *</Text>
+        <Text style={styles.label}>Mật khẩu *</Text>
         <View style={styles.inputContainer}>
           <TextInput
-            style={styles.input}
-            placeholder="************"
+            style={[styles.input, styles.passwordInput]}
+            placeholder="******"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
           />
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z5ve2-xZjZ9DnB_k/frame-2.png",
-            }}
-            style={styles.inputIcon}
-          />
+          <TouchableOpacity
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Ionicons 
+              name={showPassword ? "eye-outline" : "eye-off-outline"} 
+              size={24} 
+              color="#666"
+            />
+          </TouchableOpacity>
         </View>
+        {/* Display password validation error */}
+        {validationErrors.password && (
+          <Text style={styles.fieldErrorText}>{validationErrors.password[0]}</Text>
+        )}
 
         <TouchableOpacity
           style={[styles.joinButton, isLoading && styles.joinButtonDisabled]}
@@ -116,14 +146,14 @@ const SignIn: React.FC<SignInProps> = ({
           {isLoading ? (
             <ActivityIndicator size="small" color="#FFFFFF" />
           ) : (
-            <Text style={styles.joinButtonText}>Join now</Text>
+            <Text style={styles.joinButtonText}>Đăng nhập</Text>
           )}
         </TouchableOpacity>
 
         <View style={styles.signupContainer}>
-          <Text style={styles.signupText}>New to KSMS?</Text>
+          <Text style={styles.signupText}>Chưa có tài khoản?</Text>
           <TouchableOpacity onPress={onSignUp}>
-            <Text style={styles.signupLink}>Sign up</Text>
+            <Text style={styles.signupLink}>Đăng ký</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -178,6 +208,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 20,
+    position: 'relative',
   },
   input: {
     flex: 1,
@@ -187,10 +218,18 @@ const styles = StyleSheet.create({
     color: "#1D1D1F",
     paddingHorizontal: 15,
   },
+  passwordInput: {
+    paddingRight: 50, // Space for the eye icon
+  },
   inputIcon: {
     width: 16,
     height: 16,
     marginRight: 15,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 12,
+    padding: 5,
   },
   joinButton: {
     width: "100%",
@@ -212,13 +251,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 20,
+    gap: 5,
   },
   signupText: {
     fontFamily: "Poppins",
     fontSize: 14,
     fontWeight: "400",
     color: "#030303",
-    marginRight: 5,
   },
   signupLink: {
     fontFamily: "Poppins",
@@ -226,12 +265,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#030303",
   },
-  errorText: {
+  fieldErrorText: {
     color: "#FF3B30",
     fontFamily: "Poppins",
-    fontSize: 14,
-    marginBottom: 10,
-    textAlign: "center",
+    fontSize: 12,
+    marginBottom: 15,
+    alignSelf: 'flex-start',
+    marginLeft: 5,
   },
   joinButtonDisabled: {
     backgroundColor: "#888888",

@@ -261,6 +261,26 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
   );
 };
 
+// Thêm hàm helper để chuyển đổi URL ảnh thành File
+const urlToFile = async (url: string | null | undefined, fileName: string): Promise<File | null> => {
+  if (!url) return null;
+  
+  try {
+    // Tránh xử lý URL nếu là đường dẫn tương đối
+    if (!url.startsWith('http') && !url.startsWith('blob:')) {
+      return null;
+    }
+    
+    const response = await fetch(url);
+    const blob = await response.blob();
+    // Tạo File object từ Blob
+    return new File([blob], fileName, { type: blob.type });
+  } catch (error) {
+    console.error("Lỗi khi chuyển đổi URL thành File:", error);
+    return null;
+  }
+};
+
 // --- Main UserProfile Component ---
 const UserProfile: React.FC = () => {
   const [userData, setUserData] = useState<UserData>({
@@ -336,9 +356,40 @@ const UserProfile: React.FC = () => {
 
       // Tạo FormData object để gửi cả dữ liệu văn bản và tệp
       const formData = new FormData();
+      
+      // Thêm tất cả thông tin hiện tại vào FormData
       formData.append("FullName", updateData.fullName);
       formData.append("Username", updateData.username);
       formData.append("Phone", updateData.phone);
+      
+      // Thêm các trường khác từ userData để đảm bảo không mất dữ liệu
+      if (userData.email) formData.append("Email", userData.email);
+      if (userData.location) formData.append("Location", userData.location);
+      if (userData.role) formData.append("Role", userData.role);
+      if (userData.status) formData.append("Status", userData.status);
+      
+      // Nếu đã có ảnh đại diện, chuyển đổi URL thành file và thêm vào FormData
+      if (userData.profileImage || userData.avatar) {
+        const avatarUrl = userData.profileImage || userData.avatar;
+        try {
+          // Chỉ tạo file khi ảnh là URL tuyệt đối (không phải đường dẫn tương đối)
+          if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('blob:'))) {
+            const response = await fetch(avatarUrl);
+            const blob = await response.blob();
+            const filename = avatarUrl.split('/').pop() || 'avatar.jpg';
+            
+            // @ts-ignore - React Native's FormData is not fully compatible with TypeScript definitions
+            formData.append('AvatarUrl', {
+              uri: avatarUrl,
+              name: filename,
+              type: blob.type || 'image/jpeg'
+            });
+          }
+        } catch (error) {
+          console.error("Lỗi khi chuyển đổi ảnh đại diện:", error);
+          // Tiếp tục mà không thêm ảnh nếu xảy ra lỗi
+        }
+      }
 
       const response = await api.put(`/api/v1/account/${userId}`, formData, {
         headers: {
@@ -404,6 +455,17 @@ const UserProfile: React.FC = () => {
             name: filename,
             type
           });
+          
+          // Thêm tất cả thông tin hiện tại vào FormData
+          formData.append("FullName", userData.fullName || "");
+          formData.append("Username", userData.username || "");
+          formData.append("Phone", userData.phone || userData.phoneNumber || "");
+          
+          // Thêm các trường khác từ userData để đảm bảo không mất dữ liệu
+          if (userData.email) formData.append("Email", userData.email);
+          if (userData.location) formData.append("Location", userData.location);
+          if (userData.role) formData.append("Role", userData.role);
+          if (userData.status) formData.append("Status", userData.status);
           
           const response = await api.put(`/api/v1/account/${userId}`, formData, {
             headers: {
@@ -652,95 +714,31 @@ const UserProfile: React.FC = () => {
         </View>
       </View>
 
-      {/* Settings Section */}
-      <View style={styles.settingsSection}>
-        <Text style={styles.sectionTitle}>Cài đặt</Text>
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingIconContainer}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/bell.png",
-              }}
-              style={styles.settingIcon}
-            />
-          </View>
-          <Text style={styles.settingText}>Thông báo</Text>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
-            }}
-            style={styles.arrowIcon}
-          />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingIconContainer}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/lock.png",
-              }}
-              style={styles.settingIcon}
-            />
-          </View>
-          <Text style={styles.settingText}>Quyền riêng tư & Bảo mật</Text>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
-            }}
-            style={styles.arrowIcon}
-          />
-        </TouchableOpacity>
+      {/* Nút đổi mật khẩu và đăng xuất */}
+      <View style={styles.actionsContainer}>
+        <Text style={styles.sectionTitle}>Quản lý tài khoản</Text>
         <TouchableOpacity
-          style={styles.settingItem}
+          style={[styles.actionButton, styles.changePasswordButton]}
           onPress={() => setPasswordModalVisible(true)}>
-          <View style={styles.settingIconContainer}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/key.png",
-              }}
-              style={styles.settingIcon}
-            />
-          </View>
-          <Text style={styles.settingText}>Đổi mật khẩu</Text>
           <Image
             source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/key.png",
             }}
-            style={styles.arrowIcon}
+            style={styles.actionButtonIcon}
           />
+          <Text style={styles.actionButtonText}>Đổi Mật Khẩu</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.settingItem}>
-          <View style={styles.settingIconContainer}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/help.png",
-              }}
-              style={styles.settingIcon}
-            />
-          </View>
-          <Text style={styles.settingText}>Trợ giúp & Hỗ trợ</Text>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.logoutButton]}
+          onPress={handleLogout}>
           <Image
             source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
+              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/logout.png",
             }}
-            style={styles.arrowIcon}
+            style={styles.actionButtonIcon}
           />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
-          <View style={styles.settingIconContainer}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/logout.png",
-              }}
-              style={styles.settingIcon}
-            />
-          </View>
-          <Text style={[styles.settingText, styles.logoutText]}>Đăng xuất</Text>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/arrow.png",
-            }}
-            style={styles.arrowIcon}
-          />
+          <Text style={styles.actionButtonText}>Đăng Xuất</Text>
         </TouchableOpacity>
       </View>
 
@@ -967,42 +965,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFFFFF",
   },
-  settingsSection: {
-    padding: 16,
-    marginTop: 20,
-  },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
-  },
-  settingIconContainer: {
-    width: 24,
-    height: 24,
-    marginRight: 16,
-  },
-  settingIcon: {
-    width: "100%",
-    height: "100%",
-  },
-  settingText: {
-    fontFamily: "Poppins",
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333333",
-    flex: 1,
-  },
-  arrowIcon: {
-    width: 16,
-    height: 16,
-    tintColor: "#666666",
-  },
-  logoutText: {
-    color: "#E74C3C",
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -1055,7 +1017,8 @@ const styles = StyleSheet.create({
   actionsContainer: {
     width: "100%",
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 24,
+    marginTop: 16,
   },
   actionButton: {
     flexDirection: "row",

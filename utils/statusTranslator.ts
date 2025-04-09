@@ -29,6 +29,10 @@ const statusMap: Record<string, string> = {
   notqualified: "Không đủ điều kiện", // Thêm từ FishStatus.tsx
   cancelledbyuser: "Hủy bởi người dùng", // Thêm từ FishStatus.tsx
   cancelledbysystem: "Hủy bởi hệ thống", // Thêm từ FishStatus.tsx
+  Evaluation: "Vòng Đánh Giá",
+  Preliminary: "Vòng Sơ Khảo",
+  Final: "Vòng Chung Kết",
+
 };
 
 /**
