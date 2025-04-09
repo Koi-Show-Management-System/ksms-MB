@@ -13,8 +13,8 @@ import "react-native-reanimated";
 import { QueryProvider } from "../context/QueryProvider";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { enableScreens } from "react-native-screens";
-import Toast from 'react-native-toast-message'; // <-- Thêm import
-// import { navigationRef } from '@/utils/navigationService'; // <-- Xóa import không sử dụng
+import Toast from 'react-native-toast-message';
+// import { navigationRef } from '@/utils/navigationService';
 enableScreens(true);
 SplashScreen.preventAutoHideAsync();
 
@@ -39,7 +39,7 @@ export default function RootLayout() {
       <QueryProvider>
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <Stack
-            // ref={navigationRef} // <-- Xóa ref khỏi Stack component
+            // ref={navigationRef}
             screenOptions={{
               headerShown: false,
               animation: 'fade',
@@ -56,7 +56,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
-          <Toast /> {/* <-- Thêm component Toast */}
+          <Toast />
         </ThemeProvider>
       </QueryProvider>
     </SafeAreaProvider>

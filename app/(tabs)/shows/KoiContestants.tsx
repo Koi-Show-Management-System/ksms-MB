@@ -281,6 +281,15 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                 <Text style={styles.rankText}>#{item.rank}</Text>
               </View>
             )}
+            
+            {/* Hiển thị mã đăng ký */}
+            {(item.registration.registrationNumber || item.id) && (
+              <View style={styles.registrationBadge}>
+                <Text style={styles.registrationText}>
+                  #{item.registration.registrationNumber || item.id.substring(0, 8)}
+                </Text>
+              </View>
+            )}
           </View>
           <View style={styles.contestantInfo}>
             <Text style={styles.contestantName} numberOfLines={1}>
@@ -544,7 +553,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                       <View style={styles.infoContainer}>
                         <InfoRow 
                           label="Mã Đăng Ký" 
-                          value={selectedContestant.id.substring(0, 8)} 
+                          value={selectedContestant.registration.registrationNumber || selectedContestant.id.substring(0, 8)} 
                         />
                         <InfoRow 
                           label="Tên Người Đăng Ký" 
@@ -1460,6 +1469,20 @@ const styles = StyleSheet.create({
   activePageIndicatorText: {
     color: '#ffffff',
     fontWeight: '600',
+  },
+  registrationBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  registrationText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 

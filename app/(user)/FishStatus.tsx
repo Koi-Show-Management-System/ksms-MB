@@ -346,7 +346,7 @@ const PaymentInfo: React.FC<PaymentInfoProps> = ({
         
         {qrcodeData && (
           <View style={styles.qrcodeContainer}>
-            <Text style={styles.qrcodeLabel}>Mã QR thanh toán:</Text>
+            <Text style={styles.qrcodeLabel}>Mã QR Checkin:</Text>
             <Image 
               source={{ uri: qrcodeData }} 
               style={styles.qrcodeImage} 
