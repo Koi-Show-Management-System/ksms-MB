@@ -106,8 +106,8 @@ const KoiShowsPage: React.FC = () => {
       // Lọc danh sách shows dựa vào tab đang active
       const filteredShows = result.items.filter(show => 
         activeTab === 0 
-          ? show.status === "upcoming" 
-          : show.status === "completed"
+          ? show.status !== "finished" && show.status !== "completed" 
+          : show.status === "completed" || show.status === "finished"
       );
       
       setShows(filteredShows);
@@ -177,7 +177,7 @@ const KoiShowsPage: React.FC = () => {
     <View style={styles.tabsContainer}>
       <BlurView intensity={90} tint="light" style={styles.blurView}>
         <View style={styles.tabs}>
-          {["Sắp Diễn Ra", "Đã Kết Thúc"].map((label, index) => (
+          {["Đang Diễn Ra", "Đã Kết Thúc"].map((label, index) => (
             <TouchableOpacity
               key={index}
               style={[styles.tab, activeTab === index && styles.activeTab]}
@@ -294,7 +294,7 @@ const KoiShowsPage: React.FC = () => {
         <View style={styles.emptyContainer}>
           <Ionicons name="calendar-outline" size={48} color="#94A3B8" />
           <Text style={styles.emptyText}>
-            Không có {activeTab === 0 ? "sự kiện sắp tới" : "sự kiện đã qua"}
+            Không có {activeTab === 0 ? "sự kiện đang diễn ra" : "sự kiện đã kết thúc"}
           </Text>
         </View>
       );
