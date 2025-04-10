@@ -1,3 +1,5 @@
+import { FontAwesome } from "@expo/vector-icons";
+
 import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState, useCallback, memo } from "react";
@@ -13,6 +15,8 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import KoiContestants from "./KoiContestants";
+import KoiShowResults from "./KoiShowResults"; // Quay lại đường dẫn tương đối
+
 import { KoiShowProvider, useKoiShow } from "../../../context/KoiShowContext";
 import { CompetitionCategory } from "../../../services/registrationService";
 
@@ -155,7 +159,7 @@ const KoiShowInformationContent: React.FC = () => {
     rules: false,
     timeline: false, // Renamed from enteringKoi
   });
-  const [activeTab, setActiveTab] = useState('info'); // 'info' or 'contestants'
+  const [activeTab, setActiveTab] = useState<'info' | 'contestants' | 'results'>('info'); // 'info', 'contestants', or 'results'
   
   // Memo key extractor for FlatList
   const keyExtractor = useCallback((item: CompetitionCategory) => item.id, []);
@@ -341,31 +345,44 @@ const KoiShowInformationContent: React.FC = () => {
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'info' && styles.activeTabButton]}
-          onPress={() => setActiveTab('info')}>
-          <MaterialIcons 
-            name="info-outline" 
-            size={18} 
-            color={activeTab === 'info' ? "#000000" : "#666666"} 
-          />
-          <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>
-            Thông tin
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'contestants' && styles.activeTabButton]}
-          onPress={() => setActiveTab('contestants')}>
-          <Ionicons 
-            name="fish" 
-            size={16} 
-            color={activeTab === 'contestants' ? "#000000" : "#666666"} 
-          />
-          <Text style={[styles.tabText, activeTab === 'contestants' && styles.activeTabText]}>
-            Thí sinh
-          </Text>
-        </TouchableOpacity>
+      	<TouchableOpacity
+      		style={[styles.tabButton, activeTab === 'info' && styles.activeTabButton]}
+      		onPress={() => setActiveTab('info')}>
+      		<MaterialIcons
+      			name="info-outline"
+      			size={18}
+      			color={activeTab === 'info' ? "#000000" : "#666666"}
+      		/>
+      		<Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>
+      			Thông tin
+      		</Text>
+      	</TouchableOpacity>
+   
+      	<TouchableOpacity
+      		style={[styles.tabButton, activeTab === 'contestants' && styles.activeTabButton]}
+      		onPress={() => setActiveTab('contestants')}>
+      		<Ionicons
+      			name="fish"
+      			size={16}
+      			color={activeTab === 'contestants' ? "#000000" : "#666666"}
+      		/>
+      		<Text style={[styles.tabText, activeTab === 'contestants' && styles.activeTabText]}>
+      			Thí sinh
+      		</Text>
+      	</TouchableOpacity>
+   
+           <TouchableOpacity
+             style={[styles.tabButton, activeTab === 'results' && styles.activeTabButton]}
+             onPress={() => setActiveTab('results')}>
+             <FontAwesome
+               name="trophy"
+               size={18}
+               color={activeTab === 'results' ? "#000000" : "#666666"}
+             />
+             <Text style={[styles.tabText, activeTab === 'results' && styles.activeTabText]}>
+               Kết quả
+             </Text>
+           </TouchableOpacity>
       </View>
 
       {/* Nội dung Tab */}
@@ -702,9 +719,13 @@ const KoiShowInformationContent: React.FC = () => {
           </View>
         </ScrollView>
       ) : (
-        // Tab Thí sinh
-        <KoiContestants showId={showData.id} />
-      )}
+            // Tab Thí sinh
+            activeTab === 'contestants' ? (
+              <KoiContestants showId={showData.id} />
+            ) : ( // Tab Kết quả
+              <KoiShowResults showId={showData.id} /> // Component mới sẽ tạo ở bước sau
+            )
+          )}
 
       {/* Footer với 2 nút: đăng ký thi đấu và mua vé */}
       <View style={styles.footer}>
@@ -1315,25 +1336,26 @@ const styles = StyleSheet.create({
   },
   // Thêm styles cho tab
   tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+  	flexDirection: 'row',
+  	backgroundColor: '#ffffff',
+  	paddingHorizontal: 16,
+  	paddingBottom: 10,
+  	borderBottomWidth: 1,
+  	borderBottomColor: '#e5e7eb',
+     // Bỏ gap
   },
   tabButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
-    borderRadius: 20,
+  	flexDirection: 'row',
+  	alignItems: 'center',
+  	paddingVertical: 8,
+  	paddingHorizontal: 16,
+  	marginRight: 8, // Thêm lại marginRight
+  	borderRadius: 20,
+     // Bỏ border
   },
   activeTabButton: {
-    backgroundColor: '#f0f0f0',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+  	backgroundColor: '#f0f0f0', // Style active mong muốn
+     // Bỏ borderColor
   },
   tabText: {
     fontSize: 14,
