@@ -4,7 +4,7 @@ import MainLayout from '@/components/MainLayout';
 
 export default function AuthLayout() {
   return (
-    <MainLayout title="Đăng nhập / Đăng ký" description="Chào mừng đến với KSMS" showFooter={false}>
+    <MainLayout title="Đăng nhập / Đăng ký" description="Chào mừng đến với KSMS" showFooter={false} showHeader={false}>
       <Stack>
         <Stack.Screen name="signIn" options={{ headerShown: false }} />
         <Stack.Screen name="signUp" options={{ headerShown: false }} />

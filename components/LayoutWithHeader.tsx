@@ -6,16 +6,18 @@ interface LayoutWithHeaderProps {
   children: ReactNode;
   title?: string;
   description?: string;
+  showHeader?: boolean;
 }
 
 const LayoutWithHeader: React.FC<LayoutWithHeaderProps> = ({
   children,
   title = 'KSMS',
   description = '',
+  showHeader = true,
 }) => {
   return (
     <View style={styles.container}>
-      <Header title={title} description={description} />
+      {showHeader && <Header title={title} />}
       <View style={styles.content}>
         {children}
       </View>

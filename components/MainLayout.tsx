@@ -7,6 +7,7 @@ interface MainLayoutProps {
   title?: string;
   description?: string;
   showFooter?: boolean;
+  showHeader?: boolean;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({
@@ -14,10 +15,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   title = 'KSMS',
   description = '',
   showFooter = true,
+  showHeader = true,
 }) => {
   return (
     <LayoutWithFooter showFooter={showFooter}>
-      <LayoutWithHeader title={title} description={description}>
+      <LayoutWithHeader title={title} description={description} showHeader={showHeader}>
         {children}
       </LayoutWithHeader>
     </LayoutWithFooter>
