@@ -110,6 +110,14 @@ export interface ShowDetailPayment {
   status: string;
 }
 
+// Interface cho thông tin giải thưởng trong registration
+interface AwardInfo {
+  categoryName: string;
+  awardType: string;
+  awardName: string;
+  prizeValue: number;
+}
+
 // Interface cho registration item trong show detail
 export interface ShowDetailRegistration {
   registrationId: string;
@@ -128,7 +136,7 @@ export interface ShowDetailRegistration {
   categoryName: string;
   registrationFee: number;
   rank: number | null;
-  award: string | null;
+  awards: AwardInfo[]; // Thay đổi từ award: string | null
   currentRound: string | null;
   eliminatedAtRound: string | null;
   payment: ShowDetailPayment;

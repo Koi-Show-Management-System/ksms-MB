@@ -253,11 +253,6 @@ const Homepage: React.FC = () => {
 
       shortDescription += `${formatDate(show.startDate)} - ${formatDate(show.endDate)}`;
 
-      // Thêm phí đăng ký nếu có
-      if (show.registrationFee) {
-        shortDescription += ` • ${show.registrationFee.toLocaleString()} VND`;
-      }
-
       return {
         uri: show.imgUrl && show.imgUrl.startsWith("http")
           ? show.imgUrl
@@ -296,15 +291,6 @@ const Homepage: React.FC = () => {
       handleShowPress(item.showData);
     }
   }, [handleShowPress]);
-
-  // Cập nhật handler cho registration
-  const handleRegistrationPress = useCallback((show: KoiShow) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push({
-      pathname: "/(tabs)/shows/KoiRegistration" as const,
-      params: { id: show.id }
-    });
-  }, []);
 
   // Quick access routes
   const quickAccessRoutes = [
@@ -369,16 +355,6 @@ const Homepage: React.FC = () => {
       </View>
     );
   }, [quickAccessRoutes]);
-
-  // Update the registration fee display with improved styling
-  const renderRegistrationFee = useCallback((show: KoiShow) => {
-    const fee = show.registrationFee || 0;
-    return (
-      <Text style={styles.registrationFee}>
-        {fee.toLocaleString()} <Text style={styles.currencyText}>VND</Text>
-      </Text>
-    );
-  }, []);
 
   // Render a carousel for shows with parallax effect
   const renderShowCarousel = useCallback((statusShows: KoiShow[], title: string, sectionPosition = 600, showSearch = false) => {
@@ -504,14 +480,6 @@ const Homepage: React.FC = () => {
                           colors={['#F8F8F8', '#FFFFFF']}
                           style={styles.cardFooter}
                         >
-                          <LinearGradient
-                            colors={COLORS.primaryGradient}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={styles.feeContainer}
-                          >
-                            {renderRegistrationFee(show)}
-                          </LinearGradient>
                           <View style={styles.participantInfo}>
                             <Ionicons
                               name="people-outline"
@@ -549,7 +517,7 @@ const Homepage: React.FC = () => {
         </View>
       </>
     );
-  }, [scrollY, isSearchFocused, loading, searchQuery, handleShowPress, formatDate, renderRegistrationFee]);
+  }, [scrollY, isSearchFocused, loading, searchQuery, handleShowPress, formatDate]);
 
   // Render search bar component for shows
   const renderShowSearchBar = useCallback(() => {
@@ -1316,29 +1284,13 @@ const styles = StyleSheet.create({
   },
   cardFooter: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "center",
     marginTop: 14,
     paddingTop: 14,
     paddingHorizontal: 2,
     borderTopWidth: 0,
     borderRadius: 12,
-  },
-  feeContainer: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  registrationFee: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.text.light,
-    letterSpacing: 0.5,
-  },
-  currencyText: {
-    fontSize: 12,
-    fontWeight: "600",
-    opacity: 0.9,
   },
   participantInfo: {
     flexDirection: "row",
