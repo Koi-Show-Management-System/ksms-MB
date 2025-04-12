@@ -25,7 +25,7 @@ on:
 jobs:
   build:
     name: EAS Build Android
-    runs-on: self-hosted
+    runs-on: [self-hosted, google]  # Chỉ định runner "google"
     
     steps:
       - name: Checkout repository
@@ -49,7 +49,6 @@ jobs:
           mkdir -p $HOME/expo-tmp
           mkdir -p $HOME/eas-builds/working
           mkdir -p $HOME/eas-builds/artifacts
-          mkdir -p $HOME/.gradle
           
           # Tạo thư mục lưu trữ APK theo ngày
           BUILD_DATE=$(date +"%Y-%m-%d")
@@ -62,25 +61,16 @@ jobs:
           echo "EAS_LOCAL_BUILD_WORKINGDIR=$HOME/eas-builds/working" >> $GITHUB_ENV
           echo "EAS_LOCAL_BUILD_ARTIFACTS_DIR=$HOME/eas-builds/artifacts" >> $GITHUB_ENV
           echo "EAS_LOCAL_BUILD_SKIP_CLEANUP=1" >> $GITHUB_ENV
-          echo "GRADLE_USER_HOME=$HOME/.gradle" >> $GITHUB_ENV
-          echo "GRADLE_OPTS=-Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=true -Dorg.gradle.parallel=true" >> $GITHUB_ENV
           echo "BUILD_TIMESTAMP=$(date +"%Y%m%d_%H%M%S")" >> $GITHUB_ENV
       
       - name: Install dependencies
         run: yarn install
       
-      - name: Setup EAS CLI
-        run: |
-          npm install -g eas-cli
-          eas --version
-      
       - name: Authenticate with Expo
         run: |
           if [ -n "${{ secrets.EXPO_TOKEN }}" ]; then
-            echo "Using EXPO_TOKEN for authentication"
             export EXPO_TOKEN="${{ secrets.EXPO_TOKEN }}"
           else
-            echo "EXPO_TOKEN not found, trying username and password authentication"
             npx expo login -u ${{ secrets.EXPO_USERNAME }} -p ${{ secrets.EXPO_PASSWORD }}
           fi
       
@@ -112,7 +102,6 @@ jobs:
             cp "${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}/build-metadata.txt" "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
             
             echo "APK saved to ${{ env.STORAGE_DIR }}/$APK_FILENAME"
-            echo "APK_PATH=${{ env.STORAGE_DIR }}/$APK_FILENAME" >> $GITHUB_ENV
           else
             echo "No APK file found in artifacts directory!"
             exit 1
