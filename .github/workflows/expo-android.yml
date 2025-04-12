@@ -1,6 +1,5 @@
 name: EAS Build Android
 
-# Trigger workflow khi push, pull request, hoặc kích hoạt thủ công
 on:
   push:
     branches: [ main, develop ]
@@ -25,7 +24,7 @@ on:
 jobs:
   build:
     name: EAS Build Android
-    runs-on: [self-hosted, google]  # Chỉ định runner "google"
+    runs-on: [google]
     
     steps:
       - name: Checkout repository
@@ -56,15 +55,25 @@ jobs:
           mkdir -p $STORAGE_DIR
           echo "STORAGE_DIR=$STORAGE_DIR" >> $GITHUB_ENV
           
+          # Xóa dữ liệu build cũ
+          rm -rf $HOME/eas-builds/working/*
+          rm -rf $HOME/expo-tmp/*
+          rm -rf $HOME/eas-builds/artifacts/*
+          
           # Thiết lập và lưu biến môi trường
           echo "TMPDIR=$HOME/expo-tmp" >> $GITHUB_ENV
           echo "EAS_LOCAL_BUILD_WORKINGDIR=$HOME/eas-builds/working" >> $GITHUB_ENV
           echo "EAS_LOCAL_BUILD_ARTIFACTS_DIR=$HOME/eas-builds/artifacts" >> $GITHUB_ENV
           echo "EAS_LOCAL_BUILD_SKIP_CLEANUP=1" >> $GITHUB_ENV
           echo "BUILD_TIMESTAMP=$(date +"%Y%m%d_%H%M%S")" >> $GITHUB_ENV
+          
+          # Hiển thị không gian đĩa
+          echo "Disk space:"
+          df -h
       
       - name: Install dependencies
-        run: yarn install
+        run: |
+          yarn install
       
       - name: Authenticate with Expo
         run: |
@@ -75,20 +84,32 @@ jobs:
           fi
       
       - name: Build Android App
+        id: build
+        continue-on-error: true
         run: |
           echo "Building Android app with profile: ${{ steps.profile.outputs.name }}"
-          eas build --platform android --local --non-interactive --profile=${{ steps.profile.outputs.name }}
+          # Thêm cờ --verbose để hiển thị thông tin chi tiết
+          eas build --platform android --local --non-interactive --profile=${{ steps.profile.outputs.name }} --verbose
+          echo "build_exit_code=$?" >> $GITHUB_OUTPUT
       
-      - name: Generate build metadata
+      - name: Log build result
         run: |
-          echo "Build completed at $(date)" > ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}/build-metadata.txt
-          echo "Profile: ${{ steps.profile.outputs.name }}" >> ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}/build-metadata.txt
-          echo "Branch: ${{ github.ref }}" >> ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}/build-metadata.txt
-          echo "Commit: ${{ github.sha }}" >> ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}/build-metadata.txt
-          echo "Commit message: $(git log -1 --pretty=%B)" >> ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}/build-metadata.txt
-          echo "Build number: $(date +%Y%m%d%H%M)" >> ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}/build-metadata.txt
+          if [ "${{ steps.build.outputs.build_exit_code }}" != "0" ]; then
+            echo "Build failed with exit code ${{ steps.build.outputs.build_exit_code }}"
+            mkdir -p ${{ env.STORAGE_DIR }}/logs
+            # Lưu log build nếu có
+            if [ -f "${{ env.EAS_LOCAL_BUILD_WORKINGDIR }}/eas-build.log" ]; then
+              cp "${{ env.EAS_LOCAL_BUILD_WORKINGDIR }}/eas-build.log" "${{ env.STORAGE_DIR }}/logs/build-log-${{ env.BUILD_TIMESTAMP }}.txt"
+            fi
+            # Tìm kiếm và lưu các file log khác
+            find ${{ env.EAS_LOCAL_BUILD_WORKINGDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \;
+            find ${{ env.TMPDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \;
+          else
+            echo "Build completed successfully"
+          fi
       
       - name: Save APK to local storage
+        if: steps.build.outcome == 'success'
         run: |
           # Tìm file APK trong thư mục artifacts
           APK_FILE=$(find ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }} -name "*.apk" | head -n 1)
@@ -99,15 +120,21 @@ jobs:
             
             # Sao chép file APK vào thư mục lưu trữ
             cp "$APK_FILE" "${{ env.STORAGE_DIR }}/$APK_FILENAME"
-            cp "${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}/build-metadata.txt" "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
+            
+            # Tạo metadata
+            echo "Build completed at $(date)" > "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
+            echo "Profile: ${{ steps.profile.outputs.name }}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
+            echo "Branch: ${{ github.ref }}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
+            echo "Commit: ${{ github.sha }}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
             
             echo "APK saved to ${{ env.STORAGE_DIR }}/$APK_FILENAME"
           else
             echo "No APK file found in artifacts directory!"
+            ls -la ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}
             exit 1
           fi
       
-      - name: List saved APKs
+      - name: List recent APKs
         run: |
           echo "=== Recent APK Builds ==="
           find $HOME/ksms-builds -type f -name "*.apk" -mtime -7 | sort -r
