@@ -1,13 +1,9 @@
+import { router } from "expo-router"; // Import router
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-interface WelcomeScreenProps {
-  onGetStarted?: () => void;
-}
-
-const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
-  onGetStarted = () => alert("Get started clicked!"),
-}) => {
+// Removed unused WelcomeScreenProps interface and onGetStarted prop
+const WelcomeScreen: React.FC = () => {
   return (
     <View style={styles.welcomeScreen}>
       <View style={styles.contentContainer}>
@@ -28,8 +24,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         </View>
         <TouchableOpacity
           style={styles.getStartedButton}
-          onPress={onGetStarted}>
-          <Text style={styles.getStartedButtonText}>Get started</Text>
+          onPress={() => router.push("/(auth)/signIn")} // Navigate to signIn screen
+        >
+          <Text style={styles.getStartedButtonText}>Bắt đầu</Text>
         </TouchableOpacity>
       </View>
     </View>

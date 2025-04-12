@@ -24,17 +24,25 @@ export const login = async (email: string, password: string) => {
       password,
     });
 
-    if (response.data.statusCode === 201) {
+    // Add more robust checks for API response structure
+    if (response?.data?.statusCode === 201 && response.data.data) {
       const userData = response.data.data;
 
-      // Store user data in AsyncStorage
-      await AsyncStorage.setItem("userToken", userData.token);
-      await AsyncStorage.setItem("userId", userData.id);
-      await AsyncStorage.setItem("userEmail", userData.email);
-      await AsyncStorage.setItem("userRole", userData.role);
-      await AsyncStorage.setItem("userFullName", userData.fullName);
+      // Ensure essential data exists before storing
+      if (userData.token && userData.id && userData.email && userData.role) {
+        // Store user data in AsyncStorage
+        await AsyncStorage.setItem("userToken", userData.token);
+        await AsyncStorage.setItem("userId", userData.id);
+        await AsyncStorage.setItem("userEmail", userData.email);
+        await AsyncStorage.setItem("userRole", userData.role);
+        // Handle potential null fullName safely
+        await AsyncStorage.setItem("userFullName", userData.fullName ?? "");
 
-      return userData;
+        return userData;
+      } else {
+        console.error("Login error: Missing essential user data in response", userData);
+        throw new Error("Dữ liệu đăng nhập không đầy đủ. Vui lòng thử lại.");
+      }
     } else {
       throw new Error(response.data.message || "Login failed");
     }
@@ -89,10 +97,13 @@ export const register = async (
       fullName,
     });
 
-    if (response.data.statusCode === 201) {
+    // Add checks for registration response
+    if (response?.data?.statusCode === 201) {
+      // Optionally, you could verify the structure of response.data here if needed
       return response.data;
     } else {
-      throw new Error(response.data.message || "Registration failed");
+      // Use optional chaining for safer access to message
+      throw new Error(response?.data?.message || "Đăng ký thất bại.");
     }
   } catch (error: any) {
     console.error("Registration error:", error); // Giữ lại log để debug nếu cần
