@@ -305,7 +305,7 @@ const KoiShowInformationContent: React.FC = () => {
 
     // Navigate to the livestream viewer screen
     router.push({
-      pathname: '/livestream/viewer', // Path to the viewer screen
+      pathname: '/(tabs)/shows/LivestreamViewer', // Updated path
       params: {
         livestreamId: livestreamInfo.id,
         callId: livestreamInfo.callId,

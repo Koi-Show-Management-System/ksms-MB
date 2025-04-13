@@ -28,6 +28,13 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="shows/LivestreamViewer"
+        options={{
+          headerShown: false, // Hoặc true nếu bạn muốn hiển thị header mặc định
+        }}
+      />
+
     </Stack>
   );
 }

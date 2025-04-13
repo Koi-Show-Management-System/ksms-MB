@@ -1,4 +1,4 @@
-// app/livestream/viewer.tsx
+// app/(tabs)/shows/LivestreamViewer.tsx // Path updated
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -12,9 +12,11 @@ import {
   useStreamVideoClient, // Import the hook to get client from context
 } from '@stream-io/video-react-native-sdk';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getLivestreamViewerToken } from '../../services/livestreamService'; // Adjust path if needed
+// Adjust import path for the new location
+import { getLivestreamViewerToken } from '../../../services/livestreamService'; // Path updated
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // To potentially get user ID
+import { jwtDecode } from 'jwt-decode'; // Import jwt-decode
 
 // --- Inner Component to handle Call logic ---
 interface LivestreamContentProps {
@@ -36,28 +38,37 @@ const LivestreamContent: React.FC<LivestreamContentProps> = ({ callId, callType 
     };
 
     let isMounted = true;
-    setIsLoadingCall(true);
-    setCallError(null);
-    setCall(null); // Reset call state
-    console.log(`LivestreamContent: Attempting to get call: ${callType}/${callId}`);
 
-    try {
-      // Use client.call() to get the call object instance
-      const callInstance = client.call(callType, callId);
-      console.log("LivestreamContent: Call instance obtained via client.call()");
-      // Optionally join the call if needed for viewers, depends on SDK requirements
-      // For livestreams, often just having the instance is enough for StreamCall
-      // Example: await callInstance.join({ create: false }); // Might be needed? Test without first.
+    const setupCall = async () => {
+      if (!client) return; // Guard against client being null
 
-       if (isMounted) {
-           setCall(callInstance);
-       }
-    } catch (err: any) {
-      console.error("LivestreamContent: Error getting call instance:", err);
-      if (isMounted) setCallError(`Lỗi lấy thông tin cuộc gọi: ${err.message || 'Unknown error'}`);
-    } finally {
-       if (isMounted) setIsLoadingCall(false);
-    }
+      setIsLoadingCall(true);
+      setCallError(null);
+      setCall(null); // Reset call state
+      console.log(`LivestreamContent: Attempting to get call: ${callType}/${callId}`);
+
+      try {
+        // Use client.call() to get the call object instance
+        const callInstance = client.call(callType, callId);
+        console.log("LivestreamContent: Call instance obtained via client.call()");
+
+        // Attempt to join the call explicitly
+        console.log("LivestreamContent: Attempting to join call...");
+        await callInstance.join({ create: false });
+        console.log("LivestreamContent: Successfully joined call.");
+
+         if (isMounted) {
+             setCall(callInstance);
+         }
+      } catch (err: any) {
+        console.error("LivestreamContent: Error getting or joining call instance:", err);
+        if (isMounted) setCallError(`Lỗi lấy hoặc tham gia cuộc gọi: ${err.message || 'Unknown error'}`);
+      } finally {
+         if (isMounted) setIsLoadingCall(false);
+      }
+    };
+
+    setupCall(); // Call the async function
 
     return () => {
         isMounted = false;
@@ -176,8 +187,30 @@ const LivestreamViewerScreen: React.FC = () => {
       // --- 2. Initialize and Connect Stream Client ---
       setIsLoadingClient(true);
       try {
-        const userId = (await AsyncStorage.getItem('userId')) || `viewer-${Date.now()}-${Math.random().toString(16).substring(2, 8)}`; // More unique guest ID
-        const user: User = { id: userId, name: 'Viewer', type: 'guest' }; // Use type: 'guest' instead of role
+        // Decode token to get user ID
+        let userId = `viewer-${Date.now()}-${Math.random().toString(16).substring(2, 8)}`; // Default guest ID
+        try {
+          // Define expected payload structure (adjust based on your actual token)
+          interface JwtPayload {
+            user_id?: string;
+            sub?: string;
+            // Add other fields if necessary
+            [key: string]: any; // Allow other properties
+          }
+          const decoded = jwtDecode<JwtPayload>(fetchedToken);
+          console.log("Decoded Token Payload:", decoded);
+          if (decoded.user_id) {
+            userId = decoded.user_id;
+          } else if (decoded.sub) {
+            userId = decoded.sub; // Fallback to 'sub' if user_id is not present
+          }
+          console.log("Extracted User ID from token:", userId);
+        } catch (decodeError) {
+          console.error("Failed to decode token or extract user ID, using guest ID:", decodeError);
+          // Use the default guest ID if decoding fails
+        }
+
+        const user: User = { id: userId, name: 'Viewer', type: 'guest' }; // Use extracted or guest ID
         console.log(`Initializing Stream client for user: ${userId} with key: ${apiKey}`);
         videoClient = new StreamVideoClient({ apiKey, user, token: fetchedToken });
         // Don't set client state here yet, wait for connection
@@ -334,3 +367,5 @@ const styles = StyleSheet.create({
 });
 
 export default LivestreamViewerScreen;
+
+// Force refresh
