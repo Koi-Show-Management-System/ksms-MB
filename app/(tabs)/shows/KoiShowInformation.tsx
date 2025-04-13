@@ -1,6 +1,4 @@
-import { FontAwesome } from "@expo/vector-icons";
-
-import { FontAwesome5, MaterialIcons } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome5, MaterialIcons, Ionicons as IoniconsExpo } from "@expo/vector-icons"; // Giữ lại Ionicons nếu cần ở nơi khác hoặc đổi tên
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState, useCallback, memo } from "react";
 import {
@@ -13,9 +11,10 @@ import {
   View,
   FlatList,
 } from "react-native";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Ionicons from "@expo/vector-icons/Ionicons"; // Có thể trùng tên, xem xét đổi tên nếu cần
 import KoiContestants from "./KoiContestants";
-import KoiShowResults from "./KoiShowResults"; // Quay lại đường dẫn tương đối
+import KoiShowResults from "./KoiShowResults";
+import KoiShowVoting from "./KoiShowVoting"; // Import component mới
 
 import { KoiShowProvider, useKoiShow } from "../../../context/KoiShowContext";
 import { CompetitionCategory } from "../../../services/registrationService";
@@ -159,7 +158,7 @@ const KoiShowInformationContent: React.FC = () => {
     rules: false,
     timeline: false, // Renamed from enteringKoi
   });
-  const [activeTab, setActiveTab] = useState<'info' | 'contestants' | 'results'>('info'); // 'info', 'contestants', or 'results'
+  const [activeTab, setActiveTab] = useState<'info' | 'contestants' | 'results' | 'vote'>('info'); // Thêm 'vote'
   
   // Memo key extractor for FlatList
   const keyExtractor = useCallback((item: CompetitionCategory) => item.id, []);
@@ -381,6 +380,18 @@ const KoiShowInformationContent: React.FC = () => {
              />
              <Text style={[styles.tabText, activeTab === 'results' && styles.activeTabText]}>
                Kết quả
+             </Text>
+           </TouchableOpacity>
+           <TouchableOpacity
+             style={[styles.tabButton, activeTab === 'vote' && styles.activeTabButton]}
+             onPress={() => setActiveTab('vote')}>
+             <MaterialIcons
+               name="how-to-vote" // Icon cho bình chọn
+               size={18}
+               color={activeTab === 'vote' ? "#000000" : "#666666"}
+             />
+             <Text style={[styles.tabText, activeTab === 'vote' && styles.activeTabText]}>
+               Bình chọn
              </Text>
            </TouchableOpacity>
       </View>
@@ -718,14 +729,16 @@ const KoiShowInformationContent: React.FC = () => {
             )}
           </View>
         </ScrollView>
+      ) : activeTab === 'contestants' ? (
+        // Tab Thí sinh
+        <KoiContestants showId={showData.id} />
+      ) : activeTab === 'vote' ? (
+        // Tab Bình chọn
+        <KoiShowVoting showId={showData.id} />
       ) : (
-            // Tab Thí sinh
-            activeTab === 'contestants' ? (
-              <KoiContestants showId={showData.id} />
-            ) : ( // Tab Kết quả
-              <KoiShowResults showId={showData.id} /> // Component mới sẽ tạo ở bước sau
-            )
-          )}
+        // Tab Kết quả (mặc định cuối cùng)
+        <KoiShowResults showId={showData.id} />
+      )}
 
       {/* Footer với 2 nút: đăng ký thi đấu và mua vé */}
       <View style={styles.footer}>

@@ -242,7 +242,9 @@ const CurrentStatus: React.FC<CurrentStatusProps> = ({
             {awards.map((awardItem, index) => (
               <View key={index} style={styles.awardItem}>
                 <Text style={styles.awardItemName}>{awardItem.awardName}</Text>
-                <Text style={styles.awardItemCategory}>Hạng mục: {awardItem.categoryName}</Text>
+                {awardItem.categoryName && (
+                  <Text style={styles.awardItemCategory}>Hạng mục: {awardItem.categoryName}</Text>
+                )}
                 {awardItem.prizeValue > 0 && (
                    <Text style={styles.awardItemValue}>Trị giá: {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(awardItem.prizeValue)}</Text>
                 )}
