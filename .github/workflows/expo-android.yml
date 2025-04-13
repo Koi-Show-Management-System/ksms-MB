@@ -28,7 +28,8 @@ on:
 
 env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=16 -Dorg.gradle.jvmargs=-Xmx16g -XX:MaxPermSize=12g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseParallelGC -XX:MaxGCPauseMillis=100 -XX:ParallelGCThreads=16 -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -Dkotlin.compiler.execution.strategy=in-process -Dkotlin.incremental=false"
-  NODE_OPTIONS: "--max_old_space_size=16384 --expose-gc --gc-global --optimize-for-size"
+  # Simplified NODE_OPTIONS to avoid potential errors
+  NODE_OPTIONS: "--max_old_space_size=16384"
   MAVEN_OPTS: "-Xmx16g -XX:+UseParallelGC -XX:MaxGCPauseMillis=100"
   METRO_CONFIG: "metro.config.js"
   EXPO_USE_METRO_CACHE: "1"
@@ -53,12 +54,22 @@ jobs:
   build:
     name: EAS Build Android
     runs-on: [google]
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+          # repository: Koi-Show-Management-System/ksms-MB # Keep default for same repo
+          # token: ${{ secrets.YOUR_PAT_OR_GITHUB_TOKEN }} # Use default GITHUB_TOKEN or a PAT
+          ssh-strict: true
+          persist-credentials: true
+          clean: true
+          sparse-checkout-cone-mode: true
+          fetch-tags: false
+          lfs: false
+          submodules: false
+          set-safe-directory: true
 
       - name: Create cache directories
         run: |
@@ -102,7 +113,7 @@ jobs:
           path: |
             node_modules
             */*/node_modules
-            ~/.npm 
+            ~/.npm
             ~/.yarn
             ~/.gradle/caches
             ~/.gradle/wrapper
@@ -133,6 +144,45 @@ jobs:
           restore-keys: |
             build-artifacts-v2-${{ runner.os }}-
 
+      - name: Determine build profile
+        id: profile
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.profile }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "name=production" >> $GITHUB_OUTPUT
+          else
+            echo "name=preview" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup build directories
+        run: |
+          mkdir -p $HOME/expo-tmp
+          mkdir -p $HOME/eas-builds/working
+          mkdir -p $HOME/eas-builds/artifacts
+          mkdir -p ${{ env.EXPO_METRO_CACHE_DIR }}
+
+          # Tạo thư mục lưu trữ APK theo ngày
+          BUILD_DATE=$(date +"%Y-%m-%d")
+          STORAGE_DIR=$HOME/ksms-builds/$BUILD_DATE
+          mkdir -p $STORAGE_DIR
+          echo "STORAGE_DIR=$STORAGE_DIR" >> $GITHUB_ENV
+
+          # Thiết lập và lưu biến môi trường
+          echo "TMPDIR=$HOME/expo-tmp" >> $GITHUB_ENV
+          echo "EAS_LOCAL_BUILD_WORKINGDIR=$HOME/eas-builds/working" >> $GITHUB_ENV
+          echo "EAS_LOCAL_BUILD_ARTIFACTS_DIR=$HOME/eas-builds/artifacts" >> $GITHUB_ENV
+          echo "EAS_LOCAL_BUILD_SKIP_CLEANUP=1" >> $GITHUB_ENV
+          echo "BUILD_TIMESTAMP=$(date +"%Y%m%d_%H%M%S")" >> $GITHUB_ENV
+
+          # Tối ưu Metro bundler
+          echo "EXPO_USE_METRO_MINIFY=true" >> $GITHUB_ENV
+          echo "EXPO_USE_METRO_CACHE=1" >> $GITHUB_ENV
+
+          # Hiển thị không gian đĩa
+          echo "Disk space:"
+          df -h
+
       - name: Configure yarn
         run: |
           yarn config set cache-folder .yarn/cache
@@ -146,19 +196,17 @@ jobs:
         run: |
           yarn install --frozen-lockfile --prefer-offline --network-timeout ${{ env.YARN_NETWORK_TIMEOUT }} --non-interactive --cache-folder .yarn/cache
 
-      - name: Clean Old Caches
+      - name: Clean Old Caches (Non-Persistent)
         run: |
-          echo "Cleaning caches older than ${{ env.CACHE_LIFETIME_DAYS }} days..."
-          find ${{ env.PERSISTENT_CACHE_PATH }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
-          
+          echo "Cleaning non-persistent caches older than ${{ env.CACHE_LIFETIME_DAYS }} days..."
           # Clean old Gradle caches
           find ~/.gradle/caches -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
-          
           # Clean old Metro bundler cache
           find ${{ env.EXPO_METRO_CACHE_DIR }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
-          
           # Clean old EAS cache
           find ~/.eas-cli -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
+          # Clean old Yarn cache
+          yarn cache clean --all
 
       - name: Authenticate with Expo
         run: |
@@ -182,22 +230,23 @@ jobs:
           ORG_GRADLE_PROJECT_android.enableBuildCache: "true"
           ORG_GRADLE_PROJECT_android.enableR8: "true"
           ORG_GRADLE_PROJECT_android.enableD8: "true"
+          # Ensure NODE_OPTIONS here is also simplified
+          NODE_OPTIONS: "--max_old_space_size=16384"
         run: |
           echo "Building Android app with profile: ${{ steps.profile.outputs.name }}"
-          
+
           # Build với tối ưu cache và concurrent
           EXPO_USE_METRO_CACHE=1 \
           EXPO_METRO_CACHE_DIR=${{ env.EXPO_METRO_CACHE_DIR }} \
           CONCURRENT_TRANSFORM=16 \
           CONCURRENT_TRANSFORM_BUFFER_SIZE=16384 \
-          NODE_OPTIONS="--max-old-space-size=16384" \
           eas build \
             --platform android \
             --local \
             --non-interactive \
             --profile=${{ steps.profile.outputs.name }} \
             --clear-cache=false
-            
+
           echo "build_exit_code=$?" >> $GITHUB_OUTPUT
 
       - name: Generate build report
@@ -208,17 +257,21 @@ jobs:
           echo "Branch: ${{ github.ref }}" >> ${{ env.STORAGE_DIR }}/build-report.txt
           echo "Commit: ${{ github.sha }}" >> ${{ env.STORAGE_DIR }}/build-report.txt
           echo "Build Time: $(date)" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          
+
           # Cache stats
           echo "=== Cache Statistics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          du -sh ${{ env.PERSISTENT_CACHE_PATH }}/* >> ${{ env.STORAGE_DIR }}/build-report.txt
-          
+          echo "Persistent Cache:" >> ${{ env.STORAGE_DIR }}/build-report.txt
+          du -sh ${{ env.PERSISTENT_CACHE_PATH }}/* >> ${{ env.STORAGE_DIR }}/build-report.txt || echo "Persistent cache empty or not found"
+          echo "Non-Persistent Caches:" >> ${{ env.STORAGE_DIR }}/build-report.txt
+          du -sh ~/.gradle/caches ~/.android/build-cache ${{ env.EXPO_METRO_CACHE_DIR }} ~/.eas-cli .yarn/cache >> ${{ env.STORAGE_DIR }}/build-report.txt || echo "Non-persistent caches empty or not found"
+
+
           # Gradle metrics
           if [ -f "$HOME/.gradle/daemon/daemon-metrics.log" ]; then
             echo "=== Gradle Metrics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
             cat "$HOME/.gradle/daemon/daemon-metrics.log" >> ${{ env.STORAGE_DIR }}/build-report.txt
           fi
-          
+
           # Metro bundler metrics
           if [ -f "${{ env.EXPO_METRO_CACHE_DIR }}/metro-metrics.json" ]; then
             echo "=== Metro Bundler Metrics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
@@ -260,16 +313,16 @@ jobs:
         if: steps.build.outcome == 'success'
         run: |
           APK_FILE=$(find ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }} -name "*.apk" | head -n 1)
-          
+
           if [ -n "$APK_FILE" ]; then
             APK_FILENAME="ksms-${{ steps.profile.outputs.name }}-${{ env.BUILD_TIMESTAMP }}.apk"
             cp "$APK_FILE" "${{ env.STORAGE_DIR }}/$APK_FILENAME"
-            
+
             echo "Build completed at $(date)" > "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
             echo "Profile: ${{ steps.profile.outputs.name }}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
             echo "Branch: ${{ github.ref }}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
             echo "Commit: ${{ github.sha }}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
-            
+
             echo "APK saved to ${{ env.STORAGE_DIR }}/$APK_FILENAME"
           else
             echo "No APK file found in artifacts directory!"
@@ -282,20 +335,9 @@ jobs:
           echo "=== Recent APK Builds ==="
           find $HOME/ksms-builds -type f -name "*.apk" -mtime -7 | sort -r
 
-      - name: Cleanup Old Caches
+      - name: Cleanup Old Persistent Caches
         if: always()
         run: |
-          echo "Cleaning up old caches..."
-          
-          # Remove caches older than specified lifetime
+          echo "Cleaning up old persistent caches..."
           find ${{ env.PERSISTENT_CACHE_PATH }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
-          find ~/.gradle/caches -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
-          find ~/.android/build-cache -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
-          find ${{ env.EXPO_METRO_CACHE_DIR }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
-          
-          # Clean up temporary build files
-          rm -rf android/app/build
-          rm -rf android/.gradle
-          rm -rf $HOME/.gradle/daemon
-          rm -rf $HOME/.gradle/native
-          yarn cache clean
+          echo "Cleanup complete."
