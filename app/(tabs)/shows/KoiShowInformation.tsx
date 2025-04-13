@@ -1,8 +1,7 @@
 import { FontAwesome, FontAwesome5, MaterialIcons, Ionicons as IoniconsExpo } from "@expo/vector-icons"; // Giữ lại Ionicons nếu cần ở nơi khác hoặc đổi tên
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState, useCallback, memo } from "react";
+import React, { useState, useCallback, memo, useEffect } from "react"; // Add useEffect
 import {
-  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -10,14 +9,17 @@ import {
   TouchableOpacity,
   View,
   FlatList,
+  ActivityIndicator, // Keep only one ActivityIndicator import
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons"; // Có thể trùng tên, xem xét đổi tên nếu cần
+import { MaterialCommunityIcons } from "@expo/vector-icons"; // Add MaterialCommunityIcons
 import KoiContestants from "./KoiContestants";
 import KoiShowResults from "./KoiShowResults";
 import KoiShowVoting from "./KoiShowVoting"; // Import component mới
 
 import { KoiShowProvider, useKoiShow } from "../../../context/KoiShowContext";
 import { CompetitionCategory } from "../../../services/registrationService";
+import { getAllLivestreamsForShow, LivestreamInfo } from "../../../services/livestreamService"; // Import livestream service and type
 
 // Skeleton Component
 const SkeletonLoader = () => {
@@ -159,6 +161,8 @@ const KoiShowInformationContent: React.FC = () => {
     timeline: false, // Renamed from enteringKoi
   });
   const [activeTab, setActiveTab] = useState<'info' | 'contestants' | 'results' | 'vote'>('info'); // Thêm 'vote'
+  const [livestreamInfo, setLivestreamInfo] = useState<LivestreamInfo | null>(null);
+  const [isLivestreamLoading, setIsLivestreamLoading] = useState<boolean>(false);
   
   // Memo key extractor for FlatList
   const keyExtractor = useCallback((item: CompetitionCategory) => item.id, []);
@@ -259,6 +263,59 @@ const KoiShowInformationContent: React.FC = () => {
   // Spacer component for FlatList
   const ItemSeparator = useCallback(() => <View style={{ width: 12 }} />, []);
 
+  // --- Fetch Livestream Status ---
+  useEffect(() => {
+    async function fetchLivestreamStatus() {
+      if (!showData?.id) return; // Ensure showData and id exist
+
+      setIsLivestreamLoading(true);
+      setLivestreamInfo(null); // Reset before fetching
+
+      try {
+        const response = await getAllLivestreamsForShow(showData.id);
+        // Check if there's an active livestream in the response data array
+        const activeStream = response.data.find(stream => stream.status === 'active');
+        if (activeStream) {
+          setLivestreamInfo(activeStream);
+        } else {
+          setLivestreamInfo(null); // Explicitly set to null if no active stream
+          console.log(`No active livestream found for show ${showData.id}`);
+        }
+      } catch (error) {
+        // Error is already logged in the service and handled by interceptor toast
+        console.error("Error fetching livestream status in component:", error);
+        setLivestreamInfo(null); // Ensure state is null on error
+      } finally {
+        setIsLivestreamLoading(false);
+      }
+    }
+
+    fetchLivestreamStatus();
+  }, [showData?.id]); // Re-run if showData.id changes
+
+  // --- Handle Navigation to Livestream ---
+  const handleViewLivestream = useCallback(() => {
+    if (!livestreamInfo) return;
+
+    const apiKey = "z87auffz2r8y"; // Hardcoded API key as requested
+    console.log("Navigating to livestream...");
+    console.log("Livestream ID:", livestreamInfo.id);
+    console.log("Call ID:", livestreamInfo.callId);
+    console.log("API Key:", apiKey);
+
+    // Navigate to the livestream viewer screen
+    router.push({
+      pathname: '/livestream/viewer', // Path to the viewer screen
+      params: {
+        livestreamId: livestreamInfo.id,
+        callId: livestreamInfo.callId,
+        apiKey: apiKey,
+        showName: showData?.name || 'Livestream' // Pass show name for context
+      }
+    });
+
+  }, [livestreamInfo, router, showData?.name]);
+
   // Nếu đang loading, hiển thị skeleton
   if (isLoading) {
     return <SkeletonLoader />;
@@ -326,7 +383,17 @@ const KoiShowInformationContent: React.FC = () => {
 
       {/* Tiêu đề và thông tin nhanh (hiển thị ở tất cả các tab) */}
       <View style={styles.titleContainer}>
-        <Text style={styles.title}>{showData?.name}</Text>
+        <View style={styles.titleRow}>
+           <Text style={styles.title}>{showData?.name}</Text>
+           {isLivestreamLoading ? (
+             <ActivityIndicator size="small" color="#000000" style={styles.livestreamLoadingIndicator} />
+           ) : livestreamInfo && livestreamInfo.status === 'active' ? (
+             <TouchableOpacity style={styles.livestreamButton} onPress={handleViewLivestream}>
+               <MaterialCommunityIcons name="video" size={18} color="#FFFFFF" />
+               <Text style={styles.livestreamButtonText}>Xem Livestream</Text>
+             </TouchableOpacity>
+           ) : null}
+         </View>
         <View style={styles.quickInfoContainer}>
           <View style={styles.quickInfoItem}>
             <MaterialIcons name="location-on" size={18} color="#000000" />
@@ -767,6 +834,39 @@ const KoiShowInformationContent: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  // ... other styles
+  titleRow: { // New style to wrap title and button
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between', // Adjust as needed
+    // marginBottom: 8, // Removed as titleContainer has padding
+  },
+  title: { // Adjust title style if needed to not take full width
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#2c3e50",
+    flexShrink: 1, // Allow title to shrink if button is present
+    marginRight: 8, // Add some space between title and button
+    // Removed marginBottom as titleRow handles spacing now
+  },
+  livestreamButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e53935', // Red color for live
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
+    // marginLeft: 'auto', // Use space-between on titleRow instead if preferred
+  },
+  livestreamButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 5,
+  },
+  livestreamLoadingIndicator: {
+     marginLeft: 8, // Add some space from title
+  },
   container: {
     flex: 1,
     backgroundColor: "#f2f2f2",
@@ -817,12 +917,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#2c3e50",
     marginBottom: 8,
   },
   quickInfoContainer: {
