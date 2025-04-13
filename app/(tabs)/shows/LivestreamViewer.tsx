@@ -12,6 +12,7 @@ import {
   useStreamVideoClient,
   useCallStateHooks,  // Import the main state hook
   CallingState,       // Import enum for call states
+  useCall,
 } from '@stream-io/video-react-native-sdk';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getLivestreamViewerToken, getLivestreamDetails, LivestreamInfo } from '../../../services/livestreamService'; // Import status check function and type
@@ -53,13 +54,80 @@ interface LivestreamContentProps {
   livestreamId: string; // Pass livestreamId for status checks
 }
 
+// Component con để xử lý trạng thái call (Phải nằm trong ngữ cảnh <StreamCall>)
+const CallStateHandler: React.FC<{ onLeave: (call: Call) => void }> = ({ onLeave }) => {
+  // Các hook này bây giờ an toàn vì chúng nằm trong ngữ cảnh StreamCall
+  const { useCallCallingState, useIsCallLive } = useCallStateHooks();
+  const callingState = useCallCallingState();
+  const isLive = useIsCallLive();
+  const call = useCall(); // Lấy call từ ngữ cảnh
+
+  console.log("CallStateHandler: Current calling state:", callingState);
+  console.log("CallStateHandler: Is call live:", isLive);
+
+  // --- Render dựa vào trạng thái ---
+  switch (callingState) {
+    case CallingState.JOINING:
+    case CallingState.RECONNECTING:
+      return (
+        <View style={styles.centeredContent}>
+          <ActivityIndicator size="large" color="#FFF" />
+          <Text style={[styles.infoText, { color: '#FFF' }]}>
+            {callingState === CallingState.JOINING ? 'Đang tham gia...' : 'Đang kết nối lại...'}
+          </Text>
+        </View>
+      );
+    case CallingState.LEFT:
+      return (
+        <View style={styles.centeredContent}>
+          <Ionicons name="stop-circle-outline" size={48} color="#ccc" />
+          <Text style={[styles.infoText, { color: '#FFF' }]}>Bạn đã rời khỏi livestream.</Text>
+          <TouchableOpacity style={styles.actionButton} onPress={() => call && onLeave(call)}>
+            <Text style={styles.actionButtonText}>Quay lại</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    case CallingState.JOINED:
+      if (!isLive) {
+        return (
+          <View style={styles.centeredContent}>
+            <Ionicons name="hourglass-outline" size={48} color="#ccc" />
+            <Text style={[styles.infoText, { color: '#FFF' }]}>Đang chờ người phát...</Text>
+            <TouchableOpacity style={styles.actionButton} onPress={() => call && onLeave(call)}>
+              <Text style={styles.actionButtonText}>Rời khỏi</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+      
+      // Render actual livestream content
+      return (
+        <CallContent
+          onHangupCallHandler={() => {
+            console.log('Hangup button pressed or call ended.');
+            call && onLeave(call);
+          }}
+        />
+      );
+    default:
+      return (
+        <View style={styles.centeredContent}>
+          <Ionicons name="help-circle-outline" size={48} color="#ccc" />
+          <Text style={[styles.infoText, { color: '#FFF' }]}>Trạng thái: {callingState || 'không xác định'}</Text>
+          <TouchableOpacity style={styles.actionButton} onPress={() => call && onLeave(call)}>
+            <Text style={styles.actionButtonText}>Rời khỏi</Text>
+          </TouchableOpacity>
+        </View>
+      );
+  }
+};
+
 const LivestreamContent: React.FC<LivestreamContentProps> = ({ callId, callType, livestreamId }) => {
   const client = useStreamVideoClient();
   const [call, setCall] = useState<Call | null>(null);
   const [isLoadingCall, setIsLoadingCall] = useState(true);
   const [callError, setCallError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<string | null>(null); // Store status from API
-  const { useCallCallingState, useIsCallLive } = useCallStateHooks(); // Get state hooks
   const intervalRef = useRef<number | null>(null); // Use number for setInterval ID
 
   // --- Status Check Effect ---
@@ -227,10 +295,6 @@ const LivestreamContent: React.FC<LivestreamContentProps> = ({ callId, callType,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, callId, callType]); // Re-run if client, callId, or callType changes
 
-  // --- SDK State Hooks (call inside component body, pass call object) ---
-  const callingState = useCallCallingState(); // No argument needed
-  const isLive = useIsCallLive();       // No argument needed
-
   // --- Render Logic ---
 
   // 1. Initial Loading or Call Setup Error
@@ -292,69 +356,16 @@ const LivestreamContent: React.FC<LivestreamContentProps> = ({ callId, callType,
     );
   }
 
-  // Use SDK states for finer-grained UI updates
-  switch (callingState) {
-    case CallingState.JOINING:
-    case CallingState.RECONNECTING:
-      return (
-        <View style={styles.centeredContent}>
-          <ActivityIndicator size="large" color="#FFF" />
-          <Text style={[styles.infoText, { color: '#FFF' }]}>
-            {callingState === CallingState.JOINING ? 'Đang tham gia...' : 'Đang kết nối lại...'}
-          </Text>
-        </View>
-      );
-    case CallingState.LEFT:
-       // If state becomes LEFT, treat as ended
-       return (
-         <View style={styles.centeredContent}>
-           <Ionicons name="stop-circle-outline" size={48} color="#ccc" />
-           <Text style={[styles.infoText, { color: '#FFF' }]}>Bạn đã rời khỏi livestream.</Text>
-           <TouchableOpacity style={styles.actionButton} onPress={() => handleLeaveCall(call)}>
-             <Text style={styles.actionButtonText}>Quay lại</Text>
-           </TouchableOpacity>
-         </View>
-       );
-    case CallingState.JOINED:
-      if (!isLive) {
-        // Joined, but stream is not live (e.g., host stopped publishing)
-        return (
-          <View style={styles.centeredContent}>
-            <Ionicons name="hourglass-outline" size={48} color="#ccc" />
-            <Text style={[styles.infoText, { color: '#FFF' }]}>Đang chờ người phát...</Text>
-            {/* Consider adding a manual leave button here too */}
-             <TouchableOpacity style={styles.actionButton} onPress={() => handleLeaveCall(call)}>
-               <Text style={styles.actionButtonText}>Rời khỏi</Text>
-             </TouchableOpacity>
-          </View>
-        );
-      }
-      // --- Render Actual Livestream ---
-      console.log("LivestreamContent: Rendering StreamCall with CallContent.");
-      return (
-        <StreamCall call={call}>
-          <CallContent
-            onHangupCallHandler={() => {
-              console.log('Hangup button pressed or call ended.');
-              handleLeaveCall(call); // Use the common leave handler
-            }}
-            // Consider adding error handling specific to CallContent if available
-            // onError={(error) => { console.error("CallContent Error:", error); setError("Lỗi trong quá trình xem stream."); }}
-          />
-        </StreamCall>
-      );
-    default:
-      // Handle unknown or unexpected states
-      return (
-        <View style={styles.centeredContent}>
-          <Ionicons name="help-circle-outline" size={48} color="#ccc" />
-          <Text style={[styles.infoText, { color: '#FFF' }]}>Trạng thái không xác định: {callingState}</Text>
-           <TouchableOpacity style={styles.actionButton} onPress={() => handleLeaveCall(call)}>
-             <Text style={styles.actionButtonText}>Rời khỏi</Text>
-           </TouchableOpacity>
-        </View>
-      );
-  }
+  // QUAN TRỌNG: Các hooks để lấy trạng thái đã được chuyển vào CallStateHandler
+  // và chỉ sử dụng trong ngữ cảnh <StreamCall>
+
+  // Render StreamCall với call object đã được join thành công
+  console.log("LivestreamContent: Rendering StreamCall with CallContent.");
+  return (
+    <StreamCall call={call}>
+      <CallStateHandler onLeave={handleLeaveCall} />
+    </StreamCall>
+  );
 };
 
 
