@@ -500,16 +500,37 @@ const UserProfile: React.FC = () => {
   ) => {
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      setPasswordModalVisible(false);
+    // Tạo payload cho API
+    const payload = {
+      oldPassword: currentPassword,
+      newPassword: newPassword,
+      confirmNewPassword: confirmPassword
+    };
 
-      // Show success message
-      Alert.alert("Thành công", "Mật khẩu của bạn đã được thay đổi thành công.", [
-        { text: "OK" },
-      ]);
-    }, 1500);
+    // Gọi API để đổi mật khẩu
+    api.post('/api/v1/auth/change-password', payload)
+      .then((response) => {
+        if (response.data.statusCode === 200) {
+          // Hiển thị thông báo thành công
+          Alert.alert("Thành công", "Mật khẩu của bạn đã được thay đổi thành công.", [
+            { text: "OK" },
+          ]);
+          setPasswordModalVisible(false);
+        } else {
+          // Xử lý trường hợp API trả về lỗi
+          throw new Error(response.data.message || "Không thể đổi mật khẩu");
+        }
+      })
+      .catch((error) => {
+        console.error("Lỗi khi đổi mật khẩu:", error);
+        Alert.alert(
+          "Lỗi",
+          error.response?.data?.message || error.message || "Có lỗi xảy ra khi đổi mật khẩu. Vui lòng thử lại."
+        );
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   const handleUpdateInformation = () => {

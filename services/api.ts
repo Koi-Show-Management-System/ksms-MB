@@ -1,5 +1,5 @@
 // services/api.ts
-import axios, { AxiosError } from 'axios'; // Import thêm AxiosError để type checking tốt hơn
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'; // Import thêm AxiosError và InternalAxiosRequestConfig
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -20,39 +20,48 @@ const api = axios.create({
 
 // Add request interceptor to add auth token
 api.interceptors.request.use(
-  async (config) => {
+  async (config: InternalAxiosRequestConfig) => { // Thêm type cho config
     try {
       const token = await AsyncStorage.getItem('userToken');
+      // Log token (partially) kèm URL để rõ ràng hơn
+      console.log(`[Interceptor] Token from AsyncStorage for ${config.url}:`, token ? token.substring(0, 10) + '...' : 'null');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        console.log(`[Interceptor] Authorization header SET for ${config.url}.`);
+      } else {
+        console.log(`[Interceptor] Authorization header NOT SET for ${config.url} (no token).`);
       }
-      
       // Thêm debug log trong môi trường phát triển
       if (__DEV__) {
         const method = config.method?.toUpperCase() || 'UNKNOWN';
-        const url = `${config.baseURL}${config.url}`;
-        console.log(`🚀 API REQUEST: [${method}] ${url}`);
+        const fullUrl = `${config.baseURL || ''}${config.url || ''}`; // Đảm bảo baseURL và url được định nghĩa
+        console.log(`🚀 API REQUEST: [${method}] ${fullUrl}`);
+        // Log TOÀN BỘ headers ngay trước khi return config
+        console.log(`   Headers being sent for ${config.url}:`, JSON.stringify(config.headers));
         
         if (config.data) {
-          console.log('Request data:', JSON.stringify(config.data).substring(0, 500) + (JSON.stringify(config.data).length > 500 ? '...' : ''));
+          console.log('   Request data:', JSON.stringify(config.data).substring(0, 500) + (JSON.stringify(config.data).length > 500 ? '...' : ''));
         }
         
         if (config.params) {
-          console.log('Request params:', config.params);
+          console.log('   Request params:', config.params);
         }
       }
       
       return config;
     } catch (error) {
       if (__DEV__) {
-        console.error('Lỗi trong interceptor request:', error);
+        console.error(`[Interceptor] Error in request interceptor for ${config.url}:`, error);
       }
+      // Đảm bảo promise bị reject đúng cách
+      return Promise.reject(error);
       return Promise.reject(error);
     }
   },
   (error) => {
+    // Lỗi này xảy ra trước khi request được gửi (ví dụ: lỗi setup config)
     if (__DEV__) {
-      console.error('Lỗi trong interceptor request:', error);
+      console.error('[Interceptor] Request setup error:', error);
     }
     return Promise.reject(error);
   }

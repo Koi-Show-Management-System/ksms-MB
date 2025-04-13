@@ -23,6 +23,7 @@ export default function ShowsLayout() {
         <Stack.Screen name="ConfirmRegister" options={{ headerShown: false }} />
         <Stack.Screen name="AwardScreen" options={{ headerShown: false }} />
         <Stack.Screen name="Rule&FAQ" options={{ headerShown: false }} />
+        <Stack.Screen name="LivestreamViewer" options={{ headerShown: false }} />
         {/* Add other show-related screens here */}
       </Stack>
     </MainLayout>
