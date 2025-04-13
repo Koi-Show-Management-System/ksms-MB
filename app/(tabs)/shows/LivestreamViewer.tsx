@@ -447,36 +447,28 @@ const LivestreamViewerScreen: React.FC = () => {
           throw new Error('Token không có quyền truy cập vào livestream này');
         }
 
-        // --- PHƯƠNG PHÁP KHỞI TẠO KHÁC ---
-        // Tạo TokenProvider để cung cấp token khi cần
-        const staticTokenProvider = async () => {
-          console.log("[LivestreamViewer] Providing token from static provider");
-          return fetchedToken;
-        };
-
-        // Khởi tạo StreamVideoClient với TokenProvider
-        videoClient = new StreamVideoClient({
-          apiKey,
-          tokenProvider: staticTokenProvider,
-          options: {
-            timeout: 10000
-          }
-        });
-
-        // Định nghĩa người dùng để kết nối
+        // Chuẩn bị đối tượng người dùng để kết nối
         const userToConnect: User = {
           id: tokenPayload.user_id,
           name: `Viewer-${tokenPayload.user_id.slice(0, 8)}`,
-          image: `https://getstream.io/random_svg/?id=${tokenPayload.user_id}`,
           type: 'authenticated'
         };
 
-        console.log(`[LivestreamViewer] Connecting user: ${userToConnect.id}`);
+        // --- TRỰC TIẾP TRUYỀN TOKEN ---
+        console.log(`[LivestreamViewer] Initializing client with direct token approach`);
         
-        // Kết nối người dùng với client
-        await videoClient.connectUser(userToConnect);
-        
-        console.log(`[LivestreamViewer] Successfully connected user: ${userToConnect.id}`);
+        // Khởi tạo client với token trực tiếp
+        videoClient = new StreamVideoClient({
+          apiKey,
+          token: fetchedToken, // Sử dụng token trực tiếp, không qua tokenProvider
+          user: userToConnect, // Truyền user object cùng lúc
+          options: {
+            timeout: 15000 // Tăng timeout lên để tránh issues với mạng chậm
+          }
+        });
+
+        // Khi khởi tạo client với cả user và token, connectUser() sẽ được gọi tự động
+        console.log(`[LivestreamViewer] Client initialized with direct token authentication`);
 
         if (isMounted) setClient(videoClient);
       } catch (err: any) {
