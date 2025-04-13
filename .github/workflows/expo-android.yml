@@ -200,21 +200,35 @@ jobs:
         run: |
           echo "Cleaning non-persistent caches older than ${{ env.CACHE_LIFETIME_DAYS }} days..."
           # Clean old Gradle caches
-          find ~/.gradle/caches -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
+          find ~/.gradle/caches -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete || true # Already fixed, ensure it stays
           # Clean old Metro bundler cache
-          find ${{ env.EXPO_METRO_CACHE_DIR }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
+          find ${{ env.EXPO_METRO_CACHE_DIR }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete || true
           # Clean old EAS cache
-          find ~/.eas-cli -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
+          find ~/.eas-cli -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete || true
           # Clean old Yarn cache
           yarn cache clean --all
 
       - name: Authenticate with Expo
         run: |
           if [ -n "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "Using EXPO_TOKEN for authentication."
             export EXPO_TOKEN="${{ secrets.EXPO_TOKEN }}"
+            # Verify token is valid (optional but recommended)
+            if ! npx expo whoami &> /dev/null; then
+              echo "EXPO_TOKEN is invalid or expired."
+              exit 1
+            fi
+          elif [ -n "${{ secrets.EXPO_USERNAME }}" ] && [ -n "${{ secrets.EXPO_PASSWORD }}" ]; then
+            echo "Attempting login with EXPO_USERNAME and EXPO_PASSWORD."
+            if ! npx expo login -u "${{ secrets.EXPO_USERNAME }}" -p "${{ secrets.EXPO_PASSWORD }}" --non-interactive; then
+              echo "Expo login failed with username/password."
+              exit 1
+            fi
           else
-            npx expo login -u ${{ secrets.EXPO_USERNAME }} -p ${{ secrets.EXPO_PASSWORD }}
+            echo "Expo credentials (EXPO_TOKEN or EXPO_USERNAME/EXPO_PASSWORD) not found."
+            exit 1
           fi
+          echo "Expo authentication successful."
 
       - name: Build Android App
         id: build
@@ -261,21 +275,21 @@ jobs:
           # Cache stats
           echo "=== Cache Statistics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
           echo "Persistent Cache:" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          du -sh ${{ env.PERSISTENT_CACHE_PATH }}/* >> ${{ env.STORAGE_DIR }}/build-report.txt || echo "Persistent cache empty or not found"
+          du -sh ${{ env.PERSISTENT_CACHE_PATH }}/* >> ${{ env.STORAGE_DIR }}/build-report.txt || true # Already fixed, ensure it stays
           echo "Non-Persistent Caches:" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          du -sh ~/.gradle/caches ~/.android/build-cache ${{ env.EXPO_METRO_CACHE_DIR }} ~/.eas-cli .yarn/cache >> ${{ env.STORAGE_DIR }}/build-report.txt || echo "Non-persistent caches empty or not found"
+          du -sh ~/.gradle/caches ~/.android/build-cache ${{ env.EXPO_METRO_CACHE_DIR }} ~/.eas-cli .yarn/cache >> ${{ env.STORAGE_DIR }}/build-report.txt || true # Already fixed, ensure it stays
 
 
           # Gradle metrics
           if [ -f "$HOME/.gradle/daemon/daemon-metrics.log" ]; then
             echo "=== Gradle Metrics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
-            cat "$HOME/.gradle/daemon/daemon-metrics.log" >> ${{ env.STORAGE_DIR }}/build-report.txt
+            cat "$HOME/.gradle/daemon/daemon-metrics.log" >> ${{ env.STORAGE_DIR }}/build-report.txt || true # Already fixed, ensure it stays
           fi
 
           # Metro bundler metrics
           if [ -f "${{ env.EXPO_METRO_CACHE_DIR }}/metro-metrics.json" ]; then
             echo "=== Metro Bundler Metrics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
-            cat "${{ env.EXPO_METRO_CACHE_DIR }}/metro-metrics.json" >> ${{ env.STORAGE_DIR }}/build-report.txt
+            cat "${{ env.EXPO_METRO_CACHE_DIR }}/metro-metrics.json" >> ${{ env.STORAGE_DIR }}/build-report.txt || true # Already fixed, ensure it stays
           fi
 
       - name: Save Persistent Cache
@@ -303,8 +317,8 @@ jobs:
             if [ -f "${{ env.EAS_LOCAL_BUILD_WORKINGDIR }}/eas-build.log" ]; then
               cp "${{ env.EAS_LOCAL_BUILD_WORKINGDIR }}/eas-build.log" "${{ env.STORAGE_DIR }}/logs/build-log-${{ env.BUILD_TIMESTAMP }}.txt"
             fi
-            find ${{ env.EAS_LOCAL_BUILD_WORKINGDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \;
-            find ${{ env.TMPDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \;
+            find ${{ env.EAS_LOCAL_BUILD_WORKINGDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \; || true # Already fixed, ensure it stays
+            find ${{ env.TMPDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \; || true # Already fixed, ensure it stays
           else
             echo "Build completed successfully"
           fi
@@ -333,11 +347,11 @@ jobs:
       - name: List recent APKs
         run: |
           echo "=== Recent APK Builds ==="
-          find $HOME/ksms-builds -type f -name "*.apk" -mtime -7 | sort -r
+          find $HOME/ksms-builds -type f -name "*.apk" -mtime -7 | sort -r || true # Already fixed, ensure it stays
 
       - name: Cleanup Old Persistent Caches
         if: always()
         run: |
           echo "Cleaning up old persistent caches..."
-          find ${{ env.PERSISTENT_CACHE_PATH }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete
+          find ${{ env.PERSISTENT_CACHE_PATH }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete || true # Already fixed, ensure it stays
           echo "Cleanup complete."
