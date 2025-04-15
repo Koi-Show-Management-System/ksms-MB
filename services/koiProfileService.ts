@@ -1,3 +1,5 @@
+import axios, { AxiosError } from 'axios';
+
 import api from './api';
 
 export interface KoiVariety {
@@ -125,3 +127,67 @@ export const createKoiProfile = async (formData: FormData) => {
     throw error;
   }
 }
+
+// Interface for update data (optional, for clarity)
+export interface UpdateKoiProfileData {
+  varietyId?: string;
+  size?: number;
+  age?: number;
+  status?: string;
+  // Files are handled by FormData, so not explicitly listed here unless needed for type checking elsewhere
+}
+
+// Update koi profile
+export const updateKoiProfile = async (id: string, formData: FormData): Promise<KoiProfileResponse> => {
+  try {
+    console.log(`Updating koi profile ${id} with form data`);
+    // Log FormData entries for debugging
+    // formData.forEach((value, key) => {
+    //   console.log(`${key}: ${value}`);
+    // });
+    const response = await api.put(`/api/v1/koi-profile/${id}`, formData, {
+      headers: {
+        // Content-Type is automatically set by Axios when using FormData
+        // 'Content-Type': 'multipart/form-data',
+      },
+    });
+    console.log('Update koi profile API response:', response.data);
+    return response.data;
+  } catch (error: unknown) { // Explicitly type error as unknown
+    // Log detailed error information
+    if (axios.isAxiosError(error)) { // Check if it's an AxiosError
+      console.error('Axios error details:');
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('  Response data:', error.response.data);
+        console.error('  Response status:', error.response.status);
+        console.error('  Response headers:', error.response.headers);
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('  Request data:', error.request);
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('  Error message:', error.message);
+      }
+      console.error('  Error config:', error.config);
+    } else {
+      // Handle non-Axios errors
+      console.error('Non-Axios error:', error);
+    }
+    throw error; // Re-throw the error after logging
+  }
+};
+
+// Cập nhật trạng thái cá Koi
+export const updateKoiStatus = async (id: string, status: 'Active' | 'Inactive'): Promise<{ data: null; statusCode: number; message: string }> => {
+  try {
+    console.log(`Cập nhật trạng thái cá Koi ${id} thành ${status}`);
+    const response = await api.put(`/api/v1/koi-profile/status/${id}?status=${status}`);
+    console.log('Kết quả cập nhật trạng thái cá Koi:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Lỗi khi cập nhật trạng thái cá Koi:', error);
+    throw error;
+  }
+};

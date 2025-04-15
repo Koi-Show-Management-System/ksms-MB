@@ -379,7 +379,9 @@ const KoiRegistrationScreen: React.FC = () => {
     try {
       setLoading(true);
       const response = await getKoiProfiles();
-      setKoiProfiles(response.data.items);
+      // Lọc chỉ những profile có status là "active"
+      const activeProfiles = response.data.items.filter(profile => profile.status.toLowerCase() === "active");
+      setKoiProfiles(activeProfiles);
     } catch (error) {
       console.error("Failed to fetch koi profiles:", error);
       Alert.alert(
@@ -1071,7 +1073,7 @@ const KoiRegistrationScreen: React.FC = () => {
   // Render dropdown items for koi selection
   const renderKoiDropdownItems = () => {
     if (koiProfiles.length === 0) {
-      return <Text style={styles.dropdownText}>Không có hồ sơ koi nào</Text>;
+      return <Text style={styles.dropdownText}>Không có hồ sơ koi nào hoạt động</Text>;
     }
 
     return (
@@ -1094,7 +1096,10 @@ const KoiRegistrationScreen: React.FC = () => {
               )}
               <View style={styles.dropdownItemDetails}>
                 <Text style={styles.dropdownItemName}>{profile.name}</Text>
-                <Text style={styles.dropdownItemInfo}>{profile.variety.name}, {profile.size}cm</Text>
+                <Text style={styles.dropdownItemInfo}>
+                  {profile.variety.name}, {profile.size}cm
+                  {profile.status && <Text style={{color: '#4CAF50'}}> • Hoạt động</Text>}
+                </Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -2169,6 +2174,7 @@ const KoiRegistrationScreen: React.FC = () => {
           {/* Koi Selection */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Chọn Koi của bạn</Text>
+            <Text style={styles.infoText}>Chỉ hiển thị những cá Koi có trạng thái Hoạt động</Text>
             <TouchableOpacity
               style={styles.dropdown}
               onPress={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -3326,6 +3332,12 @@ const styles = StyleSheet.create({
   varietyTagText: {
     fontSize: 12,
     color: '#4B5563',
+  },
+  infoText: {
+    fontFamily: "Roboto",
+    fontSize: 14,
+    color: "#64748B",
+    marginBottom: 16,
   },
 });
 

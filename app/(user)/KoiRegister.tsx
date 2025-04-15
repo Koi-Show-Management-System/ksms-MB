@@ -161,6 +161,12 @@ const KoiRegister: React.FC = () => {
             />
           </View>
 
+          {/* Warning Text */}
+          <Text style={styles.warningText}>
+            Lưu ý: Tên (Name), Giới tính (Gender), và Dòng máu (Bloodline) sẽ không thể thay đổi sau khi tạo hồ sơ.
+          </Text>
+
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Koi Description</Text>
             <TextInput
@@ -320,6 +326,14 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "400",
   },
+  warningText: {
+    fontFamily: "Lexend Deca",
+    fontSize: 13, // Smaller font size
+    color: "#FFA500", // Orange color for warning
+    marginBottom: 16, // Add some space below
+    textAlign: 'center', // Center the text
+  },
+
   //Footer
   footerContainer: {
     width: "100%",

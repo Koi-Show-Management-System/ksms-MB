@@ -4,6 +4,7 @@ import { getKoiProfileById, KoiProfile as BaseKoiProfile, KoiMedia } from "../..
 import { VideoView, useVideoPlayer } from "expo-video";
 import { LinearGradient } from "expo-linear-gradient";
 import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
+import KoiStatusSwitch from "../../components/KoiStatusSwitch"; // Import component KoiStatusSwitch
 import {
   ActivityIndicator,
   Image,
@@ -247,6 +248,16 @@ export default function KoiInformation() {
     }
   };
 
+  // Thêm hàm xử lý khi trạng thái thay đổi
+  const handleStatusChange = (newStatus: string) => {
+    if (koiData) {
+      setKoiData({
+        ...koiData,
+        status: newStatus
+      });
+    }
+  };
+
   // Render item cho carousel media
   const renderMediaItem = ({ item, index }: { item: KoiMedia; index: number }) => (
     <View style={[styles.mediaSlide]}>
@@ -361,6 +372,13 @@ export default function KoiInformation() {
           />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thông tin cá Koi</Text>
+        {/* Add Edit Button */}
+        <TouchableOpacity
+          onPress={() => router.push(`/(user)/KoiProfileEdit?id=${koiId}`)}
+          style={styles.editButtonContainer} // Add style for this
+        >
+           <Text style={styles.editButtonText}>Sửa</Text> {/* Or use an icon */}
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -413,9 +431,11 @@ export default function KoiInformation() {
         <View style={styles.contentContainer}>
           {/* Tiêu đề và trạng thái */}
           <Text style={styles.koiName}>{koiData.name || "Không có tên"}</Text>
-          <Text style={styles.statusText}>
-            Trạng thái: {koiData.status === "active" ? "Hoạt động" : koiData.status || "Không xác định"}
-          </Text>
+          <KoiStatusSwitch
+            koiId={koiId}
+            initialStatus={koiData.status || "inactive"}
+            onStatusChange={handleStatusChange}
+          />
           
           {/* Thông tin chi tiết */}
           <Text style={styles.sectionTitle}>Thông tin chi tiết</Text>
@@ -679,6 +699,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: 'space-between', // Adjust alignment for the new button
     height: 60,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -700,6 +721,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Poppins_700Bold',
     color: "#000000",
+  },
+  editButtonContainer: {
+     paddingHorizontal: 10, // Add some padding
+     height: 32,
+     justifyContent: 'center',
+     alignItems: 'center',
+  },
+  editButtonText: {
+     fontSize: 16,
+     color: '#007AFF', // Blue color like links
+     fontFamily: 'Poppins_400Regular', // Or bold if preferred
   },
 
   // ScrollView
@@ -841,7 +873,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Poppins_400Regular',
     color: "#4B5563",
-    marginBottom: 24,
+    marginBottom: 8,
   },
   sectionTitle: {
     fontSize: 18,
