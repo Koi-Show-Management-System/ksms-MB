@@ -138,6 +138,16 @@ const SignIn: React.FC<SignInProps> = ({
           <Text style={styles.fieldErrorText}>{validationErrors.password[0]}</Text>
         )}
 
+        {/* Forgot password link */}
+        <TouchableOpacity
+          onPress={() => router.push('/(auth)/forgot-password')}
+          style={{ alignSelf: 'flex-end', marginBottom: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Quên mật khẩu"
+        >
+          <Text style={{ color: '#1976d2', fontWeight: '600', fontSize: 14 }}>Quên mật khẩu?</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.joinButton, isLoading && styles.joinButtonDisabled]}
           onPress={handleSignIn}

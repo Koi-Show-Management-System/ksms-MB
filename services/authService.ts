@@ -117,3 +117,39 @@ export const register = async (
     }
   }
 };
+
+// Forgot password function
+export async function forgotPassword(email: string): Promise<void> {
+  try {
+    const response = await api.post(
+      `/api/v1/auth/forgot-password?email=${encodeURIComponent(email)}`,
+      null, // Không truyền body
+      {
+        headers: {
+          Accept: 'application/json',
+        },
+      }
+    )
+    if (response?.data?.statusCode === 200) return
+    throw new Error(response?.data?.message || 'Không gửi được mã OTP')
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.message || 'Không gửi được mã OTP')
+  }
+}
+
+// Reset password function
+export async function resetPassword(email: string, otp: string, newPassword: string): Promise<void> {
+  try {
+    const response = await api.put(
+      '/api/v1/auth/reset-password',
+      { email, otp, newPassword },
+      {
+        headers: { Accept: 'application/json' },
+      }
+    )
+    if (response?.data?.statusCode === 200) return
+    throw new Error(response?.data?.message || 'Đặt lại mật khẩu thất bại')
+  } catch (error: any) {
+    throw new Error(error?.response?.data?.message || 'Đặt lại mật khẩu thất bại')
+  }
+}
