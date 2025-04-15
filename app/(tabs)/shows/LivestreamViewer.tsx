@@ -1,6 +1,6 @@
 // app/(tabs)/shows/LivestreamViewer.tsx
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, Image, ScrollView, Dimensions, TextInput } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   StreamVideo,
@@ -16,9 +16,12 @@ import {
 } from '@stream-io/video-react-native-sdk';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getLivestreamViewerToken, getLivestreamDetails, LivestreamInfo } from '../../../services/livestreamService'; // Import status check function and type
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
+
+// Lấy kích thước màn hình
+const { width } = Dimensions.get('window');
 
 // --- Constants ---
 const STATUS_CHECK_INTERVAL = 15000; // Check API status every 15 seconds
@@ -54,8 +57,172 @@ interface LivestreamContentProps {
   livestreamId: string; // Pass livestreamId for status checks
 }
 
+// Mẫu dữ liệu bình luận
+const SAMPLE_COMMENTS = [
+  {
+    id: '1',
+    user: 'KoiLover55',
+    text: 'Cá Koi này đẹp quá! Màu sắc rất tươi sáng.',
+    timeAgo: '2p',
+    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+  },
+  {
+    id: '2',
+    user: 'JapaneseKoiExpert',
+    text: 'Đây là một con Kohaku tuyệt vời, có thể đạt giải cao đấy!',
+    timeAgo: '5p',
+    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+  },
+  {
+    id: '3',
+    user: 'KoiBreeder_JP',
+    text: 'Chất lượng nước rất tốt. Họ đang sử dụng hệ thống lọc gì vậy?',
+    timeAgo: '7p',
+    avatar: 'https://randomuser.me/api/portraits/men/68.jpg',
+  },
+];
+
+// Component hiển thị livestream với giao diện đẹp
+const EnhancedLivestreamUI: React.FC<{
+  children: React.ReactNode;
+  showName: string;
+  onLeave: () => void;
+}> = ({ children, showName, onLeave }) => {
+  const [viewCount, setViewCount] = useState(1245);
+  const [likeCount, setLikeCount] = useState(324);
+  const [isLiked, setIsLiked] = useState(false);
+  const [comments, setComments] = useState(SAMPLE_COMMENTS);
+  const [commentText, setCommentText] = useState('');
+  
+  // Giả lập tăng số người xem
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setViewCount(prev => prev + Math.floor(Math.random() * 3));
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Xử lý gửi bình luận
+  const handleSendComment = () => {
+    if (commentText.trim()) {
+      const newComment = {
+        id: Date.now().toString(),
+        user: 'Bạn',
+        text: commentText,
+        timeAgo: 'vừa xong',
+        avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
+      };
+      
+      setComments([newComment, ...comments]);
+      setCommentText('');
+    }
+  };
+  
+  return (
+    <View style={styles.livestreamContainer}>
+      {/* Phần video */}
+      <View style={styles.videoWrapper}>
+        {children}
+        
+        {/* Chỉ báo LIVE */}
+        <View style={styles.liveIndicator}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveText}>LIVE</Text>
+        </View>
+        
+        {/* Số người xem */}
+        <View style={styles.viewCountContainer}>
+          <Ionicons name="eye" size={14} color="#FFF" />
+          <Text style={styles.viewCountText}>{viewCount}</Text>
+        </View>
+        
+        {/* Nút quay lại */}
+        <TouchableOpacity 
+          style={styles.backButtonOverlay}
+          onPress={onLeave}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+      
+      {/* Thông tin stream */}
+      <View style={styles.infoSection}>
+        <Text style={styles.streamTitle}>{showName || 'Koi Show Livestream'}</Text>
+        <View style={styles.streamStats}>
+          <TouchableOpacity 
+            style={styles.statButton}
+            onPress={() => {
+              setIsLiked(!isLiked);
+              setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
+            }}
+          >
+            <Ionicons 
+              name={isLiked ? "heart" : "heart-outline"} 
+              size={22} 
+              color={isLiked ? "#FF4D4F" : "#333"} 
+            />
+            <Text style={styles.statText}>{likeCount}</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.statButton}>
+            <Ionicons name="chatbubble-outline" size={20} color="#333" />
+            <Text style={styles.statText}>{comments.length}</Text>
+          </View>
+          
+          <TouchableOpacity style={styles.statButton}>
+            <Ionicons name="share-social-outline" size={20} color="#333" />
+            <Text style={styles.statText}>Chia sẻ</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      {/* Phần bình luận */}
+      <View style={styles.commentsContainer}>
+        <Text style={styles.commentsSectionTitle}>Bình luận trực tiếp</Text>
+        <ScrollView style={styles.commentsScrollView}>
+          {comments.map(comment => (
+            <View key={comment.id} style={styles.commentItem}>
+              <Image source={{ uri: comment.avatar }} style={styles.commentAvatar} />
+              <View style={styles.commentContent}>
+                <View style={styles.commentHeader}>
+                  <Text style={styles.commentUser}>{comment.user}</Text>
+                  <Text style={styles.commentTime}>{comment.timeAgo}</Text>
+                </View>
+                <Text style={styles.commentText}>{comment.text}</Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+        
+        {/* Input bình luận */}
+        <View style={styles.commentInputContainer}>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Viết bình luận..."
+            placeholderTextColor="#999"
+            value={commentText}
+            onChangeText={setCommentText}
+          />
+          <TouchableOpacity 
+            style={styles.sendButton} 
+            onPress={handleSendComment}
+            disabled={!commentText.trim()}
+          >
+            <Ionicons 
+              name="send" 
+              size={20} 
+              color={commentText.trim() ? "#0066CC" : "#CCC"} 
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 // Component con để xử lý trạng thái call (Phải nằm trong ngữ cảnh <StreamCall>)
-const CallStateHandler: React.FC<{ onLeave: (call: Call) => void }> = ({ onLeave }) => {
+const CallStateHandler: React.FC<{ onLeave: (call: Call) => void, showName: string }> = ({ onLeave, showName }) => {
   // Các hook này bây giờ an toàn vì chúng nằm trong ngữ cảnh StreamCall
   const { useCallCallingState, useIsCallLive } = useCallStateHooks();
   const callingState = useCallCallingState();
@@ -100,14 +267,19 @@ const CallStateHandler: React.FC<{ onLeave: (call: Call) => void }> = ({ onLeave
         );
       }
       
-      // Render actual livestream content
+      // Render actual livestream content with enhanced UI
       return (
-        <CallContent
-          onHangupCallHandler={() => {
-            console.log('Hangup button pressed or call ended.');
-            call && onLeave(call);
-          }}
-        />
+        <EnhancedLivestreamUI 
+          showName={showName} 
+          onLeave={() => call && onLeave(call)}
+        >
+          <CallContent
+            onHangupCallHandler={() => {
+              console.log('Hangup button pressed or call ended.');
+              call && onLeave(call);
+            }}
+          />
+        </EnhancedLivestreamUI>
       );
     default:
       return (
@@ -122,7 +294,7 @@ const CallStateHandler: React.FC<{ onLeave: (call: Call) => void }> = ({ onLeave
   }
 };
 
-const LivestreamContent: React.FC<LivestreamContentProps> = ({ callId, callType, livestreamId }) => {
+const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }> = ({ callId, callType, livestreamId, showName }) => {
   const client = useStreamVideoClient();
   const [call, setCall] = useState<Call | null>(null);
   const [isLoadingCall, setIsLoadingCall] = useState(true);
@@ -363,7 +535,7 @@ const LivestreamContent: React.FC<LivestreamContentProps> = ({ callId, callType,
   console.log("LivestreamContent: Rendering StreamCall with CallContent.");
   return (
     <StreamCall call={call}>
-      <CallStateHandler onLeave={handleLeaveCall} />
+      <CallStateHandler onLeave={handleLeaveCall} showName={showName || 'Koi Show Livestream'} />
     </StreamCall>
   );
 };
@@ -552,19 +724,13 @@ const LivestreamViewerScreen: React.FC = () => {
   console.log("Rendering StreamVideo provider and LivestreamContent");
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => handleLeaveCall(callRef.current)} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{showName || 'Livestream'}</Text>
-        <View style={{ width: 24 }} /> {/* Spacer */}
-      </View>
       <StreamVideo client={client}>
          {/* Pass livestreamId down */}
          <LivestreamContent
             callId={callId}
             callType="livestream"
             livestreamId={livestreamId}
+            showName={showName}
             // Pass the call object up via ref if needed by parent, though maybe not necessary now
             // ref={(c) => callRef.current = c} // This won't work directly on functional components
          />
@@ -585,12 +751,12 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#f5f6fa',
   },
-   centeredContent: { // For status messages within the black container
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 20,
-      backgroundColor: 'transparent', // Keep it transparent
+  centeredContent: { // For status messages within the black container
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: 'transparent', // Keep it transparent
   },
   loadingText: { // For initial loading
     marginTop: 10,
@@ -598,10 +764,10 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   infoText: { // For status messages inside the stream view
-      marginTop: 10,
-      fontSize: 16,
-      color: '#FFF', // White text on black background
-      textAlign: 'center',
+    marginTop: 10,
+    fontSize: 16,
+    color: '#FFF', // White text on black background
+    textAlign: 'center',
   },
   errorText: { // For both initial error and status error
     marginTop: 10,
@@ -623,18 +789,18 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 5,
   },
-   actionButton: { // General purpose button for errors/ended states
-     marginTop: 20,
-     backgroundColor: "#555", // Darker button
-     paddingVertical: 12,
-     paddingHorizontal: 24,
-     borderRadius: 8,
-   },
-   actionButtonText: {
-     color: "#ffffff",
-     fontSize: 16,
-     fontWeight: "600",
-   },
+  actionButton: { // General purpose button for errors/ended states
+    marginTop: 20,
+    backgroundColor: "#555", // Darker button
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  actionButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -642,6 +808,167 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     flex: 1,
     marginHorizontal: 10,
+  },
+  
+  // Styles mới cho giao diện livestream nâng cao
+  livestreamContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  videoWrapper: {
+    width: '100%',
+    height: width * 9/16, // Tỷ lệ 16:9 cho video
+    backgroundColor: '#000',
+    position: 'relative',
+  },
+  liveIndicator: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    zIndex: 10,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#f00',
+    marginRight: 4,
+  },
+  liveText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  viewCountContainer: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    zIndex: 10,
+  },
+  viewCountText: {
+    color: '#fff',
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  backButtonOverlay: {
+    position: 'absolute',
+    top: 50,
+    left: 16,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infoSection: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  streamTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+  },
+  streamStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+  },
+  statText: {
+    fontSize: 14,
+    marginLeft: 4,
+    color: '#666',
+  },
+  commentsContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 16,
+  },
+  commentsSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+  },
+  commentsScrollView: {
+    flex: 1,
+  },
+  commentItem: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  commentAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 12,
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  commentUser: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+    marginRight: 8,
+  },
+  commentTime: {
+    fontSize: 12,
+    color: '#999',
+  },
+  commentText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 20,
+  },
+  commentInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  commentInput: {
+    flex: 1,
+    height: 40,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: '#333',
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
