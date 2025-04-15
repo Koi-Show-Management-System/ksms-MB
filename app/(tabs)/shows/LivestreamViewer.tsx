@@ -7,12 +7,13 @@ import {
   StreamVideoClient,
   User,
   StreamCall,
-  CallContent,
   Call,
-  useStreamVideoClient,
-  useCallStateHooks,  // Import the main state hook
+  CallContent,
   CallingState,       // Import enum for call states
   useCall,
+  useCallStateHooks,
+  ViewerLivestream,    // Thêm vào để sử dụng component mới
+  useStreamVideoClient
 } from '@stream-io/video-react-native-sdk';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getLivestreamViewerToken, getLivestreamDetails, LivestreamInfo } from '../../../services/livestreamService'; // Import status check function and type
@@ -273,12 +274,7 @@ const CallStateHandler: React.FC<{ onLeave: (call: Call) => void, showName: stri
           showName={showName} 
           onLeave={() => call && onLeave(call)}
         >
-          <CallContent
-            onHangupCallHandler={() => {
-              console.log('Hangup button pressed or call ended.');
-              call && onLeave(call);
-            }}
-          />
+          <ViewerLivestream />
         </EnhancedLivestreamUI>
       );
     default:
@@ -377,8 +373,19 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
               const joinResult = await currentCall.join({
                 create: false,
                 ring: false,
-                notify: false
+                notify: false,
               });
+
+              // Vô hiệu hóa camera và micro sau khi tham gia
+              if (currentCall) {
+                try {
+                  // Tắt camera và micro của người xem khi tham gia livestream
+                  await currentCall.camera.disable();
+                  await currentCall.microphone.disable();
+                } catch (mediaError) {
+                  console.error("Error disabling media:", mediaError);
+                }
+              }
               
               console.log("LivestreamContent: Successfully joined call", joinResult);
               break;
