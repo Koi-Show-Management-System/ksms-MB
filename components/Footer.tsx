@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View, Platform, StatusBar, Dimensions } from "react-native";
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+import React from "react"; // Removed duplicate import and unused useEffect/useState
+import { Image, StyleSheet, Text, TouchableOpacity, View, Platform } from "react-native"; // Removed Dimensions
+// Removed unused imports: LinearGradient, BlurView, StatusBar
 import { router } from "expo-router";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Lấy kích thước màn hình
-const { width, height } = Dimensions.get('window');
+// Dimensions không còn cần thiết ở đây
 
 interface FooterProps {
   activeTab?: 'home' | 'notifications' | 'camera' | 'profile' | 'shows';
@@ -26,16 +24,7 @@ const Footer: React.FC<FooterProps> = ({
   onShowsPress,
 }) => {
   const insets = useSafeAreaInsets();
-  const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
-  
-  // Lắng nghe sự thay đổi kích thước màn hình (xảy ra khi navigation bar ẩn/hiện)
-  useEffect(() => {
-    const dimensionsHandler = Dimensions.addEventListener('change', ({ window }) => {
-      setScreenHeight(window.height);
-    });
-    
-    return () => dimensionsHandler.remove();
-  }, []);
+  // screenHeight và useEffect không còn cần thiết
 
   // Xử lý các sự kiện nếu không được truyền vào
   const handleHomePress = () => {
@@ -80,12 +69,11 @@ const Footer: React.FC<FooterProps> = ({
   };
 
   return (
-    <View style={[
-      styles.footerWrapper,
-      { paddingBottom: insets.bottom > 0 ? insets.bottom : Platform.OS === 'android' ? 15 : 0 }
-    ]}>
+    // Loại bỏ paddingBottom khỏi footerWrapper
+    <View style={styles.footerWrapper}>
       <View style={styles.footerBorder} />
-      <View style={styles.footerContent}>
+      {/* Áp dụng paddingBottom cho footerContent */}
+      <View style={[styles.footerContent, { paddingBottom: insets.bottom }]}>
         <TouchableOpacity 
           style={[styles.footerItem, activeTab === 'home' && styles.activeFooterItem]} 
           onPress={handleHomePress}
@@ -183,8 +171,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    height: '100%',
-    paddingBottom: 0,
+    height: 70, // Nên đặt chiều cao cố định cho content nếu wrapper không có chiều cao
+    // paddingBottom được thêm động ở trên
   },
   footerItem: {
     alignItems: 'center',

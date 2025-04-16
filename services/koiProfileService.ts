@@ -140,42 +140,105 @@ export interface UpdateKoiProfileData {
 // Update koi profile
 export const updateKoiProfile = async (id: string, formData: FormData): Promise<KoiProfileResponse> => {
   try {
-    console.log(`Updating koi profile ${id} with form data`);
-    // Log FormData entries for debugging
-    // formData.forEach((value, key) => {
-    //   console.log(`${key}: ${value}`);
-    // });
+    console.log(`Đang cập nhật hồ sơ Koi ${id}`);
+    
+    // Kiểm tra dữ liệu trước khi gửi
+    if (!id) {
+      throw new Error('ID Koi không hợp lệ');
+    }
+    
+    // Kiểm tra xem formData có dữ liệu không
+    let hasData = false;
+    formData.forEach(() => { hasData = true; });
+    
+    if (!hasData) {
+      throw new Error('Không có dữ liệu để cập nhật');
+    }
+    
+    // Gửi yêu cầu cập nhật
     const response = await api.put(`/api/v1/koi-profile/${id}`, formData, {
       headers: {
-        // Content-Type is automatically set by Axios when using FormData
-        // 'Content-Type': 'multipart/form-data',
+        // Content-Type tự động được thiết lập bởi Axios khi sử dụng FormData
       },
+      timeout: 30000, // Tăng timeout lên 30 giây để xử lý upload file
     });
-    console.log('Update koi profile API response:', response.data);
+    
+    console.log('Kết quả cập nhật hồ sơ Koi:', response.data);
     return response.data;
-  } catch (error: unknown) { // Explicitly type error as unknown
-    // Log detailed error information
-    if (axios.isAxiosError(error)) { // Check if it's an AxiosError
-      console.error('Axios error details:');
+  } catch (error: unknown) {
+    // Xử lý và ghi log lỗi chi tiết
+    console.error('Lỗi khi cập nhật hồ sơ Koi:');
+    
+    if (axios.isAxiosError(error)) {
+      // Xử lý lỗi Axios
       if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('  Response data:', error.response.data);
-        console.error('  Response status:', error.response.status);
-        console.error('  Response headers:', error.response.headers);
+        // Máy chủ trả về lỗi với mã trạng thái
+        console.error('  Dữ liệu phản hồi:', error.response.data);
+        console.error('  Mã trạng thái:', error.response.status);
+        console.error('  Headers phản hồi:', error.response.headers);
+        
+        // Tạo đối tượng phản hồi tùy chỉnh cho lỗi từ máy chủ
+        const customResponse: KoiProfileResponse = {
+          data: {} as KoiProfile, // Dữ liệu trống
+          statusCode: error.response.status,
+          message: error.response.data?.message || 'Lỗi từ máy chủ'
+        };
+        
+        // Nếu máy chủ trả về dữ liệu có cấu trúc, sử dụng nó
+        if (error.response.data && typeof error.response.data === 'object') {
+          if (error.response.data.statusCode) {
+            customResponse.statusCode = error.response.data.statusCode;
+          }
+          if (error.response.data.message) {
+            customResponse.message = error.response.data.message;
+          }
+        }
+        
+        throw customResponse; // Ném lỗi có cấu trúc
       } else if (error.request) {
-        // The request was made but no response was received
-        console.error('  Request data:', error.request);
+        // Yêu cầu đã được gửi nhưng không nhận được phản hồi
+        console.error('  Dữ liệu yêu cầu:', error.request);
+        throw {
+          data: {} as KoiProfile,
+          statusCode: 0,
+          message: 'Không nhận được phản hồi từ máy chủ. Vui lòng kiểm tra kết nối mạng.'
+        };
       } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('  Error message:', error.message);
+        // Lỗi khi thiết lập yêu cầu
+        console.error('  Thông báo lỗi:', error.message);
+        throw {
+          data: {} as KoiProfile,
+          statusCode: 0,
+          message: `Lỗi khi gửi yêu cầu: ${error.message}`
+        };
       }
-      console.error('  Error config:', error.config);
+      
+      // Log cấu hình yêu cầu để debug
+      if (error.config) {
+        console.error('  Cấu hình yêu cầu:', {
+          url: error.config.url,
+          method: error.config.method,
+          headers: error.config.headers,
+          timeout: error.config.timeout
+        });
+      }
+    } else if (error instanceof Error) {
+      // Xử lý lỗi JavaScript thông thường
+      console.error('  Lỗi JavaScript:', error.message);
+      throw {
+        data: {} as KoiProfile,
+        statusCode: 0,
+        message: error.message
+      };
     } else {
-      // Handle non-Axios errors
-      console.error('Non-Axios error:', error);
+      // Xử lý các loại lỗi khác
+      console.error('  Lỗi không xác định:', error);
+      throw {
+        data: {} as KoiProfile,
+        statusCode: 0,
+        message: 'Đã xảy ra lỗi không xác định'
+      };
     }
-    throw error; // Re-throw the error after logging
   }
 };
 

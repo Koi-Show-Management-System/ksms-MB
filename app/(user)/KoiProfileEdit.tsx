@@ -10,13 +10,13 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getKoiProfileById, updateKoiProfile, KoiProfile, Variety, getVarieties } from '@/services/koiProfileService';
 import * as ImagePicker from 'expo-image-picker';
-import axios from 'axios'; // Import axios for error checking
-// Import Picker if needed for Variety and Status
-// import { Picker } from '@react-native-picker/picker';
+import axios from 'axios';
+import { Picker } from '@react-native-picker/picker';
 
 // Define state interface
 interface KoiEditData {
@@ -170,10 +170,39 @@ export default function KoiProfileEdit() {
       return;
     }
 
-    // Basic Validation
-    if (!koiData.varietyId || !koiData.size || !koiData.age || !koiData.status) {
-       Alert.alert('Thiếu thông tin', 'Vui lòng điền đầy đủ các trường Variety, Size, Age, Status.');
-       return;
+    // Kiểm tra hợp lệ chi tiết hơn
+    if (!koiData.varietyId) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng chọn giống (Variety) cho cá Koi.');
+      return;
+    }
+    
+    if (!koiData.size) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập kích thước (Size) cho cá Koi.');
+      return;
+    }
+    
+    if (!koiData.age) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập tuổi (Age) cho cá Koi.');
+      return;
+    }
+    
+    if (!koiData.status) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng chọn trạng thái (Status) cho cá Koi.');
+      return;
+    }
+
+    // Kiểm tra giá trị số hợp lệ
+    const sizeNum = parseFloat(koiData.size);
+    const ageNum = parseFloat(koiData.age);
+    
+    if (isNaN(sizeNum) || sizeNum <= 0) {
+      Alert.alert('Giá trị không hợp lệ', 'Kích thước phải là số dương.');
+      return;
+    }
+    
+    if (isNaN(ageNum) || ageNum <= 0) {
+      Alert.alert('Giá trị không hợp lệ', 'Tuổi phải là số dương.');
+      return;
     }
 
     setIsSaving(true);
@@ -181,66 +210,115 @@ export default function KoiProfileEdit() {
 
     const formData = new FormData();
 
-    // Append allowed fields
+    // Chỉ thêm các trường được phép cập nhật
+    // KHÔNG thêm name, gender, bloodline vào formData
     formData.append('VarietyId', koiData.varietyId);
     formData.append('Size', koiData.size);
     formData.append('Age', koiData.age);
     formData.append('Status', koiData.status);
 
-    // Append NEW images
+    // Thêm hình ảnh mới
     koiData.koiImages.forEach((image, index) => {
-      const uriParts = image.uri.split('.');
-      const fileType = image.uri.split('.').pop(); // More robust way to get extension
-      const mimeType = image.mimeType ?? `image/${fileType}`; // Use mimeType if available
+      const fileType = image.uri.split('.').pop() || 'jpg'; // Mặc định là jpg nếu không tìm thấy phần mở rộng
+      const mimeType = image.mimeType ?? `image/${fileType}`;
+      
       formData.append('KoiImages', {
         uri: image.uri,
-        name: `photo_${Date.now()}_${index}.${fileType}`, // Add timestamp for uniqueness
+        name: `photo_${Date.now()}_${index}.${fileType}`,
         type: mimeType,
-      } as any); // Cast to 'any' to bypass FormData type checking if needed
+      } as any);
     });
 
-    // Append NEW videos
+    // Thêm video mới
     koiData.koiVideos.forEach((video, index) => {
-       const uriParts = video.uri.split('.');
-       const fileType = video.uri.split('.').pop();
-       const mimeType = video.mimeType ?? `video/${fileType}`; // Use mimeType if available
-       formData.append('KoiVideos', {
-         uri: video.uri,
-         name: `video_${Date.now()}_${index}.${fileType}`, // Add timestamp for uniqueness
-         type: mimeType, // Adjust mime type if necessary
-       } as any);
+      const fileType = video.uri.split('.').pop() || 'mp4'; // Mặc định là mp4 nếu không tìm thấy phần mở rộng
+      const mimeType = video.mimeType ?? `video/${fileType}`;
+      
+      formData.append('KoiVideos', {
+        uri: video.uri,
+        name: `video_${Date.now()}_${index}.${fileType}`,
+        type: mimeType,
+      } as any);
     });
 
-    // **Important:** Handling existing media removal needs API clarification.
-    // Does the API automatically remove media not included? Or do we need to send IDs to remove?
-    // Assuming for now the API replaces all media if new ones are sent.
-    // If specific removal is needed, adjust FormData accordingly.
+    // Xử lý media đã xóa (nếu API hỗ trợ)
+    // Nếu API yêu cầu danh sách ID của media cần giữ lại
+    const remainingImageIds = koiData.existingImages.map(img => img.id);
+    const remainingVideoIds = koiData.existingVideos.map(vid => vid.id);
+    
+    if (remainingImageIds.length > 0) {
+      formData.append('RemainingImageIds', JSON.stringify(remainingImageIds));
+    }
+    
+    if (remainingVideoIds.length > 0) {
+      formData.append('RemainingVideoIds', JSON.stringify(remainingVideoIds));
+    }
 
     try {
-      console.log('Submitting update data for Koi ID:', koiId);
-      // Log FormData entries for debugging
-      // formData.forEach((value, key) => {
-      //   console.log(`${key}: ${value}`);
-      // });
-      const response = await updateKoiProfile(koiId, formData);
-      if (response.statusCode === 200) {
-        Alert.alert('Thành công', 'Thông tin cá Koi đã được cập nhật.', [
-          { text: 'OK', onPress: () => router.replace(`/(user)/KoiInformation?id=${koiId}`) }, // Use replace to avoid back button going to edit screen
-        ]);
-      } else {
-        setError(`Cập nhật thất bại: ${response.message}`);
-        Alert.alert('Lỗi', `Cập nhật thất bại: ${response.message}`);
+      console.log('Đang cập nhật thông tin cho Koi ID:', koiId);
+      
+      // Hiển thị dữ liệu gửi đi để debug (chỉ trong môi trường phát triển)
+      if (__DEV__) {
+        formData.forEach((value, key) => {
+          console.log(`${key}:`, value);
+        });
       }
-    } catch (err: unknown) { // Type error as unknown
-      setError('Đã xảy ra lỗi khi cập nhật.');
-      Alert.alert('Lỗi', 'Đã xảy ra lỗi khi cập nhật. Vui lòng thử lại.');
-      console.error("Update error:", err);
-       if (axios.isAxiosError(err)) { // Check if it's an AxiosError
-           console.error("Server Response:", err.response?.data); // Safe access to response.data
-           console.error("Server Status:", err.response?.status);
-       } else if (err instanceof Error) { // Check if it's a generic Error
-           console.error("Error message:", err.message);
-       }
+      
+      const response = await updateKoiProfile(koiId, formData);
+      
+      if (response.statusCode === 200) {
+        Alert.alert(
+          'Thành công', 
+          'Thông tin cá Koi đã được cập nhật thành công.', 
+          [{ text: 'OK', onPress: () => router.replace(`/(user)/KoiInformation?id=${koiId}`) }]
+        );
+      } else {
+        const errorMsg = response.message || 'Không thể cập nhật thông tin cá Koi.';
+        setError(`Cập nhật thất bại: ${errorMsg}`);
+        Alert.alert('Lỗi', `Cập nhật thất bại: ${errorMsg}`);
+      }
+    } catch (err: unknown) {
+      console.error("Lỗi khi cập nhật:", err);
+      
+      let errorMessage = 'Đã xảy ra lỗi khi cập nhật. Vui lòng thử lại sau.';
+      
+      // Xử lý lỗi chi tiết hơn
+      if (axios.isAxiosError(err)) {
+        const axiosError = err;
+        
+        // Log chi tiết lỗi để debug
+        console.error("Chi tiết lỗi từ server:", axiosError.response?.data);
+        console.error("Mã trạng thái:", axiosError.response?.status);
+        
+        // Hiển thị thông báo lỗi cụ thể hơn cho người dùng
+        if (axiosError.response) {
+          const statusCode = axiosError.response.status;
+          const responseData = axiosError.response.data;
+          
+          if (statusCode === 400) {
+            errorMessage = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
+            if (responseData.message) {
+              errorMessage += ` Chi tiết: ${responseData.message}`;
+            }
+          } else if (statusCode === 401) {
+            errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+          } else if (statusCode === 403) {
+            errorMessage = 'Bạn không có quyền thực hiện thao tác này.';
+          } else if (statusCode === 404) {
+            errorMessage = 'Không tìm thấy thông tin cá Koi.';
+          } else if (statusCode >= 500) {
+            errorMessage = 'Lỗi máy chủ. Vui lòng thử lại sau.';
+          }
+        } else if (axiosError.request) {
+          errorMessage = 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.';
+        }
+      } else if (err instanceof Error) {
+        console.error("Thông báo lỗi:", err.message);
+        errorMessage = `Lỗi: ${err.message}`;
+      }
+      
+      setError(errorMessage);
+      Alert.alert('Lỗi', errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -286,35 +364,58 @@ export default function KoiProfileEdit() {
       {error && <Text style={[styles.errorText, { margin: 15 }]}>{error}</Text>}
 
       <View style={styles.form}>
-        {/* Read-only fields */}
-        <Text style={styles.label}>Tên (Không thể sửa)</Text>
-        <Text style={styles.readOnlyText}>{koiData.name}</Text>
+        {/* Phần thông tin cố định - không thể chỉnh sửa */}
+        <View style={styles.readOnlySection}>
+          <Text style={styles.sectionTitle}>Thông tin cố định (không thể chỉnh sửa)</Text>
+          
+          <View style={styles.readOnlyField}>
+            <Text style={styles.label}>Tên</Text>
+            <View style={styles.readOnlyContainer}>
+              <Text style={styles.readOnlyText}>{koiData.name}</Text>
+              <View style={styles.lockIconContainer}>
+                <Text style={styles.lockIcon}>🔒</Text>
+              </View>
+            </View>
+          </View>
 
-        <Text style={styles.label}>Giới tính (Không thể sửa)</Text>
-        <Text style={styles.readOnlyText}>{koiData.gender}</Text>
+          <View style={styles.readOnlyField}>
+            <Text style={styles.label}>Giới tính</Text>
+            <View style={styles.readOnlyContainer}>
+              <Text style={styles.readOnlyText}>{koiData.gender}</Text>
+              <View style={styles.lockIconContainer}>
+                <Text style={styles.lockIcon}>🔒</Text>
+              </View>
+            </View>
+          </View>
 
-        <Text style={styles.label}>Dòng máu (Không thể sửa)</Text>
-        <Text style={styles.readOnlyText}>{koiData.bloodline}</Text>
+          <View style={styles.readOnlyField}>
+            <Text style={styles.label}>Dòng máu</Text>
+            <View style={styles.readOnlyContainer}>
+              <Text style={styles.readOnlyText}>{koiData.bloodline}</Text>
+              <View style={styles.lockIconContainer}>
+                <Text style={styles.lockIcon}>🔒</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        
+        <Text style={styles.sectionTitle}>Thông tin có thể chỉnh sửa</Text>
 
         {/* Editable fields */}
         <Text style={styles.label}>Giống (Variety)</Text>
-        {/* Replace with Picker */}
-         <TextInput
-           style={styles.input}
-           value={koiData.varietyId}
-           placeholder="Nhập ID giống" // Temporary
-           onChangeText={(text) => handleInputChange('varietyId', text)}
-         />
-         {/* <Picker
-           selectedValue={koiData.varietyId}
-           style={styles.picker}
-           onValueChange={(itemValue) => handleInputChange('varietyId', itemValue)}
-         >
-           <Picker.Item label="-- Chọn giống --" value="" />
-           {varieties.map((variety) => (
-             <Picker.Item key={variety.id} label={variety.name} value={variety.id} />
-           ))}
-         </Picker> */}
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={koiData.varietyId}
+            style={styles.picker}
+            onValueChange={(itemValue) => handleInputChange('varietyId', itemValue)}
+            mode="dropdown"
+          >
+            <Picker.Item label="-- Chọn giống --" value="" />
+            {varieties.map((variety) => (
+              <Picker.Item key={variety.id} label={variety.name} value={variety.id} />
+            ))}
+          </Picker>
+        </View>
 
 
         <Text style={styles.label}>Kích thước (cm)</Text>
@@ -336,23 +437,20 @@ export default function KoiProfileEdit() {
         />
 
         <Text style={styles.label}>Trạng thái</Text>
-         {/* Replace with Picker */}
-        <TextInput
-          style={styles.input}
-          value={koiData.status}
-          placeholder="Nhập trạng thái (vd: active)" // Temporary
-          onChangeText={(text) => handleInputChange('status', text)}
-        />
-         {/* <Picker
+        <View style={styles.pickerContainer}>
+          <Picker
             selectedValue={koiData.status}
             style={styles.picker}
             onValueChange={(itemValue) => handleInputChange('status', itemValue)}
+            mode="dropdown"
           >
             <Picker.Item label="-- Chọn trạng thái --" value="" />
-            <Picker.Item label="Hoạt động (Active)" value="active" />
-            <Picker.Item label="Không hoạt động (Inactive)" value="inactive" />
-            {/* Add other statuses if needed */}
-          {/* </Picker> */}
+            <Picker.Item label="Hoạt động (Active)" value="Active" />
+            <Picker.Item label="Không hoạt động (Inactive)" value="Inactive" />
+            <Picker.Item label="Đã bán (Sold)" value="Sold" />
+            <Picker.Item label="Đang thi đấu (Competing)" value="Competing" />
+          </Picker>
+        </View>
 
 
         {/* Existing Images */}
@@ -461,12 +559,54 @@ const styles = StyleSheet.create({
   form: {
     padding: 20,
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 20,
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    paddingBottom: 8,
+  },
+  readOnlySection: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  readOnlyField: {
+    marginBottom: 12,
+  },
+  readOnlyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EBEBEB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#DDD',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+  },
+  lockIconContainer: {
+    marginLeft: 'auto',
+    backgroundColor: '#E0E0E0',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lockIcon: {
+    fontSize: 12,
+  },
   label: {
     fontSize: 14,
     fontWeight: '600',
     color: '#555',
     marginBottom: 8,
-    marginTop: 15,
   },
   input: {
     backgroundColor: '#FFF',
@@ -479,22 +619,23 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#333',
   },
-   picker: {
-      backgroundColor: '#FFF',
-      borderWidth: 1,
-      borderColor: '#DDD',
-      borderRadius: 8,
-      marginBottom: 10,
-      // Height might need adjustment depending on platform
-   },
+  pickerContainer: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#DDD',
+    borderRadius: 8,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  picker: {
+    backgroundColor: '#FFF',
+    height: Platform.OS === 'ios' ? 150 : 50,
+    width: '100%',
+  },
   readOnlyText: {
     fontSize: 16,
     color: '#777', // Gray color for read-only
-    marginBottom: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    backgroundColor: '#EEE', // Different background
-    borderRadius: 8,
+    flex: 1,
   },
   button: {
     backgroundColor: '#007AFF',
