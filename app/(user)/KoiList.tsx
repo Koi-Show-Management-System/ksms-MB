@@ -29,6 +29,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { Video, ResizeMode } from 'expo-av';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { useSocket } from "../../context/SocketContext";
 
 // Thêm hằng số kích thước màn hình
 const { width, height } = Dimensions.get('window');
@@ -37,6 +38,9 @@ const { width, height } = Dimensions.get('window');
 const DEFAULT_KOI_IMAGE = "https://via.placeholder.com/100"; 
 
 const KoiList: React.FC = () => {
+  // Sử dụng socket context
+  const { koiStatusUpdates } = useSocket();
+  
   const [koiList, setKoiList] = useState<KoiProfile[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -279,6 +283,38 @@ const KoiList: React.FC = () => {
       fetchKoiProfiles();
     }
   }, [page]);
+  
+  // Xử lý cập nhật trạng thái cá Koi từ socket
+  useEffect(() => {
+    if (koiStatusUpdates.length > 0) {
+      console.log('Nhận được cập nhật trạng thái cá Koi từ socket:', koiStatusUpdates);
+      
+      // Cập nhật trạng thái cá Koi trong danh sách
+      setKoiList(prevList => {
+        return prevList.map(koi => {
+          // Tìm cập nhật cho cá Koi này
+          const update = koiStatusUpdates.find(update => update.koiId === koi.id);
+          
+          // Nếu có cập nhật, cập nhật trạng thái
+          if (update) {
+            return {
+              ...koi,
+              status: update.newStatus
+            };
+          }
+          
+          return koi;
+        });
+      });
+      
+      // Hiển thị thông báo
+      Alert.alert(
+        "Cập nhật trạng thái",
+        "Trạng thái của một số cá Koi đã được cập nhật. Danh sách đã được làm mới.",
+        [{ text: "OK" }]
+      );
+    }
+  }, [koiStatusUpdates]);
 
   // Pull to refresh
   const onRefresh = useCallback(() => {
@@ -341,6 +377,27 @@ const KoiList: React.FC = () => {
       Alert.alert("Lỗi", "Vui lòng tải lên ít nhất một ảnh của cá Koi.");
       return;
     }
+    
+    // Hiển thị cảnh báo về các trường không thể thay đổi sau khi tạo
+    Alert.alert(
+      "Lưu ý quan trọng",
+      "Sau khi tạo, các thông tin: Tên, Giới tính và Dòng máu sẽ KHÔNG THỂ thay đổi. Bạn có chắc chắn muốn tiếp tục?",
+      [
+        {
+          text: "Xem lại",
+          style: "cancel"
+        },
+        {
+          text: "Tiếp tục",
+          onPress: () => confirmAddKoi()
+        }
+      ]
+    );
+    return;
+  };
+  
+  // Hàm xác nhận thêm Koi sau khi đã cảnh báo
+  const confirmAddKoi = () => {
 
     // Create a new FormData instance
     const formData = new FormData();
@@ -828,11 +885,20 @@ const KoiList: React.FC = () => {
               <KeyboardAvoidingView 
                 behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={{ flex: 1 }}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 20} // Thêm offset để tránh bị bàn phím che
               >
                 <ScrollView style={styles.formContainerEnhanced} showsVerticalScrollIndicator={false}>
                   <View style={styles.formCardShadow}>
                     <View style={styles.formCard}>
                       <Text style={styles.formSectionTitle}>Thông tin cơ bản</Text>
+                      
+                      {/* Thêm thông báo cảnh báo */}
+                      <View style={styles.warningContainer}>
+                        <Ionicons name="warning-outline" size={18} color="#FFA500" />
+                        <Text style={styles.warningText}>
+                          Lưu ý: Sau khi tạo, các thông tin Tên, Giới tính và Dòng máu sẽ KHÔNG THỂ thay đổi.
+                        </Text>
+                      </View>
                       
                       <View style={styles.formGroup}>
                         <Text style={styles.labelEnhanced}>Tên cá Koi <Text style={styles.requiredField}>*</Text></Text>
@@ -1694,7 +1760,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     marginTop: 24,
-    marginBottom: 40,
+    marginBottom: 80, // Tăng khoảng cách dưới cùng để tránh bị footer che mất
+    paddingBottom: Platform.OS === 'ios' ? 20 : 30, // Thêm padding dưới cùng cho các thiết bị khác nhau
   },
   buttonGradient: {
     width: '100%',
@@ -1727,7 +1794,23 @@ const styles = StyleSheet.create({
   cancelButtonTextEnhanced: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#5664F5",
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF8E1',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    alignItems: 'flex-start',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA500',
+  },
+  warningText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#5A3E00',
+    lineHeight: 20,
   },
   modalOverlayEnhanced: {
     flex: 1,

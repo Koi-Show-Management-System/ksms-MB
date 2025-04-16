@@ -307,8 +307,11 @@ const OrderDetail = () => {
         console.log("Tên người dùng từ AsyncStorage:", userFullName);
       }
 
-      const showName = orderDetails[0]?.ticketType.koiShow.name || "Không xác định";
-      const ticketType = orderDetails[0]?.ticketType.name || "Vé thường";
+      // Tìm orderDetail tương ứng với vé này dựa trên orderDetailId
+      const orderDetail = orderDetails.find(detail => detail.id === ticket.orderDetailId);
+      
+      const showName = orderDetail?.ticketType.koiShow.name || "Không xác định";
+      const ticketType = orderDetail?.ticketType.name || "Không xác định";
       
       // Kiểm tra định dạng QR code data
       console.log("QR code data:", ticket.qrcodeData);

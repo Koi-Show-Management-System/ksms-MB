@@ -4,6 +4,7 @@ import { router } from "expo-router"; // Import the router
 import React, { useState, useEffect } from "react";
 import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native"; // Added Image
 import { Feather } from '@expo/vector-icons';
+import NotificationBadge from './NotificationBadge';
 
 interface HeaderProps {
   title: string;
@@ -38,6 +39,11 @@ const Header: React.FC<HeaderProps> = ({ title }) => { // Removed description
   const navigateToHome = () => {
     router.push("/(tabs)/home/homepage");
   };
+  
+  // Function to navigate to Notification screen
+  const navigateToNotification = () => {
+    router.push("/(user)/Notification");
+  };
 
   return (
     <View style={styles.header}>
@@ -53,9 +59,10 @@ const Header: React.FC<HeaderProps> = ({ title }) => { // Removed description
         <Text style={styles.homeText}>{title}</Text>
       </View>
 
-      {/* Right side: User greeting and profile icon */}
+      {/* Right side: User greeting, notification and profile icon */}
       <View style={styles.headerRightContainer}>
         <Text style={styles.homeText}>Xin Chào {userFullName}</Text>
+        <NotificationBadge style={styles.notificationIcon} />
         <TouchableOpacity onPress={navigateToUserMenu}>
           <View style={styles.profileIconContainer}>
             <Feather name="user" size={24} color="#666" />
@@ -116,6 +123,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+  },
+  notificationIcon: {
+    marginRight: 8,
   },
 });
 

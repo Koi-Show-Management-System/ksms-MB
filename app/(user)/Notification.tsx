@@ -24,6 +24,7 @@ import {
   NotificationType as ApiNotificationType,
   NotificationItem as ApiNotificationItem,
 } from "../../services/notificationService";
+import { useSocket } from "../../context/SocketContext";
 import {
   Ionicons, 
   AntDesign, 
@@ -358,6 +359,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 const Notifications: React.FC = () => {
   logDebug("Rendering Notifications component");
   
+  // Sử dụng socket context
+  const { notifications: socketNotifications, hasNewNotifications, markNotificationsAsSeen } = useSocket();
+  
   const [userId, setUserId] = useState<string>("");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -396,6 +400,39 @@ const Notifications: React.FC = () => {
     
     getUserId();
   }, []);
+  
+  // Xử lý thông báo realtime từ socket
+  useEffect(() => {
+    logDebug("useEffect - Xử lý thông báo realtime từ socket");
+    
+    if (socketNotifications.length > 0) {
+      logDebug(`Nhận được ${socketNotifications.length} thông báo từ socket`);
+      
+      // Chuyển đổi thông báo từ socket sang định dạng UI
+      const newSocketNotifications = socketNotifications.map(notification => mapApiNotificationToUI({
+        id: notification.id,
+        title: notification.title,
+        content: notification.content,
+        type: notification.type,
+        isRead: notification.isRead,
+        sentDate: notification.sentDate
+      }));
+      
+      // Cập nhật danh sách thông báo
+      setNotifications(prevNotifications => {
+        // Lọc ra các thông báo không trùng lặp
+        const existingIds = new Set(prevNotifications.map(n => n.id));
+        const uniqueNewNotifications = newSocketNotifications.filter(n => !existingIds.has(n.id));
+        
+        // Kết hợp thông báo mới và cũ, sắp xếp theo thời gian
+        return [...uniqueNewNotifications, ...prevNotifications]
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      });
+      
+      // Đánh dấu đã xem thông báo trong socket context
+      markNotificationsAsSeen();
+    }
+  }, [socketNotifications, markNotificationsAsSeen]);
   
   // Fetch notifications
   const fetchNotifications = async (page: number = 1, filterType?: string, shouldAppend: boolean = false) => {

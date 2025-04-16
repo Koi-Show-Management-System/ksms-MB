@@ -17,6 +17,7 @@ import { getKoiProfileById, updateKoiProfile, KoiProfile, Variety, getVarieties 
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { Picker } from '@react-native-picker/picker';
+import { Ionicons } from '@expo/vector-icons';
 
 // Define state interface
 interface KoiEditData {
@@ -35,7 +36,7 @@ interface KoiEditData {
   existingVideos: { id: string; url: string }[];
 }
 
-export default function KoiProfileEdit() {
+const KoiProfileEdit: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const koiId = params.id as string;
@@ -352,11 +353,18 @@ export default function KoiProfileEdit() {
 
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView 
+      style={styles.container} 
+      contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.header}>
-         <TouchableOpacity onPress={() => router.back()}>
-             {/* Add a back icon here */}
-             <Text style={styles.headerText}>Quay lại</Text>
+         <TouchableOpacity 
+           style={styles.backButton}
+           onPress={() => router.back()}
+         >
+           <Ionicons name="arrow-back" size={24} color="#007AFF" />
+           <Text style={styles.headerText}>Quay lại</Text>
          </TouchableOpacity>
          <Text style={styles.headerTitle}>Chỉnh sửa thông tin Koi</Text>
       </View>
@@ -521,21 +529,29 @@ export default function KoiProfileEdit() {
           disabled={isSaving}
         >
           {isSaving ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Text style={styles.buttonText}>Lưu thay đổi</Text>
+            <View style={styles.saveButtonContent}>
+              <Ionicons name="save-outline" size={20} color="#fff" />
+              <Text style={styles.buttonText}>Lưu thay đổi</Text>
+            </View>
           )}
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
-}
+};
+
+export default KoiProfileEdit;
 
 // Add styles similar to KoiRegister or KoiInformation, adjusted for the edit screen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F8F8', // Light background
+  },
+  contentContainer: {
+    paddingBottom: 100, // Thêm padding bottom để tránh bị footer đè
   },
    header: {
      flexDirection: 'row',
@@ -546,9 +562,14 @@ const styles = StyleSheet.create({
      borderBottomWidth: 1,
      borderBottomColor: '#E0E0E0',
    },
+   backButton: {
+     flexDirection: 'row',
+     alignItems: 'center',
+   },
    headerText: {
      fontSize: 16,
      color: '#007AFF', // Blue color for back link
+     marginLeft: 5,
    },
    headerTitle: {
      fontSize: 18,
@@ -648,11 +669,18 @@ const styles = StyleSheet.create({
   saveButton: {
      backgroundColor: '#34C759', // Green for save
      marginTop: 30,
+     marginBottom: 20,
+  },
+  saveButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+    marginLeft: 8,
   },
   disabledButton: {
     backgroundColor: '#BDBDBD', // Gray when disabled

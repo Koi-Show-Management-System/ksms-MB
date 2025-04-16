@@ -325,7 +325,7 @@ const TicketDetail: React.FC = () => {
     dateTime: (params.dateTime as string) || "10/10/2023, 10:00",
     venue: (params.venue as string) || "Trung tâm triển lãm",
     qrCodeUrl: qrCodeUrl || "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=example",
-    ticketType: (params.ticketType as string) || "Vé VIP",
+    ticketType: (params.ticketType as string) || "Không xác định",
     ticketNumber: (params.ticketNumber as string) || "1234567890",
     buyerName: (params.buyerName as string) || "Nguyễn Văn A",
   };

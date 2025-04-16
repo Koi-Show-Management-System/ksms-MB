@@ -23,6 +23,7 @@ export default function UserLayout() {
         <Stack.Screen name="OrderDetail" options={{ headerShown: false }} />
         <Stack.Screen name="TicketDetail" options={{ headerShown: false }} />
         <Stack.Screen name="KoiInformation" options={{ headerShown: false }} />
+        <Stack.Screen name="KoiProfileEdit" options={{ headerShown: false }} />
       </Stack>
     </MainLayout>
   );
