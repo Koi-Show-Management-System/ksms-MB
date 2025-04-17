@@ -480,13 +480,6 @@ export default function KoiInformation() {
                 </View>
               )}
             </View>
-            
-            {koiData.variety?.description ? (
-              <View style={styles.descriptionContainer}>
-                <Text style={styles.descriptionLabel}>Mô tả:</Text>
-                <Text style={styles.descriptionText}>{koiData.variety.description}</Text>
-              </View>
-            ) : null}
           </View>
           
           {/* Phần thành tích */}
