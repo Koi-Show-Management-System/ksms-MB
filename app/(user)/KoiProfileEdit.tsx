@@ -24,6 +24,24 @@ import {
   View,
 } from "react-native";
 
+// Định nghĩa interfaces cho media
+interface ExistingMedia {
+  id: string;
+  url: string;
+  isNew: boolean;
+  type: "Image" | "Video";
+}
+
+interface NewMedia {
+  uri: string;
+  assetId?: string;
+  index: number;
+  isNew: boolean;
+  type: "Image" | "Video";
+}
+
+type CombinedMedia = ExistingMedia | NewMedia;
+
 // Define state interface
 interface KoiEditData {
   varietyId: string;
@@ -685,7 +703,7 @@ const KoiProfileEdit: React.FC = () => {
         <Text style={styles.label}>Hình ảnh</Text>
         <TouchableOpacity
           onPress={() => handleImageSelect("Image")}
-          style={[styles.button, styles.selectMediaButton]} // Nút chọn ảnh đặt ở trên cùng
+          style={[styles.button, styles.selectMediaButton]} 
         >
           <Ionicons name="images-outline" size={20} color="#fff" />
           <Text style={styles.buttonText}>Chọn/Thêm ảnh</Text>
@@ -698,7 +716,7 @@ const KoiProfileEdit: React.FC = () => {
               ...koiData.existingImages.map((img) => ({
                 ...img,
                 isNew: false,
-                type: "Image",
+                type: "Image" as const,
               })),
               // Map qua ảnh mới, đánh dấu là mới (isNew: true), lấy thông tin cần thiết và index
               ...koiData.koiImages.map((img, index) => ({
@@ -706,14 +724,14 @@ const KoiProfileEdit: React.FC = () => {
                 assetId: img.assetId,
                 index,
                 isNew: true,
-                type: "Image",
+                type: "Image" as const,
               })),
             ].map((item) => {
               // Tạo key duy nhất
               const key = item.isNew
-                ? `new-img-${item.assetId || item.index}`
-                : `existing-img-${item.id}`;
-              const imageUri = item.isNew ? item.uri : item.url;
+                ? `new-img-${item.isNew ? (item as NewMedia).assetId || (item as NewMedia).index : ''}`
+                : `existing-img-${item.isNew ? '' : (item as ExistingMedia).id}`;
+              const imageUri = item.isNew ? (item as NewMedia).uri : (item as ExistingMedia).url;
 
               return (
                 <View key={key} style={styles.mediaItem}>
@@ -732,8 +750,8 @@ const KoiProfileEdit: React.FC = () => {
                     // Gọi hàm xóa tương ứng dựa trên isNew
                     onPress={() =>
                       item.isNew
-                        ? removeNewMedia(item.index, "Image")
-                        : removeExistingMedia(item.id, "Image")
+                        ? removeNewMedia((item as NewMedia).index, "Image")
+                        : removeExistingMedia((item as ExistingMedia).id, "Image")
                     }
                     style={styles.removeButton}>
                     <Text style={styles.removeButtonText}>X</Text>
@@ -753,7 +771,7 @@ const KoiProfileEdit: React.FC = () => {
         <Text style={styles.label}>Video</Text>
         <TouchableOpacity
           onPress={() => handleImageSelect("Video")}
-          style={[styles.button, styles.selectMediaButton]} // Nút chọn video đặt ở trên cùng
+          style={[styles.button, styles.selectMediaButton]} 
         >
           <Ionicons name="film-outline" size={20} color="#fff" />
           <Text style={styles.buttonText}>Chọn/Thêm video</Text>
@@ -766,7 +784,7 @@ const KoiProfileEdit: React.FC = () => {
               ...koiData.existingVideos.map((vid) => ({
                 ...vid,
                 isNew: false,
-                type: "Video",
+                type: "Video" as const,
               })),
               // Map qua video mới
               ...koiData.koiVideos.map((vid, index) => ({
@@ -774,12 +792,12 @@ const KoiProfileEdit: React.FC = () => {
                 assetId: vid.assetId,
                 index,
                 isNew: true,
-                type: "Video",
+                type: "Video" as const,
               })),
             ].map((item) => {
               const key = item.isNew
-                ? `new-vid-${item.assetId || item.index}`
-                : `existing-vid-${item.id}`;
+                ? `new-vid-${item.isNew ? (item as NewMedia).assetId || (item as NewMedia).index : ''}`
+                : `existing-vid-${item.isNew ? '' : (item as ExistingMedia).id}`;
 
               return (
                 <View key={key} style={styles.mediaItem}>
@@ -808,8 +826,8 @@ const KoiProfileEdit: React.FC = () => {
                     // Gọi hàm xóa tương ứng
                     onPress={() =>
                       item.isNew
-                        ? removeNewMedia(item.index, "Video")
-                        : removeExistingMedia(item.id, "Video")
+                        ? removeNewMedia((item as NewMedia).index, "Video")
+                        : removeExistingMedia((item as ExistingMedia).id, "Video")
                     }
                     style={styles.removeButton}>
                     <Text style={styles.removeButtonText}>X</Text>
@@ -1089,5 +1107,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#888",
     fontStyle: "italic",
+  },
+  selectMediaButton: {
+    marginTop: 5,
+    marginBottom: 15,
+    backgroundColor: "#4A90E2",
   },
 });

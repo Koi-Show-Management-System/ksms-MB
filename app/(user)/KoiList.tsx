@@ -64,7 +64,6 @@ const KoiList: React.FC = () => {
     variety: string;
     gender: string;
     bloodline: string;
-    description: string;
     images: any[];
     videos: any[];
   }>({
@@ -74,7 +73,6 @@ const KoiList: React.FC = () => {
     variety: "",
     gender: "Đực",
     bloodline: "",
-    description: "",
     images: [],
     videos: [],
   });
@@ -86,6 +84,16 @@ const KoiList: React.FC = () => {
   const myKoiHeaderOpacity = useState(new Animated.Value(1))[0];
   const addNewKoiHeaderOpacity = useState(new Animated.Value(0.5))[0];
   
+  // Helper function to find the first image URL in the media array
+  const findFirstImage = (mediaArray: any[]): string | null => {
+    if (!mediaArray || !Array.isArray(mediaArray) || mediaArray.length === 0) {
+      return null;
+    }
+    // Find the first item that has mediaType 'Image'
+    const firstImage = mediaArray.find(media => media && media.mediaType === 'Image');
+    return firstImage ? firstImage.mediaUrl : null;
+  };
+
   // Toggle section
   const toggleSection = (section: 'myKoi' | 'addNewKoi') => {
     if (section === activeTab) return;
@@ -128,9 +136,7 @@ const KoiList: React.FC = () => {
   // Render koi card (Updated version based on FlatList renderItem)
   const renderKoiCard = ({ item }: { item: KoiProfile }) => {
     // Lấy ảnh đầu tiên nếu có, nếu không dùng ảnh mặc định
-    const imageUrl = item.koiMedia && item.koiMedia.length > 0 && item.koiMedia[0].mediaType === 'Image' 
-      ? item.koiMedia[0].mediaUrl 
-      : DEFAULT_KOI_IMAGE; 
+    const imageUrl = findFirstImage(item.koiMedia) || DEFAULT_KOI_IMAGE; 
 
     // Chuẩn bị các giá trị text để tránh lỗi text ngoài <Text>
     const ageText = `${item.age} năm`;
@@ -408,13 +414,9 @@ const KoiList: React.FC = () => {
     formData.append('Gender', newKoi.gender);
     formData.append('Bloodline', newKoi.bloodline);
     
-    // Thêm trường Status với giá trị mặc định là "Owned"
-    formData.append('Status', 'Owned');
-    console.log("DEBUG: Đã thêm trường Status với giá trị 'Owned'");
-    
-    if (newKoi.description) {
-      formData.append('Description', newKoi.description);
-    }
+    // Thêm trường Status với giá trị mặc định là "Active"
+    formData.append('Status', 'active');
+    console.log("DEBUG: Đã thêm trường Status với giá trị 'active'");
     
     // Append all images
     newKoi.images.forEach((image, index) => {
@@ -489,7 +491,6 @@ const KoiList: React.FC = () => {
                   variety: "",
                   gender: "Đực",
                   bloodline: "",
-                  description: "",
                   images: [],
                   videos: [],
                 });
@@ -1011,28 +1012,6 @@ const KoiList: React.FC = () => {
                         <Ionicons name="information-circle-outline" size={14} color="#5664F5" />
                         {" "}Thông tin sẽ được ban tổ chức xác minh.
                       </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.formCardShadow}>
-                    <View style={styles.formCard}>
-                      <Text style={styles.formSectionTitle}>Mô tả chi tiết</Text>
-                      
-                      <View style={styles.formGroup}>
-                        <Text style={styles.labelEnhanced}>Mô tả cá Koi</Text>
-                        <View style={styles.textAreaContainer}>
-                          <TextInput
-                            style={styles.textAreaEnhanced}
-                            multiline
-                            numberOfLines={4}
-                            placeholder="Mô tả về cá Koi của bạn"
-                            placeholderTextColor="#8190A5"
-                            value={newKoi.description}
-                            onChangeText={(text) => handleInputChange("description", text)}
-                            textAlignVertical="top"
-                          />
-                        </View>
-                      </View>
                     </View>
                   </View>
 

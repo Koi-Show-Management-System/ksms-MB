@@ -262,7 +262,7 @@ export const updateKoiProfile = async (
       }
 
       // Log cấu hình yêu cầu để debug
-      if (error.config) {
+      if (axios.isAxiosError(error) && error.config) {
         console.error("  Cấu hình yêu cầu:", {
           url: error.config.url,
           method: error.config.method,
