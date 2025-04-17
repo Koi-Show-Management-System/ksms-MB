@@ -46,6 +46,8 @@ const KoiProfileEdit: React.FC = () => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [varieties, setVarieties] = useState<Variety[]>([]); // State for varieties
+  const [processingStep, setProcessingStep] = useState<string>(""); // Hiển thị bước đang xử lý
+  const [uploadProgress, setUploadProgress] = useState<number>(0); // Tiến trình tải lên
 
   // Fetch varieties on mount
   useEffect(() => {
@@ -208,6 +210,8 @@ const KoiProfileEdit: React.FC = () => {
 
     setIsSaving(true);
     setError(null);
+    setProcessingStep("Đang chuẩn bị cập nhật...");
+    setUploadProgress(0);
 
     const formData = new FormData();
 
@@ -218,44 +222,167 @@ const KoiProfileEdit: React.FC = () => {
     formData.append('Age', koiData.age);
     formData.append('Status', koiData.status);
 
-    // Thêm hình ảnh mới
-    koiData.koiImages.forEach((image, index) => {
+    // Theo dõi việc có thêm đủ ảnh và video không
+    let addedImages = 0;
+    let addedVideos = 0;
+    
+    // Tính tổng số media cần xử lý để tính tiến trình
+    const totalMediaItems = koiData.koiImages.length + koiData.koiVideos.length + 
+                           koiData.existingImages.length + koiData.existingVideos.length;
+    let processedItems = 0;
+    
+    // Xử lý hình ảnh mới
+    setProcessingStep("Đang xử lý hình ảnh mới...");
+    for (const image of koiData.koiImages) {
       const fileType = image.uri.split('.').pop() || 'jpg'; // Mặc định là jpg nếu không tìm thấy phần mở rộng
       const mimeType = image.mimeType ?? `image/${fileType}`;
       
       formData.append('KoiImages', {
         uri: image.uri,
-        name: `photo_${Date.now()}_${index}.${fileType}`,
+        name: `photo_${Date.now()}_${addedImages}.${fileType}`,
         type: mimeType,
       } as any);
-    });
+      addedImages++;
+      processedItems++;
+      setUploadProgress((processedItems / totalMediaItems) * 50); // Dành 50% cho xử lý media
+      console.log(`Đã thêm ảnh mới: ${addedImages} ảnh`);
+    }
 
-    // Thêm video mới
-    koiData.koiVideos.forEach((video, index) => {
+    // Xử lý video mới
+    setProcessingStep("Đang xử lý video mới...");
+    for (const video of koiData.koiVideos) {
       const fileType = video.uri.split('.').pop() || 'mp4'; // Mặc định là mp4 nếu không tìm thấy phần mở rộng
       const mimeType = video.mimeType ?? `video/${fileType}`;
       
       formData.append('KoiVideos', {
         uri: video.uri,
-        name: `video_${Date.now()}_${index}.${fileType}`,
+        name: `video_${Date.now()}_${addedVideos}.${fileType}`,
         type: mimeType,
       } as any);
-    });
-
-    // Xử lý media đã xóa (nếu API hỗ trợ)
-    // Nếu API yêu cầu danh sách ID của media cần giữ lại
-    const remainingImageIds = koiData.existingImages.map(img => img.id);
-    const remainingVideoIds = koiData.existingVideos.map(vid => vid.id);
-    
-    if (remainingImageIds.length > 0) {
-      formData.append('RemainingImageIds', JSON.stringify(remainingImageIds));
+      addedVideos++;
+      processedItems++;
+      setUploadProgress((processedItems / totalMediaItems) * 50);
+      console.log(`Đã thêm video mới: ${addedVideos} video`);
     }
-    
-    if (remainingVideoIds.length > 0) {
-      formData.append('RemainingVideoIds', JSON.stringify(remainingVideoIds));
+
+    // Xử lý hình ảnh hiện có - Tải ảnh từ URL và chuyển đổi thành file
+    setProcessingStep("Đang xử lý ảnh hiện có...");
+    for (const image of koiData.existingImages) {
+      try {
+        setProcessingStep(`Đang tải ảnh hiện có: ${image.id}...`);
+        console.log(`Đang xử lý ảnh hiện có: ${image.id}`);
+        
+        // Tải ảnh từ URL
+        const response = await fetch(image.url);
+        if (!response.ok) {
+          throw new Error(`Không thể tải ảnh: ${response.status} ${response.statusText}`);
+        }
+        
+        // Chuyển đổi thành blob
+        const blob = await response.blob();
+        
+        // Thêm vào formData
+        formData.append('KoiImages', {
+          uri: image.url,
+          type: 'image/jpeg',
+          name: `image_${image.id}.jpg`
+        } as any);
+        addedImages++;
+        processedItems++;
+        setUploadProgress((processedItems / totalMediaItems) * 50);
+        console.log(`Đã thêm ảnh hiện có: ${image.id} (tổng ${addedImages} ảnh)`);
+      } catch (mediaError) {
+        console.error(`Lỗi xử lý ảnh hiện có (${image.id}):`, mediaError);
+        Alert.alert(
+          "Cảnh báo",
+          `Không thể tải ảnh từ server. Bạn có muốn tiếp tục mà không có nó không?`,
+          [
+            { 
+              text: "Hủy cập nhật", 
+              style: "cancel",
+              onPress: () => {
+                setIsSaving(false);
+                setProcessingStep("");
+                setUploadProgress(0);
+                return;
+              }
+            },
+            { text: "Tiếp tục", onPress: () => console.log("Tiếp tục mà không có ảnh") }
+          ]
+        );
+        // Vẫn tính là đã xử lý một item
+        processedItems++;
+        setUploadProgress((processedItems / totalMediaItems) * 50);
+      }
+    }
+
+    // Xử lý video hiện có - Tải video từ URL và chuyển đổi thành file
+    setProcessingStep("Đang xử lý video hiện có...");
+    for (const video of koiData.existingVideos) {
+      try {
+        setProcessingStep(`Đang tải video hiện có: ${video.id}...`);
+        console.log(`Đang xử lý video hiện có: ${video.id}`);
+        
+        // Tải video từ URL
+        const response = await fetch(video.url);
+        if (!response.ok) {
+          throw new Error(`Không thể tải video: ${response.status} ${response.statusText}`);
+        }
+        
+        // Chuyển đổi thành blob
+        const blob = await response.blob();
+        
+        // Thêm vào formData
+        formData.append('KoiVideos', {
+          uri: video.url,
+          type: 'video/mp4',
+          name: `video_${video.id}.mp4`
+        } as any);
+        addedVideos++;
+        processedItems++;
+        setUploadProgress((processedItems / totalMediaItems) * 50);
+        console.log(`Đã thêm video hiện có: ${video.id} (tổng ${addedVideos} video)`);
+      } catch (mediaError) {
+        console.error(`Lỗi xử lý video hiện có (${video.id}):`, mediaError);
+        Alert.alert(
+          "Cảnh báo",
+          `Không thể tải video từ server. Bạn có muốn tiếp tục mà không có nó không?`,
+          [
+            { 
+              text: "Hủy cập nhật", 
+              style: "cancel",
+              onPress: () => {
+                setIsSaving(false);
+                setProcessingStep("");
+                setUploadProgress(0);
+                return;
+              }
+            },
+            { text: "Tiếp tục", onPress: () => console.log("Tiếp tục mà không có video") }
+          ]
+        );
+        // Vẫn tính là đã xử lý một item
+        processedItems++;
+        setUploadProgress((processedItems / totalMediaItems) * 50);
+      }
+    }
+
+    // Kiểm tra xem có ít nhất một ảnh và một video không
+    if (addedImages === 0 || addedVideos === 0) {
+      setIsSaving(false);
+      setProcessingStep("");
+      setUploadProgress(0);
+      Alert.alert(
+        "Thiếu media",
+        `Không thể hoàn thành cập nhật vì ${addedImages === 0 ? 'không có ảnh' : ''}${(addedImages === 0 && addedVideos === 0) ? ' và ' : ''}${addedVideos === 0 ? 'không có video' : ''}.`,
+        [{ text: "OK" }]
+      );
+      return;
     }
 
     try {
+      setProcessingStep("Đang gửi dữ liệu lên server...");
+      setUploadProgress(70);
       console.log('Đang cập nhật thông tin cho Koi ID:', koiId);
       
       // Hiển thị dữ liệu gửi đi để debug (chỉ trong môi trường phát triển)
@@ -266,6 +393,8 @@ const KoiProfileEdit: React.FC = () => {
       }
       
       const response = await updateKoiProfile(koiId, formData);
+      setUploadProgress(100);
+      setProcessingStep("Hoàn tất cập nhật!");
       
       if (response.statusCode === 200) {
         Alert.alert(
@@ -327,6 +456,21 @@ const KoiProfileEdit: React.FC = () => {
 
   if (isLoading) {
     return <ActivityIndicator size="large" style={styles.centered} />;
+  }
+  
+  if (isSaving) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.processingText}>{processingStep}</Text>
+        {uploadProgress > 0 && (
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { width: `${uploadProgress}%` }]} />
+            <Text style={styles.progressText}>{Math.round(uploadProgress)}%</Text>
+          </View>
+        )}
+      </View>
+    );
   }
 
   if (error && !koiData) { // Show error only if data couldn't be loaded initially
@@ -690,6 +834,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  processingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+  },
+  progressContainer: {
+    width: '80%',
+    height: 20,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 10,
+    marginTop: 15,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#007AFF',
+  },
+  progressText: {
+    position: 'absolute',
+    width: '100%',
+    textAlign: 'center',
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 12,
+    lineHeight: 20,
   },
   errorText: {
     color: 'red',

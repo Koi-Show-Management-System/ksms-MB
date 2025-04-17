@@ -237,7 +237,8 @@ const KoiRegistrationScreen: React.FC = () => {
   const [koiName, setKoiName] = useState("");
   const [koiSize, setKoiSize] = useState("");
   const [koiVariety, setKoiVariety] = useState("");
-  const [koiDescription, setKoiDescription] = useState("");
+  const [koiDescription, setKoiDescription] = useState(""); // Bloodline từ profile
+  const [registrationNote, setRegistrationNote] = useState(""); // State mới cho ghi chú đăng ký
 
   const [registerNameInput, setRegisterNameInput] = useState(""); // State mới cho tên đăng ký
   // Media and API states
@@ -297,6 +298,9 @@ const KoiRegistrationScreen: React.FC = () => {
     description: "",
     imgUrl: null as string | null
   });
+  
+  // State để kiểm soát việc hiển thị đầy đủ description
+  const [showFullDescription, setShowFullDescription] = useState(false);
 
   // Đảm bảo khi state cập nhật, refs cũng cập nhật theo
   useEffect(() => {
@@ -563,7 +567,8 @@ const KoiRegistrationScreen: React.FC = () => {
       setKoiName(profile.name);
       setKoiSize(profile.size.toString());
       setKoiVariety(profile.variety.name);
-      setKoiDescription(profile.bloodline);
+      setKoiDescription(profile.bloodline || ''); // Lưu bloodline vào koiDescription
+      // Không cập nhật registrationNote khi chọn profile mới để giữ nguyên ghi chú người dùng đã nhập
       setMediaItems(
         profile.koiMedia.map((media: any) => ({
           id: media.id,
@@ -777,6 +782,12 @@ const KoiRegistrationScreen: React.FC = () => {
       Alert.alert("Cần thông tin", "Vui lòng nhập Tên Đăng Ký Thi Đấu");
       return;
     }
+    
+    // Kiểm tra ghi chú đăng ký
+    if (!registrationNote.trim()) {
+      Alert.alert("Cần thông tin", "Vui lòng nhập Ghi chú đăng ký");
+      return;
+    }
 
 
     if (!showId) {
@@ -820,7 +831,7 @@ const KoiRegistrationScreen: React.FC = () => {
       formData.append('CompetitionCategoryId', selectedCategory.id);
       formData.append('KoiProfileId', selectedKoiProfile.id);
       formData.append('RegisterName', registerNameInput);
-      formData.append('Notes', koiDescription);
+      formData.append('Notes', registrationNote); // Sử dụng registrationNote thay vì koiDescription
 
       // Log registration parameters
       console.log('Registration Parameters:', {
@@ -828,7 +839,7 @@ const KoiRegistrationScreen: React.FC = () => {
         CompetitionCategoryId: selectedCategory.id,
         KoiProfileId: selectedKoiProfile.id,
         RegisterName: registerNameInput,
-        Notes: koiDescription,
+        Notes: registrationNote, // Sử dụng registrationNote thay vì koiDescription
         Size: koiSize,
         Category: selectedCategory.name,
         MediaItems: mediaItems.map(item => ({
@@ -1550,7 +1561,8 @@ const KoiRegistrationScreen: React.FC = () => {
         setKoiName(profile.name);
         setKoiSize(profile.size.toString());
         setKoiVariety(profile.variety?.name || '');
-        setKoiDescription(profile.bloodline || '');
+        setKoiDescription(profile.bloodline || ''); // Lưu bloodline vào koiDescription
+        // Không cập nhật registrationNote khi tạo profile mới để giữ nguyên ghi chú người dùng đã nhập
         
         // Kiểm tra trước khi cập nhật media
         if (profile.koiMedia && Array.isArray(profile.koiMedia)) {
@@ -1925,9 +1937,9 @@ const KoiRegistrationScreen: React.FC = () => {
     // Hiển thị skeleton loader khi đang tải
     if (!showInfo.name) {
       return (
-        <View style={styles.bannerContainer}>
+        <View style={[styles.bannerContainer, { height: 250 }]}>
           <View style={styles.bannerImageSkeleton}>
-            <Skeleton width="100%" height={200} />
+            <Skeleton width="100%" height={250} />
           </View>
         </View>
       );
@@ -1938,28 +1950,47 @@ const KoiRegistrationScreen: React.FC = () => {
       ? { uri: showInfo.imgUrl } 
       : { uri: "https://images.pexels.com/photos/219794/pexels-photo-219794.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" };
     
+    // Tính toán chiều cao động dựa trên việc hiển thị đầy đủ description hay không
+    const dynamicHeight = showFullDescription && showInfo.description && showInfo.description.length > 100 
+      ? undefined // Không giới hạn chiều cao khi hiển thị đầy đủ
+      : 250; // Chiều cao cố định khi hiển thị rút gọn
+    
     return (
-      <View style={styles.bannerContainer}>
+      <View style={[styles.bannerContainer, { height: dynamicHeight }]}>
         <Image
           source={bannerImageSource}
-          style={styles.bannerImage}
+          style={[styles.bannerImage, { height: dynamicHeight || 250 }]}
           resizeMode="cover"
         />
-        <View style={styles.bannerOverlay}>
+        <View style={[styles.bannerOverlay, { height: dynamicHeight || 250 }]}>
           <View style={styles.bannerContent}>
             <Text style={styles.bannerTitle}>{showInfo.name}</Text>
             <Text style={styles.bannerSubtitle}>{showInfo.location}</Text>
             <Text style={styles.bannerDate}>{showInfo.date}</Text>
-            <Text style={styles.bannerDescription}>{showInfo.description}</Text>
             
-            <TouchableOpacity 
-              style={styles.bannerButton}
-              onPress={() => setShowCategories(!showCategories)}
-            >
-              <Text style={styles.bannerButtonText}>
-                {showCategories ? "Ẩn hạng mục" : "Xem hạng mục"}
-              </Text>
-            </TouchableOpacity>
+            {/* Hiển thị description rút gọn hoặc đầy đủ */}
+            {showInfo.description ? (
+              <View>
+                <Text style={styles.bannerDescription}>
+                  {!showFullDescription && showInfo.description.length > 100 
+                    ? showInfo.description.substring(0, 100) + "..." 
+                    : showInfo.description
+                  }
+                </Text>
+                
+                {/* Chỉ hiển thị nút "Xem thêm" nếu description dài hơn 100 ký tự */}
+                {showInfo.description.length > 100 && (
+                  <TouchableOpacity 
+                    style={styles.descriptionToggle}
+                    onPress={() => setShowFullDescription(!showFullDescription)}
+                  >
+                    <Text style={styles.descriptionToggleText}>
+                      {showFullDescription ? "Thu gọn" : "Xem thêm"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : null}
           </View>
         </View>
       </View>
@@ -1968,7 +1999,7 @@ const KoiRegistrationScreen: React.FC = () => {
 
   // Render categories list - Thay đổi thành cuộn ngang
   const renderCategories = () => {
-    if (!showCategories || categories.length === 0) return null;
+    if (categories.length === 0) return null;
     
     return (
       <View style={styles.categoriesContainer}>
@@ -2126,7 +2157,10 @@ const KoiRegistrationScreen: React.FC = () => {
   }, [paymentTimeoutId]);
 
   return (
-    <ScrollView style={styles.scrollView}>
+    <ScrollView 
+      style={styles.scrollView} 
+      contentContainerStyle={styles.scrollViewContent}
+    >
       <View style={styles.container}>
         {/* Banner */}
         {renderBanner()}
@@ -2277,15 +2311,28 @@ const KoiRegistrationScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Mô tả Koi</Text>
+                    <Text style={styles.label}>Dòng máu Koi</Text>
+                    <TextInput
+                      style={[styles.input, styles.textArea]}
+                      multiline={true}
+                      numberOfLines={2}
+                      placeholder="Thông tin dòng máu"
+                      placeholderTextColor="#94a3b8"
+                      value={koiDescription}
+                      editable={false} // Không cho phép chỉnh sửa vì đây là thông tin từ profile
+                    />
+                  </View>
+                  
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Ghi chú đăng ký</Text>
                     <TextInput
                       style={[styles.input, styles.textArea]}
                       multiline={true}
                       numberOfLines={4}
-                      placeholder="Nhập mô tả"
+                      placeholder="Nhập ghi chú cho đơn đăng ký"
                       placeholderTextColor="#94a3b8"
-                      value={koiDescription}
-                      onChangeText={setKoiDescription}
+                      value={registrationNote}
+                      onChangeText={setRegistrationNote}
                     />
                   </View>
                 </View>
@@ -2324,7 +2371,7 @@ const KoiRegistrationScreen: React.FC = () => {
             <View style={styles.section}>
               <View style={styles.rulesContainer}>
                 <Text style={styles.rulesText}>
-                  Read the full details of all rules and regulations
+                  Đọc đầy đủ chi tiết về quy tắc và quy định
                 </Text>
               </View>
 
@@ -2336,8 +2383,8 @@ const KoiRegistrationScreen: React.FC = () => {
                 </TouchableOpacity>
 
                 <Text style={styles.termsText}>
-                  By clicking register, you confirm that you have read and will
-                  comply with our rules.
+                  Bằng cách nhấp vào đăng ký, bạn xác nhận rằng bạn đã đọc và sẽ
+                  tuân thủ các quy tắc của chúng tôi.
                 </Text>
               </View>
 
@@ -2358,7 +2405,7 @@ const KoiRegistrationScreen: React.FC = () => {
                   mediaItems.length === 0
                 }>
                 <Text style={styles.submitText}>
-                  {loading ? "Processing..." : "Submit Registration"}
+                  {loading ? "Đang xử lý..." : "Đăng ký thi đấu"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -2415,10 +2462,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FAFAFA",
+    paddingHorizontal: 0, // Không cần padding ngang cho container
   },
   scrollView: {
     flex: 1,
     backgroundColor: "#FAFAFA",
+  },
+  scrollViewContent: {
+    paddingBottom: 100, // Thêm padding bottom để tránh bị footer che
+    paddingTop: 0, // Không cần padding top
   },
   titleSection: {
     padding: 20,
@@ -2435,6 +2487,7 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     paddingHorizontal: 16,
+    marginTop: 20, // Thêm margin top để tạo khoảng cách với banner
   },
   section: {
     marginBottom: 20,
@@ -2732,6 +2785,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#5664F5",
     marginTop: 8,
+    marginBottom: 24, // Thêm margin bottom để tạo khoảng cách với footer
   },
   submitButtonDisabled: {
     backgroundColor: "#A0A0A0",
@@ -2875,11 +2929,10 @@ const styles = StyleSheet.create({
   },
   bannerContainer: {
     position: "relative",
-    height: 200,
+    marginTop: 0, // Không cần margin top
   },
   bannerImage: {
     width: "100%",
-    height: "100%",
     resizeMode: "cover",
   },
   bannerOverlay: {
@@ -2889,11 +2942,14 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
+    justifyContent: "flex-end", // Đặt nội dung ở phía dưới
     alignItems: "center",
+    paddingBottom: 20, // Thêm padding bottom
   },
   bannerContent: {
     padding: 16,
+    width: '100%',
+    paddingTop: 60, // Thêm padding top để tránh bị header che
   },
   bannerTitle: {
     fontFamily: "Lexend Deca",
@@ -2907,23 +2963,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#FFFFFF",
+    marginTop: 2,
   },
   bannerDate: {
     fontFamily: "Roboto",
     fontSize: 16,
     fontWeight: "500",
     color: "#FFFFFF",
+    marginTop: 2,
   },
   bannerDescription: {
     fontFamily: "Roboto",
     fontSize: 14,
     color: "#FFFFFF",
+    marginTop: 4,
+    lineHeight: 20,
+    textAlign: 'left',
+  },
+  descriptionToggle: {
+    marginTop: 4,
+    alignSelf: 'flex-end', // Đặt nút ở phía bên phải
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  descriptionToggleText: {
+    fontFamily: "Roboto",
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#FFD700", // Màu vàng để nổi bật trên nền tối
   },
   bannerButton: {
     padding: 10,
     backgroundColor: "#FFFFFF",
     borderRadius: 6,
     marginTop: 12,
+    alignSelf: 'center', // Căn giữa nút
+    paddingHorizontal: 20, // Thêm padding ngang
   },
   bannerButtonText: {
     fontFamily: "Poppins",

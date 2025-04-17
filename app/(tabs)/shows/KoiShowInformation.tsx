@@ -875,7 +875,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollViewContent: {
-    paddingBottom: 80, // Thêm padding để tránh bị footer che phủ
+    paddingBottom: 140, // Điều chỉnh padding để tránh bị footer che phủ
   },
   bannerContainer: {
     height: 200,
@@ -1174,6 +1174,16 @@ const styles = StyleSheet.create({
     borderTopColor: "#e5e7eb",
     gap: 12,
     justifyContent: "space-between",
+    position: "absolute",
+    bottom: 60, // Thay đổi từ 0 thành 60 để nâng footer lên trên thanh điều hướng
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    elevation: 5, // Cho Android
+    shadowColor: "#000", // Cho iOS
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   actionButton: {
     borderRadius: 8,
