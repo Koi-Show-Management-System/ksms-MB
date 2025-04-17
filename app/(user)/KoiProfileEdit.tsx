@@ -208,10 +208,7 @@ const KoiProfileEdit: React.FC = () => {
 
     // Kiểm tra hợp lệ chi tiết hơn
     if (!koiData.varietyId) {
-      Alert.alert(
-        "Thiếu thông tin",
-        "Vui lòng chọn giống cá cho cá Koi."
-      );
+      Alert.alert("Thiếu thông tin", "Vui lòng chọn giống cá cho cá Koi.");
       return;
     }
 
@@ -684,83 +681,148 @@ const KoiProfileEdit: React.FC = () => {
           </Picker>
         </View>
 
-        {/* Existing Images */}
-        <Text style={styles.label}>Hình ảnh hiện có</Text>
-        <View style={styles.mediaContainer}>
-          {koiData.existingImages.map((image) => (
-            <View key={image.id} style={styles.mediaItem}>
-              <Image source={{ uri: image.url }} style={styles.thumbnail} />
-              <TouchableOpacity
-                onPress={() => removeExistingMedia(image.id, "Image")}
-                style={styles.removeButton}>
-                <Text style={styles.removeButtonText}>X</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          {koiData.existingImages.length === 0 && (
-            <Text style={styles.noMediaText}>Không có</Text>
-          )}
-        </View>
-
-        {/* New Images */}
-        <Text style={styles.label}>Thêm hình ảnh mới</Text>
+        {/* ----- PHẦN HIỂN THỊ TẤT CẢ HÌNH ẢNH ----- */}
+        <Text style={styles.label}>Hình ảnh</Text>
         <TouchableOpacity
           onPress={() => handleImageSelect("Image")}
-          style={styles.button}>
-          <Text style={styles.buttonText}>Chọn ảnh</Text>
+          style={[styles.button, styles.selectMediaButton]} // Nút chọn ảnh đặt ở trên cùng
+        >
+          <Ionicons name="images-outline" size={20} color="#fff" />
+          <Text style={styles.buttonText}>Chọn/Thêm ảnh</Text>
         </TouchableOpacity>
         <View style={styles.mediaContainer}>
-          {koiData.koiImages.map((image, index) => (
-            <View key={index} style={styles.mediaItem}>
-              <Image source={{ uri: image.uri }} style={styles.thumbnail} />
-              <TouchableOpacity
-                onPress={() => removeNewMedia(index, "Image")}
-                style={styles.removeButton}>
-                <Text style={styles.removeButtonText}>X</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+          {
+            // Kết hợp ảnh cũ và mới để render
+            [
+              // Map qua ảnh cũ, đánh dấu là không mới (isNew: false)
+              ...koiData.existingImages.map((img) => ({
+                ...img,
+                isNew: false,
+                type: "Image",
+              })),
+              // Map qua ảnh mới, đánh dấu là mới (isNew: true), lấy thông tin cần thiết và index
+              ...koiData.koiImages.map((img, index) => ({
+                uri: img.uri,
+                assetId: img.assetId,
+                index,
+                isNew: true,
+                type: "Image",
+              })),
+            ].map((item) => {
+              // Tạo key duy nhất
+              const key = item.isNew
+                ? `new-img-${item.assetId || item.index}`
+                : `existing-img-${item.id}`;
+              const imageUri = item.isNew ? item.uri : item.url;
+
+              return (
+                <View key={key} style={styles.mediaItem}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.thumbnail}
+                    resizeMode="cover"
+                  />
+                  {/* Chỉ hiển thị badge "Mới" cho item mới */}
+                  {item.isNew && (
+                    <View style={styles.newBadge}>
+                      <Text style={styles.newBadgeText}>Mới</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    // Gọi hàm xóa tương ứng dựa trên isNew
+                    onPress={() =>
+                      item.isNew
+                        ? removeNewMedia(item.index, "Image")
+                        : removeExistingMedia(item.id, "Image")
+                    }
+                    style={styles.removeButton}>
+                    <Text style={styles.removeButtonText}>X</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })
+          }
+          {/* Hiển thị nếu không có ảnh nào cả */}
+          {koiData.existingImages.length === 0 &&
+            koiData.koiImages.length === 0 && (
+              <Text style={styles.noMediaText}>Chưa có hình ảnh nào.</Text>
+            )}
         </View>
 
-        {/* Existing Videos */}
-        <Text style={styles.label}>Video hiện có</Text>
-        <View style={styles.mediaContainer}>
-          {koiData.existingVideos.map((video) => (
-            <View
-              key={video.id}
-              style={[styles.mediaItem, styles.videoThumbnail]}>
-              <Text style={styles.videoText}>Video</Text>
-              {/* Add a play icon maybe */}
-              <TouchableOpacity
-                onPress={() => removeExistingMedia(video.id, "Video")}
-                style={styles.removeButton}>
-                <Text style={styles.removeButtonText}>X</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          {koiData.existingVideos.length === 0 && (
-            <Text style={styles.noMediaText}>Không có</Text>
-          )}
-        </View>
-
-        {/* New Videos */}
-        <Text style={styles.label}>Thêm video mới</Text>
+        {/* ----- PHẦN HIỂN THỊ TẤT CẢ VIDEO ----- */}
+        <Text style={styles.label}>Video</Text>
         <TouchableOpacity
           onPress={() => handleImageSelect("Video")}
-          style={styles.button}>
-          <Text style={styles.buttonText}>Chọn video</Text>
+          style={[styles.button, styles.selectMediaButton]} // Nút chọn video đặt ở trên cùng
+        >
+          <Ionicons name="film-outline" size={20} color="#fff" />
+          <Text style={styles.buttonText}>Chọn/Thêm video</Text>
         </TouchableOpacity>
         <View style={styles.mediaContainer}>
-          {koiData.koiVideos.map((video, index) => (
-            <View key={index} style={[styles.mediaItem, styles.videoThumbnail]}>
-              <Text style={styles.videoText}>Video mới</Text>
-              <TouchableOpacity
-                onPress={() => removeNewMedia(index, "Video")}
-                style={styles.removeButton}>
-                <Text style={styles.removeButtonText}>X</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+          {
+            // Kết hợp video cũ và mới để render
+            [
+              // Map qua video cũ
+              ...koiData.existingVideos.map((vid) => ({
+                ...vid,
+                isNew: false,
+                type: "Video",
+              })),
+              // Map qua video mới
+              ...koiData.koiVideos.map((vid, index) => ({
+                uri: vid.uri,
+                assetId: vid.assetId,
+                index,
+                isNew: true,
+                type: "Video",
+              })),
+            ].map((item) => {
+              const key = item.isNew
+                ? `new-vid-${item.assetId || item.index}`
+                : `existing-vid-${item.id}`;
+
+              return (
+                <View key={key} style={styles.mediaItem}>
+                  {/* Render video thumbnail (placeholder với icon) */}
+                  <View
+                    style={[styles.thumbnail, styles.videoThumbnailOverlay]}>
+                    {/* Có thể thử hiển thị ảnh nền mờ từ uri nếu muốn */}
+                    {/* <Image source={{ uri: item.uri }} style={styles.videoBackgroundThumb} resizeMode="cover" /> */}
+                    <View style={styles.playIconOverlay}>
+                      <Ionicons
+                        name={
+                          item.isNew ? "play-circle" : "play-circle-outline"
+                        } // Icon khác biệt một chút nếu muốn
+                        size={30}
+                        color="rgba(255, 255, 255, 0.8)"
+                      />
+                    </View>
+                    {/* Badge "Mới" cho video mới */}
+                    {item.isNew && (
+                      <View style={styles.newBadge}>
+                        <Text style={styles.newBadgeText}>Mới</Text>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    // Gọi hàm xóa tương ứng
+                    onPress={() =>
+                      item.isNew
+                        ? removeNewMedia(item.index, "Video")
+                        : removeExistingMedia(item.id, "Video")
+                    }
+                    style={styles.removeButton}>
+                    <Text style={styles.removeButtonText}>X</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })
+          }
+          {/* Hiển thị nếu không có video nào cả */}
+          {koiData.existingVideos.length === 0 &&
+            koiData.koiVideos.length === 0 && (
+              <Text style={styles.noMediaText}>Chưa có video nào.</Text>
+            )}
         </View>
 
         <TouchableOpacity
@@ -982,17 +1044,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#E0E0E0",
   },
-  videoThumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: "#333",
+  videoThumbnailOverlay: {
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#333",
   },
-  videoText: {
+  playIconOverlay: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -15 }, { translateY: -15 }],
+  },
+  newBadge: {
+    position: "absolute",
+    top: 5,
+    left: 5,
+    backgroundColor: "rgba(0, 122, 255, 0.8)",
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  newBadgeText: {
     color: "#FFF",
-    fontSize: 12,
+    fontSize: 10,
+    fontWeight: "bold",
   },
   removeButton: {
     position: "absolute",
