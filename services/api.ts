@@ -1,67 +1,76 @@
 // services/api.ts
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'; // Import thêm AxiosError và InternalAxiosRequestConfig
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
-import Toast from 'react-native-toast-message';
-import { navigateToAuth } from '@/utils/navigationService'; // Đường dẫn có thể cần điều chỉnh
+import { navigateToAuth } from "@/utils/navigationService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import Toast from "react-native-toast-message";
 
 const api = axios.create({
-  baseURL: 'https://api.ksms.news',
-  timeout: 10000,
+  baseURL: "https://api.ksms.news",
+  timeout: 100000, // Timeout này có thể cần tăng lên nếu upload file lớn, 30s như service update là hợp lý
   headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,PATCH,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+    Accept: "application/json", // Giữ lại Accept nếu API của bạn luôn trả về JSON
   },
-  withCredentials: false
+  withCredentials: false,
 });
 
 // Add request interceptor to add auth token
 api.interceptors.request.use(
-  async (config: InternalAxiosRequestConfig) => { // Thêm type cho config
+  async (config: InternalAxiosRequestConfig) => {
     try {
-      const token = await AsyncStorage.getItem('userToken');
-      // Log token (partially) kèm URL để rõ ràng hơn
-      console.log(`[Interceptor] Token from AsyncStorage for ${config.url}:`, token ? token.substring(0, 10) + '...' : 'null');
+      const token = await AsyncStorage.getItem("userToken");
+      console.log(
+        `[Interceptor] Token from AsyncStorage for ${config.url}:`,
+        token ? token.substring(0, 10) + "..." : "null"
+      );
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log(`[Interceptor] Authorization header SET for ${config.url}.`);
+        console.log(
+          `[Interceptor] Authorization header SET for ${config.url}.`
+        );
       } else {
-        console.log(`[Interceptor] Authorization header NOT SET for ${config.url} (no token).`);
+        console.log(
+          `[Interceptor] Authorization header NOT SET for ${config.url} (no token).`
+        );
       }
-      // Thêm debug log trong môi trường phát triển
+      // Axios sẽ tự đặt Content-Type phù hợp (multipart khi là FormData, json khi là object)
       if (__DEV__) {
-        const method = config.method?.toUpperCase() || 'UNKNOWN';
-        const fullUrl = `${config.baseURL || ''}${config.url || ''}`; // Đảm bảo baseURL và url được định nghĩa
+        const method = config.method?.toUpperCase() || "UNKNOWN";
+        const fullUrl = `${config.baseURL || ""}${config.url || ""}`;
         console.log(`🚀 API REQUEST: [${method}] ${fullUrl}`);
-        // Log TOÀN BỘ headers ngay trước khi return config
-        console.log(`   Headers being sent for ${config.url}:`, JSON.stringify(config.headers));
-        
-        if (config.data) {
-          console.log('   Request data:', JSON.stringify(config.data).substring(0, 500) + (JSON.stringify(config.data).length > 500 ? '...' : ''));
+        // Log headers NGAY TRƯỚC KHI GỬI (sau khi interceptor xử lý)
+        console.log(
+          `   Headers being sent for ${config.url}:`,
+          JSON.stringify(config.headers)
+        ); // Kiểm tra Content-Type ở đây
+        if (config.data && !(config.data instanceof FormData)) {
+          // Chỉ log data nếu không phải FormData
+          console.log(
+            "   Request data:",
+            JSON.stringify(config.data).substring(0, 500) +
+              (JSON.stringify(config.data).length > 500 ? "..." : "")
+          );
+        } else if (config.data instanceof FormData) {
+          console.log("   Request data: Instance of FormData (contains files)");
         }
-        
         if (config.params) {
-          console.log('   Request params:', config.params);
+          console.log("   Request params:", config.params);
         }
       }
-      
+
       return config;
     } catch (error) {
       if (__DEV__) {
-        console.error(`[Interceptor] Error in request interceptor for ${config.url}:`, error);
+        console.error(
+          `[Interceptor] Error in request interceptor for ${config.url}:`,
+          error
+        );
       }
-      // Đảm bảo promise bị reject đúng cách
-      return Promise.reject(error);
       return Promise.reject(error);
     }
   },
   (error) => {
-    // Lỗi này xảy ra trước khi request được gửi (ví dụ: lỗi setup config)
     if (__DEV__) {
-      console.error('[Interceptor] Request setup error:', error);
+      console.error("[Interceptor] Request setup error:", error);
     }
     return Promise.reject(error);
   }
@@ -70,123 +79,124 @@ api.interceptors.request.use(
 // Add response interceptor to handle errors
 api.interceptors.response.use(
   (response) => {
-    // Thêm debug log trong môi trường phát triển (giữ nguyên)
     if (__DEV__) {
-      const method = response.config.method?.toUpperCase() || 'UNKNOWN';
-      const url = response.config.url || 'UNKNOWN';
-      console.log(`✅ API RESPONSE: [${method}] ${url} - Status: ${response.status}`);
-      const responseDataLog = JSON.stringify(response.data)?.substring(0, 500) + (JSON.stringify(response.data)?.length > 500 ? '...' : '');
-      console.log('Response data:', responseDataLog);
+      const method = response.config.method?.toUpperCase() || "UNKNOWN";
+      const url = response.config.url || "UNKNOWN";
+      console.log(
+        `✅ API RESPONSE: [${method}] ${url} - Status: ${response.status}`
+      );
+      const responseDataLog =
+        JSON.stringify(response.data)?.substring(0, 500) +
+        (JSON.stringify(response.data)?.length > 500 ? "..." : "");
+      console.log("Response data:", responseDataLog);
     }
 
-    // --- Hiển thị Toast cho thông báo thành công ---
-    const responseData = response.data as { message?: string; [key: string]: any }; // Type assertion
+    const responseData = response.data as {
+      message?: string;
+      [key: string]: any;
+    };
     const successMessage = responseData?.message;
 
-    // Chỉ hiển thị toast nếu có message và là string không rỗng
-    if (successMessage && typeof successMessage === 'string' && successMessage.trim().length > 0) {
-      // Xác định các phương thức không nên hiển thị toast thành công (ví dụ: GET)
+    if (
+      successMessage &&
+      typeof successMessage === "string" &&
+      successMessage.trim().length > 0
+    ) {
       const method = response.config.method?.toUpperCase();
-      const methodsToShowSuccess = ['POST', 'PUT', 'PATCH', 'DELETE']; // Chỉ hiển thị cho các phương thức thay đổi dữ liệu
+      const methodsToShowSuccess = ["POST", "PUT", "PATCH", "DELETE"];
 
       if (method && methodsToShowSuccess.includes(method)) {
-          Toast.show({
-            type: 'success', // Loại toast thành công
-            text1: 'Thành công',
-            text2: successMessage,
-            visibilityTime: 3000, // Thời gian hiển thị ngắn hơn cho thành công
-            autoHide: true,
-          });
+        Toast.show({
+          type: "success",
+          text1: "Thành công",
+          text2: successMessage,
+          visibilityTime: 3000,
+          autoHide: true,
+        });
       }
     }
-    // --- Kết thúc phần hiển thị Toast thành công ---
 
-    return response; // Luôn trả về response gốc
+    return response;
   },
-  async (error: AxiosError) => { // Thêm type AxiosError
-    // Log chi tiết về lỗi trong môi trường phát triển (giữ nguyên)
+  async (error: AxiosError) => {
     if (__DEV__) {
-      const method = error.config?.method?.toUpperCase() || 'UNKNOWN';
-      const url = error.config?.url || 'UNKNOWN';
+      const method = error.config?.method?.toUpperCase() || "UNKNOWN";
+      const url = error.config?.url || "UNKNOWN";
       console.error(`❌ API ERROR: [${method}] ${url}`);
 
       if (error.response) {
-        console.error('Response error:', {
+        console.error("Response error:", {
           status: error.response.status,
           statusText: error.response.statusText,
-          // Log data cẩn thận hơn, có thể là object lớn
-          data: JSON.stringify(error.response.data)?.substring(0, 500) + (JSON.stringify(error.response.data)?.length > 500 ? '...' : ''),
-          headers: error.response.headers
+          data:
+            JSON.stringify(error.response.data)?.substring(0, 500) +
+            (JSON.stringify(error.response.data)?.length > 500 ? "..." : ""),
+          headers: error.response.headers,
         });
       } else if (error.request) {
-        console.error('No response received:', {
-          // request object có thể rất lớn, log cẩn thận
-          requestInfo: `Method: ${error.request._method}, URL: ${error.request._url}`
+        console.error("No response received:", {
+          requestInfo: `Method: ${error.request._method}, URL: ${error.request._url}`,
         });
       } else {
-        console.error('Request setup error:', error.message);
+        console.error("Request setup error:", error.message);
       }
     }
 
-    // --- Phần hiển thị Toast và điều hướng ---
     if (error.response) {
-      const responseData = error.response.data as { Error?: string; [key: string]: any }; // Type assertion an toàn hơn
-      const errorMessage = responseData?.Error;
+      const responseData = error.response.data as {
+        Error?: string;
+        message?: string;
+        [key: string]: any;
+      };
+      const errorMessage = responseData?.Error || responseData?.message; // Ưu tiên Error, sau đó đến message
       const statusCode = error.response.status;
 
       if (statusCode === 401) {
-        // Xử lý lỗi 401 (Unauthorized)
-        await AsyncStorage.removeItem('userToken');
+        await AsyncStorage.removeItem("userToken");
         Toast.show({
-          type: 'error',
-          text1: 'Phiên đăng nhập hết hạn',
-          text2: 'Vui lòng đăng nhập lại.',
+          type: "error",
+          text1: "Phiên đăng nhập hết hạn",
+          text2: "Vui lòng đăng nhập lại.",
           visibilityTime: 4000,
           autoHide: true,
-          // Gọi điều hướng SAU KHI toast ẩn đi để tránh giật màn hình
           onHide: () => navigateToAuth(),
         });
-      } else if (errorMessage && typeof errorMessage === 'string') {
-        // Các lỗi server khác có message cụ thể
+      } else if (errorMessage && typeof errorMessage === "string") {
         Toast.show({
-          type: 'error',
-          text1: 'Thông báo', // Bỏ statusCode khỏi tiêu đề
+          type: "error",
+          text1: "Lỗi",
           text2: errorMessage,
           visibilityTime: 4000,
           autoHide: true,
         });
       } else {
-        // Lỗi server chung (không có message hoặc không phải string)
         Toast.show({
-          type: 'error',
-          text1: 'Lỗi máy chủ', // Bỏ statusCode khỏi tiêu đề
-          text2: 'Đã có lỗi xảy ra phía máy chủ. Vui lòng thử lại sau.',
+          type: "error",
+          text1: "Lỗi máy chủ",
+          text2: "Có lỗi xảy ra. Vui lòng thử lại.",
           visibilityTime: 4000,
           autoHide: true,
         });
       }
     } else if (error.request) {
-      // Lỗi mạng hoặc không nhận được phản hồi
       Toast.show({
-        type: 'error',
-        text1: 'Lỗi kết nối',
-        text2: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
+        type: "error",
+        text1: "Lỗi kết nối",
+        text2: "Kiểm tra kết nối mạng.",
         visibilityTime: 4000,
         autoHide: true,
       });
     } else {
-      // Lỗi khi thiết lập request
       Toast.show({
-        type: 'error',
-        text1: 'Lỗi không xác định',
-        text2: 'Đã có lỗi xảy ra trong quá trình gửi yêu cầu.',
+        type: "error",
+        text1: "Lỗi",
+        text2: "Có lỗi xảy ra khi gửi yêu cầu.",
         visibilityTime: 4000,
         autoHide: true,
       });
     }
-    // --- Kết thúc phần hiển thị Toast và điều hướng ---
 
-    return Promise.reject(error); // Giữ nguyên để xử lý lỗi tiếp theo nếu cần
+    return Promise.reject(error);
   }
 );
 
