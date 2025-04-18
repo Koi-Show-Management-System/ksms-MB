@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "./api";
+import { signalRService } from "./signalRService";
 
 // Define interface for login response
 interface LoginResponseData {
@@ -38,9 +39,20 @@ export const login = async (email: string, password: string) => {
         // Handle potential null fullName safely
         await AsyncStorage.setItem("userFullName", userData.fullName ?? "");
 
+        // Thiết lập kết nối SignalR sau khi đăng nhập thành công
+        try {
+          await signalRService.setupConnection();
+        } catch (signalRError) {
+          console.error("Error setting up SignalR connection:", signalRError);
+          // Không throw lỗi ở đây để tránh ảnh hưởng đến luồng đăng nhập
+        }
+
         return userData;
       } else {
-        console.error("Login error: Missing essential user data in response", userData);
+        console.error(
+          "Login error: Missing essential user data in response",
+          userData
+        );
         throw new Error("Dữ liệu đăng nhập không đầy đủ. Vui lòng thử lại.");
       }
     } else {
@@ -50,11 +62,14 @@ export const login = async (email: string, password: string) => {
     console.error("Login error:", error); // Giữ lại log để debug nếu cần
     // Kiểm tra xem interceptor có xử lý lỗi cụ thể không (dựa trên trường 'Error')
     if (error.response?.data?.Error) {
-        // Interceptor đã hiển thị Toast, chỉ cần ném lại lỗi gốc
-        throw error;
+      // Interceptor đã hiển thị Toast, chỉ cần ném lại lỗi gốc
+      throw error;
     } else {
-        // Interceptor không hiển thị lỗi cụ thể, throw lỗi với message fallback
-        throw new Error(error.response?.data?.message || "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.");
+      // Interceptor không hiển thị lỗi cụ thể, throw lỗi với message fallback
+      throw new Error(
+        error.response?.data?.message ||
+          "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin."
+      );
     }
   }
 };
@@ -62,6 +77,9 @@ export const login = async (email: string, password: string) => {
 // Logout function
 export const logout = async () => {
   try {
+    // Dừng kết nối SignalR trước khi xóa token
+    await signalRService.stopConnection();
+
     // Remove all stored user data
     await AsyncStorage.multiRemove([
       "userToken",
@@ -109,11 +127,13 @@ export const register = async (
     console.error("Registration error:", error); // Giữ lại log để debug nếu cần
     // Kiểm tra xem interceptor có xử lý lỗi cụ thể không (dựa trên trường 'Error')
     if (error.response?.data?.Error) {
-        // Interceptor đã hiển thị Toast, chỉ cần ném lại lỗi gốc
-        throw error;
+      // Interceptor đã hiển thị Toast, chỉ cần ném lại lỗi gốc
+      throw error;
     } else {
-        // Interceptor không hiển thị lỗi cụ thể, throw lỗi với message fallback
-        throw new Error(error.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại.");
+      // Interceptor không hiển thị lỗi cụ thể, throw lỗi với message fallback
+      throw new Error(
+        error.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại."
+      );
     }
   }
 };
@@ -126,30 +146,36 @@ export async function forgotPassword(email: string): Promise<void> {
       null, // Không truyền body
       {
         headers: {
-          Accept: 'application/json',
+          Accept: "application/json",
         },
       }
-    )
-    if (response?.data?.statusCode === 200) return
-    throw new Error(response?.data?.message || 'Không gửi được mã OTP')
+    );
+    if (response?.data?.statusCode === 200) return;
+    throw new Error(response?.data?.message || "Không gửi được mã OTP");
   } catch (error: any) {
-    throw new Error(error?.response?.data?.message || 'Không gửi được mã OTP')
+    throw new Error(error?.response?.data?.message || "Không gửi được mã OTP");
   }
 }
 
 // Reset password function
-export async function resetPassword(email: string, otp: string, newPassword: string): Promise<void> {
+export async function resetPassword(
+  email: string,
+  otp: string,
+  newPassword: string
+): Promise<void> {
   try {
     const response = await api.put(
-      '/api/v1/auth/reset-password',
+      "/api/v1/auth/reset-password",
       { email, otp, newPassword },
       {
-        headers: { Accept: 'application/json' },
+        headers: { Accept: "application/json" },
       }
-    )
-    if (response?.data?.statusCode === 200) return
-    throw new Error(response?.data?.message || 'Đặt lại mật khẩu thất bại')
+    );
+    if (response?.data?.statusCode === 200) return;
+    throw new Error(response?.data?.message || "Đặt lại mật khẩu thất bại");
   } catch (error: any) {
-    throw new Error(error?.response?.data?.message || 'Đặt lại mật khẩu thất bại')
+    throw new Error(
+      error?.response?.data?.message || "Đặt lại mật khẩu thất bại"
+    );
   }
 }

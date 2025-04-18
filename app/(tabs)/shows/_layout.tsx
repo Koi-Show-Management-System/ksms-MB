@@ -1,10 +1,13 @@
+import MainLayout from "@/components/MainLayout";
 import { Stack } from "expo-router";
 import React from "react";
-import MainLayout from '@/components/MainLayout';
 
 export default function ShowsLayout() {
   return (
-    <MainLayout title="Sự kiện" description="Khám phá các cuộc thi và triển lãm" showFooter={true}>
+    <MainLayout
+      title="Sự kiện"
+      description="Khám phá các cuộc thi và triển lãm"
+      showFooter={true}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -23,7 +26,10 @@ export default function ShowsLayout() {
         <Stack.Screen name="ConfirmRegister" options={{ headerShown: false }} />
         <Stack.Screen name="AwardScreen" options={{ headerShown: false }} />
         <Stack.Screen name="Rule&FAQ" options={{ headerShown: false }} />
-        <Stack.Screen name="LivestreamViewer" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="LiveStreamViewer"
+          options={{ headerShown: false }}
+        />
         {/* Add other show-related screens here */}
       </Stack>
     </MainLayout>

@@ -1,7 +1,6 @@
 import { Stack } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
-import { Tabs } from "expo-router";
 
 export default function TabLayout() {
   return (
@@ -29,12 +28,11 @@ export default function TabLayout() {
         }}
       />
       <Stack.Screen
-        name="shows/LivestreamViewer"
+        name="shows/LiveStreamViewer"
         options={{
           headerShown: false, // Hoặc true nếu bạn muốn hiển thị header mặc định
         }}
       />
-
     </Stack>
   );
 }

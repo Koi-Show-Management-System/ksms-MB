@@ -1,41 +1,52 @@
-// app/(tabs)/shows/LivestreamViewer.tsx
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, Image, ScrollView, Dimensions, TextInput } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+// app/(tabs)/shows/LiveStreamViewer.tsx
+import { Ionicons } from "@expo/vector-icons";
 import {
-  StreamVideo,
-  StreamVideoClient,
-  User,
-  StreamCall,
   Call,
-  CallContent,
-  CallingState,       // Import enum for call states
+  CallingState,
+  StreamCall,
+  StreamVideo,
+  StreamVideoClient, // Import enum for call states
   useCall,
   useCallStateHooks,
-  ViewerLivestream,    // Thêm vào để sử dụng component mới
-  useStreamVideoClient
-} from '@stream-io/video-react-native-sdk';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { getLivestreamViewerToken, getLivestreamDetails, LivestreamInfo } from '../../../services/livestreamService'; // Import status check function and type
-import { Ionicons, FontAwesome, MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { jwtDecode } from 'jwt-decode';
+  User, // Thêm vào để sử dụng component mới
+  useStreamVideoClient,
+  ViewerLivestream,
+} from "@stream-io/video-react-native-sdk";
+import { router, useLocalSearchParams } from "expo-router";
+import { jwtDecode } from "jwt-decode";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  getLivestreamDetails,
+  getLiveStreamViewerToken,
+} from "../../../services/livestreamService"; // Import status check function and type
 
 // Lấy kích thước màn hình
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 // --- Constants ---
 const STATUS_CHECK_INTERVAL = 15000; // Check API status every 15 seconds
 
 // --- Helper Function for Leaving ---
 async function handleLeaveCall(call: Call | null) {
-  console.log('Attempting to leave call...');
+  console.log("Attempting to leave call...");
   if (call) {
     try {
       await call.leave();
-      console.log('Successfully left the call.');
+      console.log("Successfully left the call.");
     } catch (error) {
-      console.error('Error leaving call:', error);
+      console.error("Error leaving call:", error);
       // Optionally show an alert to the user
       // Alert.alert('Lỗi', 'Không thể rời khỏi livestream.');
     }
@@ -50,7 +61,6 @@ async function handleLeaveCall(call: Call | null) {
   }
 }
 
-
 // --- Inner Component to handle Call logic ---
 interface LivestreamContentProps {
   callId: string;
@@ -61,25 +71,25 @@ interface LivestreamContentProps {
 // Mẫu dữ liệu bình luận
 const SAMPLE_COMMENTS = [
   {
-    id: '1',
-    user: 'KoiLover55',
-    text: 'Cá Koi này đẹp quá! Màu sắc rất tươi sáng.',
-    timeAgo: '2p',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
+    id: "1",
+    user: "KoiLover55",
+    text: "Cá Koi này đẹp quá! Màu sắc rất tươi sáng.",
+    timeAgo: "2p",
+    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
   },
   {
-    id: '2',
-    user: 'JapaneseKoiExpert',
-    text: 'Đây là một con Kohaku tuyệt vời, có thể đạt giải cao đấy!',
-    timeAgo: '5p',
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
+    id: "2",
+    user: "JapaneseKoiExpert",
+    text: "Đây là một con Kohaku tuyệt vời, có thể đạt giải cao đấy!",
+    timeAgo: "5p",
+    avatar: "https://randomuser.me/api/portraits/women/44.jpg",
   },
   {
-    id: '3',
-    user: 'KoiBreeder_JP',
-    text: 'Chất lượng nước rất tốt. Họ đang sử dụng hệ thống lọc gì vậy?',
-    timeAgo: '7p',
-    avatar: 'https://randomuser.me/api/portraits/men/68.jpg',
+    id: "3",
+    user: "KoiBreeder_JP",
+    text: "Chất lượng nước rất tốt. Họ đang sử dụng hệ thống lọc gì vậy?",
+    timeAgo: "7p",
+    avatar: "https://randomuser.me/api/portraits/men/68.jpg",
   },
 ];
 
@@ -93,98 +103,99 @@ const EnhancedLivestreamUI: React.FC<{
   const [likeCount, setLikeCount] = useState(324);
   const [isLiked, setIsLiked] = useState(false);
   const [comments, setComments] = useState(SAMPLE_COMMENTS);
-  const [commentText, setCommentText] = useState('');
-  
+  const [commentText, setCommentText] = useState("");
+
   // Giả lập tăng số người xem
   useEffect(() => {
     const interval = setInterval(() => {
-      setViewCount(prev => prev + Math.floor(Math.random() * 3));
+      setViewCount((prev) => prev + Math.floor(Math.random() * 3));
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, []);
-  
+
   // Xử lý gửi bình luận
   const handleSendComment = () => {
     if (commentText.trim()) {
       const newComment = {
         id: Date.now().toString(),
-        user: 'Bạn',
+        user: "Bạn",
         text: commentText,
-        timeAgo: 'vừa xong',
-        avatar: 'https://randomuser.me/api/portraits/men/1.jpg',
+        timeAgo: "vừa xong",
+        avatar: "https://randomuser.me/api/portraits/men/1.jpg",
       };
-      
+
       setComments([newComment, ...comments]);
-      setCommentText('');
+      setCommentText("");
     }
   };
-  
+
   return (
     <View style={styles.livestreamContainer}>
       {/* Phần video */}
       <View style={styles.videoWrapper}>
         {children}
-        
+
         {/* Chỉ báo LIVE */}
         <View style={styles.liveIndicator}>
           <View style={styles.liveDot} />
           <Text style={styles.liveText}>LIVE</Text>
         </View>
-        
+
         {/* Số người xem */}
         <View style={styles.viewCountContainer}>
           <Ionicons name="eye" size={14} color="#FFF" />
           <Text style={styles.viewCountText}>{viewCount}</Text>
         </View>
-        
+
         {/* Nút quay lại */}
-        <TouchableOpacity 
-          style={styles.backButtonOverlay}
-          onPress={onLeave}
-        >
+        <TouchableOpacity style={styles.backButtonOverlay} onPress={onLeave}>
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
       </View>
-      
+
       {/* Thông tin stream */}
       <View style={styles.infoSection}>
-        <Text style={styles.streamTitle}>{showName || 'Koi Show Livestream'}</Text>
+        <Text style={styles.streamTitle}>
+          {showName || "Koi Show Livestream"}
+        </Text>
         <View style={styles.streamStats}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.statButton}
             onPress={() => {
               setIsLiked(!isLiked);
               setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
-            }}
-          >
-            <Ionicons 
-              name={isLiked ? "heart" : "heart-outline"} 
-              size={22} 
-              color={isLiked ? "#FF4D4F" : "#333"} 
+            }}>
+            <Ionicons
+              name={isLiked ? "heart" : "heart-outline"}
+              size={22}
+              color={isLiked ? "#FF4D4F" : "#333"}
             />
             <Text style={styles.statText}>{likeCount}</Text>
           </TouchableOpacity>
-          
+
           <View style={styles.statButton}>
             <Ionicons name="chatbubble-outline" size={20} color="#333" />
             <Text style={styles.statText}>{comments.length}</Text>
           </View>
-          
+
           <TouchableOpacity style={styles.statButton}>
             <Ionicons name="share-social-outline" size={20} color="#333" />
             <Text style={styles.statText}>Chia sẻ</Text>
           </TouchableOpacity>
         </View>
       </View>
-      
+
       {/* Phần bình luận */}
       <View style={styles.commentsContainer}>
         <Text style={styles.commentsSectionTitle}>Bình luận trực tiếp</Text>
         <ScrollView style={styles.commentsScrollView}>
-          {comments.map(comment => (
+          {comments.map((comment) => (
             <View key={comment.id} style={styles.commentItem}>
-              <Image source={{ uri: comment.avatar }} style={styles.commentAvatar} />
+              <Image
+                source={{ uri: comment.avatar }}
+                style={styles.commentAvatar}
+              />
               <View style={styles.commentContent}>
                 <View style={styles.commentHeader}>
                   <Text style={styles.commentUser}>{comment.user}</Text>
@@ -195,7 +206,7 @@ const EnhancedLivestreamUI: React.FC<{
             </View>
           ))}
         </ScrollView>
-        
+
         {/* Input bình luận */}
         <View style={styles.commentInputContainer}>
           <TextInput
@@ -205,15 +216,14 @@ const EnhancedLivestreamUI: React.FC<{
             value={commentText}
             onChangeText={setCommentText}
           />
-          <TouchableOpacity 
-            style={styles.sendButton} 
+          <TouchableOpacity
+            style={styles.sendButton}
             onPress={handleSendComment}
-            disabled={!commentText.trim()}
-          >
-            <Ionicons 
-              name="send" 
-              size={20} 
-              color={commentText.trim() ? "#0066CC" : "#CCC"} 
+            disabled={!commentText.trim()}>
+            <Ionicons
+              name="send"
+              size={20}
+              color={commentText.trim() ? "#0066CC" : "#CCC"}
             />
           </TouchableOpacity>
         </View>
@@ -223,7 +233,10 @@ const EnhancedLivestreamUI: React.FC<{
 };
 
 // Component con để xử lý trạng thái call (Phải nằm trong ngữ cảnh <StreamCall>)
-const CallStateHandler: React.FC<{ onLeave: (call: Call) => void, showName: string }> = ({ onLeave, showName }) => {
+const CallStateHandler: React.FC<{
+  onLeave: (call: Call) => void;
+  showName: string;
+}> = ({ onLeave, showName }) => {
   // Các hook này bây giờ an toàn vì chúng nằm trong ngữ cảnh StreamCall
   const { useCallCallingState, useIsCallLive } = useCallStateHooks();
   const callingState = useCallCallingState();
@@ -240,8 +253,10 @@ const CallStateHandler: React.FC<{ onLeave: (call: Call) => void, showName: stri
       return (
         <View style={styles.centeredContent}>
           <ActivityIndicator size="large" color="#FFF" />
-          <Text style={[styles.infoText, { color: '#FFF' }]}>
-            {callingState === CallingState.JOINING ? 'Đang tham gia...' : 'Đang kết nối lại...'}
+          <Text style={[styles.infoText, { color: "#FFF" }]}>
+            {callingState === CallingState.JOINING
+              ? "Đang tham gia..."
+              : "Đang kết nối lại..."}
           </Text>
         </View>
       );
@@ -249,8 +264,12 @@ const CallStateHandler: React.FC<{ onLeave: (call: Call) => void, showName: stri
       return (
         <View style={styles.centeredContent}>
           <Ionicons name="stop-circle-outline" size={48} color="#ccc" />
-          <Text style={[styles.infoText, { color: '#FFF' }]}>Bạn đã rời khỏi livestream.</Text>
-          <TouchableOpacity style={styles.actionButton} onPress={() => call && onLeave(call)}>
+          <Text style={[styles.infoText, { color: "#FFF" }]}>
+            Bạn đã rời khỏi livestream.
+          </Text>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => call && onLeave(call)}>
             <Text style={styles.actionButtonText}>Quay lại</Text>
           </TouchableOpacity>
         </View>
@@ -260,20 +279,23 @@ const CallStateHandler: React.FC<{ onLeave: (call: Call) => void, showName: stri
         return (
           <View style={styles.centeredContent}>
             <Ionicons name="hourglass-outline" size={48} color="#ccc" />
-            <Text style={[styles.infoText, { color: '#FFF' }]}>Đang chờ người phát...</Text>
-            <TouchableOpacity style={styles.actionButton} onPress={() => call && onLeave(call)}>
+            <Text style={[styles.infoText, { color: "#FFF" }]}>
+              Đang chờ người phát...
+            </Text>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => call && onLeave(call)}>
               <Text style={styles.actionButtonText}>Rời khỏi</Text>
             </TouchableOpacity>
           </View>
         );
       }
-      
+
       // Render actual livestream content with enhanced UI
       return (
-        <EnhancedLivestreamUI 
-          showName={showName} 
-          onLeave={() => call && onLeave(call)}
-        >
+        <EnhancedLivestreamUI
+          showName={showName}
+          onLeave={() => call && onLeave(call)}>
           <ViewerLivestream />
         </EnhancedLivestreamUI>
       );
@@ -281,8 +303,12 @@ const CallStateHandler: React.FC<{ onLeave: (call: Call) => void, showName: stri
       return (
         <View style={styles.centeredContent}>
           <Ionicons name="help-circle-outline" size={48} color="#ccc" />
-          <Text style={[styles.infoText, { color: '#FFF' }]}>Trạng thái: {callingState || 'không xác định'}</Text>
-          <TouchableOpacity style={styles.actionButton} onPress={() => call && onLeave(call)}>
+          <Text style={[styles.infoText, { color: "#FFF" }]}>
+            Trạng thái: {callingState || "không xác định"}
+          </Text>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => call && onLeave(call)}>
             <Text style={styles.actionButtonText}>Rời khỏi</Text>
           </TouchableOpacity>
         </View>
@@ -290,7 +316,9 @@ const CallStateHandler: React.FC<{ onLeave: (call: Call) => void, showName: stri
   }
 };
 
-const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }> = ({ callId, callType, livestreamId, showName }) => {
+const LivestreamContent: React.FC<
+  LivestreamContentProps & { showName?: string }
+> = ({ callId, callType, livestreamId, showName }) => {
   const client = useStreamVideoClient();
   const [call, setCall] = useState<Call | null>(null);
   const [isLoadingCall, setIsLoadingCall] = useState(true);
@@ -312,7 +340,7 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
           setApiStatus(response.data.status.toLowerCase()); // Normalize status
         }
       } catch (error) {
-        console.error('Error checking livestream status via API:', error);
+        console.error("Error checking livestream status via API:", error);
         // Don't necessarily set an error state here, maybe just log
       }
     }
@@ -336,7 +364,9 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
   // --- Call Setup Effect ---
   useEffect(() => {
     if (!client || !callId || !callType) {
-      console.warn("LivestreamContent: Client, callId, or callType not available yet.");
+      console.warn(
+        "LivestreamContent: Client, callId, or callType not available yet."
+      );
       return;
     }
 
@@ -347,11 +377,15 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
       setIsLoadingCall(true);
       setCallError(null);
       setCall(null);
-      console.log(`LivestreamContent: Attempting to get or create call: ${callType}/${callId}`);
+      console.log(
+        `LivestreamContent: Attempting to get or create call: ${callType}/${callId}`
+      );
 
       try {
         try {
-          console.log(`LivestreamContent: Attempting to get call instance: ${callType}/${callId}`);
+          console.log(
+            `LivestreamContent: Attempting to get call instance: ${callType}/${callId}`
+          );
           currentCall = client.call(callType, callId);
           console.log("LivestreamContent: Call instance obtained");
 
@@ -361,14 +395,18 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
 
           while (retryCount < maxRetries) {
             try {
-              console.log(`LivestreamContent: Attempting to join call (attempt ${retryCount + 1})...`);
-              
+              console.log(
+                `LivestreamContent: Attempting to join call (attempt ${
+                  retryCount + 1
+                })...`
+              );
+
               // Kiểm tra và ghi log thông tin kết nối hiện tại
-              console.log(`[LivestreamContent] Current connection info:`, { 
+              console.log(`[LivestreamContent] Current connection info:`, {
                 callId: currentCall.id,
-                callType: currentCall.type
+                callType: currentCall.type,
               });
-              
+
               // Sử dụng các tùy chọn hợp lệ cho join call
               const joinResult = await currentCall.join({
                 create: false,
@@ -386,32 +424,42 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
                   console.error("Error disabling media:", mediaError);
                 }
               }
-              
-              console.log("LivestreamContent: Successfully joined call", joinResult);
+
+              console.log(
+                "LivestreamContent: Successfully joined call",
+                joinResult
+              );
               break;
             } catch (joinError: any) {
               retryCount++;
               console.error(`Join attempt ${retryCount} failed:`, joinError);
-              
+
               // Ghi log chi tiết lỗi
               if (joinError.response) {
-                console.error('Error response data:', joinError.response.data);
-                console.error('Error response status:', joinError.response.status);
+                console.error("Error response data:", joinError.response.data);
+                console.error(
+                  "Error response status:",
+                  joinError.response.status
+                );
               }
-              
+
               // Phân tích chi tiết lỗi
-              if (joinError.message.includes('permission denied') || 
-                  joinError.message.includes('not allowed to perform action')) {
-                throw new Error('Bạn không có quyền tham gia livestream này');
+              if (
+                joinError.message.includes("permission denied") ||
+                joinError.message.includes("not allowed to perform action")
+              ) {
+                throw new Error("Bạn không có quyền tham gia livestream này");
               }
-              
+
               if (retryCount === maxRetries) {
-                throw new Error('Không thể kết nối sau nhiều lần thử lại');
+                throw new Error("Không thể kết nối sau nhiều lần thử lại");
               }
-              
+
               console.warn(`Đang thử kết nối lại lần ${retryCount}...`);
               // Tăng thời gian chờ mỗi lần retry
-              await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+              await new Promise((resolve) =>
+                setTimeout(resolve, 2000 * retryCount)
+              );
             }
           }
 
@@ -423,19 +471,23 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
           if (isMounted) {
             // Xử lý các loại lỗi phổ biến
             switch (true) {
-              case err.message.includes('permission denied'):
-              case err.message.includes('not allowed to perform action'):
-                setCallError('Bạn không có quyền truy cập vào livestream này.');
+              case err.message.includes("permission denied"):
+              case err.message.includes("not allowed to perform action"):
+                setCallError("Bạn không có quyền truy cập vào livestream này.");
                 break;
-              case err.message.includes('network'):
-              case err.message.includes('timeout'):
-                setCallError('Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại.');
+              case err.message.includes("network"):
+              case err.message.includes("timeout"):
+                setCallError(
+                  "Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại."
+                );
                 break;
-              case err.message.includes('call not found'):
-                setCallError('Livestream này không tồn tại hoặc đã kết thúc.');
+              case err.message.includes("call not found"):
+                setCallError("Livestream này không tồn tại hoặc đã kết thúc.");
                 break;
-              case err.message.includes('maximum retries'):
-                setCallError('Không thể kết nối sau nhiều lần thử. Vui lòng thử lại sau.');
+              case err.message.includes("maximum retries"):
+                setCallError(
+                  "Không thể kết nối sau nhiều lần thử. Vui lòng thử lại sau."
+                );
                 break;
               default:
                 setCallError(`Không thể tham gia livestream: ${err.message}`);
@@ -444,9 +496,11 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
           }
           // Đảm bảo cleanup
           if (currentCall) {
-            currentCall.leave().catch(e =>
-              console.error('Error leaving call after failure:', e)
-            );
+            currentCall
+              .leave()
+              .catch((e) =>
+                console.error("Error leaving call after failure:", e)
+              );
             currentCall = null;
           }
         }
@@ -462,11 +516,18 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
     return () => {
       isMounted = false;
       // Cleanup: Leave the call when the component unmounts or callId/callType changes
-      if (call) { // Use the state variable 'call' for cleanup
-        console.log("LivestreamContent unmounting or deps changed, leaving call...");
-        call.leave().catch(e => console.error("Error leaving call on unmount:", e));
+      if (call) {
+        // Use the state variable 'call' for cleanup
+        console.log(
+          "LivestreamContent unmounting or deps changed, leaving call..."
+        );
+        call
+          .leave()
+          .catch((e) => console.error("Error leaving call on unmount:", e));
       } else {
-          console.log("LivestreamContent unmounting or deps changed, no call object to leave.");
+        console.log(
+          "LivestreamContent unmounting or deps changed, no call object to leave."
+        );
       }
       setCall(null); // Clear call state on unmount
       console.log("LivestreamContent unmounted/deps changed.");
@@ -481,7 +542,9 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
     return (
       <View style={styles.centeredContent}>
         <ActivityIndicator size="large" color="#FFF" />
-        <Text style={[styles.infoText, { color: '#FFF' }]}>Đang tải cuộc gọi...</Text>
+        <Text style={[styles.infoText, { color: "#FFF" }]}>
+          Đang tải cuộc gọi...
+        </Text>
       </View>
     );
   }
@@ -490,36 +553,45 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
     return (
       <View style={styles.centeredContent}>
         <Ionicons name="alert-circle-outline" size={48} color="red" />
-        <Text style={[styles.errorText, { color: '#FFF' }]}>{callError}</Text>
-        <TouchableOpacity style={styles.actionButton} onPress={() => handleLeaveCall(null)}>
-           <Text style={styles.actionButtonText}>Quay lại</Text>
-         </TouchableOpacity>
+        <Text style={[styles.errorText, { color: "#FFF" }]}>{callError}</Text>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleLeaveCall(null)}>
+          <Text style={styles.actionButtonText}>Quay lại</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   // 2. Check API Status (Highest Priority After Setup)
-  if (apiStatus === 'ended') {
+  if (apiStatus === "ended") {
     return (
       <View style={styles.centeredContent}>
         <Ionicons name="stop-circle-outline" size={48} color="#ccc" />
-        <Text style={[styles.infoText, { color: '#FFF' }]}>Livestream đã kết thúc.</Text>
-        <TouchableOpacity style={styles.actionButton} onPress={() => handleLeaveCall(call)}>
+        <Text style={[styles.infoText, { color: "#FFF" }]}>
+          Livestream đã kết thúc.
+        </Text>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleLeaveCall(call)}>
           <Text style={styles.actionButtonText}>Rời khỏi</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-   if (apiStatus === 'paused') { // Assuming 'paused' is a possible status
-     return (
-       <View style={styles.centeredContent}>
-         <Ionicons name="pause-circle-outline" size={48} color="#ccc" />
-         <Text style={[styles.infoText, { color: '#FFF' }]}>Livestream đang tạm dừng.</Text>
-         {/* Maybe add a refresh button or rely on interval */}
-       </View>
-     );
-   }
+  if (apiStatus === "paused") {
+    // Assuming 'paused' is a possible status
+    return (
+      <View style={styles.centeredContent}>
+        <Ionicons name="pause-circle-outline" size={48} color="#ccc" />
+        <Text style={[styles.infoText, { color: "#FFF" }]}>
+          Livestream đang tạm dừng.
+        </Text>
+        {/* Maybe add a refresh button or rely on interval */}
+      </View>
+    );
+  }
 
   // 3. Check Call Object and SDK States (Only if API status is likely 'active' or unknown)
   if (!call) {
@@ -527,10 +599,14 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
     return (
       <View style={styles.centeredContent}>
         <Ionicons name="videocam-off-outline" size={48} color="#ccc" />
-        <Text style={[styles.errorText, { color: '#FFF' }]}>Không thể tải cuộc gọi.</Text>
-         <TouchableOpacity style={styles.actionButton} onPress={() => handleLeaveCall(null)}>
-           <Text style={styles.actionButtonText}>Quay lại</Text>
-         </TouchableOpacity>
+        <Text style={[styles.errorText, { color: "#FFF" }]}>
+          Không thể tải cuộc gọi.
+        </Text>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleLeaveCall(null)}>
+          <Text style={styles.actionButtonText}>Quay lại</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -542,14 +618,16 @@ const LivestreamContent: React.FC<LivestreamContentProps & { showName?: string }
   console.log("LivestreamContent: Rendering StreamCall with CallContent.");
   return (
     <StreamCall call={call}>
-      <CallStateHandler onLeave={handleLeaveCall} showName={showName || 'Koi Show Livestream'} />
+      <CallStateHandler
+        onLeave={handleLeaveCall}
+        showName={showName || "Koi Show Livestream"}
+      />
     </StreamCall>
   );
 };
 
-
 // --- Main Screen Component ---
-const LivestreamViewerScreen: React.FC = () => {
+const LiveStreamViewerScreen: React.FC = () => {
   const { livestreamId, callId, apiKey, showName } = useLocalSearchParams<{
     livestreamId: string;
     callId: string;
@@ -574,18 +652,20 @@ const LivestreamViewerScreen: React.FC = () => {
 
     // Định nghĩa interface cho payload của JWT token ở đây để có thể truy cập trong toàn bộ hàm
     interface LivestreamTokenPayload {
-      user_id: string;       // ID của người dùng
-      role: string;         // Vai trò của người dùng
+      user_id: string; // ID của người dùng
+      role: string; // Vai trò của người dùng
       call_cids: string[]; // Danh sách các call ID được phép truy cập
-      nbf: number;        // Not before timestamp
-      exp: number;       // Expiration timestamp
-      iat: number;      // Issued at timestamp
+      nbf: number; // Not before timestamp
+      exp: number; // Expiration timestamp
+      iat: number; // Issued at timestamp
     }
 
     async function setupClientAndToken() {
       if (!livestreamId || !callId || !apiKey) {
         if (isMounted) {
-          setError('Thiếu thông tin cần thiết để xem livestream (ID, CallID, hoặc API Key).');
+          setError(
+            "Thiếu thông tin cần thiết để xem livestream (ID, CallID, hoặc API Key)."
+          );
           setIsLoadingToken(false);
         }
         return;
@@ -597,22 +677,26 @@ const LivestreamViewerScreen: React.FC = () => {
       let fetchedToken: string | null = null;
       try {
         console.log(`Fetching token for livestream: ${livestreamId}`);
-        const response = await getLivestreamViewerToken(livestreamId);
+        const response = await getLiveStreamViewerToken(livestreamId);
         if (response.data?.token) {
           fetchedToken = response.data.token;
           if (isMounted) setToken(fetchedToken);
-          console.log("[LivestreamViewer] Raw viewer token received:", fetchedToken);
+          console.log(
+            "[LiveStreamViewer] Raw viewer token received:",
+            fetchedToken
+          );
           console.log("Token fetched successfully.");
         } else {
-          throw new Error('Không nhận được token từ API.');
+          throw new Error("Không nhận được token từ API.");
         }
       } catch (err: any) {
-        console.error('Error fetching viewer token:', err);
-        if (isMounted) setError(`Lỗi lấy token: ${err.message || 'Unknown error'}`);
+        console.error("Error fetching viewer token:", err);
+        if (isMounted)
+          setError(`Lỗi lấy token: ${err.message || "Unknown error"}`);
         setIsLoadingToken(false);
         return;
       } finally {
-         if (isMounted) setIsLoadingToken(false);
+        if (isMounted) setIsLoadingToken(false);
       }
 
       if (!fetchedToken || !isMounted) return;
@@ -622,48 +706,60 @@ const LivestreamViewerScreen: React.FC = () => {
       try {
         // Giải mã token livestream một lần duy nhất
         const tokenPayload = jwtDecode<LivestreamTokenPayload>(fetchedToken);
-        console.log("[LivestreamViewer] Decoded viewer token payload:", tokenPayload);
+        console.log(
+          "[LiveStreamViewer] Decoded viewer token payload:",
+          tokenPayload
+        );
 
         // Xác thực token
-        if (!tokenPayload.user_id || !tokenPayload.call_cids || tokenPayload.call_cids.length === 0) {
-          throw new Error('Token không hợp lệ: Thiếu user_id hoặc call_cids');
+        if (
+          !tokenPayload.user_id ||
+          !tokenPayload.call_cids ||
+          tokenPayload.call_cids.length === 0
+        ) {
+          throw new Error("Token không hợp lệ: Thiếu user_id hoặc call_cids");
         }
 
         // Kiểm tra xem callId có nằm trong danh sách call_cids được cấp phép không
         const expectedCallId = `livestream:${callId}`;
         if (!tokenPayload.call_cids.includes(expectedCallId)) {
-          console.error('Call CIDs in token:', tokenPayload.call_cids);
-          console.error('Expected Call ID:', expectedCallId);
-          throw new Error('Token không có quyền truy cập vào livestream này');
+          console.error("Call CIDs in token:", tokenPayload.call_cids);
+          console.error("Expected Call ID:", expectedCallId);
+          throw new Error("Token không có quyền truy cập vào livestream này");
         }
 
         // Chuẩn bị đối tượng người dùng để kết nối
         const userToConnect: User = {
           id: tokenPayload.user_id,
           name: `Viewer-${tokenPayload.user_id.slice(0, 8)}`,
-          type: 'authenticated'
+          type: "authenticated",
         };
 
         // --- TRỰC TIẾP TRUYỀN TOKEN ---
-        console.log(`[LivestreamViewer] Initializing client with direct token approach`);
-        
+        console.log(
+          `[LiveStreamViewer] Initializing client with direct token approach`
+        );
+
         // Khởi tạo client với token trực tiếp
         videoClient = new StreamVideoClient({
           apiKey,
           token: fetchedToken, // Sử dụng token trực tiếp, không qua tokenProvider
           user: userToConnect, // Truyền user object cùng lúc
           options: {
-            timeout: 15000 // Tăng timeout lên để tránh issues với mạng chậm
-          }
+            timeout: 15000, // Tăng timeout lên để tránh issues với mạng chậm
+          },
         });
 
         // Khi khởi tạo client với cả user và token, connectUser() sẽ được gọi tự động
-        console.log(`[LivestreamViewer] Client initialized with direct token authentication`);
+        console.log(
+          `[LiveStreamViewer] Client initialized with direct token authentication`
+        );
 
         if (isMounted) setClient(videoClient);
       } catch (err: any) {
-        console.error('Error connecting Stream client:', err);
-        if (isMounted) setError(`Lỗi kết nối Stream: ${err.message || 'Unknown error'}`);
+        console.error("Error connecting Stream client:", err);
+        if (isMounted)
+          setError(`Lỗi kết nối Stream: ${err.message || "Unknown error"}`);
       } finally {
         if (isMounted) setIsLoadingClient(false);
       }
@@ -674,15 +770,22 @@ const LivestreamViewerScreen: React.FC = () => {
     // --- Cleanup Function ---
     return () => {
       isMounted = false;
-      console.log('Livestream viewer screen unmounting. Disconnecting client...');
-      
+      console.log(
+        "Livestream viewer screen unmounting. Disconnecting client..."
+      );
+
       // Đảm bảo ngắt kết nối client khi unmount
       if (videoClient) {
-        videoClient.disconnectUser()
-          .then(() => console.log('Stream client disconnected successfully on unmount.'))
-          .catch(e => console.error('Error disconnecting Stream client on unmount:', e));
+        videoClient
+          .disconnectUser()
+          .then(() =>
+            console.log("Stream client disconnected successfully on unmount.")
+          )
+          .catch((e) =>
+            console.error("Error disconnecting Stream client on unmount:", e)
+          );
       }
-      
+
       // Đặt giá trị null cho state để tránh memory leak
       setClient(null);
       setToken(null);
@@ -696,7 +799,9 @@ const LivestreamViewerScreen: React.FC = () => {
       <SafeAreaView style={styles.centered}>
         <ActivityIndicator size="large" color="#0000ff" />
         <Text style={styles.loadingText}>
-          {isLoadingToken ? 'Đang lấy quyền truy cập...' : 'Đang kết nối tới livestream...'}
+          {isLoadingToken
+            ? "Đang lấy quyền truy cập..."
+            : "Đang kết nối tới livestream..."}
         </Text>
       </SafeAreaView>
     );
@@ -707,22 +812,36 @@ const LivestreamViewerScreen: React.FC = () => {
       <SafeAreaView style={styles.centered}>
         <Ionicons name="alert-circle-outline" size={64} color="red" />
         <Text style={styles.errorText}>Lỗi: {error}</Text>
-        <TouchableOpacity style={styles.actionButton} onPress={() => handleLeaveCall(null)}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleLeaveCall(null)}>
           <Text style={styles.actionButtonText}>Quay lại</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
-  if (!client || !callId || !livestreamId) { // Also check for livestreamId
-     console.warn("Rendering null state. Client Ready:", !!client, "CallID Present:", !!callId, "LivestreamID Present:", !!livestreamId);
+  if (!client || !callId || !livestreamId) {
+    // Also check for livestreamId
+    console.warn(
+      "Rendering null state. Client Ready:",
+      !!client,
+      "CallID Present:",
+      !!callId,
+      "LivestreamID Present:",
+      !!livestreamId
+    );
     return (
       <SafeAreaView style={styles.centered}>
-         <Ionicons name="alert-circle-outline" size={64} color="#ccc" />
-        <Text style={styles.errorText}>Không thể chuẩn bị xem livestream. Thiếu thông tin cần thiết.</Text>
-         <TouchableOpacity style={styles.actionButton} onPress={() => handleLeaveCall(null)}>
-           <Text style={styles.actionButtonText}>Quay lại</Text>
-         </TouchableOpacity>
+        <Ionicons name="alert-circle-outline" size={64} color="#ccc" />
+        <Text style={styles.errorText}>
+          Không thể chuẩn bị xem livestream. Thiếu thông tin cần thiết.
+        </Text>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleLeaveCall(null)}>
+          <Text style={styles.actionButtonText}>Quay lại</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -732,15 +851,15 @@ const LivestreamViewerScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StreamVideo client={client}>
-         {/* Pass livestreamId down */}
-         <LivestreamContent
-            callId={callId}
-            callType="livestream"
-            livestreamId={livestreamId}
-            showName={showName}
-            // Pass the call object up via ref if needed by parent, though maybe not necessary now
-            // ref={(c) => callRef.current = c} // This won't work directly on functional components
-         />
+        {/* Pass livestreamId down */}
+        <LivestreamContent
+          callId={callId}
+          callType="livestream"
+          livestreamId={livestreamId}
+          showName={showName}
+          // Pass the call object up via ref if needed by parent, though maybe not necessary now
+          // ref={(c) => callRef.current = c} // This won't work directly on functional components
+        />
       </StreamVideo>
     </SafeAreaView>
   );
@@ -749,54 +868,60 @@ const LivestreamViewerScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
-  centered: { // For initial loading/error covering the whole screen
+  centered: {
+    // For initial loading/error covering the whole screen
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#f5f6fa',
+    backgroundColor: "#f5f6fa",
   },
-  centeredContent: { // For status messages within the black container
+  centeredContent: {
+    // For status messages within the black container
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: 'transparent', // Keep it transparent
+    backgroundColor: "transparent", // Keep it transparent
   },
-  loadingText: { // For initial loading
+  loadingText: {
+    // For initial loading
     marginTop: 10,
     fontSize: 16,
-    color: '#555',
+    color: "#555",
   },
-  infoText: { // For status messages inside the stream view
+  infoText: {
+    // For status messages inside the stream view
     marginTop: 10,
     fontSize: 16,
-    color: '#FFF', // White text on black background
-    textAlign: 'center',
+    color: "#FFF", // White text on black background
+    textAlign: "center",
   },
-  errorText: { // For both initial error and status error
+  errorText: {
+    // For both initial error and status error
     marginTop: 10,
     fontSize: 16,
-    color: 'red',
-    textAlign: 'center',
+    color: "red",
+    textAlign: "center",
     marginBottom: 20,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 10,
     paddingHorizontal: 15,
-    backgroundColor: '#FFF',
+    backgroundColor: "#FFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   backButton: {
     padding: 5,
   },
-  actionButton: { // General purpose button for errors/ended states
+  actionButton: {
+    // General purpose button for errors/ended states
     marginTop: 20,
     backgroundColor: "#555", // Darker button
     paddingVertical: 12,
@@ -810,31 +935,31 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    textAlign: 'center',
+    fontWeight: "bold",
+    color: "#000",
+    textAlign: "center",
     flex: 1,
     marginHorizontal: 10,
   },
-  
+
   // Styles mới cho giao diện livestream nâng cao
   livestreamContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   videoWrapper: {
-    width: '100%',
-    height: width * 9/16, // Tỷ lệ 16:9 cho video
-    backgroundColor: '#000',
-    position: 'relative',
+    width: "100%",
+    height: (width * 9) / 16, // Tỷ lệ 16:9 cho video
+    backgroundColor: "#000",
+    position: "relative",
   },
   liveIndicator: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     right: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -844,85 +969,85 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#f00',
+    backgroundColor: "#f00",
     marginRight: 4,
   },
   liveText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   viewCountContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     left: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
     zIndex: 10,
   },
   viewCountText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
     marginLeft: 4,
   },
   backButtonOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
     left: 16,
     zIndex: 10,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   infoSection: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   streamTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
-    color: '#333',
+    color: "#333",
   },
   streamStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   statButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginRight: 20,
   },
   statText: {
     fontSize: 14,
     marginLeft: 4,
-    color: '#666',
+    color: "#666",
   },
   commentsContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 16,
   },
   commentsSectionTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 12,
-    color: '#333',
+    color: "#333",
   },
   commentsScrollView: {
     flex: 1,
   },
   commentItem: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 16,
   },
   commentAvatar: {
@@ -935,48 +1060,48 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
   },
   commentUser: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginRight: 8,
   },
   commentTime: {
     fontSize: 12,
-    color: '#999',
+    color: "#999",
   },
   commentText: {
     fontSize: 14,
-    color: '#555',
+    color: "#555",
     lineHeight: 20,
   },
   commentInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: "#eee",
     paddingTop: 12,
     paddingBottom: 8,
   },
   commentInput: {
     flex: 1,
     height: 40,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     borderRadius: 20,
     paddingHorizontal: 16,
     fontSize: 14,
-    color: '#333',
+    color: "#333",
   },
   sendButton: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
 
-export default LivestreamViewerScreen;
+export default LiveStreamViewerScreen;

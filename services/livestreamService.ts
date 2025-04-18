@@ -1,5 +1,5 @@
 // services/livestreamService.ts
-import api from './api'; // Import instance axios đã cấu hình
+import api from "./api"; // Import instance axios đã cấu hình
 
 // Interfaces for Livestream API responses
 export interface LivestreamInfo {
@@ -40,9 +40,13 @@ export interface GetViewerTokenResponse {
  * @param koiShowId - The ID of the Koi Show.
  * @returns A promise that resolves with the list of livestreams.
  */
-export async function getAllLivestreamsForShow(koiShowId: string): Promise<GetAllLivestreamsResponse> {
+export async function getAllLivestreamsForShow(
+  koiShowId: string
+): Promise<GetAllLivestreamsResponse> {
   try {
-    const response = await api.get<GetAllLivestreamsResponse>(`/api/v1/livestream/get-all/${koiShowId}`);
+    const response = await api.get<GetAllLivestreamsResponse>(
+      `/api/v1/livestream/get-all/${koiShowId}`
+    );
     return response.data;
   } catch (error) {
     console.error(`Error fetching livestreams for show ${koiShowId}:`, error);
@@ -57,12 +61,19 @@ export async function getAllLivestreamsForShow(koiShowId: string): Promise<GetAl
  * @param livestreamId - The ID of the livestream.
  * @returns A promise that resolves with the livestream details.
  */
-export async function getLivestreamDetails(livestreamId: string): Promise<GetLivestreamDetailsResponse> {
+export async function getLivestreamDetails(
+  livestreamId: string
+): Promise<GetLivestreamDetailsResponse> {
   try {
-    const response = await api.get<GetLivestreamDetailsResponse>(`/api/v1/livestream/${livestreamId}`);
+    const response = await api.get<GetLivestreamDetailsResponse>(
+      `/api/v1/livestream/${livestreamId}`
+    );
     return response.data;
   } catch (error) {
-    console.error(`Error fetching livestream details for ${livestreamId}:`, error);
+    console.error(
+      `Error fetching livestream details for ${livestreamId}:`,
+      error
+    );
     throw error;
   }
 }
@@ -72,13 +83,20 @@ export async function getLivestreamDetails(livestreamId: string): Promise<GetLiv
  * @param livestreamId - The ID of the livestream.
  * @returns A promise that resolves with the viewer token data.
  */
-export async function getLivestreamViewerToken(livestreamId: string): Promise<GetViewerTokenResponse> {
+export async function getLiveStreamViewerToken(
+  livestreamId: string
+): Promise<GetViewerTokenResponse> {
   try {
     // Assuming the token endpoint is GET, adjust if it's POST or other method
-    const response = await api.get<GetViewerTokenResponse>(`/api/v1/livestream/viewer-token/${livestreamId}`);
+    const response = await api.get<GetViewerTokenResponse>(
+      `/api/v1/livestream/viewer-token/${livestreamId}`
+    );
     return response.data; // Return the whole response data object which includes the token
   } catch (error) {
-    console.error(`Error fetching viewer token for livestream ${livestreamId}:`, error);
+    console.error(
+      `Error fetching viewer token for livestream ${livestreamId}:`,
+      error
+    );
     throw error;
   }
 }
