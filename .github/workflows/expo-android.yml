@@ -83,16 +83,16 @@ jobs:
           GRADLE_WORKERS="${GRADLE_MAX_WORKERS}"
           METRO_MEM="${METRO_MEMORY}"
           
-          echo "GRADLE_OPTS=-Xmx$GRADLE_MEM -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx$GRADLE_MEM -Dorg.gradle.workers.max=$GRADLE_WORKERS -XX:+UseParallelGC -XX:+UseNUMA" >> $GITHUB_ENV
+          echo "GRADLE_OPTS=-Xmx$GRADLE_MEM -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx$GRADLE_MEM -Dorg.gradle.workers.max=$GRADLE_WORKERS -XX:+UseParallelGC" >> $GITHUB_ENV
           
           # Bỏ qua cảnh báo về ký tự $ trong định danh C++
           echo "CFLAGS=-Wno-dollar-in-identifier-extension" >> $GITHUB_ENV
-          echo "CXXFLAGS=-Wno-dollar-in-identifier-extension -fopenmp" >> $GITHUB_ENV
-      
-      - name: Install dependencies
-        run: |
-          yarn config set network-timeout ${YARN_NETWORK_TIMEOUT}
-          yarn install --frozen-lockfile --prefer-offline --network-timeout ${YARN_NETWORK_TIMEOUT} --non-interactive --cache-folder .yarn/cache
+          echo "CXXFLAGS=-Wno-dollar-in-identifier-extension" >> $GITHUB_ENV
+       
+      - name: Install dependencies # Đảm bảo 6 khoảng trắng
+        run: | # Đảm bảo 8 khoảng trắng
+           yarn config set network-timeout ${YARN_NETWORK_TIMEOUT}
+           yarn install --frozen-lockfile --prefer-offline --network-timeout ${YARN_NETWORK_TIMEOUT} --non-interactive --cache-folder .yarn/cache
 
       - name: Clean Old Caches (Non-Persistent)
         run: |
@@ -105,10 +105,7 @@ jobs:
           fi
           # Clean old EAS cache
           find ~/.eas-cli -type f -atime +${CACHE_LIFETIME_DAYS} -delete || true
-          # Clean old Yarn cache
-          yarn cache clean --all
-
-      - name: Authenticate with Expo
+      - name: Authenticate with Expo # Đảm bảo 6 khoảng trắng
         run: |
           if [ -n "${{ secrets.EXPO_TOKEN }}" ]; then
             echo "Using EXPO_TOKEN for authentication."
@@ -141,7 +138,7 @@ jobs:
           
           cat << EOF > android/gradle.properties
           # Cấu hình bộ nhớ cho Gradle (sử dụng ~40% RAM của máy chủ)
-          org.gradle.jvmargs=-Xmx$GRADLE_MEM -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -XX:+UseNUMA
+          org.gradle.jvmargs=-Xmx$GRADLE_MEM -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC # Bỏ -XX:+UseNUMA
           
           # Tối ưu hóa hiệu suất Gradle
           org.gradle.daemon=true
@@ -170,7 +167,7 @@ jobs:
           android.defaults.buildfeatures.buildconfig=true
           
           # Cấu hình NDK để bỏ qua cảnh báo và tối ưu hóa
-          android.externalNativeBuild.cmake.arguments=-DCMAKE_CXX_FLAGS="-Wno-dollar-in-identifier-extension -fopenmp" -DCMAKE_C_FLAGS="-Wno-dollar-in-identifier-extension" -DCMAKE_BUILD_PARALLEL_LEVEL=$GRADLE_WORKERS
+          android.externalNativeBuild.cmake.arguments=-DCMAKE_CXX_FLAGS="-Wno-dollar-in-identifier-extension" -DCMAKE_C_FLAGS="-Wno-dollar-in-identifier-extension" -DCMAKE_BUILD_PARALLEL_LEVEL=$GRADLE_WORKERS # Bỏ -fopenmp
           
           # Cấu hình Metro bundler (React Native)
           reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
@@ -225,8 +222,8 @@ jobs:
                 }
               }
             ],
-            // Cấu hình bộ nhớ kiểm soát
-            maxWorkerMemoryUsage: $METRO_MEM * 1000,
+            // Cấu hình bộ nhớ kiểm soát (tính bằng byte)
+            maxWorkerMemoryUsage: $METRO_MEM * 1024 * 1024,
           };
           EOF
           
@@ -306,23 +303,24 @@ jobs:
         id: build
         continue-on-error: true
         env:
-          # Sử dụng tham chiếu biến môi trường trực tiếp (không sử dụng ${})
-          GRADLE_OPTS: -Xmx${{ env.GRADLE_MEMORY }} -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx${{ env.GRADLE_MEMORY }} -Dorg.gradle.workers.max=${{ env.GRADLE_MAX_WORKERS }} -XX:+UseParallelGC -XX:+UseNUMA
-          # Đặt NODE_OPTIONS với giá trị trực tiếp - sử dụng cú pháp của GitHub Actions cho thay thế biến
-          NODE_OPTIONS: --max-old-space-size=${{ env.METRO_MEMORY }}
-          EAS_LOCAL_BUILD_ARTIFACT_TYPE: apk
-          EAS_LOCAL_BUILD_GRADLE_OPTS: -PmaxWorkers=${{ env.GRADLE_MAX_WORKERS }}
+          EAS_LOCAL_BUILD_ARTIFACT_TYPE: apk # Giữ lại biến này trong env
         run: |
+          # Xuất các biến môi trường trong script để đảm bảo nội suy đúng
+          export GRADLE_OPTS="-Xmx${{ env.GRADLE_MEMORY }} -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx${{ env.GRADLE_MEMORY }} -Dorg.gradle.workers.max=${{ env.GRADLE_MAX_WORKERS }} -XX:+UseParallelGC" # Bỏ -XX:+UseNUMA
+          export NODE_OPTIONS="--max-old-space-size=${{ env.METRO_MEMORY }}"
+          export EAS_LOCAL_BUILD_GRADLE_OPTS="-PmaxWorkers=${{ env.GRADLE_MAX_WORKERS }}"
+
           echo "Building Android app with profile: ${{ steps.profile.outputs.name }}"
           echo "Using ${{ env.GRADLE_MAX_WORKERS }} worker threads and ${{ env.GRADLE_MEMORY }} heap memory"
           echo "Node memory: ${{ env.METRO_MEMORY }}MB"
-          
-          # Hiển thị thông tin môi trường
+
+          # Hiển thị thông tin môi trường đã export
           echo "===== Môi trường xây dựng ====="
           echo "GRADLE_OPTS: $GRADLE_OPTS"
           echo "NODE_OPTIONS: $NODE_OPTIONS"
+          echo "EAS_LOCAL_BUILD_GRADLE_OPTS: $EAS_LOCAL_BUILD_GRADLE_OPTS"
           echo "============================="
-          
+
           # Hiển thị tệp cấu hình eas.json
           echo "EAS config:"
           cat eas.json
