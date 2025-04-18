@@ -324,11 +324,98 @@ jobs:
           echo "Đã cấu hình eas.json cho hiệu suất tối ưu"
           cat eas.json
 
-      - name: Install missing dependencies
+      - name: Setup Android SDK
         run: |
+          # Tạo thư mục cho Android SDK
+          mkdir -p ${{ github.workspace }}/android-sdk
+          cd ${{ github.workspace }}/android-sdk
+          
+          # Tải và cài đặt Command line tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools-linux-9477386_latest.zip
+          rm commandlinetools-linux-9477386_latest.zip
+          
+          # Chấp nhận licenses
+          yes | cmdline-tools/bin/sdkmanager --licenses
+          
+          # Cài đặt các packages cần thiết
+          cmdline-tools/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Setup Android build environment
+        run: |
+          # Cài đặt và cập nhật các dependencies
           yarn install --frozen-lockfile
           yarn add jest@^29.7.0
+          yarn add @babel/preset-env@^7.1.6
+          yarn add @types/react-native@^0.73.0
           
+          # Xóa node_modules và cài đặt lại nếu cần
+          rm -rf node_modules
+          yarn install --frozen-lockfile
+          
+          # Tạo cấu trúc thư mục Android
+          mkdir -p android/app/src/main
+          
+          # Cấu hình expo.doctor trong package.json
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json"));
+            pkg.expo = pkg.expo || {};
+            pkg.expo.doctor = {
+              reactNativeDirectoryCheck: {
+                exclude: [
+                  "react-native-fast-image",
+                  "react-native-image-crop-picker",
+                  "@stream-io/flat-list-mvcp",
+                  "react-native-document-picker",
+                  "react-native-incall-manager"
+                ],
+                listUnknownPackages: false
+              }
+            };
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+          '
+
+      - name: Setup Gradle
+        run: |
+          # Ensure android directory exists
+          mkdir -p android/app
+
+          # Create basic build.gradle if it doesn't exist
+          if [ ! -f "android/build.gradle" ]; then
+            cat << EOF > android/build.gradle
+              buildscript {
+                ext {
+                  buildToolsVersion = "34.0.0"
+                  minSdkVersion = 21
+                  compileSdkVersion = 34
+                  targetSdkVersion = 34
+                }
+                repositories {
+                  google()
+                  mavenCentral()
+                }
+                dependencies {
+                  classpath("com.android.tools.build:gradle:8.2.1")
+                }
+              }
+              allprojects {
+                repositories {
+                  google()
+                  mavenCentral()
+                }
+              }
+            EOF
+          fi
+
+          # Initialize Gradle wrapper
+          cd android
+          if [ ! -f "gradlew" ]; then
+            gradle wrapper
+          fi
+          chmod +x gradlew
+          cd ..
+
       - name: Build Android App
         id: build
         continue-on-error: true
@@ -340,13 +427,14 @@ jobs:
           GRADLE_MAX_WORKERS: 14
           METRO_MEMORY: 8192
           PERSISTENT_CACHE_PATH: ~/.eas-build-cache
-          STORAGE_DIR: /home/user/ksms-builds/2025-04-18
-          TMPDIR: /home/user/expo-tmp
-          EAS_LOCAL_BUILD_WORKINGDIR: /home/user/eas-builds/working
-          EAS_LOCAL_BUILD_ARTIFACTS_DIR: /home/user/eas-builds/artifacts
+          STORAGE_DIR: ${{ github.workspace }}/ksms-builds/$(date +"%Y-%m-%d")
+          TMPDIR: ${{ github.workspace }}/expo-tmp
+          EAS_LOCAL_BUILD_WORKINGDIR: ${{ github.workspace }}/eas-builds/working
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/eas-builds/artifacts
           EAS_LOCAL_BUILD_SKIP_CLEANUP: 1
-          BUILD_TIMESTAMP: 20250418_204034
+          BUILD_TIMESTAMP: $(date +"%Y%m%d_%H%M%S")
           GRADLE_OPTS: -Xmx24g -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx24g -Dorg.gradle.workers.max=14 -XX:+UseParallelGC
+          ANDROID_HOME: ${{ github.workspace }}/android-sdk
           CFLAGS: -Wno-dollar-in-identifier-extension
           CXXFLAGS: -Wno-dollar-in-identifier-extension
           EAS_LOCAL_BUILD_ARTIFACT_TYPE: apk
