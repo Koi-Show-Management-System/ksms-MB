@@ -1,25 +1,32 @@
-import { FontAwesome, FontAwesome5, MaterialIcons, Ionicons as IoniconsExpo } from "@expo/vector-icons"; // Giữ lại Ionicons nếu cần ở nơi khác hoặc đổi tên
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useState, useCallback, memo, useEffect } from "react"; // Add useEffect
 import {
+  FontAwesome,
+  FontAwesome5,
+  MaterialCommunityIcons,
+  MaterialIcons,
+} from "@expo/vector-icons"; // Giữ lại Ionicons nếu cần ở nơi khác hoặc đổi tên
+import Ionicons from "@expo/vector-icons/Ionicons"; // Có thể trùng tên, xem xét đổi tên nếu cần
+import { router, useLocalSearchParams } from "expo-router";
+import React, { memo, useCallback, useEffect, useState } from "react"; // Add useEffect
+import {
+  ActivityIndicator,
+  FlatList,
   Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  FlatList,
-  ActivityIndicator, // Keep only one ActivityIndicator import
 } from "react-native";
-import Ionicons from "@expo/vector-icons/Ionicons"; // Có thể trùng tên, xem xét đổi tên nếu cần
-import { MaterialCommunityIcons } from "@expo/vector-icons"; // Add MaterialCommunityIcons
 import KoiContestants from "./KoiContestants";
 import KoiShowResults from "./KoiShowResults";
 import KoiShowVoting from "./KoiShowVoting"; // Import component mới
 
 import { KoiShowProvider, useKoiShow } from "../../../context/KoiShowContext";
+import {
+  getAllLivestreamsForShow,
+  LivestreamInfo,
+} from "../../../services/livestreamService"; // Import livestream service and type
 import { CompetitionCategory } from "../../../services/registrationService";
-import { getAllLivestreamsForShow, LivestreamInfo } from "../../../services/livestreamService"; // Import livestream service and type
 
 // Skeleton Component
 const SkeletonLoader = () => {
@@ -52,7 +59,7 @@ const SkeletonLoader = () => {
           </View>
         </View>
         <View style={styles.sectionContent}>
-          <View style={[styles.skeletonText, { width: '100%', height: 80 }]} />
+          <View style={[styles.skeletonText, { width: "100%", height: 80 }]} />
           <View style={styles.detailsGrid}>
             <View style={styles.detailItem}>
               <View style={styles.skeletonIcon} />
@@ -76,10 +83,18 @@ const SkeletonLoader = () => {
         <View style={styles.sectionContent}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {[1, 2, 3].map((item) => (
-              <View key={item} style={[styles.categoryCard, styles.skeletonCard]}>
-                <View style={[styles.skeletonText, { width: '80%', height: 20 }]} />
-                <View style={[styles.skeletonText, { width: '60%', height: 16 }]} />
-                <View style={[styles.skeletonText, { width: '40%', height: 16 }]} />
+              <View
+                key={item}
+                style={[styles.categoryCard, styles.skeletonCard]}>
+                <View
+                  style={[styles.skeletonText, { width: "80%", height: 20 }]}
+                />
+                <View
+                  style={[styles.skeletonText, { width: "60%", height: 16 }]}
+                />
+                <View
+                  style={[styles.skeletonText, { width: "40%", height: 16 }]}
+                />
               </View>
             ))}
           </ScrollView>
@@ -113,28 +128,32 @@ const CategoryItem = memo(({ item }: { item: CompetitionCategory }) => (
     <View style={styles.categoryHeader}>
       <Text style={styles.categoryName}>{item.name}</Text>
     </View>
-    
+
     <View style={styles.categoryFeeContainer}>
       <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
-      <Text style={styles.categoryFee}>{item.registrationFee.toLocaleString('vi-VN')} đ</Text>
+      <Text style={styles.categoryFee}>
+        {item.registrationFee.toLocaleString("vi-VN")} đ
+      </Text>
     </View>
-    
+
     <View style={styles.categoryDetailsContainer}>
       <View style={styles.categoryDetailItem}>
         <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
-        <Text style={styles.categoryDetailValue}>{item.sizeMin} - {item.sizeMax} cm</Text>
+        <Text style={styles.categoryDetailValue}>
+          {item.sizeMin} - {item.sizeMax} cm
+        </Text>
       </View>
-      
+
       <View style={styles.categoryDetailItem}>
         <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
         <Text style={styles.categoryDetailValue}>{item.maxEntries} Koi</Text>
       </View>
     </View>
-    
+
     {item.description && (
       <Text style={styles.categoryDescription}>{item.description}</Text>
     )}
-    
+
     {item.varieties && item.varieties.length > 0 && (
       <View style={styles.varietiesContainer}>
         <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
@@ -160,20 +179,28 @@ const KoiShowInformationContent: React.FC = () => {
     rules: false,
     timeline: false, // Renamed from enteringKoi
   });
-  const [activeTab, setActiveTab] = useState<'info' | 'contestants' | 'results' | 'vote'>('info'); // Thêm 'vote'
-  const [livestreamInfo, setLivestreamInfo] = useState<LivestreamInfo | null>(null);
-  const [isLivestreamLoading, setIsLivestreamLoading] = useState<boolean>(false);
-  
+  const [activeTab, setActiveTab] = useState<
+    "info" | "contestants" | "results" | "vote"
+  >("info"); // Thêm 'vote'
+  const [livestreamInfo, setLivestreamInfo] = useState<LivestreamInfo | null>(
+    null
+  );
+  const [isLivestreamLoading, setIsLivestreamLoading] =
+    useState<boolean>(false);
+
   // Memo key extractor for FlatList
   const keyExtractor = useCallback((item: CompetitionCategory) => item.id, []);
 
   // Toggle section expansion
-  const toggleSection = useCallback((section: keyof typeof expandedSections) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  }, []);
+  const toggleSection = useCallback(
+    (section: keyof typeof expandedSections) => {
+      setExpandedSections((prev) => ({
+        ...prev,
+        [section]: !prev[section],
+      }));
+    },
+    []
+  );
 
   // Format date function to display in a nicer way
   const formatDate = useCallback((dateString: string) => {
@@ -217,20 +244,20 @@ const KoiShowInformationContent: React.FC = () => {
 
   // Format timeline content để đảm bảo là string
   const formatTimelineContent = useCallback((content: any): string => {
-    if (typeof content === 'string') return content;
-    if (content && typeof content === 'object') {
+    if (typeof content === "string") return content;
+    if (content && typeof content === "object") {
       if (content.title && content.content) {
         return `${content.title}: ${content.content}`;
       }
       return JSON.stringify(content);
     }
-    return String(content || '');
+    return String(content || "");
   }, []);
 
   // Format rule content để đảm bảo là string
   const formatRuleContent = useCallback((rule: any): string => {
-    if (typeof rule === 'string') return rule;
-    if (rule && typeof rule === 'object') {
+    if (typeof rule === "string") return rule;
+    if (rule && typeof rule === "object") {
       if (rule.id && rule.title && rule.content) {
         return `${rule.title}: ${rule.content}`;
       } else if (rule.title && rule.content) {
@@ -238,13 +265,13 @@ const KoiShowInformationContent: React.FC = () => {
       }
       return JSON.stringify(rule);
     }
-    return String(rule || '');
+    return String(rule || "");
   }, []);
 
   // Format criterion content để đảm bảo là string
   const formatCriterionContent = useCallback((criterion: any): string => {
-    if (typeof criterion === 'string') return criterion;
-    if (criterion && typeof criterion === 'object') {
+    if (typeof criterion === "string") return criterion;
+    if (criterion && typeof criterion === "object") {
       if (criterion.id && criterion.title && criterion.content) {
         return `${criterion.title}: ${criterion.content}`;
       } else if (criterion.title && criterion.content) {
@@ -252,13 +279,14 @@ const KoiShowInformationContent: React.FC = () => {
       }
       return JSON.stringify(criterion);
     }
-    return String(criterion || '');
+    return String(criterion || "");
   }, []);
 
   // Memoized renderItem function for FlatList
-  const renderCategoryItem = useCallback(({ item }: { item: CompetitionCategory }) => (
-    <CategoryItem item={item} />
-  ), []);
+  const renderCategoryItem = useCallback(
+    ({ item }: { item: CompetitionCategory }) => <CategoryItem item={item} />,
+    []
+  );
 
   // Spacer component for FlatList
   const ItemSeparator = useCallback(() => <View style={{ width: 12 }} />, []);
@@ -274,7 +302,9 @@ const KoiShowInformationContent: React.FC = () => {
       try {
         const response = await getAllLivestreamsForShow(showData.id);
         // Check if there's an active livestream in the response data array
-        const activeStream = response.data.find(stream => stream.status === 'active');
+        const activeStream = response.data.find(
+          (stream) => stream.status === "active"
+        );
         if (activeStream) {
           setLivestreamInfo(activeStream);
         } else {
@@ -305,15 +335,14 @@ const KoiShowInformationContent: React.FC = () => {
 
     // Navigate to the livestream viewer screen
     router.push({
-      pathname: '/(tabs)/shows/LivestreamViewer', // Updated path
+      pathname: "/(tabs)/shows/LivestreamViewer", // Updated path
       params: {
         livestreamId: livestreamInfo.id,
         callId: livestreamInfo.callId,
         apiKey: apiKey,
-        showName: showData?.name || 'Livestream' // Pass show name for context
-      }
+        showName: showData?.name || "Livestream", // Pass show name for context
+      },
     });
-
   }, [livestreamInfo, router, showData?.name]);
 
   // Nếu đang loading, hiển thị skeleton
@@ -384,16 +413,22 @@ const KoiShowInformationContent: React.FC = () => {
       {/* Tiêu đề và thông tin nhanh (hiển thị ở tất cả các tab) */}
       <View style={styles.titleContainer}>
         <View style={styles.titleRow}>
-           <Text style={styles.title}>{showData?.name}</Text>
-           {isLivestreamLoading ? (
-             <ActivityIndicator size="small" color="#000000" style={styles.livestreamLoadingIndicator} />
-           ) : livestreamInfo && livestreamInfo.status === 'active' ? (
-             <TouchableOpacity style={styles.livestreamButton} onPress={handleViewLivestream}>
-               <MaterialCommunityIcons name="video" size={18} color="#FFFFFF" />
-               <Text style={styles.livestreamButtonText}>Xem Livestream</Text>
-             </TouchableOpacity>
-           ) : null}
-         </View>
+          <Text style={styles.title}>{showData?.name}</Text>
+          {isLivestreamLoading ? (
+            <ActivityIndicator
+              size="small"
+              color="#000000"
+              style={styles.livestreamLoadingIndicator}
+            />
+          ) : livestreamInfo && livestreamInfo.status === "active" ? (
+            <TouchableOpacity
+              style={styles.livestreamButton}
+              onPress={handleViewLivestream}>
+              <MaterialCommunityIcons name="video" size={18} color="#FFFFFF" />
+              <Text style={styles.livestreamButtonText}>Xem Livestream</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
         <View style={styles.quickInfoContainer}>
           <View style={styles.quickInfoItem}>
             <MaterialIcons name="location-on" size={18} color="#000000" />
@@ -411,61 +446,91 @@ const KoiShowInformationContent: React.FC = () => {
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
-      	<TouchableOpacity
-      		style={[styles.tabButton, activeTab === 'info' && styles.activeTabButton]}
-      		onPress={() => setActiveTab('info')}>
-      		<MaterialIcons
-      			name="info-outline"
-      			size={18}
-      			color={activeTab === 'info' ? "#000000" : "#666666"}
-      		/>
-      		<Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>
-      			Thông tin
-      		</Text>
-      	</TouchableOpacity>
-   
-      	<TouchableOpacity
-      		style={[styles.tabButton, activeTab === 'contestants' && styles.activeTabButton]}
-      		onPress={() => setActiveTab('contestants')}>
-      		<Ionicons
-      			name="fish"
-      			size={16}
-      			color={activeTab === 'contestants' ? "#000000" : "#666666"}
-      		/>
-      		<Text style={[styles.tabText, activeTab === 'contestants' && styles.activeTabText]}>
-      			Thí sinh
-      		</Text>
-      	</TouchableOpacity>
-   
-           <TouchableOpacity
-             style={[styles.tabButton, activeTab === 'results' && styles.activeTabButton]}
-             onPress={() => setActiveTab('results')}>
-             <FontAwesome
-               name="trophy"
-               size={18}
-               color={activeTab === 'results' ? "#000000" : "#666666"}
-             />
-             <Text style={[styles.tabText, activeTab === 'results' && styles.activeTabText]}>
-               Kết quả
-             </Text>
-           </TouchableOpacity>
-           <TouchableOpacity
-             style={[styles.tabButton, activeTab === 'vote' && styles.activeTabButton]}
-             onPress={() => setActiveTab('vote')}>
-             <MaterialIcons
-               name="how-to-vote" // Icon cho bình chọn
-               size={18}
-               color={activeTab === 'vote' ? "#000000" : "#666666"}
-             />
-             <Text style={[styles.tabText, activeTab === 'vote' && styles.activeTabText]}>
-               Bình chọn
-             </Text>
-           </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === "info" && styles.activeTabButton,
+          ]}
+          onPress={() => setActiveTab("info")}>
+          <MaterialIcons
+            name="info-outline"
+            size={18}
+            color={activeTab === "info" ? "#000000" : "#666666"}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "info" && styles.activeTabText,
+            ]}>
+            Thông tin
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === "contestants" && styles.activeTabButton,
+          ]}
+          onPress={() => setActiveTab("contestants")}>
+          <Ionicons
+            name="fish"
+            size={16}
+            color={activeTab === "contestants" ? "#000000" : "#666666"}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "contestants" && styles.activeTabText,
+            ]}>
+            Thí sinh
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === "results" && styles.activeTabButton,
+          ]}
+          onPress={() => setActiveTab("results")}>
+          <FontAwesome
+            name="trophy"
+            size={18}
+            color={activeTab === "results" ? "#000000" : "#666666"}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "results" && styles.activeTabText,
+            ]}>
+            Kết quả
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            activeTab === "vote" && styles.activeTabButton,
+          ]}
+          onPress={() => setActiveTab("vote")}>
+          <MaterialIcons
+            name="how-to-vote" // Icon cho bình chọn
+            size={18}
+            color={activeTab === "vote" ? "#000000" : "#666666"}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "vote" && styles.activeTabText,
+            ]}>
+            Bình chọn
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Nội dung Tab */}
-      {activeTab === 'info' ? (
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
+      {activeTab === "info" ? (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollViewContent}>
           {/* Chi tiết sự kiện */}
           <View style={styles.sectionContainer}>
             <TouchableOpacity
@@ -497,7 +562,9 @@ const KoiShowInformationContent: React.FC = () => {
                   <View style={styles.detailItem}>
                     <MaterialIcons name="event" size={20} color="#3498db" />
                     <View>
-                      <Text style={styles.detailLabel}>Thời gian biểu diễn</Text>
+                      <Text style={styles.detailLabel}>
+                        Thời gian biểu diễn
+                      </Text>
                       <Text style={styles.detailValue}>
                         {formatDate(showData?.startExhibitionDate || "")} -{" "}
                         {formatDate(showData?.endExhibitionDate || "")}
@@ -529,14 +596,17 @@ const KoiShowInformationContent: React.FC = () => {
                   />
                   <View>
                     <Text style={styles.detailLabel}>Loại vé</Text>
-                    {showData?.ticketTypes && showData.ticketTypes.length > 0 ? (
+                    {showData?.ticketTypes &&
+                    showData.ticketTypes.length > 0 ? (
                       <ScrollView
                         horizontal={true}
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.ticketsCarouselContainer}>
                         {showData.ticketTypes.map((ticket) => (
                           <View key={ticket.id} style={styles.ticketCard}>
-                            <Text style={styles.ticketNameDetail}>{ticket.name}</Text>
+                            <Text style={styles.ticketNameDetail}>
+                              {ticket.name}
+                            </Text>
                             <Text style={styles.ticketPriceDetail}>
                               {ticket.price.toLocaleString("vi-VN")} VNĐ
                             </Text>
@@ -633,7 +703,9 @@ const KoiShowInformationContent: React.FC = () => {
                   showData.showRules.map((rule, index) => (
                     <View key={index} style={styles.ruleContainer}>
                       <Text style={styles.ruleNumber}>{index + 1}</Text>
-                      <Text style={styles.ruleText}>{formatRuleContent(rule)}</Text>
+                      <Text style={styles.ruleText}>
+                        {formatRuleContent(rule)}
+                      </Text>
                     </View>
                   ))
                 ) : (
@@ -674,7 +746,9 @@ const KoiShowInformationContent: React.FC = () => {
                           {index + 1}
                         </Text>
                       </View>
-                      <Text style={styles.criterionText}>{formatCriterionContent(criterion)}</Text>
+                      <Text style={styles.criterionText}>
+                        {formatCriterionContent(criterion)}
+                      </Text>
                     </View>
                   ))
                 ) : (
@@ -732,23 +806,35 @@ const KoiShowInformationContent: React.FC = () => {
                 {showData?.showStatuses && showData.showStatuses.length > 0 ? (
                   <View style={styles.timelineContainer}>
                     {[...showData.showStatuses]
-                      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                      .sort(
+                        (a, b) =>
+                          new Date(a.startDate).getTime() -
+                          new Date(b.startDate).getTime()
+                      )
                       .map((status, index, sortedArray) => {
                         const isLast = index === sortedArray.length - 1;
                         return (
                           <View key={status.id}>
                             <View style={styles.timelineItemContainer}>
                               <View style={styles.timelineLeftColumn}>
-                                <Text style={[
-                                  styles.timelineDate,
-                                  status.isActive && { color: '#2ecc71', fontWeight: 'bold' }
-                                ]}>
+                                <Text
+                                  style={[
+                                    styles.timelineDate,
+                                    status.isActive && {
+                                      color: "#2ecc71",
+                                      fontWeight: "bold",
+                                    },
+                                  ]}>
                                   {formatDate(status.startDate)}
                                 </Text>
-                                <Text style={[
-                                  styles.timelineTime,
-                                  status.isActive && { color: '#2ecc71', fontWeight: 'bold' }
-                                ]}>
+                                <Text
+                                  style={[
+                                    styles.timelineTime,
+                                    status.isActive && {
+                                      color: "#2ecc71",
+                                      fontWeight: "bold",
+                                    },
+                                  ]}>
                                   {formatTime(status.startDate)} -{" "}
                                   {formatTime(status.endDate)}
                                 </Text>
@@ -758,22 +844,33 @@ const KoiShowInformationContent: React.FC = () => {
                                 <View
                                   style={[
                                     styles.timelineDot,
-                                    status.isActive && { backgroundColor: '#2ecc71', borderColor: '#2ecc71' }
+                                    status.isActive && {
+                                      backgroundColor: "#2ecc71",
+                                      borderColor: "#2ecc71",
+                                    },
                                   ]}
                                 />
-                                {!isLast && <View style={styles.timelineLine} />}
+                                {!isLast && (
+                                  <View style={styles.timelineLine} />
+                                )}
                               </View>
 
                               <View style={styles.timelineRightColumn}>
                                 <View
                                   style={[
                                     styles.timelineContent,
-                                    status.isActive && { backgroundColor: '#e8f8e8', borderLeftColor: '#2ecc71' }
+                                    status.isActive && {
+                                      backgroundColor: "#e8f8e8",
+                                      borderLeftColor: "#2ecc71",
+                                    },
                                   ]}>
                                   <Text
                                     style={[
                                       styles.timelineTitle,
-                                      status.isActive && { color: '#2ecc71', fontWeight: 'bold' }
+                                      status.isActive && {
+                                        color: "#2ecc71",
+                                        fontWeight: "bold",
+                                      },
                                     ]}>
                                     {formatTimelineContent(status.description)}
                                   </Text>
@@ -796,10 +893,10 @@ const KoiShowInformationContent: React.FC = () => {
             )}
           </View>
         </ScrollView>
-      ) : activeTab === 'contestants' ? (
+      ) : activeTab === "contestants" ? (
         // Tab Thí sinh
         <KoiContestants showId={showData.id} />
-      ) : activeTab === 'vote' ? (
+      ) : activeTab === "vote" ? (
         // Tab Bình chọn
         <KoiShowVoting showId={showData.id} />
       ) : (
@@ -809,22 +906,26 @@ const KoiShowInformationContent: React.FC = () => {
 
       {/* Footer với 2 nút: đăng ký thi đấu và mua vé */}
       <View style={styles.footer}>
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.registerButton]} 
-          onPress={() => router.push({
-            pathname: `/shows/KoiRegistration`,
-            params: { showId: showData.id }
-          })}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.registerButton]}
+          onPress={() =>
+            router.push({
+              pathname: "/(tabs)/shows/KoiRegistration",
+              params: { showId: showData.id },
+            })
+          }>
           <FontAwesome5 name="fish" size={18} color="#FFFFFF" />
           <Text style={styles.buttonText}>Đăng ký thi đấu</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.ticketButton]} 
-          onPress={() => router.push({
-            pathname: `/shows/BuyTickets`,
-            params: { showId: showData.id }
-          })}>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.ticketButton]}
+          onPress={() =>
+            router.push({
+              pathname: "/(tabs)/shows/BuyTickets",
+              params: { showId: showData.id },
+            })
+          }>
           <MaterialIcons name="confirmation-number" size={20} color="#FFFFFF" />
           <Text style={styles.buttonText}>Mua vé tham dự</Text>
         </TouchableOpacity>
@@ -835,13 +936,15 @@ const KoiShowInformationContent: React.FC = () => {
 
 const styles = StyleSheet.create({
   // ... other styles
-  titleRow: { // New style to wrap title and button
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between', // Adjust as needed
+  titleRow: {
+    // New style to wrap title and button
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between", // Adjust as needed
     // marginBottom: 8, // Removed as titleContainer has padding
   },
-  title: { // Adjust title style if needed to not take full width
+  title: {
+    // Adjust title style if needed to not take full width
     fontSize: 24,
     fontWeight: "700",
     color: "#2c3e50",
@@ -850,22 +953,22 @@ const styles = StyleSheet.create({
     // Removed marginBottom as titleRow handles spacing now
   },
   livestreamButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#e53935', // Red color for live
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#e53935", // Red color for live
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 15,
     // marginLeft: 'auto', // Use space-between on titleRow instead if preferred
   },
   livestreamButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 5,
   },
   livestreamLoadingIndicator: {
-     marginLeft: 8, // Add some space from title
+    marginLeft: 8, // Add some space from title
   },
   container: {
     flex: 1,
@@ -1149,22 +1252,22 @@ const styles = StyleSheet.create({
   },
   emptyStateContainer: {
     padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: "#f0f0f0",
   },
   emptyStateText: {
     marginTop: 8,
     fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
+    color: "#6B7280",
+    textAlign: "center",
   },
   emptyText: {
     marginTop: 8,
     fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    fontStyle: 'italic',
+    color: "#6B7280",
+    textAlign: "center",
+    fontStyle: "italic",
   },
   footer: {
     backgroundColor: "#ffffff",
@@ -1197,10 +1300,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#1e88e5",
   },
   registerButton: {
-    backgroundColor: '#e53935',
+    backgroundColor: "#e53935",
     paddingVertical: 14,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
     color: "#ffffff",
@@ -1330,17 +1433,17 @@ const styles = StyleSheet.create({
     color: "#000000",
   },
   categoryFeeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: "#FEF2F2",
     padding: 8,
     borderRadius: 6,
   },
   categoryFeeLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#991B1B',
+    fontWeight: "500",
+    color: "#991B1B",
     marginRight: 4,
   },
   categoryFee: {
@@ -1356,25 +1459,25 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   categoryDetailsContainer: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
     padding: 8,
     borderRadius: 6,
     marginBottom: 12,
   },
   categoryDetailItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 4,
   },
   categoryDetailLabel: {
     fontSize: 13,
-    color: '#4B5563',
-    fontWeight: '500',
+    color: "#4B5563",
+    fontWeight: "500",
   },
   categoryDetailValue: {
     fontSize: 13,
-    color: '#000000',
-    fontWeight: '500',
+    color: "#000000",
+    fontWeight: "500",
   },
   varietiesContainer: {
     marginTop: 8,
@@ -1406,83 +1509,83 @@ const styles = StyleSheet.create({
   },
   bottomButtonContainer: {
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
   },
   registerButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: "#FFFFFF",
+    fontWeight: "600",
     fontSize: 16,
   },
   // Skeleton styles
   skeletonBanner: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
   },
   skeletonTitle: {
     height: 24,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     borderRadius: 4,
     marginBottom: 8,
-    width: '80%',
+    width: "80%",
   },
   skeletonIcon: {
     width: 24,
     height: 24,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     borderRadius: 12,
   },
   skeletonText: {
     height: 16,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     borderRadius: 4,
     marginLeft: 8,
     width: 120,
   },
   skeletonCard: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     marginRight: 12,
     padding: 16,
     width: 270,
     height: 180,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   skeletonButton: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     height: 48,
   },
   // Thêm styles cho tab
   tabContainer: {
-  	flexDirection: 'row',
-  	backgroundColor: '#ffffff',
-  	paddingHorizontal: 16,
-  	paddingBottom: 10,
-  	borderBottomWidth: 1,
-  	borderBottomColor: '#e5e7eb',
-     // Bỏ gap
+    flexDirection: "row",
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+    // Bỏ gap
   },
   tabButton: {
-  	flexDirection: 'row',
-  	alignItems: 'center',
-  	paddingVertical: 8,
-  	paddingHorizontal: 16,
-  	marginRight: 8, // Thêm lại marginRight
-  	borderRadius: 20,
-     // Bỏ border
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginRight: 8, // Thêm lại marginRight
+    borderRadius: 20,
+    // Bỏ border
   },
   activeTabButton: {
-  	backgroundColor: '#f0f0f0', // Style active mong muốn
-     // Bỏ borderColor
+    backgroundColor: "#f0f0f0", // Style active mong muốn
+    // Bỏ borderColor
   },
   tabText: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#666666',
+    fontWeight: "500",
+    color: "#666666",
     marginLeft: 4,
   },
   activeTabText: {
-    color: '#000000',
-    fontWeight: '600',
+    color: "#000000",
+    fontWeight: "600",
   },
 });
 
