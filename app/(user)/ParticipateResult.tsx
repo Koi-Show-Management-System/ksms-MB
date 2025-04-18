@@ -44,8 +44,8 @@ const FishDetailsCard: React.FC<{
   const fishImage = registration.media.find(item => item.mediaType === "Image")?.mediaUrl || 
     "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png";
   
-  // Kiểm tra xem cá có được trao giải thưởng không
-  const hasAward = !!registration.award;
+  // Kiểm tra xem cá có được trao giải thưởng không dựa trên status
+  const hasAward = registration.status === 'prizewinner';
   
   // Lấy màu sắc status
   const getStatusColor = (status: string) => {
@@ -77,7 +77,7 @@ const FishDetailsCard: React.FC<{
               }}
               style={styles.awardBadgeIcon}
             />
-            <Text style={styles.awardBadgeText}>{registration.award}</Text>
+            <Text style={styles.awardBadgeText}>{registration.awards[0]?.awardName || 'Đạt giải'}</Text>
           </View>
         )}
       </View>
@@ -128,13 +128,13 @@ const FishDetailsCard: React.FC<{
                   }}
                   style={styles.awardIcon}
                 />
-                <Text style={styles.awardText}>{registration.award}</Text>
+                <Text style={styles.awardText}>{registration.awards[0]?.awardName || 'Đạt giải'}</Text>
               </LinearGradient>
             ) : (
               <View style={styles.rankContainer}>
                 <Text style={styles.rankText}>
                   {registration.rank 
-                    ? `Xếp hạng: ${registration.rank}/${registration.totalParticipants || '?'}` 
+                    ? `Xếp hạng: ${registration.rank}` 
                     : "Chưa xếp hạng"}
                 </Text>
               </View>
@@ -178,16 +178,21 @@ const StatBadge: React.FC<{
 const CompetitionDetails: React.FC<{
   showDetail: EnhancedShowMemberDetail
 }> = ({ showDetail }) => {
-  // Tính toán số cá đã được trao giải
-  const awardedFishCount = showDetail.registrations.filter(reg => reg.award).length;
-  // Tìm giải thưởng cao nhất
-  const highestAward = showDetail.registrations
-    .filter(reg => reg.award)
-    .sort((a, b) => {
-      const rankA = a.rank || 999;
-      const rankB = b.rank || 999;
-      return rankA - rankB;
-    })[0]?.award || "Không có";
+  // Tính toán số cá đã được trao giải dựa trên status
+  const awardedFishCount = showDetail.registrations.filter(reg => reg.status === 'prizewinner').length;
+  // Đếm số lượng cá đạt giải nhất (rank 1 và status Prizewinner)
+  const highestRankAwardCount = showDetail.registrations
+    .filter(reg => reg.status === 'prizewinner' && reg.rank === 1)
+    .length;
+  
+  // Tìm giải thưởng cao nhất (awardName của con cá có rank nhỏ nhất trong số các con đạt giải)
+  const highestAwardType = showDetail.registrations
+    .filter(reg => reg.status === 'prizewinner' && reg.awards && reg.awards.length > 0) // Lọc cá đạt giải và có thông tin giải thưởng
+    .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999)) // Sắp xếp theo rank tăng dần
+    [0]?.awards[0]?.awardName || null; // Lấy awardName của giải đầu tiên của cá rank cao nhất
+
+  // Log giá trị để debug
+  console.log("Highest Award Type Calculated:", highestAwardType);
 
   // Kiểm tra nếu triển lãm đã bị hủy
   const isShowCancelled = showDetail.status === "Cancelled";
@@ -293,13 +298,14 @@ const CompetitionDetails: React.FC<{
             color="#FFF7E6"
           />
           <StatBadge
-            value={highestAward !== "Không có" ? "1" : "0"}
-            label="Giải cao nhất"
+            value={highestRankAwardCount}
+            label="Giải nhất"
             color="#F6FFED"
           />
         </View>
         
-        {highestAward !== "Không có" && (
+        {/* Hiển thị lại chi tiết giải thưởng cao nhất với awardType */}
+        {highestAwardType && (
           <View style={styles.highestAwardContainer}>
             <Image
               source={{
@@ -308,7 +314,7 @@ const CompetitionDetails: React.FC<{
               style={styles.highestAwardIcon}
             />
             <Text style={styles.highestAwardText}>
-              Giải thưởng cao nhất: {highestAward}
+              Giải thưởng cao nhất: {highestAwardType} 
             </Text>
           </View>
         )}
@@ -678,24 +684,6 @@ const styles = StyleSheet.create({
     color: "#666666",
     marginTop: 4,
   },
-  highestAwardContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFDF0",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  highestAwardIcon: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-  },
-  highestAwardText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#B8860B",
-  },
   congratulationText: {
     fontSize: 16,
     fontWeight: "600",
@@ -969,6 +957,26 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "600",
+  },
+  // Thêm lại style cho highestAwardContainer
+  highestAwardContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFDF0",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12, // Thêm khoảng cách trên
+    marginBottom: 12, // Giữ khoảng cách dưới
+  },
+  highestAwardIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+  },
+  highestAwardText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#B8860B",
   },
 });
 
