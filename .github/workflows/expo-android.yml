@@ -21,6 +21,14 @@ on:
           - preview
           - production
 
+env:
+  # Thiết lập biến môi trường toàn cục
+  CACHE_LIFETIME_DAYS: 7
+  YARN_NETWORK_TIMEOUT: 300000
+  GRADLE_MEMORY: "24g"
+  GRADLE_MAX_WORKERS: 14
+  METRO_MEMORY: "8g"
+
 jobs:
   build:
     name: EAS Build Android
@@ -48,6 +56,7 @@ jobs:
           mkdir -p $HOME/expo-tmp
           mkdir -p $HOME/eas-builds/working
           mkdir -p $HOME/eas-builds/artifacts
+          mkdir -p $HOME/gradle-build-cache
           
           # Tạo thư mục lưu trữ APK theo ngày
           BUILD_DATE=$(date +"%Y-%m-%d")
@@ -67,23 +76,34 @@ jobs:
           echo "EAS_LOCAL_BUILD_SKIP_CLEANUP=1" >> $GITHUB_ENV
           echo "BUILD_TIMESTAMP=$(date +"%Y%m%d_%H%M%S")" >> $GITHUB_ENV
           
-          # Hiển thị không gian đĩa
-          echo "Disk space:"
+          # Thiết lập biến môi trường để tận dụng tối đa phần cứng
+          echo "GRADLE_OPTS=-Xmx${GRADLE_MEMORY} -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx${GRADLE_MEMORY} -Dorg.gradle.workers.max=${GRADLE_MAX_WORKERS} -XX:+UseParallelGC -XX:+UseNUMA" >> $GITHUB_ENV
+          echo "NODE_OPTIONS=--max-old-space-size=${METRO_MEMORY}" >> $GITHUB_ENV
+          
+          # Bỏ qua cảnh báo về ký tự $ trong định danh C++
+          echo "export CFLAGS=$CFLAGS -Wno-dollar-in-identifier-extension" >> $GITHUB_ENV
+          echo "export CXXFLAGS=$CXXFLAGS -Wno-dollar-in-identifier-extension -fopenmp" >> $GITHUB_ENV
+          
+          # Hiển thị thông tin hệ thống
+          echo "System Information:"
+          echo "CPU: $(nproc) cores available"
+          free -h
           df -h
       
       - name: Install dependencies
         run: |
-          yarn install --frozen-lockfile --prefer-offline --network-timeout ${{ env.YARN_NETWORK_TIMEOUT }} --non-interactive --cache-folder .yarn/cache
+          yarn config set network-timeout ${YARN_NETWORK_TIMEOUT}
+          yarn install --frozen-lockfile --prefer-offline --network-timeout ${YARN_NETWORK_TIMEOUT} --non-interactive --cache-folder .yarn/cache
 
       - name: Clean Old Caches (Non-Persistent)
         run: |
-          echo "Cleaning non-persistent caches older than ${{ env.CACHE_LIFETIME_DAYS }} days..."
+          echo "Cleaning non-persistent caches older than ${CACHE_LIFETIME_DAYS} days..."
           # Clean old Gradle caches
-          find ~/.gradle/caches -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete || true # Already fixed, ensure it stays
+          find ~/.gradle/caches -type f -atime +${CACHE_LIFETIME_DAYS} -delete || true
           # Clean old Metro bundler cache
-          find ${{ env.EXPO_METRO_CACHE_DIR }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete || true
+          find ${{ env.EXPO_METRO_CACHE_DIR }} -type f -atime +${CACHE_LIFETIME_DAYS} -delete || true
           # Clean old EAS cache
-          find ~/.eas-cli -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete || true
+          find ~/.eas-cli -type f -atime +${CACHE_LIFETIME_DAYS} -delete || true
           # Clean old Yarn cache
           yarn cache clean --all
 
@@ -109,11 +129,180 @@ jobs:
           fi
           echo "Expo authentication successful."
 
+      - name: Create custom gradle.properties
+        run: |
+          # Tạo hoặc cập nhật tệp gradle.properties để tận dụng tối đa phần cứng
+          cat << EOF > android/gradle.properties
+          # Cấu hình bộ nhớ cho Gradle (sử dụng ~40% RAM của máy chủ)
+          org.gradle.jvmargs=-Xmx${GRADLE_MEMORY} -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC -XX:+UseNUMA
+          
+          # Tối ưu hóa hiệu suất Gradle
+          org.gradle.daemon=true
+          org.gradle.parallel=true
+          org.gradle.configureondemand=true
+          org.gradle.caching=true
+          org.gradle.workers.max=${GRADLE_MAX_WORKERS}
+          
+          # Thời gian chờ mạng
+          org.gradle.internal.http.connectionTimeout=120000
+          org.gradle.internal.http.socketTimeout=120000
+          
+          # Tối ưu hóa biên dịch
+          kotlin.incremental=true
+          kotlin.incremental.useClasspathSnapshot=true
+          
+          # Cấu hình Android
+          android.useAndroidX=true
+          android.enableJetifier=true
+          android.enableR8.fullMode=true
+          android.enableDexingArtifactTransform.desugaring=true
+          android.bundletool.enable.command.line.interface=true
+          
+          # Tối ưu hóa NDK
+          android.buildTypes.release.ndk.debugSymbolLevel=FULL
+          android.defaults.buildfeatures.buildconfig=true
+          
+          # Cấu hình NDK để bỏ qua cảnh báo và tối ưu hóa
+          android.externalNativeBuild.cmake.arguments=-DCMAKE_CXX_FLAGS=-Wno-dollar-in-identifier-extension -fopenmp -DCMAKE_C_FLAGS=-Wno-dollar-in-identifier-extension -DCMAKE_BUILD_PARALLEL_LEVEL=${GRADLE_MAX_WORKERS}
+          
+          # Cấu hình Metro bundler (React Native)
+          reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+          
+          # Cấu hình Hermes
+          hermesEnabled=true
+          EOF
+
+      - name: Configure Metro Bundler
+        run: |
+          # Tối ưu hóa cấu hình Metro bundler
+          cat << EOF > metro.config.js.tmp
+          // Cấu hình tối ưu hóa cho Metro bundler
+          const { getDefaultConfig } = require('@expo/metro-config');
+          const defaultConfig = getDefaultConfig(__dirname);
+          
+          module.exports = {
+            ...defaultConfig,
+            maxWorkers: ${GRADLE_MAX_WORKERS}, // Sử dụng tối đa số lượng CPU
+            transformer: {
+              ...defaultConfig.transformer,
+              minifierConfig: {
+                compress: {
+                  reduce_funcs: false, // Tăng tốc quá trình minify
+                },
+              },
+              // Tăng tốc bundling
+              unstable_disableModuleWrapping: true,
+              // Bật cache biến đổi
+              enableBabelRCLookup: false,
+              // Chuẩn bị cho React Native 0.73+
+              unstable_transformProfile: "hermes-stable",
+            },
+            // Tăng tốc độ giải quyết phụ thuộc
+            resolver: {
+              ...defaultConfig.resolver,
+              useWatchman: true,
+              disableHierarchicalLookup: true,
+              enableGlobalPackages: false,
+            },
+            // Tăng hiệu suất cache
+            cacheStores: [
+              {
+                type: "fs",
+                options: {
+                  root: "${HOME}/expo-tmp/metro-cache",
+                }
+              }
+            ],
+            // Cấu hình bộ nhớ kiểm soát
+            maxWorkerMemoryUsage: ${METRO_MEMORY}000000,
+          };
+          EOF
+          
+          # Chỉ thay thế metro.config.js nếu tệp mới được tạo thành công
+          if [ -f metro.config.js.tmp ]; then
+            # Sao lưu tệp hiện tại nếu có
+            if [ -f metro.config.js ]; then
+              cp metro.config.js metro.config.js.bak
+            fi
+            mv metro.config.js.tmp metro.config.js
+            echo "Đã cấu hình metro.config.js cho hiệu suất tối ưu"
+          else
+            echo "Không thể tạo tệp metro.config.js mới"
+          fi
+
+      - name: Create eas.json optimization
+        run: |
+          # Tạo tệp eas.json tạm thời với các tùy chọn tối ưu
+          cat << EOF > eas.json.tmp
+          {
+            "build": {
+              "development": {
+                "developmentClient": true,
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk",
+                  "gradleCommand": ":app:assembleDebug -PmaxWorkers=${GRADLE_MAX_WORKERS}"
+                }
+              },
+              "preview": {
+                "distribution": "internal",
+                "android": {
+                  "buildType": "apk",
+                  "gradleCommand": ":app:assembleRelease -PmaxWorkers=${GRADLE_MAX_WORKERS}"
+                }
+              },
+              "production": {
+                "android": {
+                  "buildType": "app-bundle",
+                  "gradleCommand": ":app:bundleRelease -PmaxWorkers=${GRADLE_MAX_WORKERS}"
+                }
+              }
+            }
+          }
+          EOF
+          
+          # Kiểm tra nếu tệp eas.json hiện tại tồn tại
+          if [ -f eas.json ]; then
+            # Hợp nhất nội dung mới với tệp hiện tại
+            echo "Sao lưu eas.json gốc"
+            cp eas.json eas.json.bak
+            
+            # Thử sử dụng jq để hợp nhất cấu hình
+            if command -v jq &> /dev/null; then
+              echo "Hợp nhất cấu hình eas.json mới vào tệp hiện tại"
+              jq -s '.[0] * .[1]' eas.json eas.json.tmp > eas.json.new
+              mv eas.json.new eas.json
+            else
+              # Nếu không có jq, sử dụng tệp mới
+              echo "Công cụ jq không có sẵn, thay thế eas.json bằng phiên bản mới"
+              mv eas.json.tmp eas.json
+            fi
+          else
+            # Nếu không tồn tại, sử dụng tệp mới
+            echo "Tệp eas.json không tồn tại, tạo mới"
+            mv eas.json.tmp eas.json
+          fi
+          
+          rm -f eas.json.tmp
+          echo "Đã cấu hình eas.json cho hiệu suất tối ưu"
+
       - name: Build Android App
         id: build
         continue-on-error: true
+        env:
+          GRADLE_OPTS: "-Xmx${GRADLE_MEMORY} -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx${GRADLE_MEMORY} -Dorg.gradle.workers.max=${GRADLE_MAX_WORKERS} -XX:+UseParallelGC -XX:+UseNUMA"
+          NODE_OPTIONS: "--max-old-space-size=${METRO_MEMORY}"
+          EAS_LOCAL_BUILD_ARTIFACT_TYPE: "apk"
+          EAS_LOCAL_BUILD_GRADLE_OPTS: "-PmaxWorkers=${GRADLE_MAX_WORKERS}"
         run: |
           echo "Building Android app with profile: ${{ steps.profile.outputs.name }}"
+          echo "Using ${GRADLE_MAX_WORKERS} worker threads and ${GRADLE_MEMORY} heap memory"
+          
+          # Hiển thị tệp cấu hình eas.json
+          echo "EAS config:"
+          cat eas.json
+          
+          # Xây dựng ứng dụng với cấu hình đã tối ưu
           eas build --platform android --local --non-interactive --profile=${{ steps.profile.outputs.name }}
           echo "build_exit_code=$?" >> $GITHUB_OUTPUT
 
@@ -125,25 +314,26 @@ jobs:
           echo "Branch: ${{ github.ref }}" >> ${{ env.STORAGE_DIR }}/build-report.txt
           echo "Commit: ${{ github.sha }}" >> ${{ env.STORAGE_DIR }}/build-report.txt
           echo "Build Time: $(date)" >> ${{ env.STORAGE_DIR }}/build-report.txt
+          echo "CPU Cores Used: ${GRADLE_MAX_WORKERS}" >> ${{ env.STORAGE_DIR }}/build-report.txt
+          echo "Gradle Memory: ${GRADLE_MEMORY}" >> ${{ env.STORAGE_DIR }}/build-report.txt
 
           # Cache stats
           echo "=== Cache Statistics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
           echo "Persistent Cache:" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          du -sh ${{ env.PERSISTENT_CACHE_PATH }}/* >> ${{ env.STORAGE_DIR }}/build-report.txt || true # Already fixed, ensure it stays
+          du -sh ${{ env.PERSISTENT_CACHE_PATH }}/* >> ${{ env.STORAGE_DIR }}/build-report.txt || true
           echo "Non-Persistent Caches:" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          du -sh ~/.gradle/caches ~/.android/build-cache ${{ env.EXPO_METRO_CACHE_DIR }} ~/.eas-cli .yarn/cache >> ${{ env.STORAGE_DIR }}/build-report.txt || true # Already fixed, ensure it stays
-
+          du -sh ~/.gradle/caches ~/.android/build-cache ${{ env.EXPO_METRO_CACHE_DIR }} ~/.eas-cli .yarn/cache >> ${{ env.STORAGE_DIR }}/build-report.txt || true
 
           # Gradle metrics
           if [ -f "$HOME/.gradle/daemon/daemon-metrics.log" ]; then
             echo "=== Gradle Metrics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
-            cat "$HOME/.gradle/daemon/daemon-metrics.log" >> ${{ env.STORAGE_DIR }}/build-report.txt || true # Already fixed, ensure it stays
+            cat "$HOME/.gradle/daemon/daemon-metrics.log" >> ${{ env.STORAGE_DIR }}/build-report.txt || true
           fi
 
           # Metro bundler metrics
           if [ -f "${{ env.EXPO_METRO_CACHE_DIR }}/metro-metrics.json" ]; then
             echo "=== Metro Bundler Metrics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
-            cat "${{ env.EXPO_METRO_CACHE_DIR }}/metro-metrics.json" >> ${{ env.STORAGE_DIR }}/build-report.txt || true # Already fixed, ensure it stays
+            cat "${{ env.EXPO_METRO_CACHE_DIR }}/metro-metrics.json" >> ${{ env.STORAGE_DIR }}/build-report.txt || true
           fi
 
       - name: Save Persistent Cache
@@ -152,7 +342,7 @@ jobs:
         with:
           path: |
             ${{ env.PERSISTENT_CACHE_PATH }}
-          key: persistent-cache-v2-${{ hashFiles('**/yarn.lock', '**/build.gradle', 'eas.json', 'app.json', 'babel.config.js', 'metro.config.js') }}
+          key: persistent-cache-v3-${{ hashFiles('**/yarn.lock', '**/build.gradle', 'eas.json', 'app.json', 'babel.config.js', 'metro.config.js') }}
 
       - name: Save Build Artifacts Cache
         uses: actions/cache/save@v3
@@ -161,7 +351,7 @@ jobs:
           path: |
             android/app/build
             ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }}
-          key: build-artifacts-v2-${{ runner.os }}-${{ github.sha }}
+          key: build-artifacts-v3-${{ runner.os }}-${{ github.sha }}
 
       - name: Log build result
         run: |
@@ -172,8 +362,8 @@ jobs:
             if [ -f "${{ env.EAS_LOCAL_BUILD_WORKINGDIR }}/eas-build.log" ]; then
               cp "${{ env.EAS_LOCAL_BUILD_WORKINGDIR }}/eas-build.log" "${{ env.STORAGE_DIR }}/logs/build-log-${{ env.BUILD_TIMESTAMP }}.txt"
             fi
-            find ${{ env.EAS_LOCAL_BUILD_WORKINGDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \; || true # Already fixed, ensure it stays
-            find ${{ env.TMPDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \; || true # Already fixed, ensure it stays
+            find ${{ env.EAS_LOCAL_BUILD_WORKINGDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \; || true
+            find ${{ env.TMPDIR }} -name "*.log" -type f -exec cp {} ${{ env.STORAGE_DIR }}/logs/ \; || true
           else
             echo "Build completed successfully"
           fi
@@ -196,6 +386,8 @@ jobs:
             echo "Profile: ${{ steps.profile.outputs.name }}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
             echo "Branch: ${{ github.ref }}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
             echo "Commit: ${{ github.sha }}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
+            echo "CPU Cores Used: ${GRADLE_MAX_WORKERS}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
+            echo "Gradle Memory: ${GRADLE_MEMORY}" >> "${{ env.STORAGE_DIR }}/metadata-${{ env.BUILD_TIMESTAMP }}.txt"
             
             echo "APK saved to ${{ env.STORAGE_DIR }}/$APK_FILENAME"
           else
@@ -207,11 +399,11 @@ jobs:
       - name: List recent APKs
         run: |
           echo "=== Recent APK Builds ==="
-          find $HOME/ksms-builds -type f -name "*.apk" -mtime -7 | sort -r || true # Already fixed, ensure it stays
+          find $HOME/ksms-builds -type f -name "*.apk" -mtime -7 | sort -r || true
 
       - name: Cleanup Old Persistent Caches
         if: always()
         run: |
           echo "Cleaning up old persistent caches..."
-          find ${{ env.PERSISTENT_CACHE_PATH }} -type f -atime +${{ env.CACHE_LIFETIME_DAYS }} -delete || true # Already fixed, ensure it stays
+          find ${{ env.PERSISTENT_CACHE_PATH }} -type f -atime +${CACHE_LIFETIME_DAYS} -delete || true
           echo "Cleanup complete."
