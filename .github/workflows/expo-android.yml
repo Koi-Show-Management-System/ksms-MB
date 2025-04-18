@@ -86,8 +86,34 @@ jobs:
           echo "GRADLE_OPTS=-Xmx$GRADLE_MEM -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx$GRADLE_MEM -Dorg.gradle.workers.max=$GRADLE_WORKERS -XX:+UseParallelGC" >> $GITHUB_ENV
           
           # Bỏ qua cảnh báo về ký tự $ trong định danh C++
+          # Fix package versions for Metro
+          yarn add metro@^0.81.0 metro-resolver@^0.81.0 metro-config@^0.81.0 --dev
+          
           echo "CFLAGS=-Wno-dollar-in-identifier-extension" >> $GITHUB_ENV
-          echo "CXXFLAGS=-Wno-dollar-in-identifier-extension" >> $GITHUB_ENV
+      - name: Restore Yarn cache
+        uses: actions/cache@v3
+        with:
+          path: .yarn/cache
+          key: yarn-cache-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            yarn-cache-${{ runner.os }}-
+
+      - name: Restore Gradle cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: gradle-cache-${{ runner.os }}-${{ hashFiles('**/android/**/build.gradle') }}
+          restore-keys: |
+            gradle-cache-${{ runner.os }}-
+
+      - name: Restore EAS cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.eas-build-cache
+          key: eas-cache-${{ runner.os }}-${{ hashFiles('eas.json') }}
+          restore-keys: |
+            eas-cache-${{ runner.os }}-
+
        
       - name: Install dependencies # Đảm bảo 6 khoảng trắng
         run: | # Đảm bảo 8 khoảng trắng
@@ -298,17 +324,47 @@ jobs:
           echo "Đã cấu hình eas.json cho hiệu suất tối ưu"
           cat eas.json
 
+      - name: Install missing dependencies
+        run: |
+          yarn install --frozen-lockfile
+          yarn add jest@^29.7.0
+          
       - name: Build Android App
         id: build
         continue-on-error: true
+        shell: /usr/bin/bash -e {0}
         env:
-          EAS_LOCAL_BUILD_ARTIFACT_TYPE: apk # Giữ lại biến này trong env
+          CACHE_LIFETIME_DAYS: 7
+          YARN_NETWORK_TIMEOUT: 300000
+          GRADLE_MEMORY: 24g
+          GRADLE_MAX_WORKERS: 14
+          METRO_MEMORY: 8192
+          PERSISTENT_CACHE_PATH: ~/.eas-build-cache
+          STORAGE_DIR: /home/user/ksms-builds/2025-04-18
+          TMPDIR: /home/user/expo-tmp
+          EAS_LOCAL_BUILD_WORKINGDIR: /home/user/eas-builds/working
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: /home/user/eas-builds/artifacts
+          EAS_LOCAL_BUILD_SKIP_CLEANUP: 1
+          BUILD_TIMESTAMP: 20250418_204034
+          GRADLE_OPTS: -Xmx24g -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx24g -Dorg.gradle.workers.max=14 -XX:+UseParallelGC
+          CFLAGS: -Wno-dollar-in-identifier-extension
+          CXXFLAGS: -Wno-dollar-in-identifier-extension
+          EAS_LOCAL_BUILD_ARTIFACT_TYPE: apk
+          
         run: |
-          # Xuất các biến môi trường trong script để đảm bảo nội suy đúng
-          export NODE_ENV=production # Đặt NODE_ENV cho bản build production
-          export GRADLE_OPTS="-Xmx${{ env.GRADLE_MEMORY }} -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx${{ env.GRADLE_MEMORY }} -Dorg.gradle.workers.max=${{ env.GRADLE_MAX_WORKERS }} -XX:+UseParallelGC" # Bỏ -XX:+UseNUMA
-          export NODE_OPTIONS="--max-old-space-size=${{ env.METRO_MEMORY }}"
-          export EAS_LOCAL_BUILD_GRADLE_OPTS="-PmaxWorkers=${{ env.GRADLE_MAX_WORKERS }}"
+          # Ensure gradlew exists and is executable
+          if [ ! -f "android/gradlew" ]; then
+            cd android
+            gradle wrapper
+            cd ..
+          fi
+          chmod +x android/gradlew
+          
+          # Xuất các biến môi trường
+          export NODE_ENV=production
+          export GRADLE_OPTS="-Xmx24g -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx24g -Dorg.gradle.workers.max=14 -XX:+UseParallelGC"
+          export NODE_OPTIONS="--max-old-space-size=8192"
+          export EAS_LOCAL_BUILD_GRADLE_OPTS="-PmaxWorkers=14"
 
           echo "Building Android app with profile: ${{ steps.profile.outputs.name }}"
           echo "Using ${{ env.GRADLE_MAX_WORKERS }} worker threads and ${{ env.GRADLE_MEMORY }} heap memory"
