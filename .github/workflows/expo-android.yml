@@ -222,8 +222,7 @@ jobs:
                 }
               }
             ],
-            // Cấu hình bộ nhớ kiểm soát (tính bằng byte)
-            maxWorkerMemoryUsage: $METRO_MEM * 1024 * 1024,
+            // maxWorkerMemoryUsage bị loại bỏ do gây cảnh báo và có thể không tương thích
           };
           EOF
           
@@ -306,6 +305,7 @@ jobs:
           EAS_LOCAL_BUILD_ARTIFACT_TYPE: apk # Giữ lại biến này trong env
         run: |
           # Xuất các biến môi trường trong script để đảm bảo nội suy đúng
+          export NODE_ENV=production # Đặt NODE_ENV cho bản build production
           export GRADLE_OPTS="-Xmx${{ env.GRADLE_MEMORY }} -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx${{ env.GRADLE_MEMORY }} -Dorg.gradle.workers.max=${{ env.GRADLE_MAX_WORKERS }} -XX:+UseParallelGC" # Bỏ -XX:+UseNUMA
           export NODE_OPTIONS="--max-old-space-size=${{ env.METRO_MEMORY }}"
           export EAS_LOCAL_BUILD_GRADLE_OPTS="-PmaxWorkers=${{ env.GRADLE_MAX_WORKERS }}"

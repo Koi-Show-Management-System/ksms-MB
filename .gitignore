@@ -38,3 +38,6 @@ yarn-error.*
 app-example
 .cursorrules
 .repomix-output.txt
+# Ignore native folders if using Prebuild/CNG workflow
+/android
+/ios
