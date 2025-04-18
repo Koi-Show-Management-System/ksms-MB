@@ -324,7 +324,20 @@ jobs:
           echo "Đã cấu hình eas.json cho hiệu suất tối ưu"
           cat eas.json
 
+      - name: Cache Android SDK and packages
+        id: cache-android-sdk
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ github.workspace }}/android-sdk
+            ~/.android/cache
+            ~/.android/repositories.cfg
+          key: android-sdk-${{ hashFiles('android/build.gradle') }}-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            android-sdk-
+
       - name: Setup Android SDK
+        if: steps.cache-android-sdk.outputs.cache-hit != 'true'
         run: |
           # Tạo thư mục cho Android SDK
           mkdir -p ${{ github.workspace }}/android-sdk
@@ -336,10 +349,46 @@ jobs:
           rm commandlinetools-linux-9477386_latest.zip
           
           # Chấp nhận licenses
-          yes | cmdline-tools/bin/sdkmanager --licenses
+          yes | cmdline-tools/bin/sdkmanager --licenses || true
           
           # Cài đặt các packages cần thiết
           cmdline-tools/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Cache Node modules
+        id: cache-node-modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            yarn.lock
+            .yarn/cache
+            ~/.npm
+          key: node-modules-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            node-modules-
+
+      - name: Cache Gradle
+        id: cache-gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: gradle-${{ hashFiles('android/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('android/**/build.gradle') }}
+          restore-keys: |
+            gradle-
+
+      - name: Cache Metro
+        id: cache-metro
+        uses: actions/cache@v3
+        with:
+          path: |
+            ${{ env.TMPDIR }}/metro-cache
+            .metro-cache
+          key: metro-${{ hashFiles('metro.config.js') }}-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            metro-
 
       - name: Setup Android build environment
         run: |
