@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import EnhancedLivestreamChat from './EnhancedLivestreamChat';
+import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import EnhancedLivestreamChat from "./EnhancedLivestreamChat";
 
 interface EnhancedLivestreamUIProps {
   children: React.ReactNode;
@@ -23,7 +23,7 @@ const EnhancedLivestreamUI: React.FC<EnhancedLivestreamUIProps> = ({
   userProfileImage,
 }) => {
   const [viewerCount, setViewerCount] = useState(0);
-  
+
   // Update viewer count - this function would be called when viewer information changes
   const updateViewerCount = (count: number) => {
     setViewerCount(count);
@@ -88,21 +88,21 @@ const EnhancedLivestreamUI: React.FC<EnhancedLivestreamUIProps> = ({
 const styles = StyleSheet.create({
   livestreamContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   videoWrapper: {
-    width: '100%',
-    aspectRatio: 16/9,
-    backgroundColor: '#000',
-    position: 'relative',
+    width: "100%",
+    aspectRatio: 16 / 9,
+    backgroundColor: "#000",
+    position: "relative",
   },
   liveIndicator: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     right: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -112,74 +112,74 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#f00',
+    backgroundColor: "#f00",
     marginRight: 4,
   },
   liveText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   viewCountContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 16,
     left: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
     zIndex: 10,
   },
   viewCountText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
     marginLeft: 4,
   },
   backButtonOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
     left: 16,
     zIndex: 10,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   infoSection: {
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   streamTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
-    color: '#333',
+    color: "#333",
   },
   streamStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   statButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginRight: 20,
   },
   statText: {
     fontSize: 14,
     marginLeft: 4,
-    color: '#666',
+    color: "#666",
   },
   commentsContainer: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 16,
-  }
+  },
 });
 
 export default EnhancedLivestreamUI;
