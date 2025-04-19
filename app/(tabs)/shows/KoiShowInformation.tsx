@@ -328,6 +328,10 @@ const KoiShowInformationContent: React.FC = () => {
     if (!livestreamInfo) return;
 
     const apiKey = "z87auffz2r8y"; // Hardcoded API key as requested
+    console.log("--- Navigating to Livestream --- ");
+    console.log("Livestream Info:", JSON.stringify(livestreamInfo, null, 2));
+    console.log("Show Name:", showData?.name);
+    console.log("API Key:", apiKey);
     console.log("Navigating to livestream...");
     console.log("Livestream ID:", livestreamInfo.id);
     console.log("Call ID:", livestreamInfo.callId);

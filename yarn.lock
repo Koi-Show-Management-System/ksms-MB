@@ -2626,10 +2626,10 @@
     debug "4.3.4"
     event-target-shim "6.0.2"
 
-"@stream-io/video-client@1.19.2":
-  version "1.19.2"
-  resolved "https://registry.yarnpkg.com/@stream-io/video-client/-/video-client-1.19.2.tgz#9e948dd997b6fc8e77d58b34f1013721bffffa94"
-  integrity sha512-REqfN2ZP/FQpYlJ7Oj4ukca8NGNOMIONPLVafekJ6Q5XP2co//44QVMfOHJEKu0nfo2XN8T30JsiMN33mZBluA==
+"@stream-io/video-client@1.19.3":
+  version "1.19.3"
+  resolved "https://registry.yarnpkg.com/@stream-io/video-client/-/video-client-1.19.3.tgz#6fa719c99e0019b01aa02d8bf69a76b424aafe46"
+  integrity sha512-ZRtgUzHwZUbTxMd2f2zDPBxlp/thOhkU7expgAc8ylFysRR30zRnZZrRn0QsK9LUJIc/SgtXbZKu9WEU+PJBZA==
   dependencies:
     "@protobuf-ts/runtime" "^2.9.4"
     "@protobuf-ts/runtime-rpc" "^2.9.4"
@@ -2640,21 +2640,21 @@
     ua-parser-js "^1.0.40"
     webrtc-adapter "^8.2.3"
 
-"@stream-io/video-react-bindings@1.5.14":
-  version "1.5.14"
-  resolved "https://registry.yarnpkg.com/@stream-io/video-react-bindings/-/video-react-bindings-1.5.14.tgz#490286dd394ea8ba7b735fc3a1418108d2b968af"
-  integrity sha512-liJz0433ww+RH2ymqq4DuWPAYgu/mYLkQc/kevGAcz+RaKzF8iE32NEbGSlG9X52T5C8Uxmr7a8yXc59jfsOuw==
+"@stream-io/video-react-bindings@1.5.15":
+  version "1.5.15"
+  resolved "https://registry.yarnpkg.com/@stream-io/video-react-bindings/-/video-react-bindings-1.5.15.tgz#1c6b89ce672a0dd0a469739817845b992d95637c"
+  integrity sha512-+lGxy01JfwfxyF6uWOjIcyi25yO5sCDqrLyKNziNP8DUr4uCCRucA/9jC/yqe8rnuouSa9ta3SLF/yv28JE+7Q==
   dependencies:
     i18next "^23.5.1"
     rxjs "~7.8.1"
 
-"@stream-io/video-react-native-sdk@^1.11.2":
-  version "1.11.2"
-  resolved "https://registry.yarnpkg.com/@stream-io/video-react-native-sdk/-/video-react-native-sdk-1.11.2.tgz#c7754d36c17730ccf902d239270707b8736657d7"
-  integrity sha512-g2qDKlLMDEm7eUleEnagGd2CHq6z4/dgpbAyAH3aaYXw25JIfkHjH9vVaI4BQooZjThx3S8FwIY595DlQRGFgA==
+"@stream-io/video-react-native-sdk@^1.11.3":
+  version "1.11.3"
+  resolved "https://registry.yarnpkg.com/@stream-io/video-react-native-sdk/-/video-react-native-sdk-1.11.3.tgz#52acedd9208ea75604fc16760fc318703f3c407a"
+  integrity sha512-tBcuKSkGwRnEfJn2RFol+mIx1gz4hgsiMHiP6FyJKPa55QdjjvT4ygPIyBcwWPo4zsiFZZNrzEIsr/P/Inwtlg==
   dependencies:
-    "@stream-io/video-client" "1.19.2"
-    "@stream-io/video-react-bindings" "1.5.14"
+    "@stream-io/video-client" "1.19.3"
+    "@stream-io/video-react-bindings" "1.5.15"
     intl-pluralrules "2.0.1"
     lodash.merge "^4.6.2"
     react-native-url-polyfill "1.3.0"
@@ -9909,6 +9909,15 @@ react-native-web@~0.19.13:
     nullthrows "^1.1.1"
     postcss-value-parser "^4.2.0"
     styleq "^0.1.3"
+
+react-native-webrtc@^124.0.5:
+  version "124.0.5"
+  resolved "https://registry.yarnpkg.com/react-native-webrtc/-/react-native-webrtc-124.0.5.tgz#9cb6174c2dcf63b61d15a99755fa498f7bbb8b73"
+  integrity sha512-LIQJKst+t53bJOcQef9VXuz3pVheSBUA4olQGkxosbF4pHW1gsWoXYmf6wmI2zrqOA+aZsjjB6aT9AKLyr6a0Q==
+  dependencies:
+    base64-js "1.5.1"
+    debug "4.3.4"
+    event-target-shim "6.0.2"
 
 react-native-webview@13.12.5:
   version "13.12.5"
