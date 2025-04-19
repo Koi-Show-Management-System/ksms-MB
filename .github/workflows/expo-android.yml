@@ -120,17 +120,94 @@ jobs:
            yarn config set network-timeout ${YARN_NETWORK_TIMEOUT}
            yarn install --frozen-lockfile --prefer-offline --network-timeout ${YARN_NETWORK_TIMEOUT} --non-interactive --cache-folder .yarn/cache
 
-      - name: Clean Old Caches (Non-Persistent)
+      - name: Clean and monitor caches
         run: |
-          echo "Cleaning non-persistent caches older than ${CACHE_LIFETIME_DAYS} days..."
-          # Clean old Gradle caches
-          find ~/.gradle/caches -type f -atime +${CACHE_LIFETIME_DAYS} -delete || true
-          # Clean old Metro bundler cache
-          if [ -d "$HOME/expo-tmp/metro-cache" ]; then
-            find $HOME/expo-tmp/metro-cache -type f -atime +${CACHE_LIFETIME_DAYS} -delete || true
-          fi
-          # Clean old EAS cache
-          find ~/.eas-cli -type f -atime +${CACHE_LIFETIME_DAYS} -delete || true
+          echo "🧹 Bắt đầu quá trình dọn dẹp cache..."
+          
+          # Tạo thư mục log
+          LOG_DIR="${{ env.STORAGE_DIR }}/logs/cache"
+          mkdir -p "$LOG_DIR"
+          MONITOR_LOG="$LOG_DIR/cache-monitor-${{ env.BUILD_TIMESTAMP }}.log"
+          
+          # Hàm theo dõi bộ nhớ
+          monitor_memory() {
+            while true; do
+              {
+                echo "=== $(date '+%Y-%m-%d %H:%M:%S') ==="
+                echo "Memory Status:"
+                free -h
+                echo ""
+                echo "Disk Status:"
+                df -h /
+                echo ""
+              } >> "$MONITOR_LOG"
+              sleep 10
+            done
+          }
+          
+          # Bắt đầu theo dõi trong background
+          monitor_memory &
+          MONITOR_PID=$!
+          trap 'kill $MONITOR_PID 2>/dev/null || true' EXIT
+          
+          # Function đo lường thời gian
+          measure_time() {
+            local start=$1
+            local end=$2
+            local diff=$((end - start))
+            echo "$((diff / 60)) phút $((diff % 60)) giây"
+          }
+          
+          # Dọn dẹp từng loại cache với đo lường
+          clean_cache() {
+            local cache_type=$1
+            local cache_path=$2
+            local start_time=$(date +%s)
+            local initial_size=0
+            
+            if [ -d "$cache_path" ]; then
+              initial_size=$(du -s "$cache_path" 2>/dev/null | cut -f1)
+              echo "🔍 Dọn dẹp $cache_type cache..."
+              echo "  Ban đầu: $(numfmt --to=iec-i --suffix=B $((initial_size * 1024)))"
+              
+              find "$cache_path" -type f -atime "+${{ env.CACHE_LIFETIME_DAYS }}" -delete 2>/dev/null || true
+              
+              local end_time=$(date +%s)
+              local final_size=$(du -s "$cache_path" 2>/dev/null | cut -f1)
+              local saved_size=$((initial_size - final_size))
+              
+              {
+                echo "=== $cache_type Cache Cleanup ==="
+                echo "Thời gian: $(measure_time $start_time $end_time)"
+                echo "Kích thước ban đầu: $(numfmt --to=iec-i --suffix=B $((initial_size * 1024)))"
+                echo "Kích thước sau: $(numfmt --to=iec-i --suffix=B $((final_size * 1024)))"
+                echo "Đã giải phóng: $(numfmt --to=iec-i --suffix=B $((saved_size * 1024)))"
+                echo ""
+              } >> "$MONITOR_LOG"
+              
+              echo "  ✅ Hoàn thành sau $(measure_time $start_time $end_time)"
+              echo "  Đã giải phóng: $(numfmt --to=iec-i --suffix=B $((saved_size * 1024)))"
+            fi
+          }
+          
+          echo "📊 Bắt đầu dọn dẹp cache với monitoring..."
+          
+          # Dọn dẹp các loại cache
+          clean_cache "Gradle" "~/.gradle/caches"
+          clean_cache "Metro" "$HOME/expo-tmp/metro-cache"
+          clean_cache "EAS" "~/.eas-cli"
+          
+          # Tổng hợp báo cáo
+          {
+            echo "=== Cache Cleanup Summary ==="
+            echo "Timestamp: $(date)"
+            echo ""
+            echo "Final Cache Sizes:"
+            du -sh ~/.gradle/caches "$HOME/expo-tmp/metro-cache" ~/.eas-cli 2>/dev/null | \
+              awk '{printf "%-20s %s\n", $2":", $1}'
+          } >> "$MONITOR_LOG"
+          
+          echo "📝 Chi tiết log: $MONITOR_LOG"
       - name: Authenticate with Expo # Đảm bảo 6 khoảng trắng
         run: |
           if [ -n "${{ secrets.EXPO_TOKEN }}" ]; then
@@ -206,49 +283,149 @@ jobs:
 
       - name: Configure Metro Bundler
         run: |
-          # Tối ưu hóa cấu hình Metro bundler
-          METRO_MEM="${METRO_MEMORY}"
-          WORKERS="${GRADLE_MAX_WORKERS}"
+          echo "⚙️ Cấu hình Metro bundler cho hiệu năng tối ưu..."
+          
+          # Tính toán cấu hình dựa trên tài nguyên hệ thống
+          TOTAL_MEM=$(free -g | awk 'NR==2 {print $2}')
+          CPU_CORES=$(nproc)
+          METRO_MEM=${{ env.METRO_MEMORY }}
+          WORKERS=${{ env.GRADLE_MAX_WORKERS }}
+          
+          # Tính toán số lượng workers tối ưu
+          OPTIMAL_WORKERS=$(( TOTAL_MEM > 16 ? WORKERS : WORKERS / 2 ))
+          WORKER_MEM=$(( METRO_MEM / OPTIMAL_WORKERS ))
           
           cat << EOF > metro.config.js.tmp
           // Cấu hình tối ưu hóa cho Metro bundler
           const { getDefaultConfig } = require('@expo/metro-config');
           const defaultConfig = getDefaultConfig(__dirname);
+          const path = require('path');
+          
+          const OPTIMAL_WORKERS = $OPTIMAL_WORKERS;
+          const WORKER_MEM = $WORKER_MEM;
           
           module.exports = {
             ...defaultConfig,
-            maxWorkers: $WORKERS, // Sử dụng tối đa số lượng CPU
+            
+            // Workers configuration
+            maxWorkers: OPTIMAL_WORKERS,
+            maxConcurrentWorkers: OPTIMAL_WORKERS,
+            maxWorkerMemoryUsage: WORKER_MEM * 1024 * 1024,
+            
             transformer: {
               ...defaultConfig.transformer,
+              
+              // Minification optimization
               minifierConfig: {
                 compress: {
-                  reduce_funcs: false, // Tăng tốc quá trình minify
+                  reduce_funcs: false,
+                  passes: 2,
+                  keep_infinity: true,
+                  typeofs: false,
+                  inline: 1,
+                  drop_console: true,
+                  pure_getters: true,
+                  unsafe: true
                 },
+                mangle: {
+                  toplevel: true,
+                  keep_classnames: true,
+                  keep_fnames: true
+                },
+                output: {
+                  ascii_only: true,
+                  quote_style: 1,
+                  wrap_iife: true,
+                  beautify: false
+                }
               },
-              // Tăng tốc bundling
+              
+              // Build optimization
               unstable_disableModuleWrapping: true,
-              // Bật cache biến đổi
               enableBabelRCLookup: false,
-              // Chuẩn bị cho React Native 0.73+
               unstable_transformProfile: "hermes-stable",
+              unstable_allowRequireContext: true,
+              
+              // Worker configuration
+              workerPath: require.resolve('metro/src/DeltaBundler/Worker'),
+              workerMemoryLimit: WORKER_MEM * 1024 * 1024,
+              workerParallelJobs: 2,
+              
+              // Source maps config for production
+              minifierPath: 'metro-minify-terser',
+              sourceMap: false,
             },
-            // Tăng tốc độ giải quyết phụ thuộc
+            
             resolver: {
               ...defaultConfig.resolver,
+              
+              // Resolution optimization
               useWatchman: true,
               disableHierarchicalLookup: true,
               enableGlobalPackages: false,
+              disableHierarchicalLookup: true,
+              unstable_enableSymlinks: true,
+              
+              // Blacklist optimization
+              blockList: /\\.(android|ios|web)\\.js$/,
+              
+              // Cache configuration
+              cachePrunePeriod: 24 * 60 * 60 * 1000,
+              cacheVersion: '1.0',
+              
+              // Module resolution
+              extraNodeModules: new Proxy({}, {
+                get: (_, name) => path.join(__dirname, 'node_modules', name),
+              }),
             },
-            // Tăng hiệu suất cache
+            
+            server: {
+              port: process.env.METRO_PORT || 8081,
+              enhanceMiddleware: (middleware) => {
+                return (req, res, next) => {
+                  res.setHeader('Cache-Control', 'public, max-age=31536000');
+                  return middleware(req, res, next);
+                };
+              },
+            },
+            
+            // Cache configuration
             cacheStores: [
               {
                 type: "fs",
                 options: {
-                  root: "$HOME/expo-tmp/metro-cache",
+                  root: process.env.METRO_CACHE_DIR || "$HOME/expo-tmp/metro-cache",
+                  compression: 'gzip',
+                  maxSize: 1024 * 1024 * 1024, // 1GB
                 }
               }
             ],
-            // maxWorkerMemoryUsage bị loại bỏ do gây cảnh báo và có thể không tương thích
+            
+            // Performance optimization
+            resetCache: false,
+            cacheVersion: '1.0',
+            hasteMapCacheDirectory: "$HOME/expo-tmp/metro-cache/haste",
+            watchFolders: [
+              path.resolve(__dirname, 'node_modules'),
+              path.resolve(__dirname, 'src'),
+            ],
+            
+            // Serialization optimization
+            serializer: {
+              ...defaultConfig.serializer,
+              createModuleIdFactory: () => {
+                const fileToIdMap = new Map();
+                let nextId = 0;
+                return (path) => {
+                  let id = fileToIdMap.get(path);
+                  if (typeof id !== 'number') {
+                    id = nextId++;
+                    fileToIdMap.set(path, id);
+                  }
+                  return id;
+                };
+              },
+            },
           };
           EOF
           
@@ -492,10 +669,20 @@ jobs:
           mkdir -p ${{ github.workspace }}/android-sdk ~/.gradle ~/.android ~/.npm node_modules .yarn/cache ${{ env.TMPDIR }}/metro-cache
           
           # Cài đặt Android SDK
+          # Create proper SDK directory structure
+          mkdir -p ${{ github.workspace }}/android-sdk/cmdline-tools/latest
           cd ${{ github.workspace }}/android-sdk
+          
+          # Download and extract to temporary location
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip commandlinetools-linux-9477386_latest.zip
+          
+          # Move contents to proper location
+          mv cmdline-tools/* cmdline-tools/latest/
           rm commandlinetools-linux-9477386_latest.zip
+          
+          # Set SDK root environment variable
+          export ANDROID_SDK_ROOT=${{ github.workspace }}/android-sdk
           
           # Thiết lập quyền truy cập
           chmod -R 755 .
@@ -508,14 +695,19 @@ jobs:
             echo "Installing Android packages (Attempt $i)..."
             
             # Xóa cài đặt cũ nếu có
-            cmdline-tools/bin/sdkmanager --uninstall "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+            $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --uninstall "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;25.1.8937393" "cmake;3.22.1" || true
             
-            if cmdline-tools/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"; then
+            if $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --install \
+               "platform-tools" \
+               "platforms;android-34" \
+               "build-tools;34.0.0" \
+               "ndk;25.1.8937393" \
+               "cmake;3.22.1"; then
               echo "Waiting for package installation to complete..."
               sleep 30  # Chờ để đảm bảo cài đặt hoàn tất
               
               # Verify cài đặt
-              if cmdline-tools/bin/sdkmanager --list_installed | grep -q "platform-tools"; then
+              if $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --list_installed | grep -q "platform-tools"; then
                 echo "✅ Platform tools installed successfully"
                 break
               fi
@@ -527,7 +719,7 @@ jobs:
           done
           
           # Double check installation
-          if ! cmdline-tools/bin/sdkmanager --list_installed | grep -q "platform-tools"; then
+          if ! $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --list_installed | grep -q "platform-tools"; then
             echo "❌ Failed to install Android packages after 3 attempts"
             exit 1
           fi
@@ -1134,70 +1326,890 @@ jobs:
           EAS_LOCAL_BUILD_ARTIFACT_TYPE: apk
           
         run: |
-          # Ensure gradlew exists and is executable
-          if [ ! -f "android/gradlew" ]; then
+          # Kiểm tra và dọn dẹp trước khi build
+          echo "🧹 Cleaning build environment..."
+          
+          # Xóa các file tạm và cache không cần thiết
+          find . -name ".gradle" -type d -prune -exec rm -rf {} \;
+          find . -name "build" -type d -prune -exec rm -rf {} \;
+          find . -name ".expo" -type d -prune -exec rm -rf {} \;
+          
+          # Kiểm tra và khởi tạo lại gradle wrapper nếu cần
+          if [ ! -f "android/gradlew" ] || [ ! -x "android/gradlew" ]; then
+            echo "🔄 Reinitializing Gradle wrapper..."
             cd android
+            rm -f gradlew gradlew.bat
             gradle wrapper
             cd ..
           fi
           chmod +x android/gradlew
           
+          # Kiểm tra sức khỏe hệ thống
+          echo "🔍 Checking system health..."
+          
+          # Kiểm tra disk space
+          DISK_SPACE=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+          if [ "$DISK_SPACE" -gt 90 ]; then
+            echo "⚠️ Warning: Low disk space ($DISK_SPACE% used)"
+            # Dọn dẹp thêm nếu disk space thấp
+            rm -rf "${{ env.TMPDIR }}/metro-cache"/*
+            rm -rf ~/.gradle/caches/*/fileHashes/
+            rm -rf ~/.gradle/daemon/
+            yarn cache clean
+          fi
+          
+          # Kiểm tra RAM available
+          FREE_MEM_MB=$(free -m | awk 'NR==2 {print $4}')
+          MIN_REQUIRED_MEM=4096  # 4GB
+          if [ "$FREE_MEM_MB" -lt "$MIN_REQUIRED_MEM" ]; then
+            echo "⚠️ Warning: Low memory available ($FREE_MEM_MB MB)"
+            # Kill các process không cần thiết
+            killall -9 node 2>/dev/null || true
+            killall -9 java 2>/dev/null || true
+            sleep 5
+          fi
+          
+          # Khởi động lại Metro bundler để tránh vấn đề cache
+          echo "🔄 Restarting Metro bundler..."
+          killall -9 node 2>/dev/null || true
+          rm -rf "${{ env.TMPDIR }}/metro-cache"
+          mkdir -p "${{ env.TMPDIR }}/metro-cache"
+          
+          # Tối ưu hóa cache
+          echo "📦 Optimizing build cache..."
+          
+          # Kiểm tra và sửa cache permissions
+          find ~/.gradle -type d -exec chmod 755 {} \; 2>/dev/null || true
+          find ~/.gradle -type f -exec chmod 644 {} \; 2>/dev/null || true
+          
+          # Dọn dẹp cache cũ
+          find ~/.gradle/caches -type f -atime +7 -delete 2>/dev/null || true
+          find ~/.android/build-cache -type f -atime +7 -delete 2>/dev/null || true
+          
+          # Tối ưu Gradle cache
+          echo "org.gradle.caching=true" >> android/gradle.properties
+          echo "org.gradle.parallel=true" >> android/gradle.properties
+          
+          # Tạo cache.key để theo dõi thay đổi
+          CACHE_KEY_FILE="${{ env.STORAGE_DIR }}/cache.key"
+          {
+            echo "NODE_MODULES_HASH=$(find node_modules -type f -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d' ' -f1)"
+            echo "GRADLE_FILES_HASH=$(find android -name "*.gradle" -type f -exec md5sum {} \; 2>/dev/null | sort | md5sum | cut -d' ' -f1)"
+            echo "ANDROID_MANIFEST_HASH=$(md5sum android/app/src/main/AndroidManifest.xml 2>/dev/null || echo "none")"
+            echo "PACKAGE_JSON_HASH=$(md5sum package.json 2>/dev/null | cut -d' ' -f1)"
+            echo "YARN_LOCK_HASH=$(md5sum yarn.lock 2>/dev/null | cut -d' ' -f1)"
+          } > "$CACHE_KEY_FILE"
+          
+          # Kiểm tra thay đổi quan trọng
+          REQUIRES_CLEAN_BUILD=0
+          if [ -f "$CACHE_KEY_FILE.prev" ]; then
+            if ! diff "$CACHE_KEY_FILE" "$CACHE_KEY_FILE.prev" >/dev/null; then
+              echo "⚠️ Phát hiện thay đổi trong file quan trọng, thực hiện clean build..."
+              REQUIRES_CLEAN_BUILD=1
+            fi
+          else
+            echo "⚠️ Không tìm thấy cache key trước đó, thực hiện clean build..."
+            REQUIRES_CLEAN_BUILD=1
+          fi
+          
+          # Nếu cần clean build
+          if [ "$REQUIRES_CLEAN_BUILD" = "1" ]; then
+            echo "🧹 Thực hiện clean build..."
+            ./android/gradlew clean
+            rm -rf android/app/build
+            rm -rf ${{ env.TMPDIR }}/metro-cache
+          fi
+          
+          # Lưu cache key hiện tại cho lần build sau
+          cp "$CACHE_KEY_FILE" "$CACHE_KEY_FILE.prev"
+          
+          # Kiểm tra dependencies
+          echo "📋 Kiểm tra dependencies..."
+          yarn check --verify-tree || {
+            echo "⚠️ Phát hiện lỗi dependencies, đang thử sửa..."
+            rm -rf node_modules
+            yarn install --frozen-lockfile
+          }
+
           # Thiết lập biến môi trường cho quá trình build
           export NODE_ENV=production
+          export EXPO_DEBUG=1  # Enable debug logging
+          export EXPO_TELEMETRY_DISABLED=1  # Disable telemetry
+          export BABEL_DISABLE_CACHE=1  # Disable Babel cache
           
           # Cấu hình Gradle với heap size và worker threads tối ưu
-          export GRADLE_OPTS="-Xmx${{ env.GRADLE_MEMORY }} \
+          # Cấu hình JVM và Gradle cho hiệu suất tối ưu
+          # Cấu hình tối ưu cho Gradle
+          GRADLE_OPTS_BASE="-Xmx${{ env.GRADLE_MEMORY }} \
             -XX:MaxMetaspaceSize=4g \
-            -XX:+HeapDumpOnOutOfMemoryError \
-            -Dorg.gradle.jvmargs=-Xmx${{ env.GRADLE_MEMORY }} \
-            -Dorg.gradle.workers.max=${{ env.GRADLE_MAX_WORKERS }} \
-            -XX:+UseParallelGC \
+            -XX:ReservedCodeCacheSize=2g \
+            -XX:+UnlockExperimentalVMOptions \
             -XX:+UseG1GC \
-            -XX:MaxGCPauseMillis=200"
+            -XX:MaxGCPauseMillis=100 \
+            -XX:G1NewSizePercent=20 \
+            -XX:G1MaxNewSizePercent=40 \
+            -XX:InitiatingHeapOccupancyPercent=35 \
+            -XX:G1HeapRegionSize=32m \
+            -XX:ConcGCThreads=${{ env.GRADLE_MAX_WORKERS }} \
+            -XX:ParallelGCThreads=${{ env.GRADLE_MAX_WORKERS }} \
+            -XX:+HeapDumpOnOutOfMemoryError \
+            -XX:HeapDumpPath=${{ env.STORAGE_DIR }}/logs/java_heap.hprof"
 
-          # Cấu hình Node.js memory limit
-          export NODE_OPTIONS="--max-old-space-size=${{ env.METRO_MEMORY }}"
+          # Cấu hình nâng cao cho Gradle Daemon
+          GRADLE_OPTS_DAEMON="\
+            -Dorg.gradle.daemon=true \
+            -Dorg.gradle.daemon.idletimeout=900000 \
+            -Dorg.gradle.workers.max=${{ env.GRADLE_MAX_WORKERS }} \
+            -Dorg.gradle.parallel=true \
+            -Dorg.gradle.configureondemand=true \
+            -Dorg.gradle.vfs.watch=true \
+            -Dorg.gradle.caching=true \
+            -Dorg.gradle.unsafe.watch-fs=true \
+            -Dkotlin.daemon.jvm.options=-Xmx${{ env.GRADLE_MEMORY }}"
+            
+          # Hàm theo dõi Gradle
+          monitor_gradle() {
+            local log_file="${{ env.STORAGE_DIR }}/logs/gradle-monitor.log"
+            mkdir -p "$(dirname "$log_file")"
+            
+            while true; do
+              # Thu thập metrics
+              local gradle_procs=$(jps | grep -c "GradleDaemon")
+              local gradle_mem=$(ps aux | grep "[G]radleDaemon" | awk '{sum += $6} END {print sum/1024}')
+              local build_cache_size=$(du -sm "$(pwd)/android/app/build" 2>/dev/null | cut -f1)
+              
+              # Ghi log
+              echo "[$(date +"%H:%M:%S")] Gradle Build Stats:" >> "$log_file"
+              echo "  Active Daemons: ${gradle_procs:-0}" >> "$log_file"
+              echo "  Total Memory Usage: ${gradle_mem:-0}MB" >> "$log_file"
+              echo "  Build Cache Size: ${build_cache_size:-0}MB" >> "$log_file"
+              
+              # Kiểm tra và tối ưu
+              if [ "${gradle_mem%.*}" -gt "$((${GRADLE_MEMORY%g} * 1024 * 80 / 100))" ]; then
+                echo "⚠️ Gradle memory usage cao, đang dọn dẹp..." >> "$log_file"
+                ./android/gradlew --stop
+                sleep 5
+              fi
+              
+              # Dọn dẹp cache nếu quá lớn
+              if [ "${build_cache_size:-0}" -gt 5000 ]; then
+                echo "⚠️ Build cache quá lớn, đang dọn dẹp..." >> "$log_file"
+                rm -rf android/app/build/intermediates/incremental
+                rm -rf android/app/build/intermediates/merged_res
+              fi
+              
+              sleep 30
+            done
+          }
           
-          # Cấu hình Metro bundler
+          # Khởi chạy monitor trong background
+          monitor_gradle &
+          GRADLE_MONITOR_PID=$!
+          trap 'kill $GRADLE_MONITOR_PID 2>/dev/null || true' EXIT
+          
+          # Kết hợp và export GRADLE_OPTS
+          export GRADLE_OPTS="$GRADLE_OPTS_BASE $GRADLE_OPTS_DAEMON"
+
+          # Thiết lập cấu hình Node.js và Metro
+          HEAP_SIZE="${{ env.METRO_MEMORY }}"
+          export NODE_OPTIONS="--max-old-space-size=${HEAP_SIZE}"
+          
+          # Cấu hình Metro bundler nâng cao
+          export REACT_NATIVE_MAX_WORKERS=4
+          export METRO_CONFIG_RESOLVE_NODE_MODULES_ONLY=true
+          export METRO_MINIFY_UGLIFY=true
+          
+          # Cấu hình bổ sung để tối ưu hiệu năng Metro
+          export METRO_CACHE_VERSION="1.0"
+          export METRO_RESOLVER_BLACKLIST="/\.git/|/\.hg/|/node_modules/react-native/Libraries/Animated/src/polyfills/|/_tmp/"
+          export METRO_RESOLVER_PLATFORMS="android,ios"
+          export METRO_RESOLVER_USE_WATCHMAN=false
+          
+          # Cấu hình Node.js GC
+          export NODE_GC_MAX_HEAP="${HEAP_SIZE}"
+          export NODE_GC_MIN_HEAP="4096"
+          export NODE_GC_HEAP_GROWTH_FACTOR="1.2"
+          
+          # Tối ưu garbage collection cho Node.js
+          export NODE_GC_INTERVAL=10000
+          export NODE_GC_MAX_HEAP=7680
+          
+          # Cấu hình nâng cao cho Metro bundler
           export METRO_CONFIG="metro.config.js"
           export METRO_CACHE_DIR="${{ env.TMPDIR }}/metro-cache"
+          export METRO_CACHE_VERSION="2"
+          
+          # Tối ưu hóa Metro resolver
+          export METRO_RESOLVER_BLACKLIST="/(.*\.android\.js|.*\.ios\.js|.*\.native\.js|.*\.web\.js)$/"
+          export METRO_RESOLVER_PLATFORMS="android,ios"
+          export METRO_RESOLVER_USE_WATCHMAN=true
+          
+          # Cấu hình transformer
+          export METRO_TRANSFORMER_CACHE_DIR="${{ env.TMPDIR }}/metro-cache/transformer"
+          export METRO_MINIFIER="terser"
+          export METRO_MINIFY_UGLIFY=true
+          
+          # Tối ưu hiệu suất
+          export METRO_FILE_WATCHER_BATCH_SIZE=1000
+          export METRO_MAX_WORKERS=4
+          export METRO_BUNDLE_OPTIMIZATION_LEVEL=3
+          export METRO_CACHE_ENTRY_MAX_AGE=86400
+          
+          # Cấu hình Delta bundling
+          export METRO_DELTA_BUNDLE=true
+          export METRO_ENABLE_PACKAGES_CACHE=true
+          export METRO_RAM_BUNDLE=true
+          
+          # Debug và logging
+          export METRO_VERBOSE=true
+          export METRO_TRACE_STARTUP=true
+          export METRO_PERF_LOG_FILE="${{ env.STORAGE_DIR }}/logs/metro-perf.log"
+          
+          # Khởi tạo cấu trúc thư mục cho Metro
+          echo "🏗️ Khởi tạo thư mục Metro..."
+          mkdir -p "$METRO_CACHE_DIR" \
+                  "$METRO_TRANSFORMER_CACHE_DIR" \
+                  "${{ env.STORAGE_DIR }}/logs/metro"
+
+          # Thiết lập theo dõi hiệu suất Metro
+          PERF_LOG="${{ env.STORAGE_DIR }}/logs/metro/performance.log"
+          HEALTH_CHECK_LOG="${{ env.STORAGE_DIR }}/logs/metro/health.log"
+          ERROR_LOG="${{ env.STORAGE_DIR }}/logs/metro/error.log"
+
+          # Khởi tạo log files
+          touch "$PERF_LOG" "$HEALTH_CHECK_LOG" "$ERROR_LOG"
+
+          # Function theo dõi hiệu suất
+          log_perf() {
+            local metric=$1
+            local value=$2
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] $metric: $value" >> "$PERF_LOG"
+          }
+
+          # Function kiểm tra sức khỏe
+          check_health() {
+            local status=$1
+            local message=$2
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Status: $status - $message" >> "$HEALTH_CHECK_LOG"
+          }
+
+          # Function xử lý lỗi
+          log_error() {
+            local error=$1
+            local stack=${2:-"No stack trace"}
+            {
+              echo "=== Error Report ==="
+              echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
+              echo "Error: $error"
+              echo "Stack Trace:"
+              echo "$stack"
+              echo "==================="
+              echo ""
+            } >> "$ERROR_LOG"
+          }
+
+          # Hàm theo dõi và xử lý Metro bundler
+          monitor_metro() {
+            local log_file="${{ env.STORAGE_DIR }}/logs/metro-monitor.log"
+            mkdir -p "$(dirname "$log_file")"
+            
+            # Khởi tạo biến theo dõi
+            local restart_count=0
+            local max_restarts=3
+            local last_restart=0
+            
+            while true; do
+              current_time=$(date +%s)
+              
+              # Thu thập metrics chi tiết
+              local heap_stats=$(node -e '
+                const m = process.memoryUsage();
+                console.log(JSON.stringify({
+                  heapUsed: Math.round(m.heapUsed/1024/1024),
+                  heapTotal: Math.round(m.heapTotal/1024/1024),
+                  external: Math.round(m.external/1024/1024),
+                  arrayBuffers: Math.round(m.arrayBuffers/1024/1024)
+                }));
+              ')
+              
+              # Parse JSON metrics
+              local heap_used=$(echo $heap_stats | jq -r '.heapUsed')
+              local heap_total=$(echo $heap_stats | jq -r '.heapTotal')
+              local external_mem=$(echo $heap_stats | jq -r '.external')
+              local array_buffers=$(echo $heap_stats | jq -r '.arrayBuffers')
+              
+              # Thu thập thông tin cache và process
+              local cache_size=$(du -sm "$METRO_CACHE_DIR" 2>/dev/null | cut -f1)
+              local metro_pid=$(pgrep -f "metro" || echo "0")
+              local metro_cpu=$(ps -p $metro_pid -o %cpu= 2>/dev/null || echo "0")
+              
+              # Ghi log chi tiết
+              {
+                echo "[$(date +"%H:%M:%S")] Metro Bundler Stats:"
+                echo "Memory Usage:"
+                echo "  • Heap Used: ${heap_used}MB"
+                echo "  • Heap Total: ${heap_total}MB"
+                echo "  • External: ${external_mem}MB"
+                echo "  • Array Buffers: ${array_buffers}MB"
+                echo "Process Stats:"
+                echo "  • PID: ${metro_pid:-N/A}"
+                echo "  • CPU Usage: ${metro_cpu}%"
+                echo "Cache Size: ${cache_size:-0}MB"
+              } >> "$log_file"
+              
+              # Kiểm tra và xử lý vấn đề
+              local should_restart=0
+              local restart_reason=""
+              
+              # Kiểm tra memory usage
+              if [ "${heap_used:-0}" -gt "$((HEAP_SIZE * 80 / 100))" ]; then
+                should_restart=1
+                restart_reason="High memory usage (${heap_used}MB/${HEAP_SIZE}MB)"
+              fi
+              
+              # Kiểm tra CPU usage với ngưỡng linh hoạt
+              local cpu_threshold=80
+              if [ "${metro_cpu%.*}" -gt "$cpu_threshold" ]; then
+                should_restart=1
+                restart_reason="High CPU usage (${metro_cpu}% > ${cpu_threshold}%)"
+              fi
+              
+              # Kiểm tra và quản lý cache với metrics
+              local max_cache_size=2000
+              if [ "${cache_size:-0}" -gt "$max_cache_size" ]; then
+                log_perf "metro_cache_size" "${cache_size}"
+                echo "⚠️ Metro cache quá lớn (${cache_size}MB/${max_cache_size}MB), đang dọn dẹp..." >> "$log_file"
+                
+                # Dọn dẹp có chọn lọc
+                find "$METRO_CACHE_DIR" -type f -atime +1 -delete
+                find "$METRO_TRANSFORMER_CACHE_DIR" -type f -atime +2 -delete
+                
+                # Ghi log kết quả
+                local new_size=$(du -sm "$METRO_CACHE_DIR" 2>/dev/null | cut -f1)
+                echo "✅ Đã dọn dẹp cache (${cache_size}MB -> ${new_size}MB)" >> "$log_file"
+                log_perf "metro_cache_cleanup" "$((cache_size - new_size))"
+              fi
+              
+              # Xử lý restart với tracking chi tiết
+              if [ "$should_restart" -eq 1 ]; then
+                local time_since_last=$((current_time - last_restart))
+                log_perf "metro_time_between_restarts" "$time_since_last"
+                
+                if [ "$time_since_last" -gt 300 ] && [ "$restart_count" -lt "$max_restarts" ]; then
+                  # Log metrics trước khi restart
+                  log_perf "metro_restart_trigger" "$restart_reason"
+                  echo "⚠️ Khởi động lại Metro ($((restart_count + 1))/$max_restarts) - Lý do: $restart_reason" >> "$log_file"
+                  
+                  # Thu thập metrics chi tiết
+                  {
+                    echo "=== Restart Metrics ==="
+                    echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
+                    echo "Reason: $restart_reason"
+                    echo "Process Info:"
+                    ps -p $metro_pid -o pid,ppid,%cpu,%mem,cmd 2>/dev/null || echo "Process not found"
+                    echo "Memory Info:"
+                    free -h
+                    echo "===================="
+                  } >> "$log_file"
+                  
+                  # Kill process và dọn dẹp
+                  pkill -f "metro" || true
+                  rm -rf "$METRO_CACHE_DIR"/metro-* 2>/dev/null || true
+                  
+                  # Cập nhật counters
+                  restart_count=$((restart_count + 1))
+                  last_restart=$current_time
+                  
+                  echo "⏳ Đợi Metro khởi động lại..." >> "$log_file"
+                  
+                  # Đợi và kiểm tra khởi động
+                  local wait_time=0
+                  local max_wait=60
+                  while [ $wait_time -lt $max_wait ]; do
+                    if pgrep -f "metro" > /dev/null; then
+                      if nc -z localhost 8081; then
+                        echo "✅ Metro đã khởi động lại thành công sau ${wait_time}s" >> "$log_file"
+                        log_perf "metro_restart_time" "$wait_time"
+                        break
+                      fi
+                    fi
+                    sleep 2
+                    wait_time=$((wait_time + 2))
+                    echo "⌛ Đang đợi Metro (${wait_time}s/${max_wait}s)..." >> "$log_file"
+                  done
+                  
+                  if [ $wait_time -ge $max_wait ]; then
+                    log_error "Metro không khởi động lại được sau ${max_wait}s"
+                    # Thử phục hồi
+                    echo "🔄 Thử phục hồi Metro..." >> "$log_file"
+                    rm -rf "$METRO_CACHE_DIR"/*
+                    mkdir -p "$METRO_CACHE_DIR"
+                    export NODE_OPTIONS="--max-old-space-size=$HEAP_SIZE --expose-gc"
+                  fi
+                elif [ "$restart_count" -ge "$max_restarts" ]; then
+                  local msg="❌ Đã đạt giới hạn restart ($max_restarts)"
+                  echo "$msg" >> "$log_file"
+                  log_error "$msg"
+                  
+                  # Thu thập thông tin debug
+                  {
+                    echo "=== Metro Debug Info ==="
+                    echo "Time: $(date '+%Y-%m-%d %H:%M:%S')"
+                    echo "Restart Count: $restart_count"
+                    echo "Last Restart: $(date -d @$last_restart '+%Y-%m-%d %H:%M:%S')"
+                    echo "Process Info:"
+                    ps aux | grep metro
+                    echo "Recent Logs:"
+                    tail -n 50 "$log_file"
+                    echo "System Status:"
+                    free -h
+                    df -h
+                    echo "===================="
+                  } >> "${{ env.STORAGE_DIR }}/logs/metro-debug-${{ env.BUILD_TIMESTAMP }}.log"
+                  
+                  check_health "error" "$msg"
+                fi
+              fi
+              
+              # Thu thập performance metrics
+              log_perf "metro_heap_used" "${heap_used}"
+              log_perf "metro_cpu_usage" "${metro_cpu}"
+              log_perf "metro_cache_size" "${cache_size}"
+              
+              # Kiểm tra health định kỳ
+              if [ $((current_time % 300)) -eq 0 ]; then
+                check_health "routine" "Metro running normally. Memory: ${heap_used}MB, CPU: ${metro_cpu}%"
+              fi
+              
+              sleep 15
+            done
+          }
+          
+          # Khởi chạy monitor trong background
+          monitor_metro &
+          METRO_MONITOR_PID=$!
+          trap 'kill $METRO_MONITOR_PID 2>/dev/null || true' EXIT
           
           # Cấu hình worker threads cho Gradle build
           export EAS_LOCAL_BUILD_GRADLE_OPTS="-PmaxWorkers=${{ env.GRADLE_MAX_WORKERS }}"
 
-          echo "Building Android app with profile: ${{ steps.profile.outputs.name }}"
-          echo "Using ${{ env.GRADLE_MAX_WORKERS }} worker threads and ${{ env.GRADLE_MEMORY }} heap memory"
-          echo "Node memory: ${{ env.METRO_MEMORY }}MB"
+          echo "🚀 Khởi tạo môi trường build..."
+          
+          # Kiểm tra và tối ưu tài nguyên hệ thống
+          TOTAL_MEM=$(free -g | awk 'NR==2 {print $2}')
+          FREE_MEM=$(free -g | awk 'NR==2 {print $4}')
+          CPU_CORES=$(nproc)
+          DISK_SPACE=$(df -h / | awk 'NR==2 {print $4}' | sed 's/G//')
+          
+          echo "📊 Thông tin tài nguyên:"
+          echo "• CPU Cores: $CPU_CORES"
+          echo "• Total Memory: ${TOTAL_MEM}GB"
+          echo "• Free Memory: ${FREE_MEM}GB"
+          echo "• Available Disk: ${DISK_SPACE}GB"
+          
+          # Tối ưu hóa sử dụng tài nguyên
+          OPTIMAL_GRADLE_MEM=$(( TOTAL_MEM > 32 ? 24 : TOTAL_MEM / 2 ))
+          OPTIMAL_METRO_MEM=$(( TOTAL_MEM > 16 ? 8192 : 4096 ))
+          OPTIMAL_WORKERS=$(( CPU_CORES > 8 ? 8 : CPU_CORES - 1 ))
+          
+          # Cập nhật biến môi trường
+          echo "GRADLE_MEMORY=${OPTIMAL_GRADLE_MEM}g" >> $GITHUB_ENV
+          echo "METRO_MEMORY=${OPTIMAL_METRO_MEM}" >> $GITHUB_ENV
+          echo "GRADLE_MAX_WORKERS=${OPTIMAL_WORKERS}" >> $GITHUB_ENV
+          
+          # Dọn dẹp không gian đĩa nếu cần
+          if (( $(echo "$DISK_SPACE < 20" | bc -l) )); then
+            echo "⚠️ Dọn dẹp disk space..."
+            sudo apt-get clean
+            sudo apt-get autoremove -y
+            sudo journalctl --vacuum-time=1d
+            docker system prune -af || true
+          fi
+          
+          # Hiển thị cấu hình build
+          echo "🛠️ Cấu hình Build:"
+          echo "• Profile: ${{ steps.profile.outputs.name }}"
+          echo "• Gradle Memory: ${OPTIMAL_GRADLE_MEM}GB"
+          echo "• Metro Memory: ${OPTIMAL_METRO_MEM}MB"
+          echo "• Worker Threads: $OPTIMAL_WORKERS"
+          
+          # Hiển thị biến môi trường
+          echo "🔧 Environment Variables:"
+          echo "• GRADLE_OPTS: $GRADLE_OPTS"
+          echo "• NODE_OPTIONS: $NODE_OPTIONS"
+          echo "• METRO_CONFIG: $METRO_CONFIG"
+          echo "• METRO_CACHE_DIR: $METRO_CACHE_DIR"
+          echo "• EAS_LOCAL_BUILD_GRADLE_OPTS: $EAS_LOCAL_BUILD_GRADLE_OPTS"
 
-          # Hiển thị thông tin môi trường build
-          echo "===== Build Environment ====="
-          echo "GRADLE_OPTS: $GRADLE_OPTS"
-          echo "NODE_OPTIONS: $NODE_OPTIONS"
-          echo "METRO_CONFIG: $METRO_CONFIG"
-          echo "METRO_CACHE_DIR: $METRO_CACHE_DIR"
-          echo "EAS_LOCAL_BUILD_GRADLE_OPTS: $EAS_LOCAL_BUILD_GRADLE_OPTS"
-          echo "============================="
-
+          # Chuẩn bị cấu hình Metro
+          echo "⚙️ Cấu hình Metro bundler..."
+          
+          # Tính toán cấu hình tối ưu cho Metro
+          METRO_WORKERS=$(( OPTIMAL_WORKERS > 4 ? 4 : OPTIMAL_WORKERS ))
+          WORKER_MEM=$(( OPTIMAL_METRO_MEM / METRO_WORKERS ))
+          
+          # Set biến môi trường cho Metro
+          export METRO_CACHE_DIR="${{ env.TMPDIR }}/metro-cache"
+          export METRO_CONFIG="metro.config.js"
+          export METRO_MAX_WORKERS="$METRO_WORKERS"
+          
+          # Tạo thư mục cache nếu chưa tồn tại
+          mkdir -p "$METRO_CACHE_DIR"
+          
+          # Khởi động Metro monitor
+          echo "🔄 Khởi động Metro monitor..."
+          {
+            while true; do
+              # Thu thập metrics
+              HEAP_USED=$(node -e 'console.log(process.memoryUsage().heapUsed / 1024 / 1024)')
+              HEAP_TOTAL=$(node -e 'console.log(process.memoryUsage().heapTotal / 1024 / 1024)')
+              CACHE_SIZE=$(du -sm "$METRO_CACHE_DIR" 2>/dev/null | cut -f1)
+              
+              # Ghi log
+              echo "[$(date +"%H:%M:%S")] Metro Stats:" >> "${{ env.STORAGE_DIR }}/logs/metro-monitor.log"
+              echo "• Heap Used: ${HEAP_USED}MB" >> "${{ env.STORAGE_DIR }}/logs/metro-monitor.log"
+              echo "• Heap Total: ${HEAP_TOTAL}MB" >> "${{ env.STORAGE_DIR }}/logs/metro-monitor.log"
+              echo "• Cache Size: ${CACHE_SIZE}MB" >> "${{ env.STORAGE_DIR }}/logs/metro-monitor.log"
+              
+              # Kiểm tra và tối ưu nếu cần
+              if [ "${HEAP_USED%.*}" -gt "$((OPTIMAL_METRO_MEM * 80 / 100))" ]; then
+                echo "⚠️ Memory usage cao, khởi động lại Metro..." >> "${{ env.STORAGE_DIR }}/logs/metro-monitor.log"
+                pkill -f "metro" || true
+                sleep 5
+              fi
+              
+              sleep 30
+            done
+          } &
+          METRO_MONITOR_PID=$!
+          trap 'kill $METRO_MONITOR_PID 2>/dev/null || true' EXIT
+          
           # Hiển thị cấu hình EAS
-          echo "EAS config:"
+          echo "📱 EAS config:"
           cat eas.json
           
-          # Xây dựng ứng dụng với retry logic
-          MAX_RETRIES=3
-          RETRY_COUNT=0
+          # Khởi tạo biến theo dõi build
+          declare -A BUILD_STATS
+          BUILD_STATS[start_time]=$(date +%s)
+          BUILD_STATS[attempts]=0
+          BUILD_STATS[errors]=0
           BUILD_SUCCESS=false
+          MAX_RETRIES=3
           
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$BUILD_SUCCESS" != "true" ]; do
-            echo "Build attempt $(($RETRY_COUNT + 1)) of $MAX_RETRIES"
+          # Function ghi log lỗi
+          log_error() {
+            local error_type=$1
+            local error_msg=$2
+            local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+            local log_file="${{ env.STORAGE_DIR }}/logs/build-errors.log"
             
-            if eas build --platform android --local --non-interactive --profile=${{ steps.profile.outputs.name }}; then
+            # Tạo thư mục logs nếu chưa tồn tại
+            mkdir -p "${{ env.STORAGE_DIR }}/logs"
+            
+            # Ghi log
+            {
+              echo "=== Error Report ==="
+              echo "Time: $timestamp"
+              echo "Type: $error_type"
+              echo "Attempt: ${BUILD_STATS[attempts]}"
+              echo "Message: $error_msg"
+              echo "Environment:"
+              echo "  • Memory: $(free -h)"
+              echo "  • Disk: $(df -h /)"
+              echo "  • Load: $(uptime)"
+              echo "===================="
+              echo ""
+            } >> "$log_file"
+            
+            # Tăng số lỗi
+            ((BUILD_STATS[errors]++))
+          }
+          
+          # Function theo dõi metrics
+          track_metrics() {
+            local phase=$1
+            local status=$2
+            local duration=$3
+            
+            echo "[Metrics] $phase: $status (${duration}s)" >> "${{ env.STORAGE_DIR }}/logs/build-metrics.log"
+          }
+          
+          # Function dọn dẹp trước retry
+          cleanup_before_retry() {
+            echo "🧹 Dọn dẹp môi trường trước khi thử lại..."
+            
+            # Dọn cache và thư mục build
+            rm -rf android/app/build
+            rm -rf "${{ env.TMPDIR }}/metro-cache"/*
+            ./android/gradlew clean
+            
+            # Kiểm tra và giải phóng bộ nhớ
+            local free_mem=$(free -m | awk 'NR==2{print $4}')
+            if [ $free_mem -lt 4096 ]; then
+              echo "🔄 Giải phóng bộ nhớ đệm..."
+              sync
+              echo 3 > /proc/sys/vm/drop_caches || true
+            fi
+            
+            # Chờ hệ thống ổn định
+            echo "⏳ Chờ 30 giây để hệ thống ổn định..."
+            sleep 30
+          }
+          
+          # Bắt đầu build với retry logic
+          while ((BUILD_STATS[attempts] < MAX_RETRIES)) && [ "$BUILD_SUCCESS" != "true" ]; do
+            # Tăng số lần thử
+            ((BUILD_STATS[attempts]++))
+            attempt_start=$(date +%s)
+            
+            echo "🔄 Build lần ${BUILD_STATS[attempts]}/$MAX_RETRIES"
+            
+            # Dọn dẹp nếu không phải lần đầu
+            if ((BUILD_STATS[attempts] > 1)); then
+              cleanup_before_retry
+            fi
+            
+            # Bắt đầu build với monitoring đầy đủ
+            build_start=$(date +%s)
+            
+            # Khởi động theo dõi logs
+            tail -f "${{ env.TMPDIR }}/metro.log" 2>/dev/null &
+            METRO_LOG_PID=$!
+            tail -f android/app/build/outputs/logs/build-log.txt 2>/dev/null &
+            GRADLE_LOG_PID=$!
+            
+            # Thực hiện build với các flags tối ưu
+            # Thiết lập NODE_OPTIONS với giá trị METRO_MEMORY cố định
+            export NODE_OPTIONS="--max-old-space-size=8192"
+            
+            # Thiết lập biến môi trường cho build
+            export JAVA_TOOL_OPTIONS="$GRADLE_OPTS"
+            export GRADLE_BUILD_CACHE_DEBUG=true
+            export NODE_OPTIONS="--max-old-space-size=${HEAP_SIZE}"
+            export EAS_NO_VCS=1
+            export EAS_BUILD_AUTOCOMMIT=0
+            
+            # Thiết lập tham số build
+            BUILD_ARGS=(
+              "--platform" "android"
+              "--local"
+              "--non-interactive"
+              "--profile=${{ steps.profile.outputs.name }}"
+              "--gradle-clean"
+              "--no-wait"
+              "--verbose"
+            )
+            
+            # Log cấu hình build
+            {
+              echo "=== Build Configuration ==="
+              echo "Profile: ${{ steps.profile.outputs.name }}"
+              echo "Node Memory: ${HEAP_SIZE}MB"
+              echo "Gradle Memory: ${{ env.GRADLE_MEMORY }}"
+              echo "Workers: ${{ env.GRADLE_MAX_WORKERS }}"
+              echo "Build Arguments: ${BUILD_ARGS[*]}"
+              echo "=========================="
+            } >> "${{ env.STORAGE_DIR }}/logs/build-config.log"
+            
+            # Thực hiện build với theo dõi log
+            if eas build "${BUILD_ARGS[@]}" 2>&1 | tee -a "${{ env.STORAGE_DIR }}/logs/eas-build-${BUILD_STATS[attempts]}.log"; then
+                 
+              # Build thành công
               BUILD_SUCCESS=true
-              echo "Build successful on attempt $(($RETRY_COUNT + 1))"
+              build_end=$(date +%s)
+              duration=$((build_end - build_start))
+              
+              # Ghi metrics thành công
+              track_metrics "Build" "Success" "$duration"
+              echo "✅ Build thành công sau ${BUILD_STATS[attempts]} lần thử ($duration giây)"
               break
             else
+              # Xử lý lỗi build
+              build_end=$(date +%s)
+              duration=$((build_end - build_start))
+              
+              # Phân tích lỗi
+              ERROR_LOG="${{ env.STORAGE_DIR }}/logs/build-error-${BUILD_STATS[attempts]}.log"
+              {
+                echo "=== Build Failure Analysis ==="
+                echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
+                echo "Duration: ${duration}s"
+                echo "Attempt: ${BUILD_STATS[attempts]}/${MAX_RETRIES}"
+                
+                # Phân loại lỗi
+                if grep -qi "out.*of.*memory\|heap.*space" "${{ env.STORAGE_DIR }}/logs/eas-build-${BUILD_STATS[attempts]}.log"; then
+                  ERROR_TYPE="Memory Error"
+                  RECOVERY_ACTION="increase_memory"
+                elif grep -qi "metro.*error\|bundler.*failed" "${{ env.STORAGE_DIR }}/logs/eas-build-${BUILD_STATS[attempts]}.log"; then
+                  ERROR_TYPE="Metro Bundler Error"
+                  RECOVERY_ACTION="restart_metro"
+                elif grep -qi "gradle.*error\|build.*failed" "${{ env.STORAGE_DIR }}/logs/eas-build-${BUILD_STATS[attempts]}.log"; then
+                  ERROR_TYPE="Gradle Build Error"
+                  RECOVERY_ACTION="clean_gradle"
+                else
+                  ERROR_TYPE="Unknown Error"
+                  RECOVERY_ACTION="full_cleanup"
+                fi
+                
+                echo "Error Type: $ERROR_TYPE"
+                echo "Recovery Action: $RECOVERY_ACTION"
+                
+                # Thu thập metrics
+                echo "=== System Metrics ==="
+                echo "Memory Stats:"
+                free -h
+                echo "Disk Stats:"
+                df -h /
+                echo "Process Stats:"
+                ps aux | grep -E "node|metro|gradle" | grep -v grep
+                
+                echo "=== System State ==="
+                echo "Memory:"
+                free -h
+                echo "Disk:"
+                df -h
+                echo "CPU Load:"
+                uptime
+                
+                echo "=== Recent Logs ==="
+                echo "Metro Logs:"
+                tail -n 500 "${{ env.TMPDIR }}/metro.log" 2>/dev/null || echo "No Metro logs"
+                echo "Gradle Logs:"
+                tail -n 500 android/app/build/outputs/logs/build-log.txt 2>/dev/null || echo "No Gradle logs"
+                
+                echo "=== Error Summary ==="
+                if [ -f "${{ env.STORAGE_DIR }}/logs/eas-build-${BUILD_STATS[attempts]}.log" ]; then
+                  echo "Build Errors:"
+                  grep -A 5 "error" "${{ env.STORAGE_DIR }}/logs/eas-build-${BUILD_STATS[attempts]}.log" || echo "No errors found in build log"
+                fi
+              } > "${{ env.STORAGE_DIR }}/logs/build-failure-${BUILD_STATS[attempts]}.log"
+              
+              # Thu thập metrics hệ thống tại thời điểm thất bại
+              log_perf "CPU_Peak" "$(top -bn1 | grep "Cpu(s)" | awk '{print $2}')"
+              log_perf "Memory_Peak" "$(free -m | awk 'NR==2{printf "%.2f%%", $3*100/$2}')"
+              log_perf "Disk_Usage" "$(df -h / | awk 'NR==2 {print $5}')"
+              
+              # Tăng số lần thử và thực hiện recovery
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "⚠️ Build attempt $RETRY_COUNT failed. Error type: $ERROR_TYPE"
+                
+                # Thực hiện recovery action tương ứng
+                case $RECOVERY_ACTION in
+                  "increase_memory")
+                    echo "🔧 Tăng bộ nhớ cho processes..."
+                    export HEAP_SIZE=$((HEAP_SIZE * 12 / 10)) # Tăng 20%
+                    export NODE_OPTIONS="--max-old-space-size=${HEAP_SIZE}"
+                    sync && echo 3 > /proc/sys/vm/drop_caches || true
+                    ;;
+                    
+                  "restart_metro")
+                    echo "🔄 Khởi động lại Metro bundler..."
+                    pkill -f "metro" || true
+                    rm -rf "${{ env.TMPDIR }}/metro-cache"
+                    mkdir -p "${{ env.TMPDIR }}/metro-cache"
+                    ;;
+                    
+                  "clean_gradle")
+                    echo "🧹 Dọn dẹp Gradle build..."
+                    ./android/gradlew clean
+                    rm -rf android/app/build
+                    rm -rf ~/.gradle/caches/build-cache-*
+                    ;;
+                    
+                  "full_cleanup")
+                    echo "♻️ Thực hiện full cleanup..."
+                    pkill -f "metro" || true
+                    pkill -f "node" || true
+                    rm -rf android/app/build
+                    rm -rf "${{ env.TMPDIR }}/metro-cache"
+                    rm -rf ~/.gradle/caches/build-cache-*
+                    ./android/gradlew clean
+                    yarn cache clean
+                    ;;
+                esac
+                
+                # Đợi hệ thống ổn định
+                echo "⏳ Chờ 30 giây để hệ thống ổn định..."
+                sleep 30
+                
+                # Kiểm tra memory
+                FREE_MEM=$(free -m | awk 'NR==2{print $4}')
+                if [ $FREE_MEM -lt 4096 ]; then
+                  echo "🔄 Giải phóng bộ nhớ đệm..."
+                  sync
+                  echo 3 > /proc/sys/vm/drop_caches || true
+                fi
+                
+                echo "🔄 Chuẩn bị cho lần build tiếp theo..."
+              fi
+              # Phân tích lỗi build
+              {
+                echo "=== Build Error Analysis Report ==="
+                echo "Timestamp: $(date)"
+                echo "Build Profile: ${{ steps.profile.outputs.name }}"
+                echo "Attempt: $((RETRY_COUNT + 1))"
+                
+                # Thu thập thông tin hệ thống
+                echo "=== System State ==="
+                echo "CPU Usage: $(top -bn1 | grep "Cpu(s)" | awk '{print $2}')%"
+                echo "Memory Usage: $(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2}')"
+                echo "Free Memory: $(free -h | awk 'NR==2 {print $4}')"
+                echo "Disk Usage: $(df -h / | awk 'NR==2 {print $5}')"
+                echo "Node Version: $(node -v)"
+                
+                # Phân tích log lỗi
+                echo "=== Error Analysis ==="
+                LOG_FILE="${{ env.EAS_LOCAL_BUILD_WORKINGDIR }}/eas-build.log"
+                if [ -f "$LOG_FILE" ]; then
+                  # Tìm các lỗi phổ biến
+                  echo "Common Errors Found:"
+                  {
+                    echo "- Memory Errors:"
+                    grep -i "out.*of.*memory\|heap.*space" "$LOG_FILE" || echo "  None found"
+                    
+                    echo "- Metro Bundler Errors:"
+                    grep -i "metro.*error\|bundler.*failed" "$LOG_FILE" || echo "  None found"
+                    
+                    echo "- Build Tool Errors:"
+                    grep -i "gradle.*error\|build.*failed" "$LOG_FILE" || echo "  None found"
+                    
+                    echo "- Dependency Errors:"
+                    grep -i "cannot.*resolve.*module\|not.*found" "$LOG_FILE" || echo "  None found"
+                  }
+                else
+                  echo "Build log file not found"
+                fi
+                
+                # Đề xuất giải pháp
+                echo "=== Recommended Actions ==="
+                if grep -qi "out.*of.*memory" "$LOG_FILE" 2>/dev/null; then
+                  echo "1. Tăng bộ nhớ cho Node/Metro"
+                  echo "2. Giảm số lượng worker threads"
+                elif grep -qi "metro.*error" "$LOG_FILE" 2>/dev/null; then
+                  echo "1. Xóa Metro cache"
+                  echo "2. Kiểm tra cấu hình Metro"
+                elif grep -qi "gradle.*error" "$LOG_FILE" 2>/dev/null; then
+                  echo "1. Chạy Gradle clean"
+                  echo "2. Kiểm tra cấu hình Gradle"
+                fi
+                
+                # Thu thập logs
+                echo "=== Recent Logs ==="
+                echo "Last 500 lines of build log:"
+                tail -n 500 "$LOG_FILE" 2>/dev/null || echo "No build log available"
+                find "${{ env.TMPDIR }}" -name "metro-*.log" -type f -exec tail -n 100 {} \; 2>/dev/null || echo "No Metro logs found"
+                echo ""
+                
+                echo "=== Gradle Logs ==="
+                find "android" -name "*.log" -type f -exec tail -n 100 {} \; 2>/dev/null || echo "No Gradle logs found"
+              } > "$ERROR_LOG"
+              
+              echo "⚠️ Build attempt $(($RETRY_COUNT + 1)) failed. Error details saved to: $ERROR_LOG"
+              
               RETRY_COUNT=$(($RETRY_COUNT + 1))
               if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "Build failed, waiting 30 seconds before retry..."
+                echo "Waiting 30 seconds before retry..."
                 sleep 30
               fi
             fi
@@ -1205,22 +2217,148 @@ jobs:
           
           if [ "$BUILD_SUCCESS" = "true" ]; then
             echo "build_exit_code=0" >> $GITHUB_OUTPUT
+            echo "✅ Build completed successfully"
+            
+            # Tạo báo cáo chi tiết
+            SUCCESS_LOG="${{ env.STORAGE_DIR }}/logs/build-success-$(date +%s).md"
+            {
+              echo "# 📱 Build Success Report"
+              echo ""
+              echo "## 🎯 Build Information"
+              echo "- **Profile:** ${{ steps.profile.outputs.name }}"
+              echo "- **Branch:** ${{ github.ref }}"
+              echo "- **Commit:** ${{ github.sha }}"
+              echo "- **Timestamp:** $(date '+%Y-%m-%d %H:%M:%S')"
+              echo "- **Duration:** $SECONDS seconds"
+              echo ""
+              
+              echo "## 🛠️ Build Environment"
+              echo "- **Node Version:** $(node -v)"
+              echo "- **Node Memory:** ${HEAP_SIZE}MB"
+              echo "- **Gradle Memory:** ${{ env.GRADLE_MEMORY }}"
+              echo "- **Workers:** ${{ env.GRADLE_MAX_WORKERS }}"
+              echo ""
+              
+              echo "## 📊 Performance Metrics"
+              echo "### System Resources"
+              echo "\`\`\`"
+              echo "Memory Usage Peak: $(free -h | awk '/Mem:/ {print $3}')"
+              echo "Memory Available: $(free -h | awk '/Mem:/ {print $7}')"
+              echo "CPU Usage Peak: $(uptime | awk -F'[a-z]:' '{ print $2}')"
+              echo "Disk Usage: $(df -h / | awk 'NR==2 {print $5}')"
+              echo "\`\`\`"
+              echo ""
+              
+              echo "### Cache Statistics"
+              echo "\`\`\`"
+              echo "Metro Cache: $(du -sh ${{ env.TMPDIR }}/metro-cache 2>/dev/null || echo 'N/A')"
+              echo "Gradle Cache: $(du -sh ~/.gradle/caches 2>/dev/null || echo 'N/A')"
+              echo "Build Cache: $(du -sh android/app/build 2>/dev/null || echo 'N/A')"
+              echo "\`\`\`"
+              echo ""
+              
+              # Thêm thông tin APK nếu có
+              APK_PATH=$(find ${{ env.EAS_LOCAL_BUILD_ARTIFACTS_DIR }} -name "*.apk" | head -n 1)
+              if [ -n "$APK_PATH" ]; then
+                APK_SIZE=$(du -h "$APK_PATH" | cut -f1)
+                echo "## 📦 APK Details"
+                echo "- **Path:** \`$APK_PATH\`"
+                echo "- **Size:** $APK_SIZE"
+                echo "- **SHA256:** \`$(sha256sum "$APK_PATH" | cut -d' ' -f1)\`"
+              fi
+              
+              echo ""
+              echo "## 🔍 Build Logs"
+              echo "Complete build logs can be found at:"
+              echo "- \`${{ env.STORAGE_DIR }}/logs/eas-build-*.log\`"
+              echo "- \`${{ env.STORAGE_DIR }}/logs/metro-monitor.log\`"
+              
+            } > "$SUCCESS_LOG"
+            
+            echo "📝 Detailed build report saved to: $SUCCESS_LOG"
           else
-            echo "Build failed after $MAX_RETRIES attempts"
+            echo "❌ Build failed after $MAX_RETRIES attempts"
             echo "build_exit_code=1" >> $GITHUB_OUTPUT
+            
+            # Tổng hợp log lỗi
+            echo "Collecting error logs..."
+            mkdir -p "${{ env.STORAGE_DIR }}/logs"
+            find "${{ env.STORAGE_DIR }}/logs" -name "build-error-*.log" -type f -exec cat {} \; > "${{ env.STORAGE_DIR }}/logs/final-error-report.log"
+            echo "📋 Final error report saved to: ${{ env.STORAGE_DIR }}/logs/final-error-report.log"
           fi
 
       - name: Generate build report
-        if: env.BUILD_REPORT == 'true'
+        if: always()
         run: |
-          echo "=== Build Report ===" > ${{ env.STORAGE_DIR }}/build-report.txt
-          echo "Profile: ${{ steps.profile.outputs.name }}" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          echo "Branch: ${{ github.ref }}" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          echo "Commit: ${{ github.sha }}" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          echo "Build Time: $(date)" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          echo "CPU Cores Used: ${{ env.GRADLE_MAX_WORKERS }}" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          echo "Gradle Memory: ${{ env.GRADLE_MEMORY }}" >> ${{ env.STORAGE_DIR }}/build-report.txt
-          echo "Node Memory: ${{ env.METRO_MEMORY }}MB" >> ${{ env.STORAGE_DIR }}/build-report.txt
+          REPORT_DIR="${{ env.STORAGE_DIR }}/reports"
+          REPORT_FILE="$REPORT_DIR/build-report-${{ env.BUILD_TIMESTAMP }}.md"
+          mkdir -p "$REPORT_DIR"
+          
+          {
+            echo "# 📊 Build Report"
+            echo ""
+            echo "## 🔍 Thông tin chung"
+            echo "- **Profile:** ${{ steps.profile.outputs.name }}"
+            echo "- **Branch:** ${{ github.ref }}"
+            echo "- **Commit:** ${{ github.sha }}"
+            echo "- **Thời gian:** $(date)"
+            echo "- **Trạng thái:** $([ "${{ steps.build.outputs.build_exit_code }}" = "0" ] && echo "✅ Thành công" || echo "❌ Thất bại")"
+            echo ""
+            
+            echo "## 💻 Cấu hình Build"
+            echo "- **CPU Cores:** ${{ env.GRADLE_MAX_WORKERS }}"
+            echo "- **Gradle Memory:** ${{ env.GRADLE_MEMORY }}"
+            echo "- **Node Memory:** ${{ env.METRO_MEMORY }}MB"
+            echo "- **Metro Workers:** ${{ env.GRADLE_MAX_WORKERS }}"
+            echo ""
+            
+            # Thu thập metrics
+            echo "## 📈 Metrics"
+            echo "### Performance"
+            echo "\`\`\`"
+            echo "Build Duration: $SECONDS seconds"
+            echo "Memory Peak: $(free -h | awk '/Mem:/ {print $3}')"
+            echo "CPU Peak: $(uptime | awk -F'[a-z]:' '{ print $2}')"
+            echo "Disk Usage: $(df -h / | awk 'NR==2 {print $5}')"
+            echo "\`\`\`"
+            echo ""
+            
+            # Cache statistics
+            echo "### 📦 Cache Info"
+            echo "\`\`\`"
+            echo "Persistent Cache:"
+            du -sh ${{ env.PERSISTENT_CACHE_PATH }}/* 2>/dev/null || echo "No persistent cache"
+            echo ""
+            echo "Build Cache:"
+            du -sh android/app/build/* 2>/dev/null || echo "No build cache"
+            echo ""
+            echo "Metro Cache:"
+            du -sh "${{ env.TMPDIR }}/metro-cache" 2>/dev/null || echo "No metro cache"
+            echo "\`\`\`"
+            echo ""
+            
+            # Thêm thông tin lỗi nếu build thất bại
+            if [ "${{ steps.build.outputs.build_exit_code }}" != "0" ]; then
+              echo "## ❌ Chi tiết lỗi"
+              echo "\`\`\`"
+              tail -n 50 "${{ env.STORAGE_DIR }}/logs/final-error-report.log" 2>/dev/null || echo "No error log available"
+              echo "\`\`\`"
+            fi
+            
+            # Thêm đường dẫn tới APK nếu build thành công
+            if [ "${{ steps.build.outcome }}" = "success" ]; then
+              echo "## 📱 APK Info"
+              APK_PATH=$(find ${{ env.STORAGE_DIR }} -name "*.apk" -type f -mtime -1 | head -n 1)
+              if [ -n "$APK_PATH" ]; then
+                echo "- **Tên file:** $(basename "$APK_PATH")"
+                echo "- **Kích thước:** $(du -h "$APK_PATH" | cut -f1)"
+                echo "- **Đường dẫn:** \`$APK_PATH\`"
+              fi
+            fi
+            
+          } > "$REPORT_FILE"
+          
+          echo "📝 Build report đã được lưu tại: $REPORT_FILE"
 
           # Cache stats
           echo "=== Cache Statistics ===" >> ${{ env.STORAGE_DIR }}/build-report.txt
@@ -1241,13 +2379,76 @@ jobs:
             cat "$HOME/expo-tmp/metro-cache/metro-metrics.json" >> ${{ env.STORAGE_DIR }}/build-report.txt || true
           fi
 
-      - name: Save Persistent Cache
-        uses: actions/cache/save@v3
-        if: always() && !cancelled()
-        with:
-          path: |
-            ${{ env.PERSISTENT_CACHE_PATH }}
-          key: persistent-cache-v3-${{ hashFiles('**/yarn.lock', '**/build.gradle', 'eas.json', 'app.json', 'babel.config.js', 'metro.config.js') }}
+      - name: Cleanup and optimize caches
+        if: always()
+        run: |
+          echo "🧹 Tối ưu hóa và dọn dẹp caches..."
+          
+          # Function để format kích thước
+          format_size() {
+            local size=$1
+            if [ $size -gt 1048576 ]; then
+              echo "$(($size/1048576))GB"
+            elif [ $size -gt 1024 ]; then
+              echo "$(($size/1024))MB"
+            else
+              echo "${size}KB"
+            fi
+          }
+          
+          # Function để log thông tin dọn dẹp
+          log_cleanup() {
+            local type=$1
+            local path=$2
+            local before=$3
+            local after=$4
+            local saved=$((before - after))
+            
+            echo "- $type:"
+            echo "  + Trước: $(format_size $before)"
+            echo "  + Sau: $(format_size $after)"
+            echo "  + Đã giải phóng: $(format_size $saved)"
+            echo ""
+          }
+          
+          cleanup_cache() {
+            local cache_path=$1
+            local days=$2
+            local pattern=$3
+            
+            if [ -d "$cache_path" ]; then
+              local before=$(du -s "$cache_path" 2>/dev/null | cut -f1)
+              if [ -n "$pattern" ]; then
+                find "$cache_path" -type f -name "$pattern" -atime "+$days" -delete || true
+              else
+                find "$cache_path" -type f -atime "+$days" -delete || true
+              fi
+              local after=$(du -s "$cache_path" 2>/dev/null | cut -f1)
+              log_cleanup "$(basename "$cache_path")" "$cache_path" "$before" "$after"
+            fi
+          }
+          
+          # Dọn dẹp các loại cache
+          CACHE_DAYS=${{ env.CACHE_LIFETIME_DAYS }}
+          cleanup_cache "${{ env.PERSISTENT_CACHE_PATH }}" "$CACHE_DAYS"
+          cleanup_cache "~/.gradle/caches" "$CACHE_DAYS"
+          cleanup_cache "~/.android/build-cache" "$CACHE_DAYS"
+          cleanup_cache "${{ env.TMPDIR }}/metro-cache" "1" # Metro cache chỉ giữ 1 ngày
+          
+          # Tổng hợp thống kê cache mới
+          {
+            echo "=== Cache Report ==="
+            echo "Timestamp: $(date)"
+            echo ""
+            echo "Current Cache Sizes:"
+            du -sh "${{ env.PERSISTENT_CACHE_PATH }}" ~/.gradle/caches ~/.android/build-cache "${{ env.TMPDIR }}/metro-cache" 2>/dev/null | \
+              awk '{printf "%-20s %s\n", $2":", $1}'
+          } > "${{ env.STORAGE_DIR }}/reports/cache-stats-${{ env.BUILD_TIMESTAMP }}.txt"
+          
+          # Save persistent cache
+          echo "💾 Lưu persistent cache..."
+          mkdir -p "${{ env.PERSISTENT_CACHE_PATH }}"
+          CACHE_KEY="persistent-cache-v3-${{ hashFiles('**/yarn.lock', '**/build.gradle', 'eas.json', 'app.json', 'babel.config.js', 'metro.config.js') }}"
 
       - name: Save Build Artifacts Cache
         uses: actions/cache/save@v3
