@@ -293,7 +293,7 @@ export const updateKoiProfile = async (
 // Cập nhật trạng thái cá Koi
 export const updateKoiStatus = async (
   id: string,
-  status: "Active" | "Inactive"
+  status: "active" | "inactive"
 ): Promise<{ data: null; statusCode: number; message: string }> => {
   try {
     console.log(`Cập nhật trạng thái cá Koi ${id} thành ${status}`);

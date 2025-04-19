@@ -417,7 +417,7 @@ const KoiList: React.FC = () => {
     formData.append("Gender", newKoi.gender);
     formData.append("Bloodline", newKoi.bloodline);
 
-    // Thêm trường Status với giá trị mặc định là "Active"
+    // Thêm trường Status với giá trị mặc định là "active"
     formData.append("Status", "active");
     console.log("DEBUG: Đã thêm trường Status với giá trị 'active'");
 

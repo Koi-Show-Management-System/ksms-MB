@@ -694,7 +694,7 @@ const KoiProfileEdit: React.FC = () => {
             }
             mode="dropdown">
             <Picker.Item label="-- Chọn trạng thái --" value="" />
-            <Picker.Item label="Hoạt động" value="Active" />
+            <Picker.Item label="Hoạt động" value="active" />
             <Picker.Item label="Không hoạt động" value="Inactive" />
           </Picker>
         </View>

@@ -1,21 +1,16 @@
-import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
-import { Picker } from "@react-native-picker/picker";
-import { Video, ResizeMode } from "expo-av";
-import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import { MaterialIcons } from "@expo/vector-icons";
+import { ResizeMode, Video } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
-import * as MediaLibrary from "expo-media-library";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
+  ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
+  FlatList,
   Image,
-  Keyboard,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -23,25 +18,22 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  FlatList,
-  Dimensions,
 } from "react-native";
 import WebView from "react-native-webview";
 import {
   KoiProfile,
   Variety,
+  createKoiProfile,
   getKoiProfileById,
   getKoiProfiles,
   getVarieties,
-  createKoiProfile
 } from "../../../services/koiProfileService";
 import {
-  findSuitableCategory,
-  createRegistration,
-  getCompetitionCategories,
   CompetitionCategory,
   checkoutRegistration,
+  createRegistration,
+  findSuitableCategory,
+  getCompetitionCategories,
 } from "../../../services/registrationService";
 import { getKoiShowById } from "../../../services/showService";
 
@@ -57,7 +49,15 @@ interface MediaItem {
 }
 
 // Skeleton Component
-const Skeleton = ({ width, height, style }: { width: number | string; height: number; style?: any }) => {
+const Skeleton = ({
+  width,
+  height,
+  style,
+}: {
+  width: number | string;
+  height: number;
+  style?: any;
+}) => {
   const animatedValue = new Animated.Value(0);
 
   useEffect(() => {
@@ -99,18 +99,20 @@ const Skeleton = ({ width, height, style }: { width: number | string; height: nu
 };
 
 // PaymentModal component
-const PaymentModal = ({ 
-  visible, 
-  paymentUrl, 
-  onClose, 
+const PaymentModal = ({
+  visible,
+  paymentUrl,
+  onClose,
   paymentTimeoutId,
-  setPaymentTimeoutId
-}: { 
-  visible: boolean; 
-  paymentUrl: string | null; 
+  setPaymentTimeoutId,
+}: {
+  visible: boolean;
+  paymentUrl: string | null;
   onClose: () => void;
   paymentTimeoutId: NodeJS.Timeout | null;
-  setPaymentTimeoutId: React.Dispatch<React.SetStateAction<NodeJS.Timeout | null>>;
+  setPaymentTimeoutId: React.Dispatch<
+    React.SetStateAction<NodeJS.Timeout | null>
+  >;
 }) => (
   <Modal
     animationType="slide"
@@ -136,74 +138,76 @@ const PaymentModal = ({
           )}
           onNavigationStateChange={(navState) => {
             console.log("Navigation URL:", navState.url);
-            
+
             try {
               // Check if this is our custom scheme deep link
-              if (navState.url.includes('ksms://app/')) {
+              if (navState.url.includes("ksms://app/")) {
                 onClose();
-                
+
                 // Clear the payment timeout
                 if (paymentTimeoutId) {
                   clearTimeout(paymentTimeoutId);
                   setPaymentTimeoutId(null);
                 }
-                
+
                 // Parse status parameter from URL
                 const urlObj = new URL(navState.url);
-                const status = urlObj.searchParams.get('status') || '';
-                const isSuccess = navState.url.includes('/success');
-                
+                const status = urlObj.searchParams.get("status") || "";
+                const isSuccess = navState.url.includes("/success");
+
                 // Navigate to appropriate screen
                 if (isSuccess) {
                   router.push({
                     pathname: "/(payments)/PaymentSuccess",
-                    params: { status }
+                    params: { status },
                   });
                 } else {
                   router.push({
-                    pathname: "/(payments)/PaymentFailed", 
-                    params: { status }
+                    pathname: "/(payments)/PaymentFailed",
+                    params: { status },
                   });
                 }
-                
+
                 return false; // Prevent default navigation
               }
-              
+
               // Handle web URLs
-              if (navState.url.includes('ksms.news/app/') || 
-                  navState.url.includes('localhost:5173/')) {
+              if (
+                navState.url.includes("ksms.news/app/") ||
+                navState.url.includes("localhost:5173/")
+              ) {
                 onClose();
-                
+
                 // Clear the payment timeout
                 if (paymentTimeoutId) {
                   clearTimeout(paymentTimeoutId);
                   setPaymentTimeoutId(null);
                 }
-                
-                const isSuccess = navState.url.includes('/success');
-                
+
+                const isSuccess = navState.url.includes("/success");
+
                 // Try to extract status from URL if present
-                let status = '';
+                let status = "";
                 try {
                   const urlObj = new URL(navState.url);
-                  status = urlObj.searchParams.get('status') || '';
+                  status = urlObj.searchParams.get("status") || "";
                 } catch (e) {
                   console.log("Error parsing URL parameters:", e);
                 }
-                
+
                 // Navigate based on success/failure path
                 if (isSuccess) {
                   router.push({
                     pathname: "/(payments)/PaymentSuccess",
-                    params: { status }
+                    params: { status },
                   });
                 } else {
                   router.push({
                     pathname: "/(payments)/PaymentFailed",
-                    params: { status }
+                    params: { status },
                   });
                 }
-                
+
                 return false;
               }
             } catch (e) {
@@ -257,14 +261,16 @@ const KoiRegistrationScreen: React.FC = () => {
 
   // Categories state
   const [categories, setCategories] = useState<CompetitionCategory[]>([]);
-  const [suitableCategories, setSuitableCategories] = useState<CompetitionCategory[]>([]);
+  const [suitableCategories, setSuitableCategories] = useState<
+    CompetitionCategory[]
+  >([]);
   const [showCategories, setShowCategories] = useState(true);
   const [showBanner, setShowBanner] = useState(true);
 
   // Form validation states
   const [formErrors, setFormErrors] = useState({
-    size: '',
-    category: ''
+    size: "",
+    category: "",
   });
 
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -273,7 +279,8 @@ const KoiRegistrationScreen: React.FC = () => {
   // Payment states
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
-  const [paymentTimeoutId, setPaymentTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [paymentTimeoutId, setPaymentTimeoutId] =
+    useState<NodeJS.Timeout | null>(null);
 
   // New profile creation states
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -289,16 +296,15 @@ const KoiRegistrationScreen: React.FC = () => {
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const [isGenderDropdownOpen, setIsGenderDropdownOpen] = useState(false);
 
-
   // Thêm state cho thông tin cuộc thi
   const [showInfo, setShowInfo] = useState({
     name: "",
     location: "",
     date: "",
     description: "",
-    imgUrl: null as string | null
+    imgUrl: null as string | null,
   });
-  
+
   // State để kiểm soát việc hiển thị đầy đủ description
   const [showFullDescription, setShowFullDescription] = useState(false);
 
@@ -328,8 +334,8 @@ const KoiRegistrationScreen: React.FC = () => {
         [
           {
             text: "Quay lại",
-            onPress: () => router.back()
-          }
+            onPress: () => router.back(),
+          },
         ]
       );
     }
@@ -338,30 +344,30 @@ const KoiRegistrationScreen: React.FC = () => {
   // Thêm hàm để tải thông tin cuộc thi từ API
   const loadShowInfo = async () => {
     if (!showId) return;
-    
+
     try {
       setLoading(true);
       setProcessingStep("Đang tải thông tin cuộc thi...");
-      
+
       const response = await getKoiShowById(showId);
       if (response) {
         // Format date range
         const startDate = new Date(response.startDate);
         const endDate = new Date(response.endDate);
-        const formattedStartDate = startDate.toLocaleDateString('vi-VN');
-        const formattedEndDate = endDate.toLocaleDateString('vi-VN');
-        
+        const formattedStartDate = startDate.toLocaleDateString("vi-VN");
+        const formattedEndDate = endDate.toLocaleDateString("vi-VN");
+
         setShowInfo({
           name: response.name || "Cuộc Thi Koi",
           location: response.location || "Chưa có thông tin",
           date: `${formattedStartDate} - ${formattedEndDate}`,
           description: response.description || "Chưa có mô tả chi tiết",
-          imgUrl: response.imgUrl || null
+          imgUrl: response.imgUrl || null,
         });
-        
-        console.log('Loaded show info:', {
+
+        console.log("Loaded show info:", {
           name: response.name,
-          imgUrl: response.imgUrl
+          imgUrl: response.imgUrl,
         });
       }
     } catch (error) {
@@ -372,7 +378,7 @@ const KoiRegistrationScreen: React.FC = () => {
         location: "Không có thông tin",
         date: "Không có thông tin",
         description: "Không có thông tin chi tiết",
-        imgUrl: null
+        imgUrl: null,
       });
     } finally {
       setLoading(false);
@@ -384,14 +390,13 @@ const KoiRegistrationScreen: React.FC = () => {
       setLoading(true);
       const response = await getKoiProfiles();
       // Lọc chỉ những profile có status là "active"
-      const activeProfiles = response.data.items.filter(profile => profile.status.toLowerCase() === "active");
+      const activeProfiles = response.data.items.filter(
+        (profile) => profile.status.toLowerCase() === "active"
+      );
       setKoiProfiles(activeProfiles);
     } catch (error) {
       console.error("Failed to fetch koi profiles:", error);
-      Alert.alert(
-        "Lỗi",
-        "Không thể tải danh sách koi. Vui lòng thử lại."
-      );
+      Alert.alert("Lỗi", "Không thể tải danh sách koi. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
@@ -418,7 +423,7 @@ const KoiRegistrationScreen: React.FC = () => {
         console.error("Missing showId for loadCategories");
         return;
       }
-      
+
       setProcessingStep("Đang tải danh sách hạng mục...");
       const response = await getCompetitionCategories(showId);
       if (response && response.data && response.data.items) {
@@ -434,15 +439,14 @@ const KoiRegistrationScreen: React.FC = () => {
     }
   };
 
-
   // Hàm riêng để tìm category phù hợp
   const findCategory = async (varietyId: string, size: string) => {
     if (!showIdRef.current) {
-      console.log('Missing showId for finding category');
+      console.log("Missing showId for finding category");
       setSelectedCategory(null); // Reset khi không có showId
-      setFormErrors(prev => ({ 
-        ...prev, 
-        category: 'Không tìm thấy ID cuộc thi, vui lòng thử lại sau.' 
+      setFormErrors((prev) => ({
+        ...prev,
+        category: "Không tìm thấy ID cuộc thi, vui lòng thử lại sau.",
       }));
       return null;
     }
@@ -450,77 +454,83 @@ const KoiRegistrationScreen: React.FC = () => {
     try {
       setIsLoadingCategory(true);
       setProcessingStep("Đang tìm hạng mục phù hợp...");
-      
-      console.log('Finding suitable category with params:', {
+
+      console.log("Finding suitable category with params:", {
         showId: showIdRef.current,
         varietyId,
-        size
+        size,
       });
-      
+
       const categoryResponse = await findSuitableCategory(
         showIdRef.current,
         varietyId,
         size
       );
-      
-      console.log('Category API Response:', categoryResponse);
-      
-      if (!categoryResponse || !categoryResponse.data || categoryResponse.data.length === 0) {
-        console.log('No category data received');
+
+      console.log("Category API Response:", categoryResponse);
+
+      if (
+        !categoryResponse ||
+        !categoryResponse.data ||
+        categoryResponse.data.length === 0
+      ) {
+        console.log("No category data received");
         // Reset selected category
         setSelectedCategory(null);
-        setFormErrors(prev => ({ 
-          ...prev, 
-          category: 'Không tìm thấy hạng mục phù hợp với kích thước và giống Koi của bạn.' 
+        setFormErrors((prev) => ({
+          ...prev,
+          category:
+            "Không tìm thấy hạng mục phù hợp với kích thước và giống Koi của bạn.",
         }));
-        
+
         Alert.alert(
           "Không tìm thấy hạng mục phù hợp",
           "Không có hạng mục nào phù hợp với kích thước và giống Koi này. Vui lòng chọn Koi khác hoặc điều chỉnh kích thước hoặc chọn giống loài khác.",
           [{ text: "Đã hiểu" }]
         );
-        
+
         return null;
       }
 
       // Lưu danh sách các hạng mục phù hợp
       const foundCategories = categoryResponse.data;
       setSuitableCategories(foundCategories);
-      
+
       // Nếu chỉ có một hạng mục, tự động chọn
       if (foundCategories.length === 1) {
         setSelectedCategory(foundCategories[0]);
-        setFormErrors(prev => ({ ...prev, category: '' }));
+        setFormErrors((prev) => ({ ...prev, category: "" }));
         return foundCategories[0];
       } else {
         // Nếu có nhiều hạng mục, hiển thị modal để người dùng chọn
         // Mặc định chọn hạng mục đầu tiên
         setSelectedCategory(foundCategories[0]);
-        
+
         // Hiển thị thông báo cho người dùng biết có thể chọn hạng mục
         Alert.alert(
           "Tìm thấy nhiều hạng mục phù hợp",
           "Có nhiều hạng mục phù hợp với Koi của bạn. Vui lòng chọn hạng mục phù hợp nhất.",
           [{ text: "Đã hiểu" }]
         );
-        
-        setFormErrors(prev => ({ ...prev, category: '' }));
+
+        setFormErrors((prev) => ({ ...prev, category: "" }));
         return foundCategories[0];
       }
     } catch (error: any) {
       console.error("Failed to find suitable category:", error);
-      
+
       // Reset selected category
       setSelectedCategory(null);
-      
+
       // Hiển thị thông báo chi tiết hơn về lỗi
-      let errorMessage = 'Lỗi khi tìm hạng mục phù hợp, vui lòng thử lại sau.';
-      
+      let errorMessage = "Lỗi khi tìm hạng mục phù hợp, vui lòng thử lại sau.";
+
       // Nếu là lỗi 400 - Không tìm thấy hạng mục phù hợp
       if (error.response && error.response.status === 400) {
-        errorMessage = 'Không tìm thấy hạng mục phù hợp với kích thước và giống Koi của bạn.';
-        console.error('Error response:', error.response.data);
-        
+        errorMessage =
+          "Không tìm thấy hạng mục phù hợp với kích thước và giống Koi của bạn.";
+        console.error("Error response:", error.response.data);
+
         // Hiển thị thông báo cho người dùng
         Alert.alert(
           "Không tìm thấy hạng mục phù hợp",
@@ -528,12 +538,12 @@ const KoiRegistrationScreen: React.FC = () => {
           [{ text: "Đã hiểu" }]
         );
       }
-      
-      setFormErrors(prev => ({ 
-        ...prev, 
-        category: errorMessage
+
+      setFormErrors((prev) => ({
+        ...prev,
+        category: errorMessage,
       }));
-      
+
       return null;
     } finally {
       setIsLoadingCategory(false);
@@ -547,27 +557,27 @@ const KoiRegistrationScreen: React.FC = () => {
       setIsLoadingProfile(true);
       setLoading(true);
       setProcessingStep("Đang tải thông tin koi...");
-      
+
       // Reset selectedCategory mỗi khi chọn profile mới
       setSelectedCategory(null);
       setSuitableCategories([]);
       setShowCategories(false);
-      
+
       // Lấy thông tin profile
       const response = await getKoiProfileById(id);
       if (!response || !response.data) {
         throw new Error("Không thể tải thông tin koi");
       }
-      
+
       const profile = response.data;
-      
+
       // Cập nhật state và ref đồng thời
       profileRef.current = profile;
       setSelectedKoiProfile(profile);
       setKoiName(profile.name);
       setKoiSize(profile.size.toString());
       setKoiVariety(profile.variety.name);
-      setKoiDescription(profile.bloodline || ''); // Lưu bloodline vào koiDescription
+      setKoiDescription(profile.bloodline || ""); // Lưu bloodline vào koiDescription
       // Không cập nhật registrationNote khi chọn profile mới để giữ nguyên ghi chú người dùng đã nhập
       setMediaItems(
         profile.koiMedia.map((media: any) => ({
@@ -576,15 +586,14 @@ const KoiRegistrationScreen: React.FC = () => {
           mediaType: media.mediaType,
         }))
       );
-      
+
       setIsDropdownOpen(false);
-      
+
       // Tìm các hạng mục phù hợp
       await findCategory(profile.variety.id, profile.size.toString());
-      
+
       // Hiển thị danh sách hạng mục
       setShowCategories(true);
-      
     } catch (error) {
       console.error("Failed to fetch koi profile details:", error);
       // Reset selectedCategory khi có lỗi xảy ra
@@ -599,23 +608,23 @@ const KoiRegistrationScreen: React.FC = () => {
 
   const handleSizeChange = async (size: string) => {
     // Loại bỏ ký tự không phải số và dấu chấm
-    const cleanSize = size.replace(/[^\d.]/g, '');
-    
+    const cleanSize = size.replace(/[^\d.]/g, "");
+
     // Giới hạn chỉ có một dấu chấm
-    const parts = cleanSize.split('.');
+    const parts = cleanSize.split(".");
     let validSize = parts[0];
     if (parts.length > 1) {
-      validSize += '.' + parts[1];
+      validSize += "." + parts[1];
     }
-    
+
     setKoiSize(validSize);
-    setFormErrors(prev => ({ ...prev, size: '' }));
-    
+    setFormErrors((prev) => ({ ...prev, size: "" }));
+
     // Sử dụng ref để lấy giá trị hiện tại của profile
     const currentProfile = profileRef.current;
-    
+
     if (!currentProfile) {
-      console.log('Missing profile for size change:', { currentProfile, size });
+      console.log("Missing profile for size change:", { currentProfile, size });
       // Reset selectedCategory khi không có profile
       setSelectedCategory(null);
       setSuitableCategories([]);
@@ -625,8 +634,11 @@ const KoiRegistrationScreen: React.FC = () => {
     // Validate size
     const sizeNumber = parseFloat(validSize);
     if (isNaN(sizeNumber) || sizeNumber <= 0) {
-      console.log('Invalid size:', validSize);
-      setFormErrors(prev => ({ ...prev, size: 'Vui lòng nhập kích thước hợp lệ' }));
+      console.log("Invalid size:", validSize);
+      setFormErrors((prev) => ({
+        ...prev,
+        size: "Vui lòng nhập kích thước hợp lệ",
+      }));
       // Reset selectedCategory khi size không hợp lệ
       setSelectedCategory(null);
       setSuitableCategories([]);
@@ -635,22 +647,22 @@ const KoiRegistrationScreen: React.FC = () => {
 
     // Validate size range (15-75)
     if (sizeNumber < 15 || sizeNumber > 75) {
-      console.log('Size out of range:', sizeNumber);
-      setFormErrors(prev => ({ 
-        ...prev, 
-        size: 'Kích thước phải từ 15 đến 75 cm' 
+      console.log("Size out of range:", sizeNumber);
+      setFormErrors((prev) => ({
+        ...prev,
+        size: "Kích thước phải từ 15 đến 75 cm",
       }));
       // Reset selectedCategory khi size ngoài phạm vi cho phép
       setSelectedCategory(null);
       setSuitableCategories([]);
       return;
     }
-    
+
     // Gọi hàm tìm category
     setLoading(true);
     await findCategory(currentProfile.variety.id, sizeNumber.toString());
     setLoading(false);
-    
+
     // Hiển thị danh sách hạng mục
     setShowCategories(true);
   };
@@ -782,16 +794,18 @@ const KoiRegistrationScreen: React.FC = () => {
       Alert.alert("Cần thông tin", "Vui lòng nhập Tên Đăng Ký Thi Đấu");
       return;
     }
-    
+
     // Kiểm tra ghi chú đăng ký
     if (!registrationNote.trim()) {
       Alert.alert("Cần thông tin", "Vui lòng nhập Ghi chú đăng ký");
       return;
     }
 
-
     if (!showId) {
-      Alert.alert("Lỗi", "ID cuộc thi không tồn tại. Vui lòng quay lại và thử lại.");
+      Alert.alert(
+        "Lỗi",
+        "ID cuộc thi không tồn tại. Vui lòng quay lại và thử lại."
+      );
       return;
     }
 
@@ -801,13 +815,15 @@ const KoiRegistrationScreen: React.FC = () => {
     }
 
     // Kiểm tra có ít nhất một ảnh và một video
-    const hasImages = mediaItems.some(item => item.mediaType === 'Image');
-    const hasVideos = mediaItems.some(item => item.mediaType === 'Video');
+    const hasImages = mediaItems.some((item) => item.mediaType === "Image");
+    const hasVideos = mediaItems.some((item) => item.mediaType === "Video");
 
     if (!hasImages || !hasVideos) {
       Alert.alert(
         "Thiếu media",
-        `Đăng ký cần có ít nhất một ${!hasImages ? 'ảnh' : ''}${(!hasImages && !hasVideos) ? ' và ' : ''}${!hasVideos ? 'video' : ''}.`
+        `Đăng ký cần có ít nhất một ${!hasImages ? "ảnh" : ""}${
+          !hasImages && !hasVideos ? " và " : ""
+        }${!hasVideos ? "video" : ""}.`
       );
       return;
     }
@@ -827,14 +843,14 @@ const KoiRegistrationScreen: React.FC = () => {
 
       // Create form data
       const formData = new FormData();
-      formData.append('KoiShowId', showId);
-      formData.append('CompetitionCategoryId', selectedCategory.id);
-      formData.append('KoiProfileId', selectedKoiProfile.id);
-      formData.append('RegisterName', registerNameInput);
-      formData.append('Notes', registrationNote); // Sử dụng registrationNote thay vì koiDescription
+      formData.append("KoiShowId", showId);
+      formData.append("CompetitionCategoryId", selectedCategory.id);
+      formData.append("KoiProfileId", selectedKoiProfile.id);
+      formData.append("RegisterName", registerNameInput);
+      formData.append("Notes", registrationNote); // Sử dụng registrationNote thay vì koiDescription
 
       // Log registration parameters
-      console.log('Registration Parameters:', {
+      console.log("Registration Parameters:", {
         KoiShowId: showId,
         CompetitionCategoryId: selectedCategory.id,
         KoiProfileId: selectedKoiProfile.id,
@@ -842,102 +858,121 @@ const KoiRegistrationScreen: React.FC = () => {
         Notes: registrationNote, // Sử dụng registrationNote thay vì koiDescription
         Size: koiSize,
         Category: selectedCategory.name,
-        MediaItems: mediaItems.map(item => ({
+        MediaItems: mediaItems.map((item) => ({
           id: item.id,
           type: item.mediaType,
           isNew: item.isNew,
-          url: item.mediaUrl
-        }))
+          url: item.mediaUrl,
+        })),
       });
 
       // Xử lý media files
       setProcessingStep("Đang xử lý media...");
-      
+
       // Lưu số lượng media để tính tiến trình
       const totalMediaItems = mediaItems.length;
       let processedItems = 0;
-      
+
       // Theo dõi việc có thêm đủ ảnh và video không
       let addedImages = 0;
       let addedVideos = 0;
-      
+
       for (const item of mediaItems) {
         try {
           if (item.isNew && item.fileUri) {
             // Nếu là file mới được thêm vào
-            if (item.mediaType === 'Image') {
-              formData.append('RegistrationImages', {
+            if (item.mediaType === "Image") {
+              formData.append("RegistrationImages", {
                 uri: item.fileUri,
-                type: 'image/jpeg',
-                name: `image_${item.id}.jpg`
+                type: "image/jpeg",
+                name: `image_${item.id}.jpg`,
               } as any);
               addedImages++;
-              console.log(`Added new image: ${item.id} (${addedImages} images total)`);
+              console.log(
+                `Added new image: ${item.id} (${addedImages} images total)`
+              );
             } else {
-              formData.append('RegistrationVideos', {
+              formData.append("RegistrationVideos", {
                 uri: item.fileUri,
-                type: 'video/mp4',
-                name: `video_${item.id}.mp4`
+                type: "video/mp4",
+                name: `video_${item.id}.mp4`,
               } as any);
               addedVideos++;
-              console.log(`Added new video: ${item.id} (${addedVideos} videos total)`);
+              console.log(
+                `Added new video: ${item.id} (${addedVideos} videos total)`
+              );
             }
           } else {
             try {
               // Nếu là file từ profile, tải về và chuyển đổi thành file
-              setProcessingStep(`Đang tải ${item.mediaType.toLowerCase()} từ profile...`);
-              
+              setProcessingStep(
+                `Đang tải ${item.mediaType.toLowerCase()} từ profile...`
+              );
+
               const response = await fetch(item.mediaUrl);
               if (!response.ok) {
-                throw new Error(`Failed to fetch media: ${response.status} ${response.statusText}`);
+                throw new Error(
+                  `Failed to fetch media: ${response.status} ${response.statusText}`
+                );
               }
-              
+
               const blob = await response.blob();
-              
-              if (item.mediaType === 'Image') {
-                formData.append('RegistrationImages', {
+
+              if (item.mediaType === "Image") {
+                formData.append("RegistrationImages", {
                   uri: item.mediaUrl,
-                  type: 'image/jpeg',
-                  name: `image_${item.id}.jpg`
+                  type: "image/jpeg",
+                  name: `image_${item.id}.jpg`,
                 } as any);
                 addedImages++;
-                console.log(`Added profile image: ${item.id} (${addedImages} images total)`);
+                console.log(
+                  `Added profile image: ${item.id} (${addedImages} images total)`
+                );
               } else {
-                formData.append('RegistrationVideos', {
+                formData.append("RegistrationVideos", {
                   uri: item.mediaUrl,
-                  type: 'video/mp4',
-                  name: `video_${item.id}.mp4`
+                  type: "video/mp4",
+                  name: `video_${item.id}.mp4`,
                 } as any);
                 addedVideos++;
-                console.log(`Added profile video: ${item.id} (${addedVideos} videos total)`);
+                console.log(
+                  `Added profile video: ${item.id} (${addedVideos} videos total)`
+                );
               }
             } catch (mediaError) {
-              console.error(`Error processing media from profile (${item.id}):`, mediaError);
+              console.error(
+                `Error processing media from profile (${item.id}):`,
+                mediaError
+              );
               Alert.alert(
                 "Cảnh báo",
-                `Không thể tải ${item.mediaType === 'Image' ? 'ảnh' : 'video'} từ profile. Bạn có muốn tiếp tục mà không có nó không?`,
+                `Không thể tải ${
+                  item.mediaType === "Image" ? "ảnh" : "video"
+                } từ profile. Bạn có muốn tiếp tục mà không có nó không?`,
                 [
-                  { 
-                    text: "Hủy đăng ký", 
+                  {
+                    text: "Hủy đăng ký",
                     style: "cancel",
                     onPress: () => {
                       setLoading(false);
                       setProcessingStep("");
                       setUploadProgress(0);
-                    }
+                    },
                   },
-                  { text: "Tiếp tục", onPress: () => console.log("Continuing without media") }
+                  {
+                    text: "Tiếp tục",
+                    onPress: () => console.log("Continuing without media"),
+                  },
                 ]
               );
               // Vẫn tiếp tục với các item khác nếu người dùng chọn "Tiếp tục"
               continue;
             }
           }
-          
+
           // Cập nhật tiến trình
           processedItems++;
           setUploadProgress((processedItems / totalMediaItems) * 50); // Dành 50% cho xử lý media
-          
         } catch (error) {
           console.error(`Error processing media item ${item.id}:`, error);
         }
@@ -950,30 +985,34 @@ const KoiRegistrationScreen: React.FC = () => {
         setUploadProgress(0);
         Alert.alert(
           "Thiếu media",
-          `Không thể hoàn thành đăng ký vì ${addedImages === 0 ? 'không có ảnh' : ''}${(addedImages === 0 && addedVideos === 0) ? ' và ' : ''}${addedVideos === 0 ? 'không có video' : ''}.`,
+          `Không thể hoàn thành đăng ký vì ${
+            addedImages === 0 ? "không có ảnh" : ""
+          }${addedImages === 0 && addedVideos === 0 ? " và " : ""}${
+            addedVideos === 0 ? "không có video" : ""
+          }.`,
           [{ text: "OK" }]
         );
         return;
       }
 
       // Log FormData contents
-      console.log('FormData contents:', {
-        KoiShowId: formData.get('KoiShowId'),
-        CompetitionCategoryId: formData.get('CompetitionCategoryId'),
-        KoiProfileId: formData.get('KoiProfileId'),
-        RegisterName: formData.get('RegisterName'),
-        Notes: formData.get('Notes'),
-        RegistrationImages: formData.getAll('RegistrationImages'),
-        RegistrationVideos: formData.getAll('RegistrationVideos')
+      console.log("FormData contents:", {
+        KoiShowId: formData.get("KoiShowId"),
+        CompetitionCategoryId: formData.get("CompetitionCategoryId"),
+        KoiProfileId: formData.get("KoiProfileId"),
+        RegisterName: formData.get("RegisterName"),
+        Notes: formData.get("Notes"),
+        RegistrationImages: formData.getAll("RegistrationImages"),
+        RegistrationVideos: formData.getAll("RegistrationVideos"),
       });
 
       // Submit registration
       setProcessingStep("Đang tạo đăng ký...");
       setUploadProgress(60);
-      
+
       const registerResponse = await createRegistration(formData);
-      console.log('Registration response:', registerResponse);
-      
+      console.log("Registration response:", registerResponse);
+
       setUploadProgress(80);
       setProcessingStep("Đăng ký thành công, đang chuẩn bị thanh toán...");
 
@@ -981,16 +1020,16 @@ const KoiRegistrationScreen: React.FC = () => {
       if (registerResponse?.data?.id) {
         try {
           const registrationId = registerResponse.data.id;
-          
+
           // Gọi API thanh toán
           const checkoutResponse = await checkoutRegistration(registrationId);
-          console.log('Checkout response:', checkoutResponse);
-          
+          console.log("Checkout response:", checkoutResponse);
+
           if (checkoutResponse?.data?.url) {
             // Hiển thị modal thanh toán với URL nhận được
             setPaymentUrl(checkoutResponse.data.url);
             setPaymentModalVisible(true);
-            
+
             // Đặt timeout cho phiên thanh toán (15 phút)
             const paymentTimeout = setTimeout(() => {
               if (paymentModalVisible) {
@@ -1001,14 +1040,14 @@ const KoiRegistrationScreen: React.FC = () => {
                 );
               }
             }, 15 * 60 * 1000);
-            
+
             // Lưu ID timeout để có thể xóa nếu cần
             setPaymentTimeoutId(paymentTimeout);
           } else {
-            throw new Error('Không nhận được URL thanh toán');
+            throw new Error("Không nhận được URL thanh toán");
           }
         } catch (paymentError) {
-          console.error('Payment error:', paymentError);
+          console.error("Payment error:", paymentError);
           Alert.alert(
             "Lỗi thanh toán",
             "Không thể khởi tạo thanh toán. Vui lòng thử lại sau."
@@ -1027,19 +1066,19 @@ const KoiRegistrationScreen: React.FC = () => {
           ]
         );
       }
-      
+
       setUploadProgress(100);
     } catch (error) {
       console.error("Đăng ký thất bại", error);
-      
+
       // Mặc định thông báo lỗi
       let errorMessage = "Không thể hoàn tất đăng ký. Vui lòng thử lại.";
-      
+
       // Cố gắng trích xuất thông báo lỗi cụ thể từ đối tượng lỗi
       try {
         // Chuyển đổi error thành any để truy cập các thuộc tính
         const err = error as any;
-        
+
         // Kiểm tra các dạng lỗi khác nhau
         if (err.response?.data?.Error) {
           // Định dạng: {StatusCode: 400, Error: "...", TimeStamp: "..."}
@@ -1050,30 +1089,27 @@ const KoiRegistrationScreen: React.FC = () => {
           if (Array.isArray(errorValues) && errorValues.length > 0) {
             const flatErrors = errorValues.flat();
             if (flatErrors.length > 0) {
-              errorMessage = flatErrors.join('\n');
+              errorMessage = flatErrors.join("\n");
             }
           }
         } else if (err.response?.data?.message) {
           // Định dạng: {message: "..."}
           errorMessage = err.response.data.message;
-        } else if (typeof err.response?.data === 'string') {
+        } else if (typeof err.response?.data === "string") {
           // Định dạng: string trực tiếp
           errorMessage = err.response.data;
         } else if (err.message) {
           // Lỗi JavaScript thông thường
           errorMessage = err.message;
         }
-        
-        console.log('Thông báo lỗi đã xử lý:', errorMessage);
+
+        console.log("Thông báo lỗi đã xử lý:", errorMessage);
       } catch (parseError) {
-        console.error('Lỗi khi xử lý thông báo lỗi:', parseError);
+        console.error("Lỗi khi xử lý thông báo lỗi:", parseError);
         // Giữ nguyên thông báo lỗi mặc định
       }
-      
-      Alert.alert(
-        "Đăng ký thất bại",
-        errorMessage
-      );
+
+      Alert.alert("Đăng ký thất bại", errorMessage);
     } finally {
       setLoading(false);
       setProcessingStep("");
@@ -1084,32 +1120,42 @@ const KoiRegistrationScreen: React.FC = () => {
   // Render dropdown items for koi selection
   const renderKoiDropdownItems = () => {
     if (koiProfiles.length === 0) {
-      return <Text style={styles.dropdownText}>Không có hồ sơ koi nào hoạt động</Text>;
+      return (
+        <Text style={styles.dropdownText}>
+          Không có hồ sơ koi nào hoạt động
+        </Text>
+      );
     }
 
     return (
-      <ScrollView nestedScrollEnabled={true} style={{maxHeight: 200}}>
+      <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 200 }}>
         {koiProfiles.map((profile) => (
           <TouchableOpacity
             key={profile.id}
             style={styles.dropdownItem}
             onPress={() => handleKoiSelection(profile.id)}>
             <View style={styles.dropdownItemContent}>
-              {profile.koiMedia && profile.koiMedia.length > 0 && profile.koiMedia[0].mediaType === "Image" ? (
-                <Image 
-                  source={{ uri: profile.koiMedia[0].mediaUrl }} 
+              {profile.koiMedia &&
+              profile.koiMedia.length > 0 &&
+              profile.koiMedia[0].mediaType === "Image" ? (
+                <Image
+                  source={{ uri: profile.koiMedia[0].mediaUrl }}
                   style={styles.dropdownItemImage}
                 />
               ) : (
                 <View style={styles.dropdownItemImagePlaceholder}>
-                  <Text style={styles.dropdownItemImagePlaceholderText}>Koi</Text>
+                  <Text style={styles.dropdownItemImagePlaceholderText}>
+                    Koi
+                  </Text>
                 </View>
               )}
               <View style={styles.dropdownItemDetails}>
                 <Text style={styles.dropdownItemName}>{profile.name}</Text>
                 <Text style={styles.dropdownItemInfo}>
                   {profile.variety.name}, {profile.size}cm
-                  {profile.status && <Text style={{color: '#4CAF50'}}> • Hoạt động</Text>}
+                  {profile.status && (
+                    <Text style={{ color: "#4CAF50" }}> • Hoạt động</Text>
+                  )}
                 </Text>
               </View>
             </View>
@@ -1161,9 +1207,9 @@ const KoiRegistrationScreen: React.FC = () => {
   // Render media list manually to avoid nesting FlatList in ScrollView
   const renderMediaList = () => {
     // Kiểm tra có ảnh và video
-    const hasImages = mediaItems.some(item => item.mediaType === 'Image');
-    const hasVideos = mediaItems.some(item => item.mediaType === 'Video');
-    
+    const hasImages = mediaItems.some((item) => item.mediaType === "Image");
+    const hasVideos = mediaItems.some((item) => item.mediaType === "Video");
+
     if (mediaItems.length === 0) {
       return (
         <View>
@@ -1180,11 +1226,23 @@ const KoiRegistrationScreen: React.FC = () => {
     return (
       <View style={styles.mediaList}>
         <View style={styles.mediaRequirementContainer}>
-          <Text style={[styles.mediaRequirement, {color: hasImages ? '#4CAF50' : '#F44336'}]}>
-            {hasImages ? '✓ Đã có ít nhất một ảnh' : '✗ Cần thêm ít nhất một ảnh'}
+          <Text
+            style={[
+              styles.mediaRequirement,
+              { color: hasImages ? "#4CAF50" : "#F44336" },
+            ]}>
+            {hasImages
+              ? "✓ Đã có ít nhất một ảnh"
+              : "✗ Cần thêm ít nhất một ảnh"}
           </Text>
-          <Text style={[styles.mediaRequirement, {color: hasVideos ? '#4CAF50' : '#F44336'}]}>
-            {hasVideos ? '✓ Đã có ít nhất một video' : '✗ Cần thêm ít nhất một video'}
+          <Text
+            style={[
+              styles.mediaRequirement,
+              { color: hasVideos ? "#4CAF50" : "#F44336" },
+            ]}>
+            {hasVideos
+              ? "✓ Đã có ít nhất một video"
+              : "✗ Cần thêm ít nhất một video"}
           </Text>
         </View>
         <FlatList
@@ -1209,18 +1267,24 @@ const KoiRegistrationScreen: React.FC = () => {
             <Text style={styles.categoryTitleError}>Thông báo</Text>
             <Text style={styles.categoryErrorText}>{formErrors.category}</Text>
             <View style={styles.categoryErrorTips}>
-              <Text style={styles.categoryErrorTipsText}>Gợi ý: Bạn có thể điều chỉnh kích thước Koi để tìm hạng mục phù hợp khác.</Text>
+              <Text style={styles.categoryErrorTipsText}>
+                Gợi ý: Bạn có thể điều chỉnh kích thước Koi để tìm hạng mục phù
+                hợp khác.
+              </Text>
             </View>
           </View>
         );
       }
       return null;
     }
-    
+
     // Render category card
-    const renderCategoryCard = (category: CompetitionCategory, index: number) => {
+    const renderCategoryCard = (
+      category: CompetitionCategory,
+      index: number
+    ) => {
       const isSelected = selectedCategory.id === category.id;
-      
+
       return (
         <TouchableOpacity
           key={category.id}
@@ -1228,22 +1292,21 @@ const KoiRegistrationScreen: React.FC = () => {
             styles.categoryCard,
             isSelected && styles.categoryCardSelected,
           ]}
-          onPress={() => setSelectedCategory(category)}
-        >
+          onPress={() => setSelectedCategory(category)}>
           <View style={styles.categoryHeader}>
             <Text style={styles.categoryName}>{category.name}</Text>
             {isSelected && (
               <MaterialIcons name="check-circle" size={24} color="#4CAF50" />
             )}
           </View>
-          
+
           <View style={styles.categoryFeeContainer}>
             <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
             <Text style={styles.categoryFee}>
-              {category.registrationFee.toLocaleString('vi-VN')} đ
+              {category.registrationFee.toLocaleString("vi-VN")} đ
             </Text>
           </View>
-          
+
           <View style={styles.categoryDetailsContainer}>
             <View style={styles.categoryDetailItem}>
               <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
@@ -1251,7 +1314,7 @@ const KoiRegistrationScreen: React.FC = () => {
                 {category.sizeMin} - {category.sizeMax} cm
               </Text>
             </View>
-            
+
             <View style={styles.categoryDetailItem}>
               <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
               <Text style={styles.categoryDetailValue}>
@@ -1259,7 +1322,7 @@ const KoiRegistrationScreen: React.FC = () => {
               </Text>
             </View>
           </View>
-          
+
           {isSelected && (
             <View style={styles.categorySuitableIndicator}>
               <Text style={styles.categorySuitableText}>✓ Đã chọn</Text>
@@ -1268,22 +1331,21 @@ const KoiRegistrationScreen: React.FC = () => {
         </TouchableOpacity>
       );
     };
-    
+
     return (
       <View style={styles.categoryInfo}>
         <Text style={styles.categoryTitle}>Hạng Mục Phù Hợp</Text>
-        
+
         {suitableCategories.length > 1 ? (
           <>
             <Text style={styles.categorySelectionLabel}>
               Vui lòng chọn một hạng mục phù hợp với Koi của bạn:
             </Text>
-            <ScrollView 
-              horizontal 
+            <ScrollView
+              horizontal
               showsHorizontalScrollIndicator={true}
-              contentContainerStyle={styles.categoryCardsContainer}
-            >
-              {suitableCategories.map((category, index) => 
+              contentContainerStyle={styles.categoryCardsContainer}>
+              {suitableCategories.map((category, index) =>
                 renderCategoryCard(category, index)
               )}
             </ScrollView>
@@ -1293,9 +1355,11 @@ const KoiRegistrationScreen: React.FC = () => {
             {renderCategoryCard(selectedCategory, 0)}
           </View>
         )}
-        
+
         <View style={styles.categorySelectedInfo}>
-          <Text style={styles.categorySelectedTitle}>Thông tin hạng mục đã chọn</Text>
+          <Text style={styles.categorySelectedTitle}>
+            Thông tin hạng mục đã chọn
+          </Text>
           <View style={styles.categoryContent}>
             <View style={styles.categoryRow}>
               <Text style={styles.categoryLabel}>Tên hạng mục:</Text>
@@ -1303,14 +1367,20 @@ const KoiRegistrationScreen: React.FC = () => {
             </View>
             <View style={styles.categoryRow}>
               <Text style={styles.categoryLabel}>Kích thước:</Text>
-              <Text style={styles.categoryValue}>{selectedCategory.sizeMin} - {selectedCategory.sizeMax} cm</Text>
+              <Text style={styles.categoryValue}>
+                {selectedCategory.sizeMin} - {selectedCategory.sizeMax} cm
+              </Text>
             </View>
             <View style={styles.categoryRow}>
               <Text style={styles.categoryLabel}>Phí đăng ký:</Text>
-              <Text style={styles.categoryValueFee}>{selectedCategory.registrationFee.toLocaleString('vi-VN')} đ</Text>
+              <Text style={styles.categoryValueFee}>
+                {selectedCategory.registrationFee.toLocaleString("vi-VN")} đ
+              </Text>
             </View>
             <View style={styles.categorySuitableIndicator}>
-              <Text style={styles.categorySuitableText}>✓ Phù hợp với Koi của bạn</Text>
+              <Text style={styles.categorySuitableText}>
+                ✓ Phù hợp với Koi của bạn
+              </Text>
             </View>
           </View>
         </View>
@@ -1430,25 +1500,21 @@ const KoiRegistrationScreen: React.FC = () => {
 
   // Handle removing media for new koi profile
   const handleRemoveNewMedia = (id: string) => {
-    Alert.alert(
-      "Xóa",
-      "Bạn có chắc chắn muốn xóa mục này?",
-      [
-        {
-          text: "Hủy",
-          style: "cancel",
+    Alert.alert("Xóa", "Bạn có chắc chắn muốn xóa mục này?", [
+      {
+        text: "Hủy",
+        style: "cancel",
+      },
+      {
+        text: "Xóa",
+        style: "destructive",
+        onPress: () => {
+          setNewKoiMedia((prevItems) =>
+            prevItems.filter((item) => item.id !== id)
+          );
         },
-        {
-          text: "Xóa",
-          style: "destructive",
-          onPress: () => {
-            setNewKoiMedia((prevItems) =>
-              prevItems.filter((item) => item.id !== id)
-            );
-          },
-        },
-      ]
-    );
+      },
+    ]);
   };
 
   // Validate new profile data
@@ -1456,17 +1522,17 @@ const KoiRegistrationScreen: React.FC = () => {
     // Tạo một object chứa lỗi
     const errors: { [key: string]: string } = {};
     let isValid = true;
-    
+
     if (!selectedVariety) {
       errors.variety = "Vui lòng chọn giống koi";
       isValid = false;
     }
-    
+
     if (!newKoiName.trim()) {
       errors.name = "Vui lòng nhập tên koi";
       isValid = false;
     }
-    
+
     const size = parseFloat(newKoiSize);
     if (isNaN(size) || size <= 0) {
       errors.size = "Kích thước phải là số dương";
@@ -1475,95 +1541,95 @@ const KoiRegistrationScreen: React.FC = () => {
       errors.size = "Kích thước phải từ 15 đến 75 cm";
       isValid = false;
     }
-    
+
     const age = parseInt(newKoiAge);
     if (isNaN(age) || age <= 0) {
       errors.age = "Tuổi phải là số nguyên dương";
       isValid = false;
     }
-    
+
     if (!newKoiGender) {
       errors.gender = "Vui lòng chọn giới tính koi";
       isValid = false;
     }
-    
+
     if (!newKoiBloodline.trim()) {
       errors.bloodline = "Vui lòng nhập dòng máu koi";
       isValid = false;
     }
-    
+
     if (newKoiMedia.length === 0) {
       errors.media = "Vui lòng thêm ít nhất một ảnh hoặc video";
       isValid = false;
     }
-    
+
     // Nếu có lỗi, hiển thị cảnh báo với thông tin cụ thể
     if (!isValid) {
       // Tạo thông báo lỗi từ object errors
-      const errorMessages = Object.values(errors).join('\n');
+      const errorMessages = Object.values(errors).join("\n");
       Alert.alert("Thông tin không hợp lệ", errorMessages);
     }
-    
+
     return isValid;
   };
 
   // Create new koi profile
   const handleCreateProfile = async () => {
     if (!validateNewProfile()) return;
-    
+
     try {
       setIsCreatingProfile(true);
       setLoading(true);
       setProcessingStep("Đang tạo hồ sơ koi mới...");
-      
+
       // Create form data
       const formData = new FormData();
-      formData.append('VarietyId', selectedVariety!.id);
-      formData.append('Name', newKoiName);
-      formData.append('Size', newKoiSize);
-      formData.append('Age', newKoiAge);
-      formData.append('Gender', newKoiGender);
-      formData.append('Bloodline', newKoiBloodline);
-      formData.append('Status', 'Active');
-      
+      formData.append("VarietyId", selectedVariety!.id);
+      formData.append("Name", newKoiName);
+      formData.append("Size", newKoiSize);
+      formData.append("Age", newKoiAge);
+      formData.append("Gender", newKoiGender);
+      formData.append("Bloodline", newKoiBloodline);
+      formData.append("Status", "active");
+
       // Add media files
       for (const item of newKoiMedia) {
         if (item.fileUri) {
-          if (item.mediaType === 'Image') {
-            formData.append('KoiImages', {
+          if (item.mediaType === "Image") {
+            formData.append("KoiImages", {
               uri: item.fileUri,
-              type: 'image/jpeg',
-              name: `image_${item.id}.jpg`
+              type: "image/jpeg",
+              name: `image_${item.id}.jpg`,
             } as any);
           } else {
-            formData.append('KoiVideos', {
+            formData.append("KoiVideos", {
               uri: item.fileUri,
-              type: 'video/mp4',
-              name: `video_${item.id}.mp4`
+              type: "video/mp4",
+              name: `video_${item.id}.mp4`,
             } as any);
           }
         }
       }
-      
+
       // Create profile
-      console.log('Calling createKoiProfile API with form data');
+      console.log("Calling createKoiProfile API with form data");
       const response = await createKoiProfile(formData);
-      console.log('Created profile:', response);
-      
+      console.log("Created profile:", response);
+
       if (response.data) {
         const profile = response.data;
-        
+
         // Cập nhật cả ref và state
         profileRef.current = profile;
-        
+
         // Cập nhật state với dữ liệu từ profile
         setSelectedKoiProfile(profile);
         setKoiName(profile.name);
         setKoiSize(profile.size.toString());
-        setKoiVariety(profile.variety?.name || '');
-        setKoiDescription(profile.bloodline || ''); // Lưu bloodline vào koiDescription
+        setKoiVariety(profile.variety?.name || "");
+        setKoiDescription(profile.bloodline || ""); // Lưu bloodline vào koiDescription
         // Không cập nhật registrationNote khi tạo profile mới để giữ nguyên ghi chú người dùng đã nhập
-        
+
         // Kiểm tra trước khi cập nhật media
         if (profile.koiMedia && Array.isArray(profile.koiMedia)) {
           setMediaItems(
@@ -1574,43 +1640,47 @@ const KoiRegistrationScreen: React.FC = () => {
             }))
           );
         }
-        
+
         // Đợi state cập nhật (tăng thời gian đợi)
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
         // Log state sau khi cập nhật
-        console.log('Updated profile ref:', profileRef.current);
-        console.log('Updated size:', profile.size.toString());
-        console.log('Updated variety:', profile.variety.id);
-        
+        console.log("Updated profile ref:", profileRef.current);
+        console.log("Updated size:", profile.size.toString());
+        console.log("Updated variety:", profile.variety.id);
+
         // Tìm category phù hợp cho profile mới
         setProcessingStep("Đang tìm category phù hợp...");
         setIsLoadingCategory(true);
-        
-        console.log('Calling findSuitableCategory with params:', {
+
+        console.log("Calling findSuitableCategory with params:", {
           koiShowId: showIdRef.current,
           varietyId: profile.variety.id,
-          size: profile.size.toString()
+          size: profile.size.toString(),
         });
-        
+
         try {
           const categoryResponse = await findSuitableCategory(
             showIdRef.current,
             profile.variety.id,
             profile.size.toString()
           );
-          
-          console.log('Category response for new profile:', categoryResponse);
-          
-          if (categoryResponse && categoryResponse.data && categoryResponse.data.length > 0) {
+
+          console.log("Category response for new profile:", categoryResponse);
+
+          if (
+            categoryResponse &&
+            categoryResponse.data &&
+            categoryResponse.data.length > 0
+          ) {
             // Lưu danh sách các hạng mục phù hợp
             const foundCategories = categoryResponse.data;
             setSuitableCategories(foundCategories);
-            
+
             // Mặc định chọn hạng mục đầu tiên
             setSelectedCategory(foundCategories[0]);
-            setFormErrors(prev => ({ ...prev, category: '' }));
-            
+            setFormErrors((prev) => ({ ...prev, category: "" }));
+
             // Nếu có nhiều hạng mục, hiển thị thông báo cho người dùng biết có thể chọn hạng mục
             if (foundCategories.length > 1) {
               Alert.alert(
@@ -1620,26 +1690,29 @@ const KoiRegistrationScreen: React.FC = () => {
               );
             }
           } else {
-            console.log('No suitable category found for new profile');
+            console.log("No suitable category found for new profile");
             setSuitableCategories([]);
-            setFormErrors(prev => ({ 
-              ...prev, 
-              category: 'Không tìm thấy category phù hợp cho koi mới' 
+            setFormErrors((prev) => ({
+              ...prev,
+              category: "Không tìm thấy category phù hợp cho koi mới",
             }));
           }
         } catch (categoryError: any) {
-          console.error('Error finding category for new profile:', categoryError);
+          console.error(
+            "Error finding category for new profile:",
+            categoryError
+          );
           if (categoryError.response) {
-            console.error('Error response:', categoryError.response.data);
+            console.error("Error response:", categoryError.response.data);
           }
-          setFormErrors(prev => ({ 
-            ...prev, 
-            category: 'Lỗi khi tìm category phù hợp cho koi mới' 
+          setFormErrors((prev) => ({
+            ...prev,
+            category: "Lỗi khi tìm category phù hợp cho koi mới",
           }));
         } finally {
           setIsLoadingCategory(false);
         }
-        
+
         // Reset new profile form
         setShowCreateForm(false);
         setSelectedVariety(null);
@@ -1649,7 +1722,7 @@ const KoiRegistrationScreen: React.FC = () => {
         setNewKoiGender("Đực");
         setNewKoiBloodline("");
         setNewKoiMedia([]);
-        
+
         Alert.alert(
           "Thành công",
           "Đã tạo hồ sơ koi mới. Bạn có thể tiếp tục đăng ký thi đấu."
@@ -1657,10 +1730,7 @@ const KoiRegistrationScreen: React.FC = () => {
       }
     } catch (error) {
       console.error("Error creating koi profile:", error);
-      Alert.alert(
-        "Lỗi",
-        "Không thể tạo hồ sơ koi. Vui lòng thử lại."
-      );
+      Alert.alert("Lỗi", "Không thể tạo hồ sơ koi. Vui lòng thử lại.");
     } finally {
       setIsCreatingProfile(false);
       setLoading(false);
@@ -1683,7 +1753,7 @@ const KoiRegistrationScreen: React.FC = () => {
     }
 
     return (
-      <ScrollView nestedScrollEnabled={true} style={{maxHeight: 200}}>
+      <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 200 }}>
         {varieties.map((variety) => (
           <TouchableOpacity
             key={variety.id}
@@ -1784,7 +1854,7 @@ const KoiRegistrationScreen: React.FC = () => {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Tạo hồ sơ Koi mới</Text>
-        
+
         {/* Variety Selection */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Giống Koi</Text>
@@ -1802,18 +1872,20 @@ const KoiRegistrationScreen: React.FC = () => {
               style={styles.dropdownIcon}
             />
           </TouchableOpacity>
-          
+
           {isVarietyDropdownOpen && (
             <View style={styles.dropdownMenu}>
               {renderVarietyDropdownItems()}
             </View>
           )}
-          
+
           {selectedVariety && (
-            <Text style={styles.descriptionText}>{selectedVariety.description}</Text>
+            <Text style={styles.descriptionText}>
+              {selectedVariety.description}
+            </Text>
           )}
         </View>
-        
+
         {/* Name */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Tên Koi</Text>
@@ -1826,7 +1898,7 @@ const KoiRegistrationScreen: React.FC = () => {
             editable={!isCreatingProfile}
           />
         </View>
-        
+
         {/* Size */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Kích thước (cm)</Text>
@@ -1840,7 +1912,7 @@ const KoiRegistrationScreen: React.FC = () => {
             editable={!isCreatingProfile}
           />
         </View>
-        
+
         {/* Age */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Tuổi</Text>
@@ -1854,7 +1926,7 @@ const KoiRegistrationScreen: React.FC = () => {
             editable={!isCreatingProfile}
           />
         </View>
-        
+
         {/* Gender */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Giới tính</Text>
@@ -1870,14 +1942,14 @@ const KoiRegistrationScreen: React.FC = () => {
               style={styles.dropdownIcon}
             />
           </TouchableOpacity>
-          
+
           {isGenderDropdownOpen && (
             <View style={styles.dropdownMenu}>
               {renderGenderDropdownItems()}
             </View>
           )}
         </View>
-        
+
         {/* Bloodline */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Dòng máu</Text>
@@ -1890,13 +1962,13 @@ const KoiRegistrationScreen: React.FC = () => {
             editable={!isCreatingProfile}
           />
         </View>
-        
+
         {/* Media Gallery */}
         <View style={styles.mediaSection}>
           <Text style={styles.label}>Thư viện ảnh/video</Text>
-          
+
           {renderNewKoiMediaList()}
-          
+
           <View style={styles.mediaButtonsContainer}>
             <TouchableOpacity
               style={styles.mediaButton}
@@ -1904,7 +1976,7 @@ const KoiRegistrationScreen: React.FC = () => {
               disabled={isCreatingProfile}>
               <Text style={styles.mediaButtonText}>Thêm ảnh</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.mediaButton}
               onPress={handleAddNewVideo}
@@ -1913,7 +1985,7 @@ const KoiRegistrationScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-        
+
         {/* Submit Button */}
         <TouchableOpacity
           style={[
@@ -1933,7 +2005,7 @@ const KoiRegistrationScreen: React.FC = () => {
   // Render banner
   const renderBanner = () => {
     if (!showBanner) return null;
-    
+
     // Hiển thị skeleton loader khi đang tải
     if (!showInfo.name) {
       return (
@@ -1944,17 +2016,22 @@ const KoiRegistrationScreen: React.FC = () => {
         </View>
       );
     }
-    
+
     // Sử dụng hình ảnh mặc định nếu không có imgUrl từ API
-    const bannerImageSource = showInfo.imgUrl 
-      ? { uri: showInfo.imgUrl } 
-      : { uri: "https://images.pexels.com/photos/219794/pexels-photo-219794.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1" };
-    
+    const bannerImageSource = showInfo.imgUrl
+      ? { uri: showInfo.imgUrl }
+      : {
+          uri: "https://images.pexels.com/photos/219794/pexels-photo-219794.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
+        };
+
     // Tính toán chiều cao động dựa trên việc hiển thị đầy đủ description hay không
-    const dynamicHeight = showFullDescription && showInfo.description && showInfo.description.length > 100 
-      ? undefined // Không giới hạn chiều cao khi hiển thị đầy đủ
-      : 250; // Chiều cao cố định khi hiển thị rút gọn
-    
+    const dynamicHeight =
+      showFullDescription &&
+      showInfo.description &&
+      showInfo.description.length > 100
+        ? undefined // Không giới hạn chiều cao khi hiển thị đầy đủ
+        : 250; // Chiều cao cố định khi hiển thị rút gọn
+
     return (
       <View style={[styles.bannerContainer, { height: dynamicHeight }]}>
         <Image
@@ -1967,23 +2044,23 @@ const KoiRegistrationScreen: React.FC = () => {
             <Text style={styles.bannerTitle}>{showInfo.name}</Text>
             <Text style={styles.bannerSubtitle}>{showInfo.location}</Text>
             <Text style={styles.bannerDate}>{showInfo.date}</Text>
-            
+
             {/* Hiển thị description rút gọn hoặc đầy đủ */}
             {showInfo.description ? (
               <View>
                 <Text style={styles.bannerDescription}>
-                  {!showFullDescription && showInfo.description.length > 100 
-                    ? showInfo.description.substring(0, 100) + "..." 
-                    : showInfo.description
-                  }
+                  {!showFullDescription && showInfo.description.length > 100
+                    ? showInfo.description.substring(0, 100) + "..."
+                    : showInfo.description}
                 </Text>
-                
+
                 {/* Chỉ hiển thị nút "Xem thêm" nếu description dài hơn 100 ký tự */}
                 {showInfo.description.length > 100 && (
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.descriptionToggle}
-                    onPress={() => setShowFullDescription(!showFullDescription)}
-                  >
+                    onPress={() =>
+                      setShowFullDescription(!showFullDescription)
+                    }>
                     <Text style={styles.descriptionToggleText}>
                       {showFullDescription ? "Thu gọn" : "Xem thêm"}
                     </Text>
@@ -2000,7 +2077,7 @@ const KoiRegistrationScreen: React.FC = () => {
   // Render categories list - Thay đổi thành cuộn ngang
   const renderCategories = () => {
     if (categories.length === 0) return null;
-    
+
     return (
       <View style={styles.categoriesContainer}>
         <View style={styles.categoriesHeader}>
@@ -2009,7 +2086,7 @@ const KoiRegistrationScreen: React.FC = () => {
             Các hạng mục của {showInfo.name}
           </Text>
         </View>
-        
+
         <FlatList
           data={categories}
           keyExtractor={(item) => item.id}
@@ -2017,43 +2094,55 @@ const KoiRegistrationScreen: React.FC = () => {
           showsHorizontalScrollIndicator={false}
           renderItem={({ item: category }) => {
             // Kiểm tra xem hạng mục có phải là hạng mục được chọn không
-            const isSelected = selectedCategory && selectedCategory.id === category.id;
-            
+            const isSelected =
+              selectedCategory && selectedCategory.id === category.id;
+
             return (
-              <View 
+              <View
                 style={[
                   styles.categoryCard,
-                  isSelected && styles.categoryCardSelected
-                ]}
-              >
+                  isSelected && styles.categoryCardSelected,
+                ]}>
                 <View style={styles.categoryHeader}>
                   <Text style={styles.categoryName}>{category.name}</Text>
                 </View>
-                
+
                 <View style={styles.categoryFeeContainer}>
                   <Text style={styles.categoryFeeLabel}>Phí:</Text>
-                  <Text style={styles.categoryFee}>{category.registrationFee.toLocaleString('vi-VN')} đ</Text>
+                  <Text style={styles.categoryFee}>
+                    {category.registrationFee.toLocaleString("vi-VN")} đ
+                  </Text>
                 </View>
-                
+
                 <View style={styles.categoryDetailsContainer}>
                   <View style={styles.categoryDetailItem}>
                     <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
-                    <Text style={styles.categoryDetailValue}>{category.sizeMin} - {category.sizeMax} cm</Text>
+                    <Text style={styles.categoryDetailValue}>
+                      {category.sizeMin} - {category.sizeMax} cm
+                    </Text>
                   </View>
-                  
+
                   <View style={styles.categoryDetailItem}>
-                    <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
-                    <Text style={styles.categoryDetailValue}>{category.maxEntries} Koi</Text>
+                    <Text style={styles.categoryDetailLabel}>
+                      Số lượng tối đa:
+                    </Text>
+                    <Text style={styles.categoryDetailValue}>
+                      {category.maxEntries} Koi
+                    </Text>
                   </View>
                 </View>
-                
+
                 {category.description && (
-                  <Text style={styles.categoryDescription}>{category.description}</Text>
+                  <Text style={styles.categoryDescription}>
+                    {category.description}
+                  </Text>
                 )}
-                
+
                 {category.varieties && category.varieties.length > 0 && (
                   <View style={styles.varietiesContainer}>
-                    <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
+                    <Text style={styles.varietiesTitle}>
+                      Giống Koi được phép:
+                    </Text>
                     <View style={styles.varietiesList}>
                       {category.varieties.map((variety, index) => (
                         <View key={index} style={styles.varietyTag}>
@@ -2063,7 +2152,7 @@ const KoiRegistrationScreen: React.FC = () => {
                     </View>
                   </View>
                 )}
-                
+
                 {isSelected && (
                   <View style={styles.selectedBadge}>
                     <Text style={styles.selectedBadgeText}>Đã chọn</Text>
@@ -2082,7 +2171,7 @@ const KoiRegistrationScreen: React.FC = () => {
   // Render all categories list - Hiển thị tất cả các hạng mục của cuộc thi
   const renderAllCategories = () => {
     if (categories.length === 0) return null;
-    
+
     return (
       <View style={styles.categoriesContainer}>
         <View style={styles.categoriesHeader}>
@@ -2091,7 +2180,7 @@ const KoiRegistrationScreen: React.FC = () => {
             Các hạng mục của {showInfo.name}
           </Text>
         </View>
-        
+
         <FlatList
           data={categories}
           keyExtractor={(item) => item.id}
@@ -2103,31 +2192,43 @@ const KoiRegistrationScreen: React.FC = () => {
                 <View style={styles.categoryHeader}>
                   <Text style={styles.categoryName}>{category.name}</Text>
                 </View>
-                
+
                 <View style={styles.categoryFeeContainer}>
                   <Text style={styles.categoryFeeLabel}>Phí:</Text>
-                  <Text style={styles.categoryFee}>{category.registrationFee.toLocaleString('vi-VN')} đ</Text>
+                  <Text style={styles.categoryFee}>
+                    {category.registrationFee.toLocaleString("vi-VN")} đ
+                  </Text>
                 </View>
-                
+
                 <View style={styles.categoryDetailsContainer}>
                   <View style={styles.categoryDetailItem}>
                     <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
-                    <Text style={styles.categoryDetailValue}>{category.sizeMin} - {category.sizeMax} cm</Text>
+                    <Text style={styles.categoryDetailValue}>
+                      {category.sizeMin} - {category.sizeMax} cm
+                    </Text>
                   </View>
-                  
+
                   <View style={styles.categoryDetailItem}>
-                    <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
-                    <Text style={styles.categoryDetailValue}>{category.maxEntries} Koi</Text>
+                    <Text style={styles.categoryDetailLabel}>
+                      Số lượng tối đa:
+                    </Text>
+                    <Text style={styles.categoryDetailValue}>
+                      {category.maxEntries} Koi
+                    </Text>
                   </View>
                 </View>
-                
+
                 {category.description && (
-                  <Text style={styles.categoryDescription}>{category.description}</Text>
+                  <Text style={styles.categoryDescription}>
+                    {category.description}
+                  </Text>
                 )}
-                
+
                 {category.varieties && category.varieties.length > 0 && (
                   <View style={styles.varietiesContainer}>
-                    <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
+                    <Text style={styles.varietiesTitle}>
+                      Giống Koi được phép:
+                    </Text>
                     <View style={styles.varietiesList}>
                       {category.varieties.map((variety, index) => (
                         <View key={index} style={styles.varietyTag}>
@@ -2157,10 +2258,9 @@ const KoiRegistrationScreen: React.FC = () => {
   }, [paymentTimeoutId]);
 
   return (
-    <ScrollView 
-      style={styles.scrollView} 
-      contentContainerStyle={styles.scrollViewContent}
-    >
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollViewContent}>
       <View style={styles.container}>
         {/* Banner */}
         {renderBanner()}
@@ -2208,7 +2308,9 @@ const KoiRegistrationScreen: React.FC = () => {
           {/* Koi Selection */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Chọn Koi của bạn</Text>
-            <Text style={styles.infoText}>Chỉ hiển thị những cá Koi có trạng thái Hoạt động</Text>
+            <Text style={styles.infoText}>
+              Chỉ hiển thị những cá Koi có trạng thái Hoạt động
+            </Text>
             <TouchableOpacity
               style={styles.dropdown}
               onPress={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -2272,7 +2374,6 @@ const KoiRegistrationScreen: React.FC = () => {
                     {/* Optional: Add validation error display here */}
                   </View>
 
-
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Kích thước Koi</Text>
                     <View style={styles.formRow}>
@@ -2294,7 +2395,9 @@ const KoiRegistrationScreen: React.FC = () => {
                     {formErrors.size ? (
                       <Text style={styles.errorText}>{formErrors.size}</Text>
                     ) : (
-                      <Text style={styles.sizeHint}>Kích thước hợp lệ: 15-75 cm</Text>
+                      <Text style={styles.sizeHint}>
+                        Kích thước hợp lệ: 15-75 cm
+                      </Text>
                     )}
                   </View>
 
@@ -2322,7 +2425,7 @@ const KoiRegistrationScreen: React.FC = () => {
                       editable={false} // Không cho phép chỉnh sửa vì đây là thông tin từ profile
                     />
                   </View>
-                  
+
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Ghi chú đăng ký</Text>
                     <TextInput
@@ -2358,11 +2461,9 @@ const KoiRegistrationScreen: React.FC = () => {
               </View>
 
               {/* Category Info */}
-              {isLoadingCategory ? (
-                renderCategorySkeleton()
-              ) : (
-                renderCategoryInfo()
-              )}
+              {isLoadingCategory
+                ? renderCategorySkeleton()
+                : renderCategoryInfo()}
             </>
           )}
 
@@ -2452,7 +2553,6 @@ const KoiRegistrationScreen: React.FC = () => {
           paymentTimeoutId={paymentTimeoutId}
           setPaymentTimeoutId={setPaymentTimeoutId}
         />
-
       </View>
     </ScrollView>
   );
@@ -2539,8 +2639,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "#F0F0F0",
   },
   dropdownItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   dropdownItemImage: {
     width: 40,
@@ -2552,23 +2652,23 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E2E8F0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#E2E8F0",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 12,
   },
   dropdownItemImagePlaceholderText: {
     fontSize: 12,
-    color: '#64748B',
+    color: "#64748B",
   },
   dropdownItemDetails: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   dropdownItemName: {
     fontFamily: "Roboto",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: "#030303",
   },
   dropdownItemInfo: {
@@ -2861,7 +2961,7 @@ const styles = StyleSheet.create({
   successIndicator: {
     marginTop: 10,
     width: 40,
-    height: 40, 
+    height: 40,
     borderRadius: 20,
     backgroundColor: "#22C55E",
     justifyContent: "center",
@@ -2948,7 +3048,7 @@ const styles = StyleSheet.create({
   },
   bannerContent: {
     padding: 16,
-    width: '100%',
+    width: "100%",
     paddingTop: 60, // Thêm padding top để tránh bị header che
   },
   bannerTitle: {
@@ -2978,12 +3078,12 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     marginTop: 4,
     lineHeight: 20,
-    textAlign: 'left',
+    textAlign: "left",
   },
   descriptionToggle: {
     marginTop: 4,
-    alignSelf: 'flex-end', // Đặt nút ở phía bên phải
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: "flex-end", // Đặt nút ở phía bên phải
+    backgroundColor: "rgba(255,255,255,0.2)",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
@@ -2999,7 +3099,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderRadius: 6,
     marginTop: 12,
-    alignSelf: 'center', // Căn giữa nút
+    alignSelf: "center", // Căn giữa nút
     paddingHorizontal: 20, // Thêm padding ngang
   },
   bannerButtonText: {
@@ -3143,73 +3243,73 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   categoryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   categoryLabel: {
-    color: '#64748B',
+    color: "#64748B",
     fontSize: 14,
-    fontFamily: 'Roboto',
+    fontFamily: "Roboto",
   },
   categoryValue: {
-    color: '#000000',
+    color: "#000000",
     fontSize: 14,
-    fontWeight: '500',
-    fontFamily: 'Roboto',
+    fontWeight: "500",
+    fontFamily: "Roboto",
   },
   categoryValueFee: {
-    color: '#EF4444',
+    color: "#EF4444",
     fontSize: 16,
-    fontWeight: 'bold',
-    fontFamily: 'Roboto',
+    fontWeight: "bold",
+    fontFamily: "Roboto",
   },
   categorySuitableIndicator: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: "#ECFDF5",
     padding: 8,
     borderRadius: 6,
     marginTop: 12,
-    alignItems: 'center',
+    alignItems: "center",
     borderLeftWidth: 3,
-    borderLeftColor: '#10B981',
+    borderLeftColor: "#10B981",
   },
   categorySuitableText: {
-    color: '#16A34A',
-    fontWeight: '500',
+    color: "#16A34A",
+    fontWeight: "500",
     fontSize: 14,
   },
   categoriesSubtitle: {
-    color: '#64748B',
+    color: "#64748B",
     fontSize: 14,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   categoryErrorTips: {
-    backgroundColor: '#FEF9C3', 
+    backgroundColor: "#FEF9C3",
     padding: 10,
     borderRadius: 6,
     marginTop: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#FBBF24',
+    borderLeftColor: "#FBBF24",
   },
   categoryErrorTipsText: {
-    color: '#92400E',
+    color: "#92400E",
     fontSize: 12,
   },
   formRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
   },
   sizeInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#E5E7EB",
     borderRadius: 8,
     backgroundColor: "#FFFFFF",
-    overflow: 'hidden',
-    width: '60%',
+    overflow: "hidden",
+    width: "60%",
     height: 38,
   },
   sizeInput: {
@@ -3221,21 +3321,21 @@ const styles = StyleSheet.create({
     color: "#000000",
   },
   sizeUnit: {
-    backgroundColor: '#F3F4F6',
-    height: '100%',
+    backgroundColor: "#F3F4F6",
+    height: "100%",
     paddingHorizontal: 8,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   sizeUnitText: {
-    color: '#4B5563',
-    fontWeight: '500',
+    color: "#4B5563",
+    fontWeight: "500",
     fontSize: 12,
   },
   sizeHint: {
-    color: '#6B7280',
+    color: "#6B7280",
     fontSize: 12,
     marginTop: 4,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   // Modal styles
   modalContainer: {
@@ -3275,18 +3375,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.8)",
   },
   mediaRequirementContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 10,
     paddingHorizontal: 8,
   },
   mediaRequirement: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    textAlign: 'center',
+    fontWeight: "500",
+    color: "#666",
+    textAlign: "center",
     marginTop: 8,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   // Styles for category cards
   categoryCardsContainer: {
@@ -3335,17 +3435,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryFeeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: "#FEF2F2",
     padding: 8,
     borderRadius: 6,
   },
   categoryFeeLabel: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#991B1B',
+    fontWeight: "500",
+    color: "#991B1B",
     marginRight: 4,
   },
   categoryFee: {
@@ -3355,34 +3455,34 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   categoryDetailsContainer: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
     padding: 8,
     borderRadius: 6,
     marginBottom: 12,
   },
   categoryDetailItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 4,
   },
   categoryDetailLabel: {
     fontSize: 13,
-    color: '#4B5563',
-    fontWeight: '500',
+    color: "#4B5563",
+    fontWeight: "500",
   },
   categoryDetailValue: {
     fontSize: 13,
-    color: '#000000',
-    fontWeight: '500',
+    color: "#000000",
+    fontWeight: "500",
   },
   singleCategoryContainer: {
     marginVertical: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   categorySelectedInfo: {
     marginTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
     paddingTop: 16,
   },
   categorySelectedTitle: {
@@ -3393,22 +3493,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   selectedBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
   },
   selectedBadgeText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   varietyTagText: {
     fontSize: 12,
-    color: '#4B5563',
+    color: "#4B5563",
   },
   infoText: {
     fontFamily: "Roboto",
