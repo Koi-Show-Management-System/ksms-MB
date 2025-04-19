@@ -80,6 +80,11 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+// Add this configuration to exclude the conflicting WebRTC library
+configurations.all {
+    exclude group: 'org.jitsi', module: 'webrtc'
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
