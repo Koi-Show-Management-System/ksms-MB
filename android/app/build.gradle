@@ -93,6 +93,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
+        multiDexEnabled true
     }
     signingConfigs {
         debug {
@@ -123,6 +124,11 @@ android {
         resources {
             excludes += ['META-INF/proguard/androidx-annotations.pro']
             excludes += ['**/GeneratedRequestManagerFactory.class']
+            excludes += ['**/com/bumptech/glide/GeneratedRequestManagerFactory.dex']
+            excludes += ['**/com/bumptech/glide/GeneratedAppGlideModuleImpl.class']
+            excludes += ['**/com/bumptech/glide/GeneratedAppGlideModuleImpl.dex']
+            pickFirsts += ['**/com.bumptech.glide.GeneratedRequestManagerFactory.class']
+            pickFirsts += ['**/com.bumptech.glide.GeneratedRequestManagerFactory.dex']
         }
     }
     androidResources {
@@ -153,6 +159,9 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    
+    // Thêm hỗ trợ multidex
+    implementation("androidx.multidex:multidex:2.0.1")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
@@ -184,7 +193,17 @@ configurations.all {
     resolutionStrategy {
         // Buộc sử dụng cùng một phiên bản của Glide cho tất cả các phụ thuộc
         force "com.github.bumptech.glide:glide:4.16.0"
-        // Loại trừ một số module gây xung đột nếu cần
-        exclude group: "com.github.bumptech.glide", module: "annotation"
+        force "com.github.bumptech.glide:annotations:4.16.0"
+        force "com.github.bumptech.glide:disklrucache:4.16.0"
+        force "com.github.bumptech.glide:gifdecoder:4.16.0"
+        
+        // Loại trừ trùng lặp từ thư viện expo-image
+        eachDependency { details ->
+            if (details.requested.group == 'com.github.bumptech.glide') {
+                if (details.requested.module == 'compiler') {
+                    details.useVersion "4.16.0"
+                }
+            }
+        }
     }
 }

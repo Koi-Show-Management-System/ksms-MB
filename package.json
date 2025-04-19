@@ -69,7 +69,6 @@
     "react-native-blob-util": "^0.21.2",
     "react-native-document-picker": "^9.3.1",
     "react-native-dropdown-select-list": "^2.0.5",
-    "react-native-fast-image": "^8.6.3",
     "react-native-file-access": "^3.1.1",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-haptic-feedback": "^2.3.3",
@@ -122,7 +121,6 @@
       "reactNativeDirectoryCheck": {
         "listUnknownPackages": false,
         "exclude": [
-          "react-native-fast-image",
           "react-native-skeleton-placeholder",
           "react-native-snap-carousel",
           "react-native-image-crop-picker"
