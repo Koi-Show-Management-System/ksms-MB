@@ -8,7 +8,9 @@
         "-y",
         "@21st-dev/magic@latest",
         "API_KEY=\"\"521a3d08b141126deeab141d14ff0debc991055764dc75c0cce2ff89b3ba7581\"\""
-      ]
+      ],
+      "disabled": true,
+      "alwaysAllow": []
     },
     "brave-search": {
       "command": "cmd",
@@ -20,7 +22,10 @@
       ],
       "env": {
         "BRAVE_API_KEY": "BSAzZAu6jUdteJYd5bCHMKWrI8WRVlC"
-      }
+      },
+      "alwaysAllow": [
+        "brave_web_search"
+      ]
     }
   }
-} 
+}

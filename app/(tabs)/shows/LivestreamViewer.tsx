@@ -8,7 +8,6 @@ import {
   StreamVideoClient,
   useCall,
   useCallStateHooks,
-  useCallStateObservers,
   User,
   useStreamVideoClient,
   ViewerLivestream,
@@ -25,7 +24,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import EnhancedLivestreamChat from "../../../components/EnhancedLivestreamChat";
+import EnhancedLivestreamUI from "../../../components/EnhancedLivestreamUI";
 import {
   getLivestreamDetails,
   getLivestreamViewerToken,
@@ -72,130 +71,7 @@ interface Comment {
   userImage?: string;
 }
 
-// Component hiển thị livestream với giao diện đẹp
-const EnhancedLivestreamUI: React.FC<{
-  children: React.ReactNode;
-  showName: string;
-  onLeave: () => void;
-  livestreamId: string;
-  userId: string;
-  userName: string;
-  userProfileImage?: string;
-}> = ({
-  children,
-  showName,
-  onLeave,
-  livestreamId,
-  userId,
-  userName,
-  userProfileImage,
-}) => {
-  const call = useCall();
-  const [commentText, setCommentText] = useState("");
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [viewerCount, setViewerCount] = useState(0);
-  const { useCallViewers } = useCallStateObservers();
-  const viewers = useCallViewers();
-
-  // Update viewer count when viewers change
-  useEffect(() => {
-    if (viewers) {
-      setViewerCount(viewers.length);
-    }
-  }, [viewers]);
-
-  // Listen for new messages/comments
-  useEffect(() => {
-    if (!call) return;
-
-    // Set up message listener
-    const unsubscribe = call.on("message.new", (event) => {
-      // Add new message to comments
-      const newComment: Comment = {
-        id: event.message.id,
-        author: event.message.user?.name || "Unknown",
-        content: event.message.text,
-        timestamp: new Date(event.message.created_at),
-        userImage: event.message.user?.image,
-      };
-
-      setComments((prevComments) => [newComment, ...prevComments]);
-    });
-
-    // Cleanup listener on unmount
-    return () => {
-      unsubscribe();
-    };
-  }, [call]);
-
-  // Xử lý gửi bình luận
-  const handleSendComment = async () => {
-    if (!commentText.trim() || !call) return;
-
-    try {
-      // Use Stream's sendMessage API
-      await call.sendMessage({ text: commentText });
-      setCommentText("");
-    } catch (error) {
-      console.error("Error sending comment:", error);
-    }
-  };
-
-  return (
-    <View style={styles.livestreamContainer}>
-      {/* Phần video */}
-      <View style={styles.videoWrapper}>
-        {children}
-
-        {/* Chỉ báo LIVE */}
-        <View style={styles.liveIndicator}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>LIVE</Text>
-        </View>
-
-        {/* Số người xem */}
-        <View style={styles.viewCountContainer}>
-          <Ionicons name="eye" size={14} color="#FFF" />
-          <Text style={styles.viewCountText}>{viewerCount}</Text>
-        </View>
-
-        {/* Nút quay lại */}
-        <TouchableOpacity style={styles.backButtonOverlay} onPress={onLeave}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Thông tin stream */}
-      <View style={styles.infoSection}>
-        <Text style={styles.streamTitle}>
-          {showName || "Koi Show Livestream"}
-        </Text>
-        <View style={styles.streamStats}>
-          <TouchableOpacity style={styles.statButton}>
-            <Ionicons name="chatbubble-outline" size={20} color="#333" />
-            <Text style={styles.statText}>{comments.length}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.statButton}>
-            <Ionicons name="share-social-outline" size={20} color="#333" />
-            <Text style={styles.statText}>Chia sẻ</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Phần bình luận - Thay thế bằng EnhancedLivestreamChat */}
-      <View style={styles.commentsContainer}>
-        <EnhancedLivestreamChat
-          userId={userId}
-          userName={userName}
-          livestreamId={livestreamId}
-          showName={showName}
-          profileImage={userProfileImage}
-        />
-      </View>
-    </View>
-  );
-};
+// Import EnhancedLivestreamUI component instead of defining it inline
 
 // Component con để xử lý trạng thái call (Phải nằm trong ngữ cảnh <StreamCall>)
 const CallStateHandler: React.FC<{
@@ -267,7 +143,7 @@ const CallStateHandler: React.FC<{
         );
       }
 
-      // Render actual livestream content with enhanced UI
+      // Import EnhancedLivestreamUI from components and use it directly
       return (
         <EnhancedLivestreamUI
           showName={showName}
@@ -317,7 +193,10 @@ const LivestreamContent: React.FC<
   const [isLoadingCall, setIsLoadingCall] = useState(true);
   const [callError, setCallError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<string | null>(null); // Store status from API
-  const intervalRef = useRef<number | null>(null); // Use number for setInterval ID
+  const intervalRef = useRef<NodeJS.Timeout | null>(null); // Use NodeJS.Timeout for setInterval ID
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null); // For retry timeouts
+  const joinAttemptsRef = useRef<number>(0);
+  const MAX_JOIN_ATTEMPTS = 3;
 
   // --- Status Check Effect ---
   useEffect(() => {
@@ -334,7 +213,7 @@ const LivestreamContent: React.FC<
         }
       } catch (error) {
         console.error("Error checking livestream status via API:", error);
-        // Don't necessarily set an error state here, maybe just log
+        // Don't set error state here, just log it
       }
     }
 
@@ -351,6 +230,9 @@ const LivestreamContent: React.FC<
         clearInterval(intervalRef.current);
         console.log("Cleared status check interval.");
       }
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
     };
   }, [livestreamId]); // Depend only on livestreamId
 
@@ -365,6 +247,7 @@ const LivestreamContent: React.FC<
 
     let isMounted = true;
     let currentCall: Call | null = null; // Local variable to manage the call instance
+    joinAttemptsRef.current = 0;
 
     const setupCall = async () => {
       setIsLoadingCall(true);
@@ -379,42 +262,45 @@ const LivestreamContent: React.FC<
           console.log(
             `LivestreamContent: Attempting to get call instance: ${callType}/${callId}`
           );
+
+          // Make sure we're properly handling this call reference
           currentCall = client.call(callType, callId);
+
+          if (!currentCall) {
+            throw new Error("Không thể tạo đối tượng call.");
+          }
+
           console.log("LivestreamContent: Call instance obtained");
 
-          // Thêm xử lý lỗi kết nối và retry
-          let retryCount = 0;
-          const maxRetries = 3;
+          // Join call with retries
+          const attemptJoin = async () => {
+            joinAttemptsRef.current++;
+            console.log(
+              `LivestreamContent: Attempting to join call (attempt ${joinAttemptsRef.current})...`
+            );
 
-          while (retryCount < maxRetries) {
+            // Check connection info
+            console.log(`[LivestreamContent] Current connection info:`, {
+              callId: currentCall?.id,
+              callType: currentCall?.type,
+            });
+
             try {
-              console.log(
-                `LivestreamContent: Attempting to join call (attempt ${
-                  retryCount + 1
-                })...`
-              );
-
-              // Kiểm tra và ghi log thông tin kết nối hiện tại
-              console.log(`[LivestreamContent] Current connection info:`, {
-                callId: currentCall.id,
-                callType: currentCall.type,
-              });
-
-              // Sử dụng các tùy chọn hợp lệ cho join call
+              // Use valid options for join call
               const joinResult = await currentCall.join({
                 create: false,
                 ring: false,
                 notify: false,
               });
 
-              // Vô hiệu hóa camera và micro sau khi tham gia
+              // Disable camera and mic when joining
               if (currentCall) {
                 try {
-                  // Tắt camera và micro của người xem khi tham gia livestream
                   await currentCall.camera.disable();
                   await currentCall.microphone.disable();
                 } catch (mediaError) {
                   console.error("Error disabling media:", mediaError);
+                  // Continue even if we can't disable media - better to show livestream
                 }
               }
 
@@ -422,12 +308,18 @@ const LivestreamContent: React.FC<
                 "LivestreamContent: Successfully joined call",
                 joinResult
               );
-              break;
-            } catch (joinError: any) {
-              retryCount++;
-              console.error(`Join attempt ${retryCount} failed:`, joinError);
 
-              // Ghi log chi tiết lỗi
+              if (isMounted) {
+                setCall(currentCall);
+                setIsLoadingCall(false);
+              }
+            } catch (joinError: any) {
+              console.error(
+                `Join attempt ${joinAttemptsRef.current} failed:`,
+                joinError
+              );
+
+              // Log detailed error information
               if (joinError.response) {
                 console.error("Error response data:", joinError.response.data);
                 console.error(
@@ -436,69 +328,86 @@ const LivestreamContent: React.FC<
                 );
               }
 
-              // Phân tích chi tiết lỗi
+              // Handle specific error types
+              const errorMessage = joinError.message || "Unknown error";
+
               if (
-                joinError.message.includes("permission denied") ||
-                joinError.message.includes("not allowed to perform action")
+                errorMessage.includes("permission denied") ||
+                errorMessage.includes("not allowed to perform action")
               ) {
                 throw new Error("Bạn không có quyền tham gia livestream này");
               }
 
-              if (retryCount === maxRetries) {
-                throw new Error("Không thể kết nối sau nhiều lần thử lại");
+              // If we haven't exceeded max retries, try again
+              if (joinAttemptsRef.current < MAX_JOIN_ATTEMPTS) {
+                console.warn(
+                  `Retrying connection (${joinAttemptsRef.current}/${MAX_JOIN_ATTEMPTS})...`
+                );
+
+                // Exponential backoff for retries
+                const delayMs = 1000 * Math.pow(2, joinAttemptsRef.current - 1);
+
+                if (isMounted) {
+                  retryTimeoutRef.current = setTimeout(attemptJoin, delayMs);
+                }
+              } else {
+                throw new Error(
+                  `Không thể kết nối sau ${MAX_JOIN_ATTEMPTS} lần thử. Vui lòng thử lại sau.`
+                );
               }
-
-              console.warn(`Đang thử kết nối lại lần ${retryCount}...`);
-              // Tăng thời gian chờ mỗi lần retry
-              await new Promise((resolve) =>
-                setTimeout(resolve, 2000 * retryCount)
-              );
             }
-          }
+          };
 
-          if (isMounted) {
-            setCall(currentCall);
-          }
+          // Start join attempts
+          await attemptJoin();
         } catch (err: any) {
           console.error("LivestreamContent: Error in call setup:", err);
           if (isMounted) {
-            // Xử lý các loại lỗi phổ biến
+            // Process common error types
+            const errorMsg = err.message || "Không xác định";
+
             switch (true) {
-              case err.message.includes("permission denied"):
-              case err.message.includes("not allowed to perform action"):
+              case errorMsg.includes("permission denied"):
+              case errorMsg.includes("not allowed to perform action"):
                 setCallError("Bạn không có quyền truy cập vào livestream này.");
                 break;
-              case err.message.includes("network"):
-              case err.message.includes("timeout"):
+              case errorMsg.includes("network"):
+              case errorMsg.includes("timeout"):
                 setCallError(
                   "Lỗi kết nối mạng. Vui lòng kiểm tra kết nối và thử lại."
                 );
                 break;
-              case err.message.includes("call not found"):
+              case errorMsg.includes("call not found"):
                 setCallError("Livestream này không tồn tại hoặc đã kết thúc.");
                 break;
-              case err.message.includes("maximum retries"):
+              case errorMsg.includes("maximum retries"):
+              case errorMsg.includes("lần thử"):
                 setCallError(
                   "Không thể kết nối sau nhiều lần thử. Vui lòng thử lại sau."
                 );
                 break;
               default:
-                setCallError(`Không thể tham gia livestream: ${err.message}`);
+                setCallError(`Không thể tham gia livestream: ${errorMsg}`);
                 break;
             }
+
+            setIsLoadingCall(false);
           }
-          // Đảm bảo cleanup
+
+          // Clean up call if there was an error
           if (currentCall) {
-            currentCall
-              .leave()
-              .catch((e) =>
-                console.error("Error leaving call after failure:", e)
-              );
+            try {
+              await currentCall.leave();
+            } catch (e) {
+              console.error("Error leaving call after failure:", e);
+            }
             currentCall = null;
           }
         }
-      } finally {
+      } catch (finalError) {
+        console.error("Unhandled error in setupCall:", finalError);
         if (isMounted) {
+          setCallError("Đã xảy ra lỗi không mong muốn. Vui lòng thử lại sau.");
           setIsLoadingCall(false);
         }
       }
@@ -508,9 +417,14 @@ const LivestreamContent: React.FC<
 
     return () => {
       isMounted = false;
-      // Cleanup: Leave the call when the component unmounts or callId/callType changes
+
+      // Clear any pending timers
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+
+      // Leave the call when component unmounts
       if (call) {
-        // Use the state variable 'call' for cleanup
         console.log(
           "LivestreamContent unmounting or deps changed, leaving call..."
         );
@@ -522,10 +436,10 @@ const LivestreamContent: React.FC<
           "LivestreamContent unmounting or deps changed, no call object to leave."
         );
       }
+
       setCall(null); // Clear call state on unmount
       console.log("LivestreamContent unmounted/deps changed.");
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, callId, callType]); // Re-run if client, callId, or callType changes
 
   // --- Render Logic ---
@@ -574,21 +488,23 @@ const LivestreamContent: React.FC<
   }
 
   if (apiStatus === "paused") {
-    // Assuming 'paused' is a possible status
     return (
       <View style={styles.centeredContent}>
         <Ionicons name="pause-circle-outline" size={48} color="#ccc" />
         <Text style={[styles.infoText, { color: "#FFF" }]}>
           Livestream đang tạm dừng.
         </Text>
-        {/* Maybe add a refresh button or rely on interval */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleLeaveCall(call)}>
+          <Text style={styles.actionButtonText}>Rời khỏi</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  // 3. Check Call Object and SDK States (Only if API status is likely 'active' or unknown)
+  // 3. Check Call Object
   if (!call) {
-    // Should not happen often if isLoadingCall and callError are handled, but good failsafe
     return (
       <View style={styles.centeredContent}>
         <Ionicons name="videocam-off-outline" size={48} color="#ccc" />
@@ -604,10 +520,7 @@ const LivestreamContent: React.FC<
     );
   }
 
-  // QUAN TRỌNG: Các hooks để lấy trạng thái đã được chuyển vào CallStateHandler
-  // và chỉ sử dụng trong ngữ cảnh <StreamCall>
-
-  // Render StreamCall với call object đã được join thành công
+  // Render StreamCall with call object
   console.log("LivestreamContent: Rendering StreamCall with CallContent.");
   return (
     <StreamCall call={call}>

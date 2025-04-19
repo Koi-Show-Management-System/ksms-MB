@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
+import { useCall, useCallStateHooks } from "@stream-io/video-react-native-sdk";
+import React, { useCallback } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import EnhancedLivestreamChat from "./EnhancedLivestreamChat";
 
@@ -22,12 +23,33 @@ const EnhancedLivestreamUI: React.FC<EnhancedLivestreamUIProps> = ({
   userName,
   userProfileImage,
 }) => {
-  const [viewerCount, setViewerCount] = useState(0);
+  // Ensure the call object is available
+  const call = useCall();
+  if (!call) {
+    // Safely handle the case where call is not available yet
+    console.warn("EnhancedLivestreamUI: Call object is not available");
+    return (
+      <View style={styles.centeredContent}>
+        <Text style={styles.infoText}>Loading stream data...</Text>
+      </View>
+    );
+  }
 
-  // Update viewer count - this function would be called when viewer information changes
-  const updateViewerCount = (count: number) => {
-    setViewerCount(count);
-  };
+  // Safely access hook from useCallStateHooks
+  let participantCount = 0;
+  try {
+    const { useParticipantCount } = useCallStateHooks();
+    participantCount = useParticipantCount() || 0;
+  } catch (error) {
+    console.warn("Error using participant count hook:", error);
+  }
+
+  // Safely handle the leave action
+  const handleLeave = useCallback(() => {
+    if (onLeave) {
+      onLeave();
+    }
+  }, [onLeave]);
 
   return (
     <View style={styles.livestreamContainer}>
@@ -44,11 +66,13 @@ const EnhancedLivestreamUI: React.FC<EnhancedLivestreamUIProps> = ({
         {/* Viewer count */}
         <View style={styles.viewCountContainer}>
           <Ionicons name="eye" size={14} color="#FFF" />
-          <Text style={styles.viewCountText}>{viewerCount}</Text>
+          <Text style={styles.viewCountText}>{participantCount}</Text>
         </View>
 
         {/* Back button */}
-        <TouchableOpacity style={styles.backButtonOverlay} onPress={onLeave}>
+        <TouchableOpacity
+          style={styles.backButtonOverlay}
+          onPress={handleLeave}>
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
       </View>
@@ -179,6 +203,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     padding: 16,
+  },
+  centeredContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  infoText: {
+    fontSize: 16,
+    color: "#333",
   },
 });
 
