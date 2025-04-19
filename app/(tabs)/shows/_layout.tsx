@@ -14,6 +14,7 @@ export default function ShowsLayout() {
           gestureEnabled: true,
           gestureDirection: "horizontal",
         }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="KoiShowsPage" options={{ headerShown: false }} />
         <Stack.Screen
           name="KoiShowInformation"
@@ -27,7 +28,19 @@ export default function ShowsLayout() {
         <Stack.Screen name="AwardScreen" options={{ headerShown: false }} />
         <Stack.Screen name="Rule&FAQ" options={{ headerShown: false }} />
         <Stack.Screen
-          name="LiveStreamViewer"
+          name="LivestreamViewer"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="KoiContestants"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="KoiShowResults"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="KoiShowVoting"
           options={{ headerShown: false }}
         />
         {/* Add other show-related screens here */}

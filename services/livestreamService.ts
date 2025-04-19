@@ -83,7 +83,7 @@ export async function getLivestreamDetails(
  * @param livestreamId - The ID of the livestream.
  * @returns A promise that resolves with the viewer token data.
  */
-export async function getLiveStreamViewerToken(
+export async function getLivestreamViewerToken(
   livestreamId: string
 ): Promise<GetViewerTokenResponse> {
   try {

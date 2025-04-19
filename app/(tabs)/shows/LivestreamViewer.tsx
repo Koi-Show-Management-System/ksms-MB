@@ -1,4 +1,4 @@
-// app/(tabs)/shows/LiveStreamViewer.tsx
+// app/(tabs)/shows/LivestreamViewer.tsx
 import { Ionicons } from "@expo/vector-icons";
 import {
   Call,
@@ -29,7 +29,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   getLivestreamDetails,
-  getLiveStreamViewerToken,
+  getLivestreamViewerToken,
 } from "../../../services/livestreamService"; // Import status check function and type
 
 // Lấy kích thước màn hình
@@ -627,7 +627,7 @@ const LivestreamContent: React.FC<
 };
 
 // --- Main Screen Component ---
-const LiveStreamViewerScreen: React.FC = () => {
+const LivestreamViewerScreen: React.FC = () => {
   const { livestreamId, callId, apiKey, showName } = useLocalSearchParams<{
     livestreamId: string;
     callId: string;
@@ -677,12 +677,12 @@ const LiveStreamViewerScreen: React.FC = () => {
       let fetchedToken: string | null = null;
       try {
         console.log(`Fetching token for livestream: ${livestreamId}`);
-        const response = await getLiveStreamViewerToken(livestreamId);
+        const response = await getLivestreamViewerToken(livestreamId);
         if (response.data?.token) {
           fetchedToken = response.data.token;
           if (isMounted) setToken(fetchedToken);
           console.log(
-            "[LiveStreamViewer] Raw viewer token received:",
+            "[LivestreamViewer] Raw viewer token received:",
             fetchedToken
           );
           console.log("Token fetched successfully.");
@@ -707,7 +707,7 @@ const LiveStreamViewerScreen: React.FC = () => {
         // Giải mã token livestream một lần duy nhất
         const tokenPayload = jwtDecode<LivestreamTokenPayload>(fetchedToken);
         console.log(
-          "[LiveStreamViewer] Decoded viewer token payload:",
+          "[LivestreamViewer] Decoded viewer token payload:",
           tokenPayload
         );
 
@@ -737,7 +737,7 @@ const LiveStreamViewerScreen: React.FC = () => {
 
         // --- TRỰC TIẾP TRUYỀN TOKEN ---
         console.log(
-          `[LiveStreamViewer] Initializing client with direct token approach`
+          `[LivestreamViewer] Initializing client with direct token approach`
         );
 
         // Khởi tạo client với token trực tiếp
@@ -752,7 +752,7 @@ const LiveStreamViewerScreen: React.FC = () => {
 
         // Khi khởi tạo client với cả user và token, connectUser() sẽ được gọi tự động
         console.log(
-          `[LiveStreamViewer] Client initialized with direct token authentication`
+          `[LivestreamViewer] Client initialized with direct token authentication`
         );
 
         if (isMounted) setClient(videoClient);
@@ -1104,4 +1104,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LiveStreamViewerScreen;
+export default LivestreamViewerScreen;
