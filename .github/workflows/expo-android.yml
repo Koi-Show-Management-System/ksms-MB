@@ -562,30 +562,59 @@ jobs:
           key: ${{ steps.check-cache.outputs.cache_key }}
 
       # Xác thực môi trường toàn diện
-      - name: Verify build environment
+      - name: Verify and setup build environment
         run: |
           echo "Verifying build environment..."
           
-          # Function để kiểm tra thành phần
+          # Setup Android SDK nếu chưa có
+          ANDROID_SDK_ROOT="${{ github.workspace }}/android-sdk"
+          if [ ! -d "$ANDROID_SDK_ROOT" ]; then
+            echo "Installing Android SDK..."
+            mkdir -p $ANDROID_SDK_ROOT
+            cd $ANDROID_SDK_ROOT
+            
+            # Tải và cài đặt command line tools
+            wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+            unzip commandlinetools-linux-9477386_latest.zip
+            rm commandlinetools-linux-9477386_latest.zip
+            
+            # Chấp nhận licenses
+            yes | cmdline-tools/bin/sdkmanager --licenses
+            
+            # Cài đặt các components cần thiết
+            cmdline-tools/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+            
+            cd -
+          fi
+          
+          # Function để kiểm tra và cài đặt lại nếu cần
           verify_component() {
             local name=$1
             local path=$2
-            local type=${3:-directory}  # directory hoặc file
+            local install_cmd=$3
+            local type=${4:-directory}
             
             echo "Checking $name..."
-            if [ "$type" = "directory" ]; then
-              if [ ! -d "$path" ]; then
-                echo "❌ Missing $name at: $path"
+            if [ "$type" = "directory" ] && [ ! -d "$path" ]; then
+              echo "❌ Missing $name at: $path"
+              if [ -n "$install_cmd" ]; then
+                echo "Attempting to install $name..."
+                eval "$install_cmd"
+                if [ ! -d "$path" ]; then
+                  return 1
+                fi
+              else
                 return 1
               fi
-              # Kiểm tra có file bên trong không
-              if [ -z "$(ls -A $path 2>/dev/null)" ]; then
-                echo "❌ Empty $name directory at: $path"
-                return 1
-              fi
-            else
-              if [ ! -f "$path" ]; then
-                echo "❌ Missing $name at: $path"
+            elif [ "$type" = "file" ] && [ ! -f "$path" ]; then
+              echo "❌ Missing $name at: $path"
+              if [ -n "$install_cmd" ]; then
+                echo "Attempting to install $name..."
+                eval "$install_cmd"
+                if [ ! -f "$path" ]; then
+                  return 1
+                fi
+              else
                 return 1
               fi
             fi
@@ -593,18 +622,70 @@ jobs:
             return 0
           }
 
-          # Kiểm tra Android SDK và tools
+          # Hàm cài đặt với retry logic
+          install_with_retry() {
+            local component=$1
+            local install_cmd=$2
+            local max_retries=3
+            local retry_count=0
+            
+            while [ $retry_count -lt $max_retries ]; do
+              echo "Installing $component (Attempt $(($retry_count + 1))/$max_retries)..."
+              if eval "$install_cmd"; then
+                echo "✅ Successfully installed $component"
+                return 0
+              else
+                retry_count=$(($retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "⚠️ Failed to install $component, retrying in 30 seconds..."
+                  sleep 30
+                fi
+              fi
+            done
+            
+            echo "❌ Failed to install $component after $max_retries attempts"
+            return 1
+          }
+
+          # Kiểm tra và cài đặt Android SDK components
           echo "📱 Verifying Android SDK components..."
           SDK_ROOT="${{ github.workspace }}/android-sdk"
           
-          verify_component "Command line tools" "$SDK_ROOT/cmdline-tools" || exit 1
-          verify_component "Platform tools" "$SDK_ROOT/platform-tools" || exit 1
-          verify_component "Build tools" "$SDK_ROOT/build-tools" || exit 1
+          # Định nghĩa các lệnh cài đặt cho từng component
+          CMD_INSTALL="cd $SDK_ROOT && yes | ./cmdline-tools/bin/sdkmanager --install 'cmdline-tools;latest'"
+          PLATFORM_INSTALL="cd $SDK_ROOT && yes | ./cmdline-tools/bin/sdkmanager --install 'platform-tools'"
+          BUILD_TOOLS_INSTALL="cd $SDK_ROOT && yes | ./cmdline-tools/bin/sdkmanager --install 'build-tools;34.0.0'"
           
-          # Verify specific tools
-          verify_component "ADB" "$SDK_ROOT/platform-tools/adb" "file" || exit 1
-          verify_component "AAPT" "$SDK_ROOT/build-tools/34.0.0/aapt" "file" || exit 1
-          verify_component "DX" "$SDK_ROOT/build-tools/34.0.0/dx" "file" || exit 1
+          # Kiểm tra và cài đặt các components
+          COMPONENTS=(
+            "Command line tools:$SDK_ROOT/cmdline-tools:$CMD_INSTALL:directory"
+            "Platform tools:$SDK_ROOT/platform-tools:$PLATFORM_INSTALL:directory"
+            "Build tools:$SDK_ROOT/build-tools:$BUILD_TOOLS_INSTALL:directory"
+            "ADB:$SDK_ROOT/platform-tools/adb:$PLATFORM_INSTALL:file"
+            "AAPT:$SDK_ROOT/build-tools/34.0.0/aapt:$BUILD_TOOLS_INSTALL:file"
+            "DX:$SDK_ROOT/build-tools/34.0.0/dx:$BUILD_TOOLS_INSTALL:file"
+          )
+          
+          for component in "${COMPONENTS[@]}"; do
+            IFS=: read -r name path install_cmd type <<< "$component"
+            if ! verify_component "$name" "$path" "" "$type"; then
+              echo "🔄 Component $name missing, attempting installation..."
+              if ! install_with_retry "$name" "$install_cmd"; then
+                echo "❌ Failed to install $name"
+                exit 1
+              fi
+              # Verify again after installation
+              if ! verify_component "$name" "$path" "" "$type"; then
+                echo "❌ Component $name still missing after installation"
+                exit 1
+              fi
+            fi
+          done
+          
+          # Thêm Android SDK vào PATH
+          echo "Adding Android SDK to PATH..."
+          export ANDROID_HOME=$SDK_ROOT
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
           
           # Kiểm tra Node.js environment
           echo "📦 Verifying Node.js environment..."
@@ -756,7 +837,123 @@ jobs:
             echo "⚠️ Warning: High system load detected"
           fi
           
+          # Tạo báo cáo tổng hợp
+          mkdir -p "${{ env.STORAGE_DIR }}/reports"
+          REPORT_FILE="${{ env.STORAGE_DIR }}/reports/environment-verification.log"
+          
+          {
+            echo "=== Build Environment Verification Report ==="
+            echo "Timestamp: $(date)"
+            echo ""
+            
+            echo "=== System Resources ==="
+            echo "CPU Cores: $CPU_CORES"
+            echo "Total Memory: ${TOTAL_MEM}G"
+            echo "Free Memory: ${FREE_MEM}G"
+            echo "Available Disk Space: ${SPACE_AVAILABLE}G"
+            echo "System Load: $LOAD_AVG"
+            echo ""
+            
+            echo "=== Android SDK Components ==="
+            for component in "${COMPONENTS[@]}"; do
+              IFS=: read -r name path _ _ <<< "$component"
+              if verify_component "$name" "$path" "" "directory" &>/dev/null || \
+                 verify_component "$name" "$path" "" "file" &>/dev/null; then
+                echo "✅ $name: Installed and verified"
+              else
+                echo "❌ $name: Not installed or verification failed"
+              fi
+            done
+            echo ""
+
+            echo "=== Node.js Environment ==="
+            echo "Node.js Version: $NODE_VERSION"
+            echo "Yarn Version: $YARN_VERSION"
+            for package_check in "${REQUIRED_PACKAGES[@]}"; do
+              package="${package_check%%:*}"
+              if [ -d "node_modules/$package" ]; then
+                echo "✅ $package: Installed"
+              else
+                echo "❌ $package: Missing"
+              fi
+            done
+            echo ""
+            
+            echo "=== Gradle Environment ==="
+            ./android/gradlew --version 2>/dev/null || echo "❌ Gradle wrapper validation failed"
+            echo ""
+            
+            echo "=== Directory Permissions ==="
+            for dir_info in "${CRITICAL_DIRS[@]}"; do
+              dir="${dir_info%%:*}"
+              desc="${dir_info#*:}"
+              full_path=$(eval echo "$dir")
+              if [ -r "$full_path" ] && [ -w "$full_path" ]; then
+                echo "✅ $desc: Read/Write access OK"
+              else
+                echo "❌ $desc: Permission issues"
+              fi
+            done
+          } > "$REPORT_FILE"
+
+          # Tính toán và hiển thị tóm tắt báo cáo
+          TOTAL_COMPONENTS=${#COMPONENTS[@]}
+          INSTALLED_COMPONENTS=0
+          for component in "${COMPONENTS[@]}"; do
+            IFS=: read -r name path _ _ <<< "$component"
+            if verify_component "$name" "$path" "" "directory" &>/dev/null || \
+               verify_component "$name" "$path" "" "file" &>/dev/null; then
+              INSTALLED_COMPONENTS=$((INSTALLED_COMPONENTS + 1))
+            fi
+          done
+
+          TOTAL_PACKAGES=${#REQUIRED_PACKAGES[@]}
+          INSTALLED_PACKAGES=0
+          for package_check in "${REQUIRED_PACKAGES[@]}"; do
+            package="${package_check%%:*}"
+            if [ -d "node_modules/$package" ]; then
+              INSTALLED_PACKAGES=$((INSTALLED_PACKAGES + 1))
+            fi
+          done
+
+          echo "=== Build Environment Summary ==="
+          echo "📊 System Resources:"
+          echo "  • CPU: $CPU_CORES cores"
+          echo "  • Memory: ${FREE_MEM}G free of ${TOTAL_MEM}G total"
+          echo "  • Disk: ${SPACE_AVAILABLE}G available"
+          echo "  • Load: $LOAD_AVG"
+          echo ""
+          echo "📱 Android SDK: $INSTALLED_COMPONENTS/$TOTAL_COMPONENTS components"
+          echo "📦 Node.js Packages: $INSTALLED_PACKAGES/$TOTAL_PACKAGES required"
+          echo ""
+
+          # Tính điểm sức khỏe môi trường
+          HEALTH_SCORE=0
+          
+          # Điểm cho tài nguyên hệ thống (30 điểm)
+          if [ "$CPU_CORES" -ge 4 ]; then HEALTH_SCORE=$((HEALTH_SCORE + 10)); fi
+          if [ "$FREE_MEM" -ge 8 ]; then HEALTH_SCORE=$((HEALTH_SCORE + 10)); fi
+          if (( $(echo "$SPACE_AVAILABLE >= 20" | bc -l) )); then HEALTH_SCORE=$((HEALTH_SCORE + 10)); fi
+          
+          # Điểm cho Android SDK (40 điểm)
+          SDK_SCORE=$((INSTALLED_COMPONENTS * 40 / TOTAL_COMPONENTS))
+          HEALTH_SCORE=$((HEALTH_SCORE + SDK_SCORE))
+          
+          # Điểm cho Node.js environment (30 điểm)
+          NODE_SCORE=$((INSTALLED_PACKAGES * 30 / TOTAL_PACKAGES))
+          HEALTH_SCORE=$((HEALTH_SCORE + NODE_SCORE))
+
+          if [ "$HEALTH_SCORE" -ge 90 ]; then
+            echo "🟢 Environment Health Score: $HEALTH_SCORE/100 (Excellent)"
+          elif [ "$HEALTH_SCORE" -ge 70 ]; then
+            echo "🟡 Environment Health Score: $HEALTH_SCORE/100 (Good)"
+          else
+            echo "🔴 Environment Health Score: $HEALTH_SCORE/100 (Needs Attention)"
+          fi
+          echo "==================================="
+          
           echo "🎉 Build environment verified successfully"
+          echo "📝 Detailed verification report saved to: $REPORT_FILE"
 
       - name: Setup Android build environment
         run: |
