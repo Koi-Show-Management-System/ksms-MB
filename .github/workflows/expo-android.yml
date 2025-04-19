@@ -52,13 +52,52 @@ jobs:
             echo "name=preview" >> $GITHUB_OUTPUT
           fi
       
-      - name: Setup build directories
+      - name: Setup Android SDK and build directories
         run: |
+          # Tạo cấu trúc thư mục cho build
           mkdir -p $HOME/expo-tmp
           mkdir -p $HOME/eas-builds/working
           mkdir -p $HOME/eas-builds/artifacts
           mkdir -p $HOME/gradle-build-cache
           mkdir -p $HOME/.eas-build-cache
+          
+          # Thiết lập Android SDK
+          ANDROID_SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          
+          # Tải và cài đặt Android command line tools
+          echo "📥 Downloading Android command line tools..."
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          mv cmdline-tools/* "$ANDROID_SDK_ROOT/cmdline-tools/latest/"
+          rm commandlinetools-linux-9477386_latest.zip
+          
+          # Thiết lập quyền
+          chmod -R 755 "$ANDROID_SDK_ROOT"
+          
+          # Thiết lập biến môi trường
+          {
+            echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+            echo "ANDROID_HOME=$ANDROID_SDK_ROOT"
+            echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          } >> $GITHUB_ENV
+          
+          # Cài đặt Android SDK components
+          echo "📦 Installing Android SDK components..."
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            --sdk_root="$ANDROID_SDK_ROOT" \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;25.1.8937393" \
+            "cmake;3.22.1"
+          
+          # Xác nhận cài đặt
+          echo "✅ Verifying Android SDK installation..."
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list_installed
+          
+          echo "ANDROID_SDK_ROOT is set to: $ANDROID_SDK_ROOT"
+          ls -la "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin"
           
           # Tạo thư mục lưu trữ APK theo ngày
           BUILD_DATE=$(date +"%Y-%m-%d")
@@ -243,37 +282,51 @@ jobs:
           # Cấu hình bộ nhớ cho Gradle (sử dụng ~40% RAM của máy chủ)
           org.gradle.jvmargs=-Xmx$GRADLE_MEM -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -XX:+UseParallelGC # Bỏ -XX:+UseNUMA
           
-          # Tối ưu hóa hiệu suất Gradle
+          # Build optimization
           org.gradle.daemon=true
           org.gradle.parallel=true
           org.gradle.configureondemand=true
           org.gradle.caching=true
           org.gradle.workers.max=$GRADLE_WORKERS
+          org.gradle.unsafe.configuration-cache=true
+          org.gradle.unsafe.configuration-cache-problems=warn
           
-          # Thời gian chờ mạng
-          org.gradle.internal.http.connectionTimeout=120000
-          org.gradle.internal.http.socketTimeout=120000
+          # Network timeouts
+          org.gradle.internal.http.connectionTimeout=300000
+          org.gradle.internal.http.socketTimeout=300000
+          org.gradle.internal.network.retry.max.attempts=5
+          org.gradle.internal.repository.max.retries=5
+          org.gradle.internal.repository.initial.backoff=500
           
           # Tối ưu hóa biên dịch
           kotlin.incremental=true
           kotlin.incremental.useClasspathSnapshot=true
           
-          # Cấu hình Android
+          # Android configuration
           android.useAndroidX=true
           android.enableJetifier=true
           android.enableR8.fullMode=true
           android.enableDexingArtifactTransform.desugaring=true
           android.bundletool.enable.command.line.interface=true
+          android.enableResourceOptimizations=true
+          android.enableNewResourceShrinker=true
+          android.enableAppCompileTimeRClass=true
+          android.lifecycleProcessor.incremental=true
+          android.aapt2FromMavenOverride=$ANDROID_SDK_ROOT/build-tools/34.0.0/aapt2
           
-          # Tối ưu hóa NDK
+          # NDK optimization
           android.buildTypes.release.ndk.debugSymbolLevel=FULL
           android.defaults.buildfeatures.buildconfig=true
+          android.native.buildOutput=verbose
+          android.enableNativeCompilerSettings=true
+          android.native.enableSymbolTables=false
           
           # Cấu hình NDK để bỏ qua cảnh báo và tối ưu hóa
           android.externalNativeBuild.cmake.arguments=-DCMAKE_CXX_FLAGS="-Wno-dollar-in-identifier-extension" -DCMAKE_C_FLAGS="-Wno-dollar-in-identifier-extension" -DCMAKE_BUILD_PARALLEL_LEVEL=$GRADLE_WORKERS # Bỏ -fopenmp
           
-          # Cấu hình Metro bundler (React Native)
-          reactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64
+          # React Native configuration
+          reactNativeArchitectures=arm64-v8a,x86_64
+          hermesFlagsRelease=-O3 -output-source-map
           
           # Cấu hình Hermes
           hermesEnabled=true
@@ -1323,6 +1376,7 @@ jobs:
           ANDROID_HOME: ${{ github.workspace }}/android-sdk
           CFLAGS: -Wno-dollar-in-identifier-extension
           CXXFLAGS: -Wno-dollar-in-identifier-extension
+          NODE_OPTIONS: --max-old-space-size=8192
           EAS_LOCAL_BUILD_ARTIFACT_TYPE: apk
           
         run: |
@@ -1498,8 +1552,118 @@ jobs:
                 rm -rf android/app/build/intermediates/merged_res
               fi
               
+              # Tạo báo cáo tổng hợp mỗi 5 phút
+              if [ $(($(date +%s) % 300)) -eq 0 ]; then
+                REPORT_FILE="$LOG_DIR/metro-report-$(date +%Y%m%d_%H%M).md"
+                
+                {
+                  echo "# Metro Performance Report"
+                  echo "## ⏰ Thời gian: $(date '+%Y-%m-%d %H:%M:%S')"
+                  echo ""
+                  
+                  echo "## 📊 Metrics Summary"
+                  echo "### Memory Usage"
+                  echo "- Heap Used: ${heap_used}MB / ${HEAP_SIZE}MB ($(($heap_used * 100 / $HEAP_SIZE))%)"
+                  echo "- RSS: ${rss}MB"
+                  echo "- External: ${external}MB"
+                  echo ""
+                  
+                  echo "### Performance"
+                  echo "- CPU Usage: ${cpu_usage}%"
+                  echo "- Event Loop Lag: ${event_loop_lag}ms"
+                  echo "- Active Workers: $(pgrep -c metro || echo 'N/A')"
+                  echo ""
+                  
+                  echo "### Cache Stats"
+                  echo "- Metro Cache: ${cache_size}MB"
+                  echo "- Transformer Cache: ${transformer_cache_size}MB"
+                  echo ""
+                  
+                  echo "### System Resources"
+                  echo "\`\`\`"
+                  free -h
+                  echo "\`\`\`"
+                  echo ""
+                  
+                  echo "### Recent Issues"
+                  echo "\`\`\`"
+                  tail -n 10 "$monitor_log" | grep -E "WARN|ERROR" || echo "No recent issues"
+                  echo "\`\`\`"
+                  echo ""
+                  
+                  echo "### Health Score"
+                  # Tính điểm sức khỏe (0-100)
+                  local memory_score=$((100 - heap_used * 100 / HEAP_SIZE))
+                  local cpu_score=$((100 - ${cpu_usage%.*}))
+                  local lag_score=$((100 - event_loop_lag / 2)) # Mỗi 2ms lag = -1 điểm
+                  local cache_score=$((100 - cache_size / 100)) # Mỗi 100MB = -1 điểm
+                  
+                  local total_score=$(( (memory_score + cpu_score + lag_score + cache_score) / 4 ))
+                  
+                  echo "Tổng điểm: $total_score/100"
+                  echo "- Memory Score: $memory_score/100"
+                  echo "- CPU Score: $cpu_score/100"
+                  echo "- Response Score: $lag_score/100"
+                  echo "- Cache Score: $cache_score/100"
+                  
+                  # Hiển thị trạng thái
+                  if [ $total_score -ge 80 ]; then
+                    echo "✅ Trạng thái: Excellent"
+                  elif [ $total_score -ge 60 ]; then
+                    echo "🟡 Trạng thái: Good"
+                  else
+                    echo "🔴 Trạng thái: Poor"
+                  fi
+                } > "$REPORT_FILE"
+                
+                echo "📝 Đã tạo báo cáo tại: $REPORT_FILE" >> "$monitor_log"
+              fi
+              
               sleep 30
             done
+          }
+          
+          # Function phân tích xu hướng
+          analyze_trends() {
+            local log_dir=$1
+            local window=6 # 3 phút (6 * 30 giây)
+            
+            # Đọc các giá trị gần đây
+            local recent_memory=($(tail -n $window "$monitor_log" | grep "Heap Used:" | awk '{print $4}' | cut -d'M' -f1))
+            local recent_cpu=($(tail -n $window "$monitor_log" | grep "CPU Usage:" | awk '{print $3}' | cut -d'%' -f1))
+            
+            # Tính xu hướng
+            local memory_trend=0
+            local cpu_trend=0
+            
+            for ((i=1; i<${#recent_memory[@]}; i++)); do
+              local diff=$((recent_memory[i] - recent_memory[i-1]))
+              memory_trend=$((memory_trend + diff))
+              
+              diff=$((recent_cpu[i] - recent_cpu[i-1]))
+              cpu_trend=$((cpu_trend + diff))
+            done
+            
+            # Ghi nhận xu hướng
+            {
+              echo "[$(date '+%Y-%m-%d %H:%M:%S')] Trend Analysis:"
+              
+              if [ $memory_trend -gt 0 ]; then
+                echo "⚠️ Memory usage đang tăng (${memory_trend}MB/3min)"
+              elif [ $memory_trend -lt 0 ]; then
+                echo "✅ Memory usage đang giảm (${memory_trend}MB/3min)"
+              else
+                echo "✅ Memory usage ổn định"
+              fi
+              
+              if [ $cpu_trend -gt 0 ]; then
+                echo "⚠️ CPU usage đang tăng (${cpu_trend}%/3min)"
+              elif [ $cpu_trend -lt 0 ]; then
+                echo "✅ CPU usage đang giảm (${cpu_trend}%/3min)"
+              else
+                echo "✅ CPU usage ổn định"
+              fi
+            } >> "$monitor_log"
           }
           
           # Khởi chạy monitor trong background
@@ -1979,15 +2143,215 @@ jobs:
             GRADLE_LOG_PID=$!
             
             # Thực hiện build với các flags tối ưu
-            # Thiết lập NODE_OPTIONS với giá trị METRO_MEMORY cố định
-            export NODE_OPTIONS="--max-old-space-size=8192"
+            # Thiết lập biến môi trường cho Node.js và Metro
+            export HEAP_SIZE=8192  # Giá trị cố định
+            export NODE_OPTIONS="--max-old-space-size=$HEAP_SIZE"
             
             # Thiết lập biến môi trường cho build
             export JAVA_TOOL_OPTIONS="$GRADLE_OPTS"
             export GRADLE_BUILD_CACHE_DEBUG=true
-            export NODE_OPTIONS="--max-old-space-size=${HEAP_SIZE}"
             export EAS_NO_VCS=1
             export EAS_BUILD_AUTOCOMMIT=0
+            
+            # Cấu hình Metro
+            export METRO_CONFIG="metro.config.js"
+            export METRO_CACHE_DIR="${{ env.TMPDIR }}/metro-cache"
+            export METRO_CACHE_VERSION="2"
+            export METRO_MAX_WORKERS=4
+            export METRO_BUNDLE_OPTIMIZATION_LEVEL=3
+            
+            # Tối ưu Metro performance
+            export METRO_DELTA_BUNDLE=true
+            export METRO_ENABLE_PACKAGES_CACHE=true
+            export METRO_RAM_BUNDLE=true
+            export METRO_CPU_PROFILE=true
+            export METRO_MEMORY_PROFILE=true
+            
+            # Thu thập logs chi tiết
+            LOG_DIR="${{ env.STORAGE_DIR }}/logs/metro"
+            mkdir -p "$LOG_DIR"
+            export METRO_LOG_FILE="$LOG_DIR/metro-$(date +%s).log"
+            
+            # Cấu hình phân tích lỗi
+            export METRO_DEBUG=true
+            export METRO_DEBUG_BLACKLIST="^((?!Error|Warning|Failed|Exception).)*$"
+            export METRO_DEBUG_OUTPUT_LEVEL=3
+            
+            # Tối ưu metro bundler
+            export METRO_MAX_WORKERS=4
+            export METRO_BATCH_SIZE=300
+            export METRO_MAX_RETRIES=3
+            
+            # Thêm watcher cho Metro logs
+            tail -f "$METRO_LOG_FILE" | grep -E "error|warning|failed|exception" &
+            METRO_WATCHER_PID=$!
+            trap 'kill $METRO_WATCHER_PID 2>/dev/null || true' EXIT
+            
+            # Monitor và xử lý lỗi Metro
+            monitor_metro() {
+              local log_dir="${{ env.STORAGE_DIR }}/logs/metro"
+              mkdir -p "$log_dir"
+              local monitor_log="$log_dir/monitor.log"
+              
+              echo "🔄 Bắt đầu theo dõi Metro..." >> "$monitor_log"
+              
+              while true; do
+                # Thu thập metrics chi tiết
+                local metrics=$(node -e '
+                  const m = process.memoryUsage();
+                  console.log(JSON.stringify({
+                    heapUsed: Math.round(m.heapUsed/1024/1024),
+                    heapTotal: Math.round(m.heapTotal/1024/1024),
+                    rss: Math.round(m.rss/1024/1024),
+                    external: Math.round(m.external/1024/1024),
+                    arrayBuffers: Math.round(m.arrayBuffers/1024/1024)
+                  }));
+                ')
+                
+                # Parse JSON metrics
+                local heap_used=$(echo $metrics | jq -r '.heapUsed')
+                local heap_total=$(echo $metrics | jq -r '.heapTotal')
+                local rss=$(echo $metrics | jq -r '.rss')
+                local external=$(echo $metrics | jq -r '.external')
+                local array_buffers=$(echo $metrics | jq -r '.arrayBuffers')
+                
+                # Thu thập CPU và cache metrics
+                local cpu_usage=$(ps -p $$ -o %cpu= || echo "N/A")
+                local cache_size=$(du -sm "$METRO_CACHE_DIR" 2>/dev/null | cut -f1)
+                local transformer_cache_size=$(du -sm "$METRO_TRANSFORMER_CACHE_DIR" 2>/dev/null | cut -f1)
+                
+                # Thu thập event loop delay
+                local event_loop_lag=$(node -e '
+                  const start = process.hrtime();
+                  setImmediate(() => {
+                    const [s, ns] = process.hrtime(start);
+                    console.log(Math.round((s * 1e9 + ns) / 1e6));
+                  });
+                ')
+                
+                # Ghi metrics với timestamp
+                {
+                  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Metro Performance Report"
+                  echo "=== Memory Stats ==="
+                  echo "• Heap Used: ${heap_used}MB"
+                  echo "• Heap Total: ${heap_total}MB"
+                  echo "• RSS: ${rss}MB"
+                  echo "• External: ${external}MB"
+                  echo "• Array Buffers: ${array_buffers}MB"
+                  echo ""
+                  echo "=== Performance Stats ==="
+                  echo "• CPU Usage: ${cpu_usage}%"
+                  echo "• Event Loop Lag: ${event_loop_lag}ms"
+                  echo ""
+                  echo "=== Cache Stats ==="
+                  echo "• Metro Cache: ${cache_size}MB"
+                  echo "• Transformer Cache: ${transformer_cache_size}MB"
+                  echo ""
+                  echo "=== System State ==="
+                  free -h | awk 'NR==2{printf("• System Memory: %s/%s\n", $3, $2)}'
+                  echo "• Load Average: $(uptime | awk -F'load average:' '{print $2}')"
+                } >> "$monitor_log"
+                
+                # Phân tích và ghi cảnh báo
+                {
+                  # Kiểm tra memory pressure
+                  if [ "${heap_used%.*}" -gt "$((HEAP_SIZE * 80 / 100))" ]; then
+                    echo "⚠️ [WARN] High heap usage: ${heap_used}MB/${HEAP_SIZE}MB (>80%)"
+                  fi
+                  
+                  # Kiểm tra event loop health
+                  if [ "${event_loop_lag}" -gt 100 ]; then
+                    echo "⚠️ [WARN] High event loop lag: ${event_loop_lag}ms (>100ms)"
+                  fi
+                  
+                  # Kiểm tra CPU usage
+                  if [ "${cpu_usage%.*}" -gt 80 ]; then
+                    echo "⚠️ [WARN] High CPU usage: ${cpu_usage}% (>80%)"
+                  fi
+                  
+                  # Kiểm tra cache growth
+                  if [ "${cache_size:-0}" -gt 5000 ]; then
+                    echo "⚠️ [WARN] Large cache size: ${cache_size}MB (>5000MB)"
+                  fi
+                } >> "$monitor_log"
+                
+                # Phân tích và xử lý tự động
+                handle_issues() {
+                  local issue_type=$1
+                  local issue_value=$2
+                  local threshold=$3
+                  local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+                  
+                  echo "[${timestamp}] Phát hiện ${issue_type}: ${issue_value} (Ngưỡng: ${threshold})" >> "$monitor_log"
+                  
+                  case $issue_type in
+                    "memory")
+                      echo "🔄 Thực hiện tối ưu memory..." >> "$monitor_log"
+                      sync && echo 3 > /proc/sys/vm/drop_caches || true
+                      pkill -f "metro" || true
+                      
+                      # Khởi động lại với cấu hình tối ưu
+                      export NODE_OPTIONS="--max-old-space-size=$HEAP_SIZE --expose-gc"
+                      export METRO_MEMORY_CACHE_SIZE=$((HEAP_SIZE / 2))
+                      ;;
+                      
+                    "cpu")
+                      echo "🔄 Tối ưu CPU usage..." >> "$monitor_log"
+                      # Giảm số lượng workers
+                      export METRO_MAX_WORKERS=2
+                      export METRO_BATCH_SIZE=100
+                      ;;
+                      
+                    "event_loop")
+                      echo "🔄 Tối ưu event loop..." >> "$monitor_log"
+                      # Giảm batch size và tăng độ ưu tiên process
+                      export METRO_BATCH_SIZE=50
+                      renice -n -5 $$ || true
+                      ;;
+                      
+                    "cache")
+                      echo "🧹 Dọn dẹp cache..." >> "$monitor_log"
+                      # Dọn dẹp có chọn lọc dựa trên thời gian
+                      find "$METRO_CACHE_DIR" -type f -atime +1 -delete
+                      find "$METRO_TRANSFORMER_CACHE_DIR" -type f -atime +1 -delete
+                      ;;
+                  esac
+                  
+                  # Ghi log hành động
+                  echo "✅ Đã xử lý ${issue_type} lúc ${timestamp}" >> "$monitor_log"
+                }
+                
+                # Kiểm tra và xử lý các vấn đề
+                if [ "${heap_used%.*}" -gt "$((HEAP_SIZE * 80 / 100))" ]; then
+                  handle_issues "memory" "${heap_used}MB" "$((HEAP_SIZE * 80 / 100))MB"
+                fi
+                
+                if [ "${cpu_usage%.*}" -gt 80 ]; then
+                  handle_issues "cpu" "${cpu_usage}%" "80%"
+                fi
+                
+                if [ "${event_loop_lag}" -gt 100 ]; then
+                  handle_issues "event_loop" "${event_loop_lag}ms" "100ms"
+                fi
+                
+                if [ "${cache_size:-0}" -gt 5000 ]; then
+                  handle_issues "cache" "${cache_size}MB" "5000MB"
+                fi
+                
+                # Kiểm tra và dọn dẹp cache
+                if [ "${cache_size:-0}" -gt 5000 ]; then
+                  echo "⚠️ Metro cache quá lớn (${cache_size}MB), đang dọn dẹp..." >> "$monitor_log"
+                  find "$METRO_CACHE_DIR" -type f -atime +1 -delete
+                fi
+                
+                sleep 30
+              done
+            }
+            
+            # Khởi chạy monitor trong background
+            monitor_metro &
+            METRO_MONITOR_PID=$!
+            trap 'kill $METRO_MONITOR_PID 2>/dev/null || true' EXIT
             
             # Thiết lập tham số build
             BUILD_ARGS=(
