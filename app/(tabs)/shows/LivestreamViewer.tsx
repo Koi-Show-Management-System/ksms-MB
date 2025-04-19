@@ -1,6 +1,5 @@
 // app/(tabs)/shows/LiveStreamViewer.tsx
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   Call,
   CallingState,
@@ -19,24 +18,19 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  Image,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Channel } from "stream-chat";
-import ChatComponent from "../../../components/livestream/ChatComponent";
-import api from "../../../services/api";
 import {
   getLivestreamDetails,
   getLiveStreamViewerToken,
-} from "../../../services/livestreamService";
-import {
-  connectUser,
-  joinLivestreamChat,
-  leaveLivestreamChat,
-} from "../../../services/streamChatService";
+} from "../../../services/livestreamService"; // Import status check function and type
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
@@ -74,137 +68,67 @@ interface LivestreamContentProps {
   livestreamId: string; // Pass livestreamId for status checks
 }
 
+// Mẫu dữ liệu bình luận
+const SAMPLE_COMMENTS = [
+  {
+    id: "1",
+    user: "KoiLover55",
+    text: "Cá Koi này đẹp quá! Màu sắc rất tươi sáng.",
+    timeAgo: "2p",
+    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+  },
+  {
+    id: "2",
+    user: "JapaneseKoiExpert",
+    text: "Đây là một con Kohaku tuyệt vời, có thể đạt giải cao đấy!",
+    timeAgo: "5p",
+    avatar: "https://randomuser.me/api/portraits/women/44.jpg",
+  },
+  {
+    id: "3",
+    user: "KoiBreeder_JP",
+    text: "Chất lượng nước rất tốt. Họ đang sử dụng hệ thống lọc gì vậy?",
+    timeAgo: "7p",
+    avatar: "https://randomuser.me/api/portraits/men/68.jpg",
+  },
+];
+
 // Component hiển thị livestream với giao diện đẹp
 const EnhancedLivestreamUI: React.FC<{
   children: React.ReactNode;
   showName: string;
   onLeave: () => void;
 }> = ({ children, showName, onLeave }) => {
-  const [chatChannel, setChatChannel] = useState<Channel | null>(null);
-  const [isLoadingChat, setIsLoadingChat] = useState(true);
-  const [chatError, setChatError] = useState<string | null>(null);
-  const { livestreamId } = useLocalSearchParams<{ livestreamId: string }>();
-  const [viewCount, setViewCount] = useState<number>(0);
-  const [likeCount, setLikeCount] = useState<number>(0);
+  const [viewCount, setViewCount] = useState(1245);
+  const [likeCount, setLikeCount] = useState(324);
   const [isLiked, setIsLiked] = useState(false);
+  const [comments, setComments] = useState(SAMPLE_COMMENTS);
+  const [commentText, setCommentText] = useState("");
 
-  // Thông tin người dùng
-  const [userInfo, setUserInfo] = useState({
-    userId: "",
-    userName: "Người xem",
-    userImage: "",
-  });
-
-  // Lấy thông tin người dùng từ thiết bị
+  // Giả lập tăng số người xem
   useEffect(() => {
-    const getUserInfoFromDevice = async () => {
-      try {
-        // Lấy userId từ AsyncStorage
-        const userId = await AsyncStorage.getItem("userId");
+    const interval = setInterval(() => {
+      setViewCount((prev) => prev + Math.floor(Math.random() * 3));
+    }, 5000);
 
-        if (!userId) {
-          console.error("Không tìm thấy userId trong AsyncStorage");
-          setUserInfo({
-            userId: "unknown-user",
-            userName: "Người xem",
-            userImage: `https://getstream.io/random_svg/?name=${encodeURIComponent(
-              "Người xem"
-            )}`,
-          });
-          return;
-        }
-
-        // Lấy thông tin người dùng từ API
-        const response = await api.get(`/api/v1/account/${userId}`);
-
-        if (response.data.statusCode === 200) {
-          const userProfile = response.data.data;
-          console.log("Thông tin người dùng:", userProfile);
-
-          // Cập nhật thông tin người dùng cho chat
-          setUserInfo({
-            userId: userProfile.id || userId,
-            userName: userProfile.username || "Người xem",
-            userImage: userProfile.profileImage,
-          });
-        } else {
-          throw new Error("Không thể lấy thông tin người dùng từ API");
-        }
-      } catch (error) {
-        console.error("Lỗi khi lấy thông tin người dùng:", error);
-        // Sử dụng giá trị mặc định nếu không lấy được thông tin
-        setUserInfo({
-          userId: "user-" + Math.floor(Math.random() * 1000),
-          userName: "Người xem Không rõ",
-          userImage: `https://getstream.io/random_svg/?name=${encodeURIComponent(
-            "Người xem"
-          )}`,
-        });
-      }
-    };
-
-    getUserInfoFromDevice();
+    return () => clearInterval(interval);
   }, []);
 
-  // Thiết lập kết nối chat
-  useEffect(() => {
-    if (!livestreamId || !userInfo.userId) return;
+  // Xử lý gửi bình luận
+  const handleSendComment = () => {
+    if (commentText.trim()) {
+      const newComment = {
+        id: Date.now().toString(),
+        user: "Bạn",
+        text: commentText,
+        timeAgo: "vừa xong",
+        avatar: "https://randomuser.me/api/portraits/men/1.jpg",
+      };
 
-    let isMounted = true;
-    setIsLoadingChat(true);
-    setChatError(null);
-
-    const setupChat = async () => {
-      try {
-        console.log("Kết nối người dùng tới Stream Chat...");
-
-        // Lấy token từ backend theo cách tương tự như lấy token livestream trong KoiShowInformation.tsx
-        const chatTokenResponse = await getLiveStreamViewerToken(livestreamId);
-        if (!chatTokenResponse.data?.token) {
-          throw new Error("Không nhận được token chat từ API");
-        }
-
-        const chatToken = chatTokenResponse.data.token;
-        console.log("[ChatComponent] Chat token received");
-
-        // Kết nối người dùng tới Stream Chat API với token thực
-        const chatClient = await connectUser(
-          userInfo.userId,
-          userInfo.userName,
-          chatToken,
-          userInfo.userImage
-        );
-
-        console.log("Tham gia kênh chat của livestream:", livestreamId);
-        // Tham gia kênh chat
-        const channel = await joinLivestreamChat(livestreamId);
-
-        if (isMounted) {
-          setChatChannel(channel);
-          setIsLoadingChat(false);
-        }
-      } catch (error) {
-        console.error("Lỗi khi kết nối tới chat:", error);
-        if (isMounted) {
-          setChatError("Không thể kết nối đến chat. Vui lòng thử lại sau.");
-          setIsLoadingChat(false);
-        }
-      }
-    };
-
-    setupChat();
-
-    // Clean up khi component unmount
-    return () => {
-      isMounted = false;
-      // Rời khỏi kênh chat và ngắt kết nối người dùng
-      if (livestreamId) {
-        leaveLivestreamChat(livestreamId).catch((e) =>
-          console.error("Lỗi khi rời khỏi kênh chat:", e)
-        );
-      }
-    };
-  }, [livestreamId, userInfo.userId, userInfo.userName, userInfo.userImage]);
+      setComments([newComment, ...comments]);
+      setCommentText("");
+    }
+  };
 
   return (
     <View style={styles.livestreamContainer}>
@@ -252,7 +176,7 @@ const EnhancedLivestreamUI: React.FC<{
 
           <View style={styles.statButton}>
             <Ionicons name="chatbubble-outline" size={20} color="#333" />
-            <Text style={styles.statText}>Trò chuyện</Text>
+            <Text style={styles.statText}>{comments.length}</Text>
           </View>
 
           <TouchableOpacity style={styles.statButton}>
@@ -262,38 +186,47 @@ const EnhancedLivestreamUI: React.FC<{
         </View>
       </View>
 
-      {/* Phần chat */}
+      {/* Phần bình luận */}
       <View style={styles.commentsContainer}>
-        {isLoadingChat ? (
-          <View style={styles.chatLoading}>
-            <ActivityIndicator size="small" color="#0066CC" />
-            <Text style={styles.chatLoadingText}>Đang kết nối chat...</Text>
-          </View>
-        ) : chatError ? (
-          <View style={styles.chatError}>
-            <Ionicons name="alert-circle-outline" size={24} color="#FF4D4F" />
-            <Text style={styles.chatErrorText}>{chatError}</Text>
-            <TouchableOpacity
-              style={styles.chatRetryButton}
-              onPress={() => {
-                setIsLoadingChat(true);
-                // Re-trigger useEffect by changing a dependency
-                setUserInfo((prev) => ({
-                  ...prev,
-                  userId: prev.userId + "-retry",
-                }));
-              }}>
-              <Text style={styles.chatRetryButtonText}>Thử lại</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <ChatComponent
-            channel={chatChannel}
-            userName={userInfo.userName}
-            userImage={userInfo.userImage}
-            userId={userInfo.userId}
+        <Text style={styles.commentsSectionTitle}>Bình luận trực tiếp</Text>
+        <ScrollView style={styles.commentsScrollView}>
+          {comments.map((comment) => (
+            <View key={comment.id} style={styles.commentItem}>
+              <Image
+                source={{ uri: comment.avatar }}
+                style={styles.commentAvatar}
+              />
+              <View style={styles.commentContent}>
+                <View style={styles.commentHeader}>
+                  <Text style={styles.commentUser}>{comment.user}</Text>
+                  <Text style={styles.commentTime}>{comment.timeAgo}</Text>
+                </View>
+                <Text style={styles.commentText}>{comment.text}</Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Input bình luận */}
+        <View style={styles.commentInputContainer}>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Viết bình luận..."
+            placeholderTextColor="#999"
+            value={commentText}
+            onChangeText={setCommentText}
           />
-        )}
+          <TouchableOpacity
+            style={styles.sendButton}
+            onPress={handleSendComment}
+            disabled={!commentText.trim()}>
+            <Ionicons
+              name="send"
+              size={20}
+              color={commentText.trim() ? "#0066CC" : "#CCC"}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -597,6 +530,7 @@ const LivestreamContent: React.FC<
         );
       }
       setCall(null); // Clear call state on unmount
+      console.log("LivestreamContent unmounted/deps changed.");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, callId, callType]); // Re-run if client, callId, or callType changes
@@ -1167,42 +1101,6 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: "center",
     alignItems: "center",
-  },
-  chatLoading: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-  chatLoadingText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: "#666",
-  },
-  chatError: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    padding: 20,
-  },
-  chatErrorText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: "#FF4D4F",
-    textAlign: "center",
-  },
-  chatRetryButton: {
-    marginTop: 16,
-    backgroundColor: "#0066CC",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  chatRetryButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
   },
 });
 

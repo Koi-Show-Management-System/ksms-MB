@@ -15,9 +15,45 @@ import {
 
 // --- User Profile Icons Component ---
 const UserProfileIcons: React.FC = () => {
+  // Sample profile data.  Replace with data from your API.
+  const profiles = [
+    {
+      id: 1,
+      image:
+        "https://dashboard.codeparrot.ai/api/image/Z8Mislj1kitRpYQD/group-8.png",
+    },
+    {
+      id: 2,
+      image:
+        "https://dashboard.codeparrot.ai/api/image/Z8Mislj1kitRpYQD/group-6.png",
+    },
+    {
+      id: 3,
+      image:
+        "https://dashboard.codeparrot.ai/api/image/Z8Mislj1kitRpYQD/group-7.png",
+    },
+    {
+      id: 4,
+      image:
+        "https://dashboard.codeparrot.ai/api/image/Z8Mislj1kitRpYQD/group-9.png",
+    },
+  ];
+
   return (
     <View style={styles.profilesContainer}>
-      {/* We'll load user profiles from API instead of using mock data */}
+      {profiles.map((profile) => (
+        <TouchableOpacity
+          key={profile.id}
+          style={styles.profileIconWrapper}
+          onPress={() => console.log(`Profile ${profile.id} clicked`)} // Replace with navigation
+        >
+          <Image
+            source={{ uri: profile.image }}
+            style={styles.profileIcon}
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
+      ))}
     </View>
   );
 };
@@ -38,7 +74,33 @@ interface CommentsSectionRef {
 // Convert CommentsSection to use forwardRef
 const CommentsSection = React.forwardRef<CommentsSectionRef, {}>(
   (props, ref) => {
-    const [comments, setComments] = useState<CommentType[]>([]);
+    const [comments, setComments] = useState<CommentType[]>([
+      {
+        id: "1",
+        author: "Brody Waluyo",
+        content: "Nice Koi !!!",
+        isVerified: false,
+      },
+      {
+        id: "2",
+        author: "Johnny Christ",
+        content: "Best Koi ever",
+        isVerified: false,
+      },
+      {
+        id: "3",
+        author: "Felicia Rodrigez",
+        content: "Hope Konawa win",
+        isVerified: true,
+      },
+      {
+        id: "4",
+        author: "Patrick Lil Uzi",
+        content: "Vote for Uchiha!!!!",
+        isVerified: true,
+      },
+    ]);
+
     const scrollViewRef = useRef<ScrollView>(null);
 
     // Function to add a new comment
@@ -188,7 +250,7 @@ const CommentInput: React.FC<CommentInputProps> = ({ onSubmit }) => {
 // --- Main Component ---
 const StreamingShow: React.FC = () => {
   const { width, height } = useWindowDimensions(); // Get screen dimensions
-  const [viewerCount, setViewerCount] = useState<number>(0); // Initialize with 0 instead of mock data
+  const [viewerCount, setViewerCount] = useState(1826); // Example state for viewer count
   const commentsSectionRef = useRef<CommentsSectionRef>(null);
 
   const handleCommentSubmit = (newCommentText: string) => {

@@ -2077,11 +2077,6 @@
   dependencies:
     merge-options "^3.0.4"
 
-"@react-native-camera-roll/camera-roll@^7.10.0":
-  version "7.10.0"
-  resolved "https://registry.yarnpkg.com/@react-native-camera-roll/camera-roll/-/camera-roll-7.10.0.tgz#5e9518d78a9cd87ddc8e68d03e31a608df5033ab"
-  integrity sha512-Zm1yHxxTQS2APsnnxUFoLnK+DMMTPqmIQ2z2pGtNyHRXAG40Nt4MLVB3tDJTWnuJLAG87BpTCEvpz49+u0YkUw==
-
 "@react-native-community/cli-clean@18.0.0":
   version "18.0.0"
   resolved "https://registry.yarnpkg.com/@react-native-community/cli-clean/-/cli-clean-18.0.0.tgz#cdb414c069e0f6d2c1bca02cb48ec3c0f9686e3e"
@@ -2621,11 +2616,6 @@
   version "3.1.2"
   resolved "https://registry.yarnpkg.com/@socket.io/component-emitter/-/component-emitter-3.1.2.tgz#821f8442f4175d8f0467b9daf26e3a18e2d02af2"
   integrity sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA==
-
-"@stream-io/flat-list-mvcp@^0.10.3":
-  version "0.10.3"
-  resolved "https://registry.yarnpkg.com/@stream-io/flat-list-mvcp/-/flat-list-mvcp-0.10.3.tgz#774e56aba7f3da5a8f2ae5ad3065f05e5a27e7f2"
-  integrity sha512-2ZK8piYlEfKIPZrH8BpZz9uj8HZcUvMCV0X7qSLSAc/vhLOANBfR0SSn0OaWPbqb2mFGAd4FxmLSPp1zKEYuaw==
 
 "@stream-io/react-native-webrtc@^125.0.8":
   version "125.0.8"
@@ -5178,13 +5168,6 @@ expo-image-loader@~5.0.0:
   version "5.0.0"
   resolved "https://registry.yarnpkg.com/expo-image-loader/-/expo-image-loader-5.0.0.tgz#4f58a21ab26e40d6fccc211b664fd9fe21a5dcb8"
   integrity sha512-Eg+5FHtyzv3Jjw9dHwu2pWy4xjf8fu3V0Asyy42kO+t/FbvW/vjUixpTjPtgKQLQh+2/9Nk4JjFDV6FwCnF2ZA==
-
-expo-image-manipulator@^13.0.6:
-  version "13.0.6"
-  resolved "https://registry.yarnpkg.com/expo-image-manipulator/-/expo-image-manipulator-13.0.6.tgz#a6d5504ec0df34c8caa53a62eac7253b2267fab9"
-  integrity sha512-Rz8Kcfx1xYm0AsIDi6zfKYUDnwCP8edgYXWb00KAkzOF8bDxwzTrnvESWhCiveM4IB3fojjLpNeENME34p3bzA==
-  dependencies:
-    expo-image-loader "~5.0.0"
 
 expo-image-picker@^16.0.6:
   version "16.0.6"
@@ -9600,16 +9583,12 @@ react-native-helmet-async@2.0.4:
     react-fast-compare "^3.2.2"
     shallowequal "^1.1.0"
 
-react-native-image-crop-picker@^0.42.0:
-  version "0.42.0"
-  resolved "https://registry.yarnpkg.com/react-native-image-crop-picker/-/react-native-image-crop-picker-0.42.0.tgz#0672c080feb8ffefd65ba00a4e64bc8a1066136e"
-  integrity sha512-EOEkekPJ7g+CNf92HrWAGM4kcDJyVY02gQJUVH7MSNUOK11SHnurXVM0TnwIt410Y4T+lBkq3rfJEA1qDaDDwA==
-
 react-native-incall-manager@^4.2.0:
   version "4.2.0"
   resolved "https://registry.yarnpkg.com/react-native-incall-manager/-/react-native-incall-manager-4.2.0.tgz#1cc781591007c4c9fc21deea82a308d46dc4db6c"
   integrity sha512-DC5XRQVAwNgNA6YZ3ILF6ttWXv/MUQ4omzmVDh/uHc0TW0v4f8QIdt6D9GHZhGKb3+qB7XKUxpXVBrLH+9zqfQ==
 
+react-native-is-edge-to-edge@^1.1.6:
 react-native-is-edge-to-edge@^1.1.6:
   version "1.1.7"
   resolved "https://registry.yarnpkg.com/react-native-is-edge-to-edge/-/react-native-is-edge-to-edge-1.1.7.tgz#28947688f9fafd584e73a4f935ea9603bd9b1939"
@@ -9679,6 +9658,10 @@ react-native-snap-carousel@^3.9.1:
     prop-types "^15.6.1"
     react-addons-shallow-compare "15.6.2"
 
+react-native-svg@15.8.0:
+  version "15.8.0"
+  resolved "https://registry.yarnpkg.com/react-native-svg/-/react-native-svg-15.8.0.tgz#9b5fd4f5cf5675197b3f4cbfcc77c215de2b9502"
+  integrity sha512-KHJzKpgOjwj1qeZzsBjxNdoIgv2zNCO9fVcoq2TEhTRsVV5DGTZ9JzUZwybd7q4giT/H3RdtqC3u44dWdO0Ffw==
 react-native-svg@15.8.0:
   version "15.8.0"
   resolved "https://registry.yarnpkg.com/react-native-svg/-/react-native-svg-15.8.0.tgz#9b5fd4f5cf5675197b3f4cbfcc77c215de2b9502"
@@ -10779,13 +10762,6 @@ stream-buffers@2.2.x, stream-buffers@~2.2.0:
   resolved "https://registry.yarnpkg.com/stream-buffers/-/stream-buffers-2.2.0.tgz#91d5f5130d1cef96dcfa7f726945188741d09ee4"
   integrity sha512-uyQK/mx5QjHun80FLJTfaWE7JtwfRMKBLkMne6udYOmvH0CawotVa7TfgYHzAnpphn4+TweIx1QKMnRIbipmUg==
 
-stream-chat-expo@^6.7.2:
-  version "6.7.2"
-  resolved "https://registry.yarnpkg.com/stream-chat-expo/-/stream-chat-expo-6.7.2.tgz#3e07b3d8082b88442d6144785df87bbb513ef5bd"
-  integrity sha512-IDFkUNWfds4+5oDBQrkv5XR9IKLynHsCFuGEJcoWcAgpL5yKMTpjvCcCGbt6pcaYbmF4u9FPo+WCxyLXHJXauQ==
-  dependencies:
-    stream-chat-react-native-core "6.7.2"
-
 stream-chat-react-native-core@6.7.2:
   version "6.7.2"
   resolved "https://registry.yarnpkg.com/stream-chat-react-native-core/-/stream-chat-react-native-core-6.7.2.tgz#955e048b80c55175db084ccbb8519f52ef4bb00c"
@@ -10817,21 +10793,6 @@ stream-chat@^8.57.6:
   version "8.59.0"
   resolved "https://registry.yarnpkg.com/stream-chat/-/stream-chat-8.59.0.tgz#df1ea5f95918d713945cc3fd97ea98c49772f2bd"
   integrity sha512-7AN18onhtCk8Rfsc0XBcecsBg9NVizzrngjEMJFdQtcg6zr5uMvfA9q8fe7MuooeER6zMZQDd2pPJs7BNm6hmw==
-  dependencies:
-    "@babel/runtime" "^7.27.0"
-    "@types/jsonwebtoken" "~9.0.0"
-    "@types/ws" "^7.4.0"
-    axios "^1.6.0"
-    base64-js "^1.5.1"
-    form-data "^4.0.0"
-    isomorphic-ws "^4.0.1"
-    jsonwebtoken "~9.0.0"
-    ws "^7.5.10"
-
-stream-chat@^8.60.0:
-  version "8.60.0"
-  resolved "https://registry.yarnpkg.com/stream-chat/-/stream-chat-8.60.0.tgz#b67d4fbb185da53fb8ac5fc5759986d6ad7e19a3"
-  integrity sha512-7FpO7Wno++r+n+x9aFuXtGYtNO06CIMd2Bxe3doYZLhMfS0nuaXloeFlGcMT0r4U/6bnguz1qQdDJUPNQAS8bQ==
   dependencies:
     "@babel/runtime" "^7.27.0"
     "@types/jsonwebtoken" "~9.0.0"
