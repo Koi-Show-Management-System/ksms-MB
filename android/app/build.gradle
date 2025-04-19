@@ -120,6 +120,10 @@ android {
         jniLibs {
             useLegacyPackaging (findProperty('expo.useLegacyPackaging')?.toBoolean() ?: false)
         }
+        resources {
+            excludes += ['META-INF/proguard/androidx-annotations.pro']
+            excludes += ['**/GeneratedRequestManagerFactory.class']
+        }
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
@@ -172,5 +176,15 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+}
+
+// Giải quyết xung đột thư viện Glide
+configurations.all {
+    resolutionStrategy {
+        // Buộc sử dụng cùng một phiên bản của Glide cho tất cả các phụ thuộc
+        force "com.github.bumptech.glide:glide:4.16.0"
+        // Loại trừ một số module gây xung đột nếu cần
+        exclude group: "com.github.bumptech.glide", module: "annotation"
     }
 }
