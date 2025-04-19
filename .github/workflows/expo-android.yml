@@ -503,14 +503,34 @@ jobs:
           # Chấp nhận licenses
           yes | cmdline-tools/bin/sdkmanager --licenses || true
           
-          # Cài đặt packages với retry
+          # Cài đặt packages với retry và verify
           for i in {1..3}; do
+            echo "Installing Android packages (Attempt $i)..."
+            
+            # Xóa cài đặt cũ nếu có
+            cmdline-tools/bin/sdkmanager --uninstall "platform-tools" "platforms;android-34" "build-tools;34.0.0" || true
+            
             if cmdline-tools/bin/sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"; then
-              break
+              echo "Waiting for package installation to complete..."
+              sleep 30  # Chờ để đảm bảo cài đặt hoàn tất
+              
+              # Verify cài đặt
+              if cmdline-tools/bin/sdkmanager --list_installed | grep -q "platform-tools"; then
+                echo "✅ Platform tools installed successfully"
+                break
+              fi
             fi
-            echo "Attempt $i failed, retrying..."
-            sleep 5
+            
+            echo "⚠️ Attempt $i failed, retrying after cleanup..."
+            rm -rf platform-tools build-tools platforms  # Cleanup failed install
+            sleep 10
           done
+          
+          # Double check installation
+          if ! cmdline-tools/bin/sdkmanager --list_installed | grep -q "platform-tools"; then
+            echo "❌ Failed to install Android packages after 3 attempts"
+            exit 1
+          fi
           
           # Cài đặt Node dependencies với retry và cleanup
           for i in {1..3}; do
@@ -546,60 +566,194 @@ jobs:
         run: |
           echo "Verifying build environment..."
           
-          # Kiểm tra Android SDK và tools
-          ANDROID_CHECKS=("${{ github.workspace }}/android-sdk/cmdline-tools"
-                        "${{ github.workspace }}/android-sdk/platform-tools"
-                        "${{ github.workspace }}/android-sdk/build-tools")
-          
-          for check in "${ANDROID_CHECKS[@]}"; do
-            if [ ! -d "$check" ]; then
-              echo "❌ Missing Android component: $check"
-              exit 1
+          # Function để kiểm tra thành phần
+          verify_component() {
+            local name=$1
+            local path=$2
+            local type=${3:-directory}  # directory hoặc file
+            
+            echo "Checking $name..."
+            if [ "$type" = "directory" ]; then
+              if [ ! -d "$path" ]; then
+                echo "❌ Missing $name at: $path"
+                return 1
+              fi
+              # Kiểm tra có file bên trong không
+              if [ -z "$(ls -A $path 2>/dev/null)" ]; then
+                echo "❌ Empty $name directory at: $path"
+                return 1
+              fi
+            else
+              if [ ! -f "$path" ]; then
+                echo "❌ Missing $name at: $path"
+                return 1
+              fi
             fi
-          done
-          echo "✅ Android SDK verification passed"
+            echo "✅ $name verification passed"
+            return 0
+          }
+
+          # Kiểm tra Android SDK và tools
+          echo "📱 Verifying Android SDK components..."
+          SDK_ROOT="${{ github.workspace }}/android-sdk"
+          
+          verify_component "Command line tools" "$SDK_ROOT/cmdline-tools" || exit 1
+          verify_component "Platform tools" "$SDK_ROOT/platform-tools" || exit 1
+          verify_component "Build tools" "$SDK_ROOT/build-tools" || exit 1
+          
+          # Verify specific tools
+          verify_component "ADB" "$SDK_ROOT/platform-tools/adb" "file" || exit 1
+          verify_component "AAPT" "$SDK_ROOT/build-tools/34.0.0/aapt" "file" || exit 1
+          verify_component "DX" "$SDK_ROOT/build-tools/34.0.0/dx" "file" || exit 1
           
           # Kiểm tra Node.js environment
-          if [ ! -d "node_modules" ]; then
-            echo "❌ Node modules not installed"
-            exit 1
-          fi
+          echo "📦 Verifying Node.js environment..."
           
-          # Kiểm tra các package quan trọng
-          REQUIRED_PACKAGES=("@babel/core"
-                           "react-native"
-                           "expo"
-                           "typescript")
+          # Kiểm tra node_modules và package.json
+          verify_component "node_modules directory" "node_modules" || exit 1
+          verify_component "package.json" "package.json" "file" || exit 1
           
-          for package in "${REQUIRED_PACKAGES[@]}"; do
+          # Kiểm tra các package quan trọng và dependencies của chúng
+          REQUIRED_PACKAGES=(
+            "@babel/core:@babel/parser"
+            "react-native:react-native/package.json"
+            "expo:expo/package.json"
+            "typescript:typescript/lib/typescript.js"
+            "@types/react-native:@types/react-native/index.d.ts"
+            "expo-cli:expo-cli/package.json"
+          )
+          
+          echo "Verifying required packages..."
+          for package_check in "${REQUIRED_PACKAGES[@]}"; do
+            package="${package_check%%:*}"
+            check_file="${package_check#*:}"
+            
             if [ ! -d "node_modules/$package" ]; then
-              echo "❌ Missing required package: $package"
+              echo "❌ Missing package: $package"
+              # Thử cài đặt lại package
+              echo "Attempting to reinstall $package..."
+              yarn add $package || exit 1
+            fi
+            
+            if [ ! -f "node_modules/$package/$check_file" ]; then
+              echo "❌ Package $package seems corrupted (missing $check_file)"
               exit 1
             fi
           done
           echo "✅ Node.js environment verification passed"
           
           # Kiểm tra Gradle environment
-          if [ ! -d "android" ] || [ ! -f "android/gradlew" ]; then
-            echo "❌ Gradle environment not properly setup"
+          echo "🐘 Verifying Gradle environment..."
+          
+          # Kiểm tra cấu trúc thư mục Android
+          ANDROID_FILES=(
+            "android/gradlew:file"
+            "android/gradle.properties:file"
+            "android/build.gradle:file"
+            "android/settings.gradle:file"
+            "android/app:directory"
+            "android/app/src:directory"
+          )
+          
+          for check in "${ANDROID_FILES[@]}"; do
+            path="${check%%:*}"
+            type="${check#*:}"
+            name=$(basename "$path")
+            
+            verify_component "Gradle $name" "$path" "$type" || {
+              echo "Attempting to fix Gradle environment..."
+              if [ "$name" = "gradlew" ]; then
+                cd android && gradle wrapper && cd .. || exit 1
+              fi
+              verify_component "Gradle $name" "$path" "$type" || exit 1
+            }
+          done
+          
+          # Kiểm tra Gradle wrapper
+          chmod +x android/gradlew
+          if ! ./android/gradlew --version > /dev/null; then
+            echo "❌ Gradle wrapper validation failed"
             exit 1
           fi
-          chmod +x android/gradlew
           echo "✅ Gradle environment verification passed"
           
-          # Kiểm tra quyền truy cập
-          for dir in ~/.gradle ~/.android node_modules ${{ github.workspace }}/android-sdk; do
-            if [ ! -r "$dir" ] || [ ! -w "$dir" ]; then
-              echo "❌ Permission issues with: $dir"
-              exit 1
+          # Kiểm tra quyền truy cập và tài nguyên hệ thống
+          echo "🔒 Verifying permissions and system resources..."
+          
+          # Kiểm tra và sửa quyền truy cập cho các thư mục quan trọng
+          CRITICAL_DIRS=(
+            "~/.gradle:Gradle cache"
+            "~/.android:Android config"
+            "node_modules:Node modules"
+            "${{ github.workspace }}/android-sdk:Android SDK"
+            "${{ env.TMPDIR }}/metro-cache:Metro cache"
+          )
+          
+          for dir_info in "${CRITICAL_DIRS[@]}"; do
+            dir="${dir_info%%:*}"
+            desc="${dir_info#*:}"
+            full_path=$(eval echo "$dir")
+            
+            echo "Checking permissions for $desc..."
+            if [ ! -d "$full_path" ]; then
+              echo "⚠️ Directory not found: $full_path"
+              mkdir -p "$full_path" || {
+                echo "❌ Failed to create directory: $full_path"
+                exit 1
+              }
+            fi
+            
+            if [ ! -r "$full_path" ] || [ ! -w "$full_path" ]; then
+              echo "⚠️ Fixing permissions for $desc..."
+              sudo chown -R $(id -u):$(id -g) "$full_path"
+              sudo chmod -R 755 "$full_path"
+              
+              if [ ! -r "$full_path" ] || [ ! -w "$full_path" ]; then
+                echo "❌ Failed to fix permissions for: $full_path"
+                exit 1
+              fi
             fi
           done
           echo "✅ Permissions verification passed"
           
-          # Kiểm tra dung lượng còn lại
+          # Kiểm tra tài nguyên hệ thống
+          echo "💻 Checking system resources..."
+          
+          # Kiểm tra CPU cores
+          CPU_CORES=$(nproc)
+          echo "Available CPU cores: $CPU_CORES"
+          if [ "$CPU_CORES" -lt 2 ]; then
+            echo "❌ Insufficient CPU cores (minimum 2 required)"
+            exit 1
+          fi
+          
+          # Kiểm tra RAM
+          TOTAL_MEM=$(free -g | awk 'NR==2 {print $2}')
+          FREE_MEM=$(free -g | awk 'NR==2 {print $4}')
+          echo "Memory - Total: ${TOTAL_MEM}G, Free: ${FREE_MEM}G"
+          
+          if [ "$FREE_MEM" -lt 4 ]; then
+            echo "❌ Insufficient memory available (${FREE_MEM}G). Minimum 4GB required."
+            exit 1
+          fi
+          
+          # Kiểm tra disk space với các ngưỡng
           SPACE_AVAILABLE=$(df -h / | awk 'NR==2 {print $4}' | sed 's/G//')
-          if (( $(echo "$SPACE_AVAILABLE < 10" | bc -l) )); then
-            echo "⚠️ Warning: Low disk space available: ${SPACE_AVAILABLE}G"
+          echo "Available disk space: ${SPACE_AVAILABLE}G"
+          
+          if (( $(echo "$SPACE_AVAILABLE < 5" | bc -l) )); then
+            echo "❌ Critical: Extremely low disk space: ${SPACE_AVAILABLE}G"
+            exit 1
+          elif (( $(echo "$SPACE_AVAILABLE < 10" | bc -l) )); then
+            echo "⚠️ Warning: Low disk space: ${SPACE_AVAILABLE}G"
+          fi
+          
+          # Kiểm tra load average
+          LOAD_AVG=$(uptime | awk -F'[a-z]:' '{ print $2}' | cut -d, -f1)
+          echo "Current system load: $LOAD_AVG"
+          
+          if (( $(echo "$LOAD_AVG > $CPU_CORES" | bc -l) )); then
+            echo "⚠️ Warning: High system load detected"
           fi
           
           echo "🎉 Build environment verified successfully"
@@ -679,8 +833,88 @@ jobs:
           chmod +x gradlew
           cd ..
 
+      - name: Pre-build validation
+        id: pre-build
+        run: |
+          echo "🔍 Performing pre-build validation..."
+          
+          # Kiểm tra các file cấu hình bắt buộc
+          REQUIRED_FILES=(
+            "package.json"
+            "app.json"
+            "eas.json"
+            "metro.config.js"
+            "babel.config.js"
+            "android/gradle.properties"
+            "android/build.gradle"
+          )
+          
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing required file: $file"
+              exit 1
+            fi
+            echo "✓ Found $file"
+          done
+          
+          # Kiểm tra cấu hình trong package.json
+          if ! node -e 'const pkg=require("./package.json"); if(!pkg.dependencies["react-native"] || !pkg.dependencies.expo) throw "Missing core dependencies"'; then
+            echo "❌ Invalid package.json configuration"
+            exit 1
+          fi
+          
+          # Kiểm tra cấu hình trong app.json
+          if ! node -e 'const app=require("./app.json"); if(!app.expo || !app.expo.name) throw "Invalid app.json"'; then
+            echo "❌ Invalid app.json configuration"
+            exit 1
+          fi
+          
+          # Kiểm tra phiên bản Node.js và Yarn
+          NODE_VERSION=$(node -v)
+          YARN_VERSION=$(yarn -v)
+          echo "Node.js version: $NODE_VERSION"
+          echo "Yarn version: $YARN_VERSION"
+          
+          if [[ ! "$NODE_VERSION" =~ ^v18 ]]; then
+            echo "⚠️ Warning: Recommended Node.js version is 18.x"
+          fi
+          
+          # Kiểm tra cấu hình Metro
+          echo "Validating Metro configuration..."
+          if ! node -e 'require("./metro.config.js")'; then
+            echo "❌ Invalid metro.config.js"
+            exit 1
+          fi
+          
+          # Kiểm tra các thư mục quan trọng
+          REQUIRED_DIRS=(
+            "android/app/src/main"
+            "node_modules/react-native"
+            "node_modules/expo"
+          )
+          
+          for dir in "${REQUIRED_DIRS[@]}"; do
+            if [ ! -d "$dir" ]; then
+              echo "❌ Missing required directory: $dir"
+              exit 1
+            fi
+            echo "✓ Found $dir"
+          done
+          
+          echo "✅ Pre-build validation completed successfully"
+          echo "validation_success=true" >> $GITHUB_OUTPUT
+
+      - name: Show validation errors
+        if: steps.pre-build.outputs.validation_success != 'true'
+        run: |
+          echo "❌ Pre-build validation failed!"
+          echo "Please check the validation step logs above for detailed errors."
+          echo "Fix the reported issues before attempting to build again."
+          exit 1
+
       - name: Build Android App
         id: build
+        if: steps.pre-build.outputs.validation_success == 'true'
         continue-on-error: true
         shell: /usr/bin/bash -e {0}
         env:
@@ -711,30 +945,73 @@ jobs:
           fi
           chmod +x android/gradlew
           
-          # Xuất các biến môi trường
+          # Thiết lập biến môi trường cho quá trình build
           export NODE_ENV=production
-          export GRADLE_OPTS="-Xmx24g -XX:MaxMetaspaceSize=4g -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.jvmargs=-Xmx24g -Dorg.gradle.workers.max=14 -XX:+UseParallelGC"
-          export NODE_OPTIONS="--max-old-space-size=8192"
-          export EAS_LOCAL_BUILD_GRADLE_OPTS="-PmaxWorkers=14"
+          
+          # Cấu hình Gradle với heap size và worker threads tối ưu
+          export GRADLE_OPTS="-Xmx${{ env.GRADLE_MEMORY }} \
+            -XX:MaxMetaspaceSize=4g \
+            -XX:+HeapDumpOnOutOfMemoryError \
+            -Dorg.gradle.jvmargs=-Xmx${{ env.GRADLE_MEMORY }} \
+            -Dorg.gradle.workers.max=${{ env.GRADLE_MAX_WORKERS }} \
+            -XX:+UseParallelGC \
+            -XX:+UseG1GC \
+            -XX:MaxGCPauseMillis=200"
+
+          # Cấu hình Node.js memory limit
+          export NODE_OPTIONS="--max-old-space-size=${{ env.METRO_MEMORY }}"
+          
+          # Cấu hình Metro bundler
+          export METRO_CONFIG="metro.config.js"
+          export METRO_CACHE_DIR="${{ env.TMPDIR }}/metro-cache"
+          
+          # Cấu hình worker threads cho Gradle build
+          export EAS_LOCAL_BUILD_GRADLE_OPTS="-PmaxWorkers=${{ env.GRADLE_MAX_WORKERS }}"
 
           echo "Building Android app with profile: ${{ steps.profile.outputs.name }}"
           echo "Using ${{ env.GRADLE_MAX_WORKERS }} worker threads and ${{ env.GRADLE_MEMORY }} heap memory"
           echo "Node memory: ${{ env.METRO_MEMORY }}MB"
 
-          # Hiển thị thông tin môi trường đã export
-          echo "===== Môi trường xây dựng ====="
+          # Hiển thị thông tin môi trường build
+          echo "===== Build Environment ====="
           echo "GRADLE_OPTS: $GRADLE_OPTS"
           echo "NODE_OPTIONS: $NODE_OPTIONS"
+          echo "METRO_CONFIG: $METRO_CONFIG"
+          echo "METRO_CACHE_DIR: $METRO_CACHE_DIR"
           echo "EAS_LOCAL_BUILD_GRADLE_OPTS: $EAS_LOCAL_BUILD_GRADLE_OPTS"
           echo "============================="
 
-          # Hiển thị tệp cấu hình eas.json
+          # Hiển thị cấu hình EAS
           echo "EAS config:"
           cat eas.json
           
-          # Xây dựng ứng dụng với cấu hình đã tối ưu
-          eas build --platform android --local --non-interactive --profile=${{ steps.profile.outputs.name }}
-          echo "build_exit_code=$?" >> $GITHUB_OUTPUT
+          # Xây dựng ứng dụng với retry logic
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          BUILD_SUCCESS=false
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$BUILD_SUCCESS" != "true" ]; do
+            echo "Build attempt $(($RETRY_COUNT + 1)) of $MAX_RETRIES"
+            
+            if eas build --platform android --local --non-interactive --profile=${{ steps.profile.outputs.name }}; then
+              BUILD_SUCCESS=true
+              echo "Build successful on attempt $(($RETRY_COUNT + 1))"
+              break
+            else
+              RETRY_COUNT=$(($RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Build failed, waiting 30 seconds before retry..."
+                sleep 30
+              fi
+            fi
+          done
+          
+          if [ "$BUILD_SUCCESS" = "true" ]; then
+            echo "build_exit_code=0" >> $GITHUB_OUTPUT
+          else
+            echo "Build failed after $MAX_RETRIES attempts"
+            echo "build_exit_code=1" >> $GITHUB_OUTPUT
+          fi
 
       - name: Generate build report
         if: env.BUILD_REPORT == 'true'
