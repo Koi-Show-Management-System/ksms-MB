@@ -180,10 +180,28 @@ jobs:
           yarn config set network-timeout ${YARN_NETWORK_TIMEOUT}
           yarn install --frozen-lockfile --prefer-offline --network-timeout ${YARN_NETWORK_TIMEOUT} --non-interactive --cache-folder .yarn/cache
 
+      - name: Verify project structure
+        run: |
+          # Kiểm tra cấu trúc dự án và debug
+          echo "Checking project structure..."
+          ls -la
+          echo "Node version:"
+          node --version
+          echo "Yarn version:"
+          yarn --version
+          echo "Metro packages:"
+          yarn list --pattern "metro"
+
       - name: Fix Metro versions
         run: |
-          # Fix package versions for Metro
-          yarn add metro@^0.81.0 metro-resolver@^0.81.0 metro-config@^0.81.0 --dev
+          # Xóa các phiên bản không tương thích trước
+          rm -rf node_modules/metro node_modules/metro-config node_modules/metro-resolver
+          # Cài đặt phiên bản chính xác
+          yarn add metro@0.81.0 metro-resolver@0.81.0 metro-config@0.81.0 --dev --exact
+          # Kiểm tra phiên bản đã cài
+          yarn why metro
+          yarn why metro-resolver
+          yarn why metro-config
 
       - name: Build Android App
         run: |
