@@ -573,12 +573,12 @@ const ParticipateResult: React.FC = () => {
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Không có dữ liệu</Text>
           </View>
-
-        {/* Modal sẽ được render bên ngoài SafeAreaView chính */}
+        )}
         </SafeAreaView>
-         {/* Modal hiển thị WebView - Render bên ngoài ScrollView và điều kiện loading/error */}
-         <Modal
-           isVisible={showPaymentWebView}
+
+        {/* Modal hiển thị WebView - Render bên ngoài ScrollView và điều kiện loading/error */}
+        <Modal
+          isVisible={showPaymentWebView}
            style={styles.webViewModal}
            onBackdropPress={handleCloseWebView} // Đóng khi nhấn bên ngoài
            onBackButtonPress={handleCloseWebView} // Đóng khi nhấn nút back Android
@@ -1137,4 +1137,3 @@ const styles = StyleSheet.create({
 });
 
 export default ParticipateResult;
-

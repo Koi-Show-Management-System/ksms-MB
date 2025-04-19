@@ -9,10 +9,12 @@ import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { enableScreens } from "react-native-screens";
 import Toast from "react-native-toast-message";
+import { OverlayProvider } from "stream-chat-expo";
 import { QueryProvider } from "../context/QueryProvider";
 import { signalRService } from "../services/signalRService";
 // import { navigationRef } from '@/utils/navigationService';
@@ -40,8 +42,10 @@ export default function RootLayout() {
     });
 
     return () => {
-      // Xóa callback khi component unmount
-      signalRService.setOnToastPress(null);
+      // Xóa callback khi component unmount bằng cách đặt một hàm rỗng
+      signalRService.setOnToastPress(() => {
+        // Hàm rỗng để cleanup
+      });
     };
   }, []);
 
@@ -50,30 +54,40 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <QueryProvider>
-        <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-          <Stack
-            // ref={navigationRef}
-            screenOptions={{
-              headerShown: false,
-              animation: "fade",
-              contentStyle: {
-                backgroundColor: colorScheme === "dark" ? "#000" : "#fff",
-              },
-            }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(user)" options={{ headerShown: false }} />
-            <Stack.Screen name="(payments)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" options={{ headerShown: false }} />
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-          </Stack>
-          <StatusBar style="auto" />
-          <Toast />
-        </ThemeProvider>
-      </QueryProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <QueryProvider>
+          <OverlayProvider>
+            <ThemeProvider
+              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+              <Stack
+                // ref={navigationRef}
+                screenOptions={{
+                  headerShown: false,
+                  animation: "fade",
+                  contentStyle: {
+                    backgroundColor: colorScheme === "dark" ? "#000" : "#fff",
+                  },
+                }}>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(user)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="(payments)"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="+not-found"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+              </Stack>
+              <StatusBar style="auto" />
+              <Toast />
+            </ThemeProvider>
+          </OverlayProvider>
+        </QueryProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

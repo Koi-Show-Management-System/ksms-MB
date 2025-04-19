@@ -33,6 +33,15 @@ export interface GetViewerTokenResponse {
   message: string;
 }
 
+export interface GetLivestreamChatTokenResponse {
+  data: {
+    token: string;
+    // Add other potential fields if the API returns more
+  };
+  statusCode: number;
+  message: string;
+}
+
 // --- Livestream API Functions ---
 
 /**
@@ -95,6 +104,28 @@ export async function getLivestreamViewerToken(
   } catch (error) {
     console.error(
       `Error fetching viewer token for livestream ${livestreamId}:`,
+      error
+    );
+    throw error;
+  }
+}
+
+/**
+ * Fetches a chat token for a specific livestream.
+ * @param livestreamId - The ID of the livestream.
+ * @returns A promise that resolves with the chat token data.
+ */
+export async function getLivestreamChatToken(
+  livestreamId: string
+): Promise<GetLivestreamChatTokenResponse> {
+  try {
+    const response = await api.get<GetLivestreamChatTokenResponse>(
+      `/api/v1/livestream/chat-token/${livestreamId}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      `Error fetching chat token for livestream ${livestreamId}:`,
       error
     );
     throw error;

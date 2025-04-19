@@ -19,15 +19,13 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
-  Image,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import EnhancedLivestreamChat from "../../../components/EnhancedLivestreamChat";
 import {
   getLivestreamDetails,
   getLivestreamViewerToken,
@@ -79,7 +77,19 @@ const EnhancedLivestreamUI: React.FC<{
   children: React.ReactNode;
   showName: string;
   onLeave: () => void;
-}> = ({ children, showName, onLeave }) => {
+  livestreamId: string;
+  userId: string;
+  userName: string;
+  userProfileImage?: string;
+}> = ({
+  children,
+  showName,
+  onLeave,
+  livestreamId,
+  userId,
+  userName,
+  userProfileImage,
+}) => {
   const call = useCall();
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
@@ -173,57 +183,15 @@ const EnhancedLivestreamUI: React.FC<{
         </View>
       </View>
 
-      {/* Phần bình luận */}
+      {/* Phần bình luận - Thay thế bằng EnhancedLivestreamChat */}
       <View style={styles.commentsContainer}>
-        <Text style={styles.commentsSectionTitle}>Bình luận trực tiếp</Text>
-        <ScrollView style={styles.commentsScrollView}>
-          {comments.map((comment) => (
-            <View key={comment.id} style={styles.commentItem}>
-              <Image
-                source={{
-                  uri:
-                    comment.userImage ||
-                    "https://ui-avatars.com/api/?name=" +
-                      encodeURIComponent(comment.author),
-                }}
-                style={styles.commentAvatar}
-              />
-              <View style={styles.commentContent}>
-                <View style={styles.commentHeader}>
-                  <Text style={styles.commentUser}>{comment.author}</Text>
-                  <Text style={styles.commentTime}>
-                    {new Date(comment.timestamp).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </Text>
-                </View>
-                <Text style={styles.commentText}>{comment.content}</Text>
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-
-        {/* Input bình luận */}
-        <View style={styles.commentInputContainer}>
-          <TextInput
-            style={styles.commentInput}
-            placeholder="Viết bình luận..."
-            placeholderTextColor="#999"
-            value={commentText}
-            onChangeText={setCommentText}
-          />
-          <TouchableOpacity
-            style={styles.sendButton}
-            onPress={handleSendComment}
-            disabled={!commentText.trim()}>
-            <Ionicons
-              name="send"
-              size={20}
-              color={commentText.trim() ? "#0066CC" : "#CCC"}
-            />
-          </TouchableOpacity>
-        </View>
+        <EnhancedLivestreamChat
+          userId={userId}
+          userName={userName}
+          livestreamId={livestreamId}
+          showName={showName}
+          profileImage={userProfileImage}
+        />
       </View>
     </View>
   );
@@ -233,7 +201,18 @@ const EnhancedLivestreamUI: React.FC<{
 const CallStateHandler: React.FC<{
   onLeave: (call: Call) => void;
   showName: string;
-}> = ({ onLeave, showName }) => {
+  livestreamId: string;
+  userId: string;
+  userName: string;
+  userProfileImage?: string;
+}> = ({
+  onLeave,
+  showName,
+  livestreamId,
+  userId,
+  userName,
+  userProfileImage,
+}) => {
   // Các hook này bây giờ an toàn vì chúng nằm trong ngữ cảnh StreamCall
   const { useCallCallingState, useIsCallLive } = useCallStateHooks();
   const callingState = useCallCallingState();
@@ -292,7 +271,11 @@ const CallStateHandler: React.FC<{
       return (
         <EnhancedLivestreamUI
           showName={showName}
-          onLeave={() => call && onLeave(call)}>
+          onLeave={() => call && onLeave(call)}
+          livestreamId={livestreamId}
+          userId={userId}
+          userName={userName}
+          userProfileImage={userProfileImage}>
           <ViewerLivestream />
         </EnhancedLivestreamUI>
       );
@@ -314,8 +297,21 @@ const CallStateHandler: React.FC<{
 };
 
 const LivestreamContent: React.FC<
-  LivestreamContentProps & { showName?: string }
-> = ({ callId, callType, livestreamId, showName }) => {
+  LivestreamContentProps & {
+    showName?: string;
+    userId: string;
+    userName: string;
+    userProfileImage?: string;
+  }
+> = ({
+  callId,
+  callType,
+  livestreamId,
+  showName,
+  userId,
+  userName,
+  userProfileImage,
+}) => {
   const client = useStreamVideoClient();
   const [call, setCall] = useState<Call | null>(null);
   const [isLoadingCall, setIsLoadingCall] = useState(true);
@@ -618,6 +614,10 @@ const LivestreamContent: React.FC<
       <CallStateHandler
         onLeave={handleLeaveCall}
         showName={showName || "Koi Show Livestream"}
+        livestreamId={livestreamId}
+        userId={userId}
+        userName={userName}
+        userProfileImage={userProfileImage}
       />
     </StreamCall>
   );
@@ -638,11 +638,13 @@ const LivestreamViewerScreen: React.FC = () => {
   const [isLoadingClient, setIsLoadingClient] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const callRef = useRef<Call | null>(null); // Ref to hold the call object for the leave button
+  const [userId, setUserId] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
+  const [userProfileImage, setUserProfileImage] = useState<string | undefined>(
+    undefined
+  );
 
   // --- Effect for Client Setup and Token Fetching ---
-  // Ref để lưu trữ client, tránh tạo lại không cần thiết
-  // const clientRef = useRef<StreamVideoClient | null>(null); // Tạm thời loại bỏ ref không sử dụng
-
   useEffect(() => {
     let isMounted = true;
     let videoClient: StreamVideoClient | null = null;
@@ -731,6 +733,14 @@ const LivestreamViewerScreen: React.FC = () => {
           name: `Viewer-${tokenPayload.user_id.slice(0, 8)}`,
           type: "authenticated",
         };
+
+        // Lưu thông tin người dùng để sử dụng cho chat
+        if (isMounted) {
+          setUserId(userToConnect.id);
+          setUserName(userToConnect.name);
+          // Có thể lấy profile image từ storage hoặc API nếu có
+          setUserProfileImage(userToConnect.image);
+        }
 
         // --- TRỰC TIẾP TRUYỀN TOKEN ---
         console.log(
@@ -854,6 +864,9 @@ const LivestreamViewerScreen: React.FC = () => {
           callType="livestream"
           livestreamId={livestreamId}
           showName={showName}
+          userId={userId}
+          userName={userName}
+          userProfileImage={userProfileImage}
           // Pass the call object up via ref if needed by parent, though maybe not necessary now
           // ref={(c) => callRef.current = c} // This won't work directly on functional components
         />
@@ -1101,4 +1114,5 @@ const styles = StyleSheet.create({
   },
 });
 
+// Đảm bảo export mặc định đúng cách
 export default LivestreamViewerScreen;
