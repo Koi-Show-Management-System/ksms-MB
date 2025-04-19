@@ -114,41 +114,41 @@ jobs:
 
       - name: Setup Android SDK
         run: |
-          echo "Setting up fresh build environment..."
-
+          echo "Setting up Android SDK environment..."
+          
           # Dọn dẹp môi trường cũ
-          rm -rf ~/.gradle/caches ~/.gradle/wrapper ~/.android ~/.npm node_modules .yarn/cache $HOME/android-sdk /home/user/expo-tmp/metro-cache
-
+          rm -rf $HOME/android-sdk
+          
           # Tạo thư mục mới
-          mkdir -p $HOME/android-sdk ~/.gradle ~/.android ~/.npm node_modules .yarn/cache /home/user/expo-tmp/metro-cache
-
+          mkdir -p $HOME/android-sdk
+          
           # Đặt biến SDK_ROOT
           SDK_ROOT=$HOME/android-sdk
           echo "ANDROID_HOME=$SDK_ROOT" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> $GITHUB_ENV
-
+          
           # Cài đặt Android SDK
           cd $SDK_ROOT
-
+          
           # Tạo cấu trúc thư mục đúng cho cmdline-tools
           mkdir -p $SDK_ROOT/cmdline-tools/latest
-
+          
           # Tải và giải nén command line tools vào thư mục tạm
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -q commandlinetools-linux-9477386_latest.zip -d temp_dir
-
+          
           # Di chuyển nội dung vào vị trí chính xác
           mv temp_dir/cmdline-tools/* $SDK_ROOT/cmdline-tools/latest/
-
+          
           # Dọn dẹp
           rm -rf temp_dir commandlinetools-linux-9477386_latest.zip
-
+          
           # Thiết lập quyền truy cập
-          chmod -R 755 .
-
+          chmod -R 755 $SDK_ROOT/cmdline-tools
+          
           # Chấp nhận licenses
           yes | $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$SDK_ROOT --licenses || true
-
+          
           # Cài đặt packages với retry và verify
           for i in {1..3}; do
             echo "Installing Android packages (Attempt $i)..."
@@ -168,7 +168,7 @@ jobs:
             rm -rf $SDK_ROOT/platform-tools $SDK_ROOT/build-tools $SDK_ROOT/platforms  # Cleanup failed install
             sleep 10
           done
-
+          
           # Double check installation
           if ! $SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$SDK_ROOT --list_installed | grep -q "platform-tools"; then
             echo "❌ Failed to install Android packages after 3 attempts"
@@ -217,7 +217,7 @@ jobs:
           echo "✅ Cache cleanup completed"
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: android-app-${{ steps.profile.outputs.name }}-${{ env.BUILD_TIMESTAMP }}
           path: ${{ env.STORAGE_DIR }}/*.apk
