@@ -5,10 +5,11 @@ import {
   CallingState,
   StreamCall,
   StreamVideo,
-  StreamVideoClient, // Import enum for call states
+  StreamVideoClient,
   useCall,
   useCallStateHooks,
-  User, // Thêm vào để sử dụng component mới
+  useCallStateObservers,
+  User,
   useStreamVideoClient,
   ViewerLivestream,
 } from "@stream-io/video-react-native-sdk";
@@ -30,7 +31,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   getLivestreamDetails,
   getLivestreamViewerToken,
-} from "../../../services/livestreamService"; // Import status check function and type
+} from "../../../services/livestreamService";
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
@@ -47,8 +48,6 @@ async function handleLeaveCall(call: Call | null) {
       console.log("Successfully left the call.");
     } catch (error) {
       console.error("Error leaving call:", error);
-      // Optionally show an alert to the user
-      // Alert.alert('Lỗi', 'Không thể rời khỏi livestream.');
     }
   }
   // Navigate back regardless of leave success/failure
@@ -56,8 +55,6 @@ async function handleLeaveCall(call: Call | null) {
     router.back();
   } else {
     console.log("Cannot go back from livestream.");
-    // Potentially navigate to a default screen like home
-    // router.replace('/(tabs)/home');
   }
 }
 
@@ -68,30 +65,14 @@ interface LivestreamContentProps {
   livestreamId: string; // Pass livestreamId for status checks
 }
 
-// Mẫu dữ liệu bình luận
-const SAMPLE_COMMENTS = [
-  {
-    id: "1",
-    user: "KoiLover55",
-    text: "Cá Koi này đẹp quá! Màu sắc rất tươi sáng.",
-    timeAgo: "2p",
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-  },
-  {
-    id: "2",
-    user: "JapaneseKoiExpert",
-    text: "Đây là một con Kohaku tuyệt vời, có thể đạt giải cao đấy!",
-    timeAgo: "5p",
-    avatar: "https://randomuser.me/api/portraits/women/44.jpg",
-  },
-  {
-    id: "3",
-    user: "KoiBreeder_JP",
-    text: "Chất lượng nước rất tốt. Họ đang sử dụng hệ thống lọc gì vậy?",
-    timeAgo: "7p",
-    avatar: "https://randomuser.me/api/portraits/men/68.jpg",
-  },
-];
+// Interface for livestream comments
+interface Comment {
+  id: string;
+  author: string;
+  content: string;
+  timestamp: Date;
+  userImage?: string;
+}
 
 // Component hiển thị livestream với giao diện đẹp
 const EnhancedLivestreamUI: React.FC<{
@@ -99,34 +80,54 @@ const EnhancedLivestreamUI: React.FC<{
   showName: string;
   onLeave: () => void;
 }> = ({ children, showName, onLeave }) => {
-  const [viewCount, setViewCount] = useState(1245);
-  const [likeCount, setLikeCount] = useState(324);
-  const [isLiked, setIsLiked] = useState(false);
-  const [comments, setComments] = useState(SAMPLE_COMMENTS);
+  const call = useCall();
   const [commentText, setCommentText] = useState("");
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [viewerCount, setViewerCount] = useState(0);
+  const { useCallViewers } = useCallStateObservers();
+  const viewers = useCallViewers();
 
-  // Giả lập tăng số người xem
+  // Update viewer count when viewers change
   useEffect(() => {
-    const interval = setInterval(() => {
-      setViewCount((prev) => prev + Math.floor(Math.random() * 3));
-    }, 5000);
+    if (viewers) {
+      setViewerCount(viewers.length);
+    }
+  }, [viewers]);
 
-    return () => clearInterval(interval);
-  }, []);
+  // Listen for new messages/comments
+  useEffect(() => {
+    if (!call) return;
 
-  // Xử lý gửi bình luận
-  const handleSendComment = () => {
-    if (commentText.trim()) {
-      const newComment = {
-        id: Date.now().toString(),
-        user: "Bạn",
-        text: commentText,
-        timeAgo: "vừa xong",
-        avatar: "https://randomuser.me/api/portraits/men/1.jpg",
+    // Set up message listener
+    const unsubscribe = call.on("message.new", (event) => {
+      // Add new message to comments
+      const newComment: Comment = {
+        id: event.message.id,
+        author: event.message.user?.name || "Unknown",
+        content: event.message.text,
+        timestamp: new Date(event.message.created_at),
+        userImage: event.message.user?.image,
       };
 
-      setComments([newComment, ...comments]);
+      setComments((prevComments) => [newComment, ...prevComments]);
+    });
+
+    // Cleanup listener on unmount
+    return () => {
+      unsubscribe();
+    };
+  }, [call]);
+
+  // Xử lý gửi bình luận
+  const handleSendComment = async () => {
+    if (!commentText.trim() || !call) return;
+
+    try {
+      // Use Stream's sendMessage API
+      await call.sendMessage({ text: commentText });
       setCommentText("");
+    } catch (error) {
+      console.error("Error sending comment:", error);
     }
   };
 
@@ -145,7 +146,7 @@ const EnhancedLivestreamUI: React.FC<{
         {/* Số người xem */}
         <View style={styles.viewCountContainer}>
           <Ionicons name="eye" size={14} color="#FFF" />
-          <Text style={styles.viewCountText}>{viewCount}</Text>
+          <Text style={styles.viewCountText}>{viewerCount}</Text>
         </View>
 
         {/* Nút quay lại */}
@@ -160,24 +161,10 @@ const EnhancedLivestreamUI: React.FC<{
           {showName || "Koi Show Livestream"}
         </Text>
         <View style={styles.streamStats}>
-          <TouchableOpacity
-            style={styles.statButton}
-            onPress={() => {
-              setIsLiked(!isLiked);
-              setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
-            }}>
-            <Ionicons
-              name={isLiked ? "heart" : "heart-outline"}
-              size={22}
-              color={isLiked ? "#FF4D4F" : "#333"}
-            />
-            <Text style={styles.statText}>{likeCount}</Text>
-          </TouchableOpacity>
-
-          <View style={styles.statButton}>
+          <TouchableOpacity style={styles.statButton}>
             <Ionicons name="chatbubble-outline" size={20} color="#333" />
             <Text style={styles.statText}>{comments.length}</Text>
-          </View>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.statButton}>
             <Ionicons name="share-social-outline" size={20} color="#333" />
@@ -193,15 +180,25 @@ const EnhancedLivestreamUI: React.FC<{
           {comments.map((comment) => (
             <View key={comment.id} style={styles.commentItem}>
               <Image
-                source={{ uri: comment.avatar }}
+                source={{
+                  uri:
+                    comment.userImage ||
+                    "https://ui-avatars.com/api/?name=" +
+                      encodeURIComponent(comment.author),
+                }}
                 style={styles.commentAvatar}
               />
               <View style={styles.commentContent}>
                 <View style={styles.commentHeader}>
-                  <Text style={styles.commentUser}>{comment.user}</Text>
-                  <Text style={styles.commentTime}>{comment.timeAgo}</Text>
+                  <Text style={styles.commentUser}>{comment.author}</Text>
+                  <Text style={styles.commentTime}>
+                    {new Date(comment.timestamp).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </Text>
                 </View>
-                <Text style={styles.commentText}>{comment.text}</Text>
+                <Text style={styles.commentText}>{comment.content}</Text>
               </View>
             </View>
           ))}

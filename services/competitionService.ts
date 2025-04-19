@@ -108,6 +108,7 @@ export interface ShowDetailPayment {
   paymentMethod: string;
   transactionCode: string;
   status: string;
+  paymentUrl: string | null; // Thêm trường paymentUrl
 }
 
 // Interface cho thông tin giải thưởng trong registration

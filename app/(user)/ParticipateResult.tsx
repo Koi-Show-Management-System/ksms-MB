@@ -20,9 +20,12 @@ import { getShowMemberDetail, ShowMemberDetail, ShowDetailRegistration } from ".
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import { translateStatus } from "../../utils/statusTranslator";
+import { WebView } from 'react-native-webview'; // Import WebView
+import Modal from 'react-native-modal'; // Import Modal
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
+const { height } = Dimensions.get("window"); // Chỉ giữ lại height vì width đã khai báo
 
 // Mở rộng kiểu dữ liệu ShowMemberDetail để thêm trường cancellationReason
 interface EnhancedShowMemberDetail extends ShowMemberDetail {
@@ -30,8 +33,22 @@ interface EnhancedShowMemberDetail extends ShowMemberDetail {
 }
 
 // Mở rộng kiểu dữ liệu ShowDetailRegistration
+// Đảm bảo kiểu Payment có tồn tại và chứa paymentUrl
+interface PaymentDetail {
+  id: string;
+  paidAmount: number;
+  paymentDate: string;
+  qrcodeData: string | null;
+  paymentMethod: string;
+  transactionCode: string;
+  status: string;
+  paymentUrl: string | null; // Quan trọng: paymentUrl có thể là null
+}
+
+// Giữ lại định nghĩa EnhancedShowDetailRegistration bao gồm cả payment
 type EnhancedShowDetailRegistration = ShowDetailRegistration & {
   totalParticipants?: number;
+  payment?: PaymentDetail | null; // Thêm thông tin payment vào registration
 };
 
 // --- Fish Details Card ---
@@ -39,7 +56,8 @@ const FishDetailsCard: React.FC<{
   registration: EnhancedShowDetailRegistration;
   onPress: () => void;
   onShare: () => void;
-}> = ({ registration, onPress, onShare }) => {
+  onContinuePayment: (url: string) => void; // Thêm prop mới
+}> = ({ registration, onPress, onShare, onContinuePayment }) => { // Thêm onContinuePayment vào props destructured
   // Chọn ảnh đầu tiên từ media hoặc sử dụng ảnh mặc định
   const fishImage = registration.media.find(item => item.mediaType === "Image")?.mediaUrl || 
     "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png";
@@ -148,12 +166,25 @@ const FishDetailsCard: React.FC<{
             onPress={onPress}>
             <Text style={styles.viewDetailButtonText}>Xem chi tiết</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.shareButton}
-            onPress={onShare}>
-            <Text style={styles.shareButtonText}>Chia sẻ kết quả</Text>
-          </TouchableOpacity>
+
+          {/* Nút Tiếp tục thanh toán */}
+          {registration.status.toLowerCase() === "waittopaid" && registration.payment?.paymentUrl && (
+            <TouchableOpacity
+              style={styles.continuePaymentButton} // Thêm style mới
+              onPress={() => registration.payment?.paymentUrl && onContinuePayment(registration.payment.paymentUrl)}
+            >
+              <Text style={styles.continuePaymentButtonText}>Tiếp tục thanh toán</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Chỉ hiển thị nút chia sẻ nếu cá đạt giải */}
+          {hasAward && (
+             <TouchableOpacity
+               style={styles.shareButton}
+               onPress={onShare}>
+               <Text style={styles.shareButtonText}>Chia sẻ kết quả</Text>
+             </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>
@@ -352,47 +383,47 @@ const ParticipateResult: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   // Animation state
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  // State cho WebView Modal
+  const [showPaymentWebView, setShowPaymentWebView] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchShowDetail = async () => {
-      try {
-        setLoading(true);
-        const data = await getShowMemberDetail(competitionId);
-        
-        // Cập nhật thêm thông tin totalParticipants cho mỗi registration
-        const enhancedData = {
-          ...data,
-          registrations: data.registrations.map(reg => ({
-            ...reg,
-            totalParticipants: data.totalRegisteredKoi // Thêm thông tin tổng số cá
-          }))
-        };
-        
-        setShowDetail(enhancedData);
-        setError(null);
-        
-        // Kích hoạt animation fade-in
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }).start();
-        
-      } catch (error: any) {
-        console.error('Lỗi khi lấy thông tin chi tiết show:', error);
-        setError(error.message || 'Có lỗi xảy ra khi tải dữ liệu');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Định nghĩa fetchShowDetail bên ngoài useEffect để có thể gọi lại
+  const fetchShowDetail = async () => {
+    try {
+      setLoading(true);
+      const data = await getShowMemberDetail(competitionId);
 
-    if (competitionId) {
-      fetchShowDetail();
-    } else {
-      setError('Không tìm thấy ID cuộc thi');
+      // Cập nhật thêm thông tin totalParticipants và payment cho mỗi registration
+      const enhancedData = {
+        ...data,
+        registrations: data.registrations.map(reg => ({
+          ...reg,
+          totalParticipants: data.totalRegisteredKoi, // Thêm thông tin tổng số cá
+          payment: reg.payment // Đảm bảo payment được truyền vào
+        }))
+      };
+
+      setShowDetail(enhancedData);
+      setError(null);
+
+      // Kích hoạt animation fade-in
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
+
+    } catch (error: any) { // Sửa lỗi cú pháp: dấu phẩy không cần thiết
+      console.error('Lỗi khi lấy thông tin chi tiết show:', error);
+      setError(error.message || 'Có lỗi xảy ra khi tải dữ liệu');
+    } finally {
       setLoading(false);
     }
-  }, [competitionId]);
+  }; // Kết thúc hàm fetchShowDetail
+
+  useEffect(() => {
+    fetchShowDetail(); // Gọi hàm đã định nghĩa ở trên
+  }, [competitionId]); // Dependency array vẫn giữ nguyên
 
   // Xử lý chuyển hướng đến màn hình chi tiết cá
   const handleViewFishDetail = (registration: EnhancedShowDetailRegistration) => {
@@ -421,6 +452,21 @@ const ParticipateResult: React.FC = () => {
   const handleJoinOtherCompetitions = () => {
     router.push("/(tabs)/shows/KoiShowsPage");
   };
+
+  // Xử lý mở WebView thanh toán
+  const handleContinuePayment = (url: string) => {
+    setPaymentUrl(url);
+    setShowPaymentWebView(true);
+  };
+
+  // Xử lý đóng WebView thanh toán
+  const handleCloseWebView = () => {
+    setShowPaymentWebView(false);
+    setPaymentUrl(null);
+    // Tải lại dữ liệu sau khi đóng webview để cập nhật trạng thái thanh toán
+    fetchShowDetail();
+  };
+
 
   return (
     <View style={{ flex: 1 }}>
@@ -480,6 +526,7 @@ const ParticipateResult: React.FC = () => {
                     registration={registration} 
                     onPress={() => handleViewFishDetail(registration)}
                     onShare={() => handleShareResults(registration)}
+                    onContinuePayment={handleContinuePayment} // Truyền hàm xử lý
                   />
                 ))}
                 
@@ -526,11 +573,57 @@ const ParticipateResult: React.FC = () => {
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Không có dữ liệu</Text>
           </View>
-        )}
-      </SafeAreaView>
+
+        {/* Modal sẽ được render bên ngoài SafeAreaView chính */}
+        </SafeAreaView>
+         {/* Modal hiển thị WebView - Render bên ngoài ScrollView và điều kiện loading/error */}
+         <Modal
+           isVisible={showPaymentWebView}
+           style={styles.webViewModal}
+           onBackdropPress={handleCloseWebView} // Đóng khi nhấn bên ngoài
+           onBackButtonPress={handleCloseWebView} // Đóng khi nhấn nút back Android
+           animationIn="slideInUp"
+           animationOut="slideOutDown"
+           backdropOpacity={0.5}
+         >
+           <SafeAreaView style={styles.webViewSafeArea}>
+             <View style={styles.webViewContainer}>
+               <View style={styles.webViewHeader}>
+                 <Text style={styles.webViewTitle}>Tiếp tục thanh toán</Text>
+                 <TouchableOpacity onPress={handleCloseWebView} style={styles.closeButton}>
+                    <Image source={{ uri: 'https://img.icons8.com/ios-glyphs/30/777777/multiply.png' }} style={styles.closeIcon} />
+                 </TouchableOpacity>
+               </View>
+               {paymentUrl ? ( // Chỉ render WebView khi có URL
+                 <WebView
+                   source={{ uri: paymentUrl }}
+                   style={styles.webView}
+                   startInLoadingState={true}
+                   renderLoading={() => (
+                     <ActivityIndicator
+                       color="#4A90E2"
+                       size="large"
+                       style={styles.webViewLoading}
+                     />
+                   )}
+                   onError={(syntheticEvent) => {
+                     const { nativeEvent } = syntheticEvent;
+                     console.warn('WebView error: ', nativeEvent);
+                     Alert.alert('Lỗi tải trang', 'Không thể tải trang thanh toán. Vui lòng thử lại.');
+                     handleCloseWebView(); // Đóng modal nếu có lỗi
+                   }}
+                 />
+               ) : (
+                  <View style={styles.webViewLoading}>
+                     <Text>Đang tải URL...</Text>
+                  </View>
+               )}
+             </View>
+           </SafeAreaView>
+         </Modal>
     </View>
   );
-};
+}; // Sửa lỗi cú pháp: Đặt dấu chấm phẩy đúng vị trí
 
 // --- Styles ---
 const styles = StyleSheet.create({
@@ -829,6 +922,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 15,
   },
+  continuePaymentButton: { // Style cho nút mới
+    backgroundColor: "#F59E0B", // Màu cam
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: "center",
+    elevation: 2,
+  },
+  continuePaymentButtonText: { // Style cho text nút mới
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 15,
+  },
   // Join other competitions
   joinOtherButton: {
     marginTop: 16,
@@ -977,6 +1082,57 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#B8860B",
+  },
+  // WebView Modal Styles
+  webViewModal: {
+    margin: 0, // Modal chiếm toàn màn hình
+    justifyContent: 'flex-end',
+  },
+  webViewSafeArea: {
+    flex: 1,
+    backgroundColor: 'white', // Nền trắng cho safe area
+    borderTopLeftRadius: 15, // Bo góc trên
+    borderTopRightRadius: 15,
+    overflow: 'hidden', // Đảm bảo bo góc hoạt động
+    maxHeight: height * 0.9, // Giới hạn chiều cao modal
+  },
+  webViewContainer: {
+    flex: 1,
+  },
+  webViewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#f8f8f8',
+  },
+  webViewTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  closeButton: {
+    padding: 8, // Tăng vùng chạm
+  },
+  closeIcon: {
+    width: 20,
+    height: 20,
+  },
+  webView: {
+    flex: 1,
+  },
+  webViewLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
 });
 
