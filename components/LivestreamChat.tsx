@@ -1,12 +1,26 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Channel as ChannelType, StreamChat } from "stream-chat";
-import { Channel, Chat, MessageInput, MessageList } from "stream-chat-expo";
+import {
+  Channel,
+  Chat,
+  MessageInput,
+  MessageList,
+  OverlayProvider,
+} from "stream-chat-expo";
 import {
   connectUser,
+  getChatToken,
   getOrCreateLivestreamChannel,
   initChatClient,
+  setupAutomaticChatReconnection,
 } from "../services/chatService";
 
 interface LivestreamChatProps {
@@ -14,7 +28,7 @@ interface LivestreamChatProps {
   userName: string; // Tên người dùng
   livestreamId: string; // ID của livestream
   showName: string; // Tên hiển thị của show
-  token: string; // Token xác thực stream chat
+  token?: string; // Optional token xác thực stream chat
   profileImage?: string; // URL hình ảnh đại diện (tùy chọn)
 }
 
@@ -33,135 +47,176 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
   const [reconnecting, setReconnecting] = useState(false);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 3;
+  const isInitialMount = useRef(true);
 
+  // Handle reconnection attempts
+  const attemptReconnect = useCallback(async () => {
+    if (reconnectAttempts.current >= maxReconnectAttempts) {
+      setError(
+        "Maximum reconnection attempts reached. Please try again later."
+      );
+      setReconnecting(false);
+      return;
+    }
+
+    reconnectAttempts.current += 1;
+    setReconnecting(true);
+    console.log(
+      `[LivestreamChat] Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`
+    );
+
+    try {
+      await initChat();
+    } catch (error) {
+      console.error("[LivestreamChat] Reconnection attempt failed:", error);
+
+      // Try again after a delay
+      setTimeout(() => {
+        attemptReconnect();
+      }, 3000);
+    }
+  }, [userId, userName, livestreamId, showName]);
+
+  // Initialize chat
+  const initChat = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      if (!userId) {
+        throw new Error("User ID is required");
+      }
+
+      console.log(
+        `[LivestreamChat] Initializing chat for livestream: ${livestreamId}, user: ${userId}`
+      );
+
+      // Initialize Stream Chat client
+      const chatClient = initChatClient();
+
+      // Get authentication token - if token is provided in props, use it, otherwise fetch it
+      const authToken = token || (await getChatToken(userId));
+
+      if (!authToken) {
+        throw new Error("Failed to obtain valid authentication token");
+      }
+
+      // Connect user with enhanced method that handles reconnections
+      await connectUser(userId, userName, authToken, profileImage);
+
+      setClient(chatClient);
+      console.log("[LivestreamChat] User connected successfully");
+
+      // Create or get livestream channel
+      try {
+        const livestreamChannel = await getOrCreateLivestreamChannel(
+          chatClient,
+          livestreamId,
+          showName
+        );
+
+        console.log(`[LivestreamChat] Channel ready: ${livestreamChannel.id}`);
+        setChannel(livestreamChannel);
+        setError(null);
+        reconnectAttempts.current = 0; // Reset reconnect attempts on success
+      } catch (channelError: any) {
+        console.error("[LivestreamChat] Error creating channel:", channelError);
+
+        // Provide user-friendly error message based on the error
+        if (channelError.code === 4) {
+          setError("Chat initialization failed. Please try again.");
+          attemptReconnect();
+        } else if (channelError.code === 40) {
+          setError("Chat channel not found. Creating a new one...");
+          // Try to create a new channel
+          try {
+            const newChannel = chatClient.channel(
+              "livestream",
+              `livestream-${livestreamId}`,
+              {
+                name: `${showName || "Koi Show"} Chat`,
+                created_by_id: userId,
+                members: [userId],
+              }
+            );
+            await newChannel.create();
+            setChannel(newChannel);
+            setError(null);
+          } catch (newChannelError) {
+            setError(
+              "Failed to create chat channel. Please reload the livestream."
+            );
+            attemptReconnect();
+          }
+        } else {
+          setError(`Chat error: ${channelError.message}`);
+          attemptReconnect();
+        }
+      }
+    } catch (err: any) {
+      console.error("[LivestreamChat] Error initializing chat:", err);
+
+      // Provide more helpful error messages based on error type
+      if (err.message?.includes("token") || err.code === 40) {
+        setError("Authentication error. Please reload the livestream.");
+      } else if (
+        err.message?.includes("network") ||
+        err.message?.includes("connection")
+      ) {
+        setError("Network issue. Please check your connection.");
+        attemptReconnect();
+      } else {
+        setError(`Chat error: ${err.message}`);
+        attemptReconnect();
+      }
+    } finally {
+      setLoading(false);
+      setReconnecting(false);
+    }
+  }, [
+    userId,
+    userName,
+    livestreamId,
+    showName,
+    token,
+    profileImage,
+    attemptReconnect,
+  ]);
+
+  // Initialize chat on component mount
   useEffect(() => {
     let isMounted = true;
 
-    const initChat = async () => {
+    // Called when the component mounts
+    const mountChat = async () => {
       try {
-        setLoading(true);
-
-        if (!userId || !token) {
-          throw new Error("User ID and token are required");
+        // Setup automatic reconnection globally
+        if (isInitialMount.current) {
+          await setupAutomaticChatReconnection();
+          isInitialMount.current = false;
         }
 
-        console.log(
-          `[LivestreamChat] Initializing chat for livestream: ${livestreamId}, user: ${userId}`
-        );
-
-        // Initialize Stream Chat client using improved method
-        const chatClient = initChatClient();
-
-        // Connect user with our enhanced method that handles reconnections
-        await connectUser(userId, userName, token, profileImage);
-
         if (isMounted) {
-          setClient(chatClient);
-          console.log("[LivestreamChat] User connected successfully");
-
-          // Create or get livestream channel with proper error handling
-          try {
-            const livestreamChannel = await getOrCreateLivestreamChannel(
-              chatClient,
-              livestreamId,
-              showName
-            );
-
-            console.log(
-              `[LivestreamChat] Channel ready: ${livestreamChannel.id}`
-            );
-            setChannel(livestreamChannel);
-            setError(null);
-          } catch (channelError: any) {
-            console.error(
-              "[LivestreamChat] Error creating channel:",
-              channelError
-            );
-
-            // Provide user-friendly error message based on the error
-            if (channelError.code === 4) {
-              setError(
-                "Channel creation requires additional user data. Please try again."
-              );
-            } else if (channelError.code === 40) {
-              setError("Channel not found. A new channel will be created.");
-              // Try to create a new channel as fallback
-              try {
-                const newChannel = chatClient.channel(
-                  "livestream",
-                  `livestream-${livestreamId}`,
-                  {
-                    name: `${showName || "Koi Show"} Chat`,
-                    created_by_id: userId,
-                    members: [userId],
-                  }
-                );
-                await newChannel.create();
-                setChannel(newChannel);
-                setError(null);
-              } catch (newChannelError) {
-                setError(
-                  "Failed to create chat channel. Please reload the livestream."
-                );
-              }
-            } else {
-              setError(`Chat error: ${channelError.message}`);
-            }
-          }
+          // Initialize chat
+          await initChat();
         }
-      } catch (err: any) {
-        console.error("[LivestreamChat] Error initializing chat:", err);
-
+      } catch (error) {
+        console.error("[LivestreamChat] Mount error:", error);
         if (isMounted) {
-          // Provide more helpful error messages based on error type
-          if (err.message?.includes("token") || err.code === 40) {
-            setError("Authentication error. Please reload the livestream.");
-          } else if (
-            err.message?.includes("network") ||
-            err.message?.includes("connection")
-          ) {
-            setError("Network issue. Please check your connection.");
-          } else {
-            setError(`Chat error: ${err.message}`);
-          }
-
-          // Attempt reconnection if appropriate
-          if (
-            reconnectAttempts.current < maxReconnectAttempts &&
-            (err.message?.includes("network") ||
-              err.message?.includes("connection"))
-          ) {
-            reconnectAttempts.current += 1;
-            setReconnecting(true);
-            setTimeout(() => {
-              if (isMounted) {
-                console.log(
-                  `[LivestreamChat] Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`
-                );
-                initChat();
-              }
-            }, 3000); // Wait 3 seconds before reconnecting
-          }
-        }
-      } finally {
-        if (isMounted) {
+          setError("Failed to initialize chat. Please reload the livestream.");
           setLoading(false);
-          setReconnecting(false);
         }
       }
     };
 
-    initChat();
+    mountChat();
 
     // Cleanup function
     return () => {
       isMounted = false;
-      // We don't disconnect here anymore, as it may affect other components
-      // Let the chatService.disconnectUser() handle this when app actually closes
     };
-  }, [userId, userName, livestreamId, showName, token, profileImage]);
+  }, [initChat]);
 
-  // Handle offline/online status changes
+  // Handle connection status changes
   useEffect(() => {
     if (!client) return;
 
@@ -176,6 +231,7 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
         setError("You are offline. Messages will be sent when you reconnect.");
       } else {
         setError(null);
+
         // Refresh channel when back online
         if (channel) {
           channel.watch().catch(console.error);
@@ -189,6 +245,12 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
       client.off("connection.changed", handleConnectionChange);
     };
   }, [client, channel]);
+
+  // Retry button handler
+  const handleRetry = () => {
+    reconnectAttempts.current = 0;
+    initChat();
+  };
 
   if (loading) {
     return (
@@ -206,6 +268,9 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={24} color="#FF6B6B" />
         <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -216,10 +281,14 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
         <Text style={styles.errorText}>
           Unable to connect to chat. Please reload the livestream.
         </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
+  // Define theme for Stream Chat components
   const chatTheme = {
     messageList: {
       container: styles.messageListContainer,
@@ -231,11 +300,13 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
     message: {
       content: {
         container: styles.messageContent,
-        // Adding specific styling for user messages vs other messages
         containerMine: styles.myMessageContent,
       },
       avatarWrapper: {
         container: styles.avatarWrapper,
+      },
+      status: {
+        readBy: styles.readBy,
       },
     },
   };
@@ -249,14 +320,16 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
         </View>
       )}
 
-      <Chat client={client} style={chatTheme}>
-        <Channel channel={channel}>
-          <View style={styles.chatContainer}>
-            <MessageList />
-            <MessageInput />
-          </View>
-        </Channel>
-      </Chat>
+      <OverlayProvider>
+        <Chat client={client} style={chatTheme}>
+          <Channel channel={channel}>
+            <View style={styles.chatContainer}>
+              <MessageList />
+              <MessageInput />
+            </View>
+          </Channel>
+        </Chat>
+      </OverlayProvider>
     </View>
   );
 };
@@ -299,6 +372,9 @@ const styles = StyleSheet.create({
   avatarWrapper: {
     marginRight: 8,
   },
+  readBy: {
+    fontSize: 10,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -319,6 +395,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     marginTop: 8,
+    marginBottom: 16,
     color: "#FF6B6B",
     fontSize: 14,
     textAlign: "center",
@@ -337,6 +414,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
     flex: 1,
+  },
+  retryButton: {
+    backgroundColor: "#0066CC",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
   },
 });
 

@@ -1,24 +1,7 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
-import { StreamChat } from "stream-chat";
+import { Channel, Event, StreamChat } from "stream-chat";
 import api from "./api";
-
-// Interface cho phản hồi token chat
-export interface ChatTokenResponse {
-  token: string;
-}
-
-// Stream chat instance
-let chatClientInstance: StreamChat | null = null;
-
-// Interface cho response lấy token chat
-export interface GetChatTokenResponse {
-  data: {
-    token: string;
-    // Thêm các trường khác nếu API trả về nhiều hơn
-  };
-  statusCode: number;
-  message: string;
-}
 
 // Interface for chat messages
 export interface ChatMessage {
@@ -52,123 +35,289 @@ export interface SendMessageResponse {
   message: string;
 }
 
+// Single client instance for the entire app
+let chatClientInstance: StreamChat | null = null;
+
+// Constants for AsyncStorage
+const STREAM_TOKEN_STORAGE_KEY = "@StreamChat:userToken";
+const STREAM_USER_STORAGE_KEY = "@StreamChat:userData";
+
+// Track channel subscription
+const subscribedChannels: { [channelId: string]: boolean } = {};
+
+// Store channel instances to reuse
+const channelInstances: { [channelId: string]: Channel } = {};
+
 /**
- * Khởi tạo Stream Chat client
- * @returns Instance của Stream Chat client
+ * Initialize the Stream Chat client
+ * @returns The StreamChat client instance
  */
 export function initChatClient(): StreamChat {
-  // Nếu đã có instance, trả về instance đó
   if (chatClientInstance) {
+    console.log("[ChatService] Returning existing Stream Chat client instance");
     return chatClientInstance;
   }
 
-  // Lấy API key từ biến môi trường hoặc constants
+  // Get API key from config or use hardcoded value for backup
   const apiKey =
     Constants.expoConfig?.extra?.streamChatApiKey || "z87auffz2r8y";
-
   if (!apiKey) {
-    throw new Error("Stream Chat API key không được cấu hình");
+    throw new Error("Stream Chat API key is not configured");
   }
 
-  // Log for debugging
   console.log(
     "[ChatService] Initializing Stream Chat client with API key:",
     apiKey
   );
 
-  chatClientInstance = StreamChat.getInstance(apiKey);
+  // Create a new client instance with optimizations for React Native
+  chatClientInstance = StreamChat.getInstance(apiKey, {
+    enableInsights: true, // Enable insights for better performance tracking
+    enableWSFallback: true, // Enable WebSocket fallback for better connection reliability
+    persistUserOnConnectionFailure: true, // Keep user connected on temporary failures
+  });
+
+  console.log("[ChatService] Stream Chat client initialized");
+
   return chatClientInstance;
 }
 
 /**
- * Ngắt kết nối user khỏi chat client
+ * Save user token to AsyncStorage for later use
  */
-export async function disconnectUser() {
-  if (chatClientInstance) {
-    try {
-      console.log("[ChatService] Disconnecting user from Stream Chat");
-      await chatClientInstance.disconnectUser();
-      chatClientInstance = null;
-    } catch (error) {
-      console.error("[ChatService] Error disconnecting user:", error);
-    }
+async function saveUserTokenToStorage(
+  userId: string,
+  token: string
+): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STREAM_TOKEN_STORAGE_KEY, token);
+    console.log(
+      `[ChatService] Token saved to AsyncStorage for user: ${userId}`
+    );
+  } catch (error) {
+    console.error("[ChatService] Failed to save token to AsyncStorage:", error);
   }
 }
 
 /**
- * Lấy token chat từ API
- * @param userId ID của người dùng
+ * Save user data to AsyncStorage
  */
-export async function getChatToken(
-  userId: string
-): Promise<GetChatTokenResponse> {
+async function saveUserDataToStorage(userData: {
+  id: string;
+  name: string;
+  image?: string;
+}): Promise<void> {
   try {
-    console.log("[ChatService] Getting chat token for user:", userId);
-    const response = await api.get<GetChatTokenResponse>(
-      `/api/v1/chat/token/${userId}`
+    await AsyncStorage.setItem(
+      STREAM_USER_STORAGE_KEY,
+      JSON.stringify(userData)
     );
-    console.log("[ChatService] Chat token received successfully");
-    return response.data;
+    console.log(
+      `[ChatService] User data saved to AsyncStorage for user: ${userData.id}`
+    );
+  } catch (error) {
+    console.error(
+      "[ChatService] Failed to save user data to AsyncStorage:",
+      error
+    );
+  }
+}
+
+/**
+ * Get saved user token from AsyncStorage
+ */
+export async function getSavedUserToken(): Promise<string | null> {
+  try {
+    const token = await AsyncStorage.getItem(STREAM_TOKEN_STORAGE_KEY);
+    return token;
+  } catch (error) {
+    console.error(
+      "[ChatService] Failed to get token from AsyncStorage:",
+      error
+    );
+    return null;
+  }
+}
+
+/**
+ * Get saved user data from AsyncStorage
+ */
+export async function getSavedUserData(): Promise<{
+  id: string;
+  name: string;
+  image?: string;
+} | null> {
+  try {
+    const userData = await AsyncStorage.getItem(STREAM_USER_STORAGE_KEY);
+    return userData ? JSON.parse(userData) : null;
+  } catch (error) {
+    console.error(
+      "[ChatService] Failed to get user data from AsyncStorage:",
+      error
+    );
+    return null;
+  }
+}
+
+/**
+ * Check if token is valid and not expired
+ */
+export function isTokenValid(token: string): boolean {
+  try {
+    // Simple check if token is JWT-formatted
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+
+    // Check expiration
+    const payload = JSON.parse(atob(parts[1]));
+    if (!payload.exp) return false;
+
+    // Check if token is expired (exp is in seconds)
+    return payload.exp * 1000 > Date.now();
+  } catch (error) {
+    console.error("[ChatService] Error checking token validity:", error);
+    return false;
+  }
+}
+
+/**
+ * Get a chat token from your backend
+ * @param userId ID of the user
+ * @returns Token for Stream Chat
+ */
+export async function getChatToken(userId: string): Promise<string> {
+  try {
+    // First check if we have a valid token in storage
+    const storedToken = await getSavedUserToken();
+    if (storedToken && isTokenValid(storedToken)) {
+      console.log("[ChatService] Using valid token from storage");
+      return storedToken;
+    }
+
+    console.log("[ChatService] Getting chat token for user:", userId);
+
+    // Replace this with your actual token endpoint
+    // For this example, we're using the Stream Chat direct API key approach for testing
+    // In production, ALWAYS generate tokens server-side
+    try {
+      // Try getting token from your backend first
+      const response = await api.get(`/api/v1/chat/token/${userId}`);
+      if (response.data?.data?.token) {
+        const token = response.data.data.token;
+        await saveUserTokenToStorage(userId, token);
+        return token;
+      }
+    } catch (apiError) {
+      console.warn(
+        "[ChatService] Backend token endpoint not available, using development token"
+      );
+      // Fallback to development token (only for development)
+    }
+
+    // For development only - should be removed in production!
+    // In production, you MUST generate tokens on your server
+    if (__DEV__) {
+      // Generate a development token
+      // This is for testing only and should be removed in production
+      console.log("[ChatService] Generating development token");
+      const client = initChatClient();
+      const devToken = client.devToken(userId);
+      await saveUserTokenToStorage(userId, devToken);
+      return devToken;
+    }
+
+    throw new Error("Unable to get chat token");
   } catch (error) {
     console.error("[ChatService] Error getting chat token:", error);
-    // Create a fallback response for development
-    return {
-      data: {
-        token: "",
-      },
-      statusCode: 500,
-      message: "Failed to get chat token",
-    };
+    throw error;
   }
 }
 
 /**
- * Kết nối user với Stream Chat
- * @param userId ID của người dùng
- * @param username Tên hiển thị của người dùng
- * @param token Token xác thực
- * @param profileImage URL hình ảnh đại diện (tùy chọn)
+ * Disconnect user from Stream Chat
+ */
+export async function disconnectUser(): Promise<void> {
+  if (!chatClientInstance) return;
+
+  try {
+    console.log("[ChatService] Disconnecting user from Stream Chat");
+    await chatClientInstance.disconnectUser();
+    chatClientInstance = null;
+
+    // Clear all channel instances
+    Object.keys(channelInstances).forEach((key) => {
+      delete channelInstances[key];
+    });
+
+    // Clear subscribed channels
+    Object.keys(subscribedChannels).forEach((key) => {
+      delete subscribedChannels[key];
+    });
+
+    console.log("[ChatService] User disconnected successfully");
+  } catch (error) {
+    console.error("[ChatService] Error disconnecting user:", error);
+  }
+}
+
+/**
+ * Connect user to Stream Chat
+ * @param userId User ID
+ * @param username Display name
+ * @param token Stream Chat token
+ * @param profileImage Optional profile image URL
+ * @returns Stream Chat client
  */
 export async function connectUser(
   userId: string,
   username: string,
   token: string,
   profileImage?: string
-) {
+): Promise<StreamChat> {
   const client = initChatClient();
+
   try {
     console.log("[ChatService] Connecting user to Stream Chat:", username);
 
-    // Check if already connected with the same user
+    // If already connected with the same user, just return the client
     if (client.userID === userId) {
       console.log("[ChatService] User already connected with the same ID");
       return client;
     }
 
-    // Disconnect any existing connection first
-    if (client.userID) {
+    // If connected with a different user, disconnect first
+    if (client.userID && client.userID !== userId) {
       console.log(
         "[ChatService] Disconnecting existing user before connecting new user"
       );
       await client.disconnectUser();
     }
 
-    await client.connectUser(
-      {
-        id: userId,
-        name: username,
-        image:
-          profileImage ||
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`,
-      },
-      token
-    );
+    // Create user data object
+    const userData = {
+      id: userId,
+      name: username,
+      image:
+        profileImage ||
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(username)}`,
+    };
+
+    // Save user data for potential reconnection
+    await saveUserDataToStorage(userData);
+
+    // Connect user to Stream Chat
+    await client.connectUser(userData, token);
+
     console.log("[ChatService] User connected successfully:", userId);
+
+    // Set up event handlers
+    setupConnectionEventHandlers(client);
+
     return client;
   } catch (error) {
     console.error("[ChatService] Error connecting user to chat:", error);
 
-    // Try to recover if possible
+    // Handle "already connected" error gracefully
     if (error.message?.includes("already connected")) {
       console.log("[ChatService] User already connected, returning client");
       return client;
@@ -179,34 +328,96 @@ export async function connectUser(
 }
 
 /**
- * Tạo hoặc lấy kênh chat cho livestream
+ * Set up event handlers for connection events
+ */
+function setupConnectionEventHandlers(client: StreamChat): void {
+  // Health check handler
+  client.on("connection.changed", (event: Event) => {
+    console.log(
+      `[ChatService] Connection status changed: ${
+        event.online ? "online" : "offline"
+      }`
+    );
+
+    if (event.online) {
+      // Reconnect to all previously watched channels
+      Object.keys(subscribedChannels).forEach((channelId) => {
+        if (subscribedChannels[channelId] && channelInstances[channelId]) {
+          console.log(
+            `[ChatService] Rewatching channel after reconnection: ${channelId}`
+          );
+          channelInstances[channelId].watch().catch((error) => {
+            console.error(
+              `[ChatService] Error rewatching channel ${channelId}:`,
+              error
+            );
+          });
+        }
+      });
+    }
+  });
+
+  // Connection error handler
+  client.on("connection.error", (event: Event) => {
+    console.error("[ChatService] Connection error:", event);
+  });
+}
+
+/**
+ * Create or get a livestream chat channel
  * @param client Stream Chat client
- * @param livestreamId ID của livestream
- * @param showName Tên của show
+ * @param livestreamId Livestream ID
+ * @param showName Show name
+ * @returns Channel instance
  */
 export async function getOrCreateLivestreamChannel(
   client: StreamChat,
   livestreamId: string,
   showName: string
-) {
+): Promise<Channel> {
   try {
     const channelId = `livestream-${livestreamId}`;
     console.log("[ChatService] Creating/getting channel:", channelId);
 
-    // Sử dụng loại kênh "livestream" với ID livestream
-    const channel = client.channel("livestream", channelId, {
+    // Check if we already have this channel instance
+    if (channelInstances[channelId]) {
+      console.log(
+        `[ChatService] Returning existing channel instance: ${channelId}`
+      );
+      const existingChannel = channelInstances[channelId];
+
+      // Make sure it's being watched
+      if (!subscribedChannels[channelId]) {
+        console.log(`[ChatService] Rewatching existing channel: ${channelId}`);
+        await existingChannel.watch();
+        subscribedChannels[channelId] = true;
+      }
+
+      return existingChannel;
+    }
+
+    // Create channel data
+    const channelData = {
       name: `${showName || "Koi Show"} Chat`,
       image:
         "https://getstream.io/random_svg/?name=" +
         encodeURIComponent(showName || "Koi Show"),
       members: [client.userID || ""],
-    });
+      created_by_id: client.userID || "",
+    };
 
-    // Kết nối với kênh và lấy trạng thái ban đầu
+    // Create a new channel instance
+    const channel = client.channel("livestream", channelId, channelData);
+
+    // Store the channel instance for reuse
+    channelInstances[channelId] = channel;
+
+    // Watch the channel to connect to it
     console.log("[ChatService] Watching channel:", channelId);
     await channel.watch();
-    console.log("[ChatService] Channel ready:", channelId);
+    subscribedChannels[channelId] = true;
 
+    console.log("[ChatService] Channel ready:", channelId);
     return channel;
   } catch (error) {
     console.error("[ChatService] Error creating livestream channel:", error);
@@ -218,38 +429,28 @@ export async function getOrCreateLivestreamChannel(
       );
     }
 
+    // Try to recover from common errors
+    if (error.code === 4) {
+      // Missing required field
+      console.log(
+        "[ChatService] Attempting channel creation with minimal data"
+      );
+      const channelId = `livestream-${livestreamId}`;
+      const minimalChannel = client.channel("livestream", channelId);
+      await minimalChannel.create();
+      channelInstances[channelId] = minimalChannel;
+      subscribedChannels[channelId] = true;
+      return minimalChannel;
+    }
+
     throw error;
   }
 }
 
 /**
- * Gửi tin nhắn đến kênh
- * @param client Stream Chat client
- * @param channelId ID của kênh
- * @param message Nội dung tin nhắn
- */
-export async function sendMessage(
-  client: StreamChat,
-  channelId: string,
-  message: string
-) {
-  try {
-    console.log("[ChatService] Sending message to channel:", channelId);
-    const channel = client.channel("livestream", channelId);
-    await channel.sendMessage({
-      text: message,
-    });
-    console.log("[ChatService] Message sent successfully");
-  } catch (error) {
-    console.error("[ChatService] Error sending message:", error);
-    throw error;
-  }
-}
-
-/**
- * Get chat messages from livestream
- * @param livestreamId ID of the livestream
- * @returns A promise that resolves with the chat messages
+ * Get chat messages from a livestream channel
+ * @param livestreamId Livestream ID
+ * @returns Chat messages
  */
 export async function getChatMessages(
   livestreamId: string
@@ -260,62 +461,56 @@ export async function getChatMessages(
       `[ChatService] Getting messages for livestream channel: ${channelId}`
     );
 
-    // Try to use Stream's client first
-    if (chatClientInstance && chatClientInstance.userID) {
-      try {
-        const channel = chatClientInstance.channel("livestream", channelId);
-
-        // Make sure we're watching this channel
-        await channel.watch();
-
-        const response = await channel.query({
-          messages: { limit: 50 },
-        });
-
-        // Convert Stream's message format to your app's format
-        const messages: ChatMessage[] = (response.messages || []).map(
-          (msg) => ({
-            id: msg.id,
-            author: msg.user?.name || "Unknown",
-            authorId: msg.user?.id || "unknown",
-            content: msg.text || "",
-            timestamp: new Date(msg.created_at || Date.now()),
-            profileImage: msg.user?.image,
-          })
-        );
-
-        console.log(
-          `[ChatService] Successfully retrieved ${messages.length} messages from Stream`
-        );
-
-        return {
-          success: true,
-          data: messages,
-          message: "Messages fetched successfully",
-        };
-      } catch (streamError) {
-        console.error(
-          "[ChatService] Error fetching messages from Stream:",
-          streamError
-        );
-        // Don't fall back to API if it's a Stream-specific error
-        if (streamError.code) {
-          throw streamError;
-        }
-        // Otherwise fall back to API
-      }
-    } else {
-      console.log(
-        "[ChatService] Stream client not initialized or user not connected, falling back to API"
+    // Make sure we have a client and it's connected
+    if (!chatClientInstance || !chatClientInstance.userID) {
+      console.error(
+        "[ChatService] Cannot get messages: Client not initialized or user not connected"
       );
+      return {
+        success: false,
+        data: [],
+        message: "Chat service not initialized",
+      };
     }
 
-    // Fallback to your backend API
-    console.log(`[ChatService] Falling back to API for channel: ${channelId}`);
-    const response = await api.get<ChatMessagesResponse>(
-      `/api/v1/chat/messages/${livestreamId}`
+    // Get or create the channel
+    const channel = chatClientInstance.channel("livestream", channelId);
+
+    // Make sure we're watching this channel
+    if (!subscribedChannels[channelId]) {
+      console.log(
+        `[ChatService] Watching channel before getting messages: ${channelId}`
+      );
+      await channel.watch();
+      subscribedChannels[channelId] = true;
+      channelInstances[channelId] = channel;
+    }
+
+    // Query the channel for messages
+    const response = await channel.query({
+      messages: { limit: 50 },
+      watch: true, // Make sure we receive real-time updates
+    });
+
+    // Convert Stream's message format to your app's format
+    const messages: ChatMessage[] = (response.messages || []).map((msg) => ({
+      id: msg.id,
+      author: msg.user?.name || "Unknown",
+      authorId: msg.user?.id || "unknown",
+      content: msg.text || "",
+      timestamp: new Date(msg.created_at || Date.now()),
+      profileImage: msg.user?.image,
+    }));
+
+    console.log(
+      `[ChatService] Successfully retrieved ${messages.length} messages from Stream`
     );
-    return response.data;
+
+    return {
+      success: true,
+      data: messages,
+      message: "Messages fetched successfully",
+    };
   } catch (error) {
     console.error("[ChatService] Error getting chat messages:", error);
 
@@ -335,10 +530,10 @@ export async function getChatMessages(
 }
 
 /**
- * Send a chat message to a livestream
- * @param livestreamId ID of the livestream
+ * Send a chat message to a livestream channel
+ * @param livestreamId Livestream ID
  * @param message Message to send
- * @returns A promise that resolves with the sent message
+ * @returns Response with sent message
  */
 export async function sendChatMessage(
   livestreamId: string,
@@ -348,67 +543,51 @@ export async function sendChatMessage(
     const channelId = `livestream-${livestreamId}`;
     console.log(`[ChatService] Sending message to channel: ${channelId}`);
 
-    // Try to use Stream's client first if connected
-    if (chatClientInstance && chatClientInstance.userID) {
-      try {
-        const channel = chatClientInstance.channel("livestream", channelId);
-
-        // Ensure we're watching the channel
-        await channel.watch();
-
-        // Send message via Stream
-        const response = await channel.sendMessage({
-          text: message.content,
-          // You can add custom data if needed
-          custom_data: {
-            authorDisplay: message.author,
-          },
-        });
-
-        console.log("[ChatService] Message successfully sent via Stream");
-
-        // Convert the response to your app's format
-        return {
-          success: true,
-          data: {
-            id: response.message.id,
-            author: message.author,
-            authorId: message.authorId,
-            content: message.content,
-            timestamp: new Date(response.message.created_at),
-            profileImage: message.profileImage,
-          },
-          message: "Message sent successfully",
-        };
-      } catch (streamError) {
-        console.error(
-          "[ChatService] Error sending message via Stream:",
-          streamError
-        );
-
-        if (streamError.code) {
-          console.error(
-            `[ChatService] Stream Error Code: ${streamError.code}, Status: ${streamError.status}`
-          );
-          throw streamError;
-        }
-        // Otherwise fall back to API
-      }
-    } else {
-      console.log(
-        "[ChatService] Stream client not initialized or user not connected, falling back to API"
-      );
+    // Make sure we have a client and it's connected
+    if (!chatClientInstance || !chatClientInstance.userID) {
+      throw new Error("Chat service not initialized or user not connected");
     }
 
-    // Fallback to your backend API
-    console.log(
-      `[ChatService] Falling back to API for sending message to: ${channelId}`
-    );
-    const response = await api.post<SendMessageResponse>(
-      `/api/v1/chat/messages/${livestreamId}`,
-      message
-    );
-    return response.data;
+    // Get the channel
+    let channel = channelInstances[channelId];
+
+    if (!channel) {
+      // Create the channel if it doesn't exist
+      channel = chatClientInstance.channel("livestream", channelId);
+      channelInstances[channelId] = channel;
+
+      // Watch the channel to connect to it
+      console.log(
+        `[ChatService] Watching channel before sending message: ${channelId}`
+      );
+      await channel.watch();
+      subscribedChannels[channelId] = true;
+    }
+
+    // Send message via Stream
+    const response = await channel.sendMessage({
+      text: message.content,
+      // Add custom data if needed
+      custom_data: {
+        authorDisplay: message.author,
+      },
+    });
+
+    console.log("[ChatService] Message successfully sent via Stream");
+
+    // Convert the response to your app's format
+    return {
+      success: true,
+      data: {
+        id: response.message.id,
+        author: message.author,
+        authorId: message.authorId,
+        content: message.content,
+        timestamp: new Date(response.message.created_at),
+        profileImage: message.profileImage,
+      },
+      message: "Message sent successfully",
+    };
   } catch (error) {
     console.error("[ChatService] Error sending chat message:", error);
 
@@ -431,5 +610,26 @@ export async function sendChatMessage(
       },
       message: "Failed to send message",
     };
+  }
+}
+
+/**
+ * Setup automatic reconnection of chat
+ * This should be called in your app's main component
+ */
+export async function setupAutomaticChatReconnection(): Promise<void> {
+  try {
+    const userData = await getSavedUserData();
+    const token = await getSavedUserToken();
+
+    if (userData && token && isTokenValid(token)) {
+      console.log(
+        "[ChatService] Attempting automatic reconnection for user:",
+        userData.id
+      );
+      await connectUser(userData.id, userData.name, token, userData.image);
+    }
+  } catch (error) {
+    console.error("[ChatService] Error in automatic reconnection:", error);
   }
 }
