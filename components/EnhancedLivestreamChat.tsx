@@ -10,13 +10,7 @@ import {
   View,
 } from "react-native";
 import { Channel as ChannelType, StreamChat } from "stream-chat";
-import {
-  Channel,
-  Chat,
-  MessageInput,
-  MessageList,
-  OverlayProvider,
-} from "stream-chat-expo";
+import { Channel, Chat, MessageInput, MessageList } from "stream-chat-expo";
 import {
   connectUser,
   getChatToken,
@@ -44,6 +38,7 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
+  const [thread, setThread] = useState<any>(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 3;
 
@@ -81,14 +76,15 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
       const channelId = `livestream-${livestreamId}`;
       const channelType = "livestream";
 
-      // Set up channel data
+      // Set up channel data according to official docs
       const channelData = {
         name: `${showName || "Koi Show"} Chat`,
         image:
           "https://getstream.io/random_svg/?name=" +
           encodeURIComponent(showName || "Koi Show"),
-        members: [userId],
+        // Stream docs recommend adding these fields
         created_by_id: userId,
+        members: [userId],
       };
 
       // Create a channel instance
@@ -97,6 +93,17 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
         channelId,
         channelData
       );
+
+      // Send a system message to verify channel is working
+      try {
+        await channelInstance.sendMessage({
+          text: `${userName} joined the livestream chat`,
+          type: "system",
+        });
+      } catch (msgError) {
+        console.error("Error sending system message:", msgError);
+        // Continue even if system message fails
+      }
 
       // Watch the channel to connect to it
       await channelInstance.watch();
@@ -212,7 +219,7 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
     );
   }
 
-  // Define custom chat theme based on your web component styling
+  // Define custom chat theme based on official docs
   const chatTheme = {
     messageList: {
       container: styles.messageListContainer,
@@ -229,13 +236,10 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
       avatarWrapper: {
         container: styles.avatarWrapper,
       },
-      status: {
-        readBy: styles.readBy,
-      },
     },
   };
 
-  // Render Stream Chat UI with proper components
+  // Render Stream Chat UI - following EXACT structure from official examples
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -266,16 +270,22 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
         </View>
       )}
 
-      <OverlayProvider>
-        <Chat client={client} style={chatTheme}>
-          <Channel channel={channel}>
-            <View style={styles.chatContainer}>
-              <MessageList />
-              <MessageInput />
-            </View>
-          </Channel>
-        </Chat>
-      </OverlayProvider>
+      {/* Removed OverlayProvider as it's already provided at root level */}
+      <Chat client={client}>
+        <Channel
+          channel={channel}
+          thread={thread}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+          <View style={styles.chatContainer}>
+            <MessageList
+              onThreadSelect={(message) => {
+                setThread(message);
+              }}
+            />
+            <MessageInput />
+          </View>
+        </Channel>
+      </Chat>
     </KeyboardAvoidingView>
   );
 };
@@ -349,9 +359,6 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     marginRight: 8,
-  },
-  readBy: {
-    fontSize: 10,
   },
   loadingContainer: {
     flex: 1,
