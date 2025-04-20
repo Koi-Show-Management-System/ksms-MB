@@ -14,14 +14,15 @@ const statusMap: Record<string, string> = {
   rejected: "Đã Từ Chối",
   refunded: "Đã Hoàn Tiền",
   prizewinner: "Đã Đạt Giải",
-  eliminated: "Đã Bị Loại",
+  eliminated: "Bị Loại",
   competition: "Đang Thi Đấu",
   paid: "Đã Thanh Toán",
-  sold: "Chưa Sử Dụng", // Theo yêu cầu của bạn
+  refund: "Hoàn Tiền",
+  sold: "Chưa Sử Dụng",
   completed: "Đã Hoàn Thành",
   upcoming: "Sắp Diễn Ra",
   inprogress: "Đang Diễn Ra",
-  finished: "Kết Thúc", // Sử dụng bản dịch từ danh sách đầu tiên
+  finished: "Kết Thúc",
   published: "Đã Công Bố",
   Pass: "Đạt",
   Fail: "Không Đạt",
@@ -32,7 +33,6 @@ const statusMap: Record<string, string> = {
   Evaluation: "Vòng Đánh Giá",
   Preliminary: "Vòng Sơ Khảo",
   Final: "Vòng Chung Kết",
-
 };
 
 /**

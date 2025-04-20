@@ -23,9 +23,14 @@ import KoiShowVoting from "./KoiShowVoting"; // Import component mới
 
 import { KoiShowProvider, useKoiShow } from "../../../context/KoiShowContext";
 import {
+  CompetitionCategoryDetail, // Import detail type
+  getCompetitionCategoryDetail, // Import API function
+  CategoryAward, // Import award type
+} from "../../../services/competitionService"; // Import competition service
+import {
   getAllLivestreamsForShow,
   LivestreamInfo,
-} from "../../../services/livestreamService"; // Import livestream service and type
+} from "../../../services/livestreamService";
 import { CompetitionCategory } from "../../../services/registrationService";
 
 // Skeleton Component
@@ -122,11 +127,20 @@ const KoiShowInformation: React.FC = () => {
   );
 };
 
-// Memoized CategoryItem
-const CategoryItem = memo(({ item }: { item: CompetitionCategory }) => (
-  <View style={styles.categoryCard}>
-    <View style={styles.categoryHeader}>
-      <Text style={styles.categoryName}>{item.name}</Text>
+// Memoized CategoryItem - Updated to accept detailedCategory
+const CategoryItem = memo(
+  ({
+    item,
+    detailedCategory,
+    isLoadingDetails,
+  }: {
+    item: CompetitionCategory;
+    detailedCategory?: CompetitionCategoryDetail;
+    isLoadingDetails: boolean;
+  }) => (
+    <View style={styles.categoryCard}>
+      <View style={styles.categoryHeader}>
+        <Text style={styles.categoryName}>{item.name}</Text>
     </View>
 
     <View style={styles.categoryFeeContainer}>
@@ -166,6 +180,30 @@ const CategoryItem = memo(({ item }: { item: CompetitionCategory }) => (
         </View>
       </View>
     )}
+
+    {/* Awards Section */}
+    {isLoadingDetails ? (
+      <ActivityIndicator size="small" color="#666" style={styles.awardsLoading} />
+    ) : detailedCategory?.awards && detailedCategory.awards.length > 0 ? (
+      <View style={styles.awardsContainer}>
+        <Text style={styles.awardsTitle}>Giải thưởng</Text>
+        {detailedCategory.awards.map((award) => (
+          <View key={award.id} style={styles.awardItem}>
+            <FontAwesome name="trophy" size={16} color="#FFD700" />
+            <View style={styles.awardDetails}>
+              <Text style={styles.awardName}>{award.name}</Text>
+              <Text style={styles.awardPrize}>
+                {award.prizeValue.toLocaleString("vi-VN")} VNĐ
+              </Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    ) : (
+      !isLoadingDetails && (
+        <Text style={styles.noAwardsText}>Chưa có thông tin giải thưởng</Text>
+      )
+    )}
   </View>
 ));
 
@@ -175,7 +213,7 @@ const KoiShowInformationContent: React.FC = () => {
   const [expandedSections, setExpandedSections] = useState({
     eventDetails: true, // Open by default
     categories: true, // Open categories section by default
-    awards: false,
+    criteria: false, // Renamed from awards
     rules: false,
     timeline: false, // Renamed from enteringKoi
   });
@@ -185,8 +223,15 @@ const KoiShowInformationContent: React.FC = () => {
   const [livestreamInfo, setLivestreamInfo] = useState<LivestreamInfo | null>(
     null
   );
-  const [isLivestreamLoading, setIsLivestreamLoading] =
+  const [isLivestreamLoading, setIsLivestreamLoading] = useState<boolean>(false);
+  const [detailedCategories, setDetailedCategories] = useState<
+    Record<string, CompetitionCategoryDetail>
+  >({});
+  const [isCategoryDetailsLoading, setIsCategoryDetailsLoading] =
     useState<boolean>(false);
+  const [categoryDetailsError, setCategoryDetailsError] = useState<string | null>(
+    null
+  );
 
   // Memo key extractor for FlatList
   const keyExtractor = useCallback((item: CompetitionCategory) => item.id, []);
@@ -203,33 +248,45 @@ const KoiShowInformationContent: React.FC = () => {
   );
 
   // Format date function to display in a nicer way
-  const formatDate = useCallback((dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("vi-VN", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch (error) {
-      console.error("Date formatting error:", error);
-      return dateString;
-    }
-  }, []);
+  const formatDateAndTime = useCallback(
+    (startDate: string, endDate: string) => {
+      try {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const isSameDay =
+          start.getDate() === end.getDate() &&
+          start.getMonth() === end.getMonth() &&
+          start.getFullYear() === end.getFullYear();
 
-  // Format time function
-  const formatTime = useCallback((dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleTimeString("vi-VN", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch (error) {
-      console.error("Time formatting error:", error);
-      return "";
-    }
-  }, []);
+        if (isSameDay) {
+          // Same day format: từ [time] đến [time]/[date]
+          const date = start.toLocaleDateString("vi-VN", {
+            day: "numeric",
+            month: "numeric",
+            year: "numeric",
+          });
+          const startTime = start.toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          const endTime = end.toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return `${startTime} - ${endTime} / ${date}`;
+        } else {
+          // Different days format
+          return `${start.toLocaleDateString(
+            "vi-VN"
+          )} - ${end.toLocaleDateString("vi-VN")}`;
+        }
+      } catch (error) {
+        console.error("Date/Time formatting error:", error);
+        return `${startDate} - ${endDate}`;
+      }
+    },
+    []
+  );
 
   // Check if date is today
   const isToday = useCallback((dateString: string) => {
@@ -284,8 +341,14 @@ const KoiShowInformationContent: React.FC = () => {
 
   // Memoized renderItem function for FlatList
   const renderCategoryItem = useCallback(
-    ({ item }: { item: CompetitionCategory }) => <CategoryItem item={item} />,
-    []
+    ({ item }: { item: CompetitionCategory }) => (
+      <CategoryItem
+        item={item}
+        detailedCategory={detailedCategories[item.id]} // Pass detailed data using item.id
+        isLoadingDetails={isCategoryDetailsLoading} // Pass loading state
+      />
+    ),
+    [detailedCategories, isCategoryDetailsLoading] // Add dependencies
   );
 
   // Spacer component for FlatList
@@ -321,7 +384,52 @@ const KoiShowInformationContent: React.FC = () => {
     }
 
     fetchLivestreamStatus();
-  }, [showData?.id]); // Re-run if showData.id changes
+  }, [showData?.id]);
+
+  // --- Fetch Category Details (including awards) ---
+  useEffect(() => {
+    const fetchAllCategoryDetails = async () => {
+      if (!categories || categories.length === 0) {
+        setDetailedCategories({}); // Reset if no categories
+        return;
+      }
+
+      setIsCategoryDetailsLoading(true);
+      setCategoryDetailsError(null);
+      const detailsMap: Record<string, CompetitionCategoryDetail> = {};
+
+      try {
+        const detailPromises = categories.map((category) =>
+          getCompetitionCategoryDetail(category.id)
+        );
+        const results = await Promise.allSettled(detailPromises);
+
+        results.forEach((result, index) => {
+          const categoryId = categories[index].id;
+          if (result.status === "fulfilled") {
+            detailsMap[categoryId] = result.value;
+          } else {
+            console.error(
+              `Lỗi khi lấy chi tiết hạng mục ${categoryId}:`,
+              result.reason
+            );
+            // Optionally store partial errors or handle differently
+          }
+        });
+
+        setDetailedCategories(detailsMap);
+      } catch (error) {
+        console.error("Lỗi nghiêm trọng khi lấy chi tiết các hạng mục:", error);
+        setCategoryDetailsError(
+          "Không thể tải đầy đủ thông tin giải thưởng cho các hạng mục."
+        );
+      } finally {
+        setIsCategoryDetailsLoading(false);
+      }
+    };
+
+    fetchAllCategoryDetails();
+  }, [categories]); // Re-run when categories from context change
 
   // --- Handle Navigation to Livestream ---
   const handleViewLivestream = useCallback(() => {
@@ -441,8 +549,10 @@ const KoiShowInformationContent: React.FC = () => {
           <View style={styles.quickInfoItem}>
             <MaterialIcons name="date-range" size={18} color="#000000" />
             <Text style={styles.quickInfoText}>
-              {formatDate(showData?.startDate || "")} -{" "}
-              {formatDate(showData?.endDate || "")}
+              {formatDateAndTime(
+                showData?.startDate || "",
+                showData?.endDate || ""
+              )}
             </Text>
           </View>
         </View>
@@ -570,8 +680,10 @@ const KoiShowInformationContent: React.FC = () => {
                         Thời gian biểu diễn
                       </Text>
                       <Text style={styles.detailValue}>
-                        {formatDate(showData?.startExhibitionDate || "")} -{" "}
-                        {formatDate(showData?.endExhibitionDate || "")}
+                        {formatDateAndTime(
+                          showData?.startExhibitionDate || "",
+                          showData?.endExhibitionDate || ""
+                        )}
                       </Text>
                     </View>
                   </View>
@@ -681,6 +793,11 @@ const KoiShowInformationContent: React.FC = () => {
                     </Text>
                   </View>
                 )}
+                {categoryDetailsError && (
+                  <Text style={styles.categoryErrorText}>
+                    {categoryDetailsError}
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -728,19 +845,19 @@ const KoiShowInformationContent: React.FC = () => {
           <View style={styles.sectionContainer}>
             <TouchableOpacity
               style={styles.sectionHeader}
-              onPress={() => toggleSection("awards")}>
+              onPress={() => toggleSection("criteria")}>
               <View style={styles.sectionHeaderContent}>
                 <MaterialIcons name="star" size={22} color="#000000" />
                 <Text style={styles.sectionTitle}>Tiêu chí đánh giá</Text>
               </View>
               <MaterialIcons
-                name={expandedSections.awards ? "expand-less" : "expand-more"}
+                name={expandedSections.criteria ? "expand-less" : "expand-more"}
                 size={24}
                 color="#000000"
               />
             </TouchableOpacity>
 
-            {expandedSections.awards && (
+            {expandedSections.criteria && (
               <View style={styles.sectionContent}>
                 {showData?.criteria && showData.criteria.length > 0 ? (
                   showData.criteria.map((criterion, index) => (
@@ -763,28 +880,6 @@ const KoiShowInformationContent: React.FC = () => {
                     </Text>
                   </View>
                 )}
-
-                <View style={styles.awardInfoContainer}>
-                  <View style={styles.awardInfoItem}>
-                    <MaterialIcons
-                      name={
-                        showData?.hasGrandChampion ? "check-circle" : "cancel"
-                      }
-                      size={24}
-                      color={showData?.hasGrandChampion ? "#2ecc71" : "#e74c3c"}
-                    />
-                    <Text style={styles.awardInfoText}>Grand Champion</Text>
-                  </View>
-
-                  <View style={styles.awardInfoItem}>
-                    <MaterialIcons
-                      name={showData?.hasBestInShow ? "check-circle" : "cancel"}
-                      size={24}
-                      color={showData?.hasBestInShow ? "#2ecc71" : "#e74c3c"}
-                    />
-                    <Text style={styles.awardInfoText}>Best In Show</Text>
-                  </View>
-                </View>
               </View>
             )}
           </View>
@@ -820,38 +915,12 @@ const KoiShowInformationContent: React.FC = () => {
                         return (
                           <View key={status.id}>
                             <View style={styles.timelineItemContainer}>
-                              <View style={styles.timelineLeftColumn}>
-                                <Text
-                                  style={[
-                                    styles.timelineDate,
-                                    status.isActive && {
-                                      color: "#2ecc71",
-                                      fontWeight: "bold",
-                                    },
-                                  ]}>
-                                  {formatDate(status.startDate)}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.timelineTime,
-                                    status.isActive && {
-                                      color: "#2ecc71",
-                                      fontWeight: "bold",
-                                    },
-                                  ]}>
-                                  {formatTime(status.startDate)} -{" "}
-                                  {formatTime(status.endDate)}
-                                </Text>
-                              </View>
-
+                              {/* Center column now comes first for layout */}
                               <View style={styles.timelineCenterColumn}>
                                 <View
                                   style={[
                                     styles.timelineDot,
-                                    status.isActive && {
-                                      backgroundColor: "#2ecc71",
-                                      borderColor: "#2ecc71",
-                                    },
+                                    status.isActive && styles.timelineDotActive, // Use dedicated active style
                                   ]}
                                 />
                                 {!isLast && (
@@ -859,22 +928,54 @@ const KoiShowInformationContent: React.FC = () => {
                                 )}
                               </View>
 
+                              {/* Right column now takes full width */}
                               <View style={styles.timelineRightColumn}>
                                 <View
                                   style={[
-                                    styles.timelineContent,
-                                    status.isActive && {
-                                      backgroundColor: "#e8f8e8",
-                                      borderLeftColor: "#2ecc71",
-                                    },
+                                    styles.timelineContent, // Keep base style
+                                    status.isActive &&
+                                      styles.timelineContentActive, // Use dedicated active style
                                   ]}>
+                                  {/* Date/Time moved inside the card */}
+                                  <Text
+                                    style={[
+                                      styles.timelineDateTimeInside, // New style for date/time
+                                      status.isActive &&
+                                        styles.timelineDateTimeInsideActive,
+                                    ]}>
+                                    {(() => {
+                                      try {
+                                        const start = new Date(status.startDate);
+                                        const end = new Date(status.endDate);
+                                        const startDay = start.getDate();
+                                        const endDay = end.getDate();
+                                        const month = start.getMonth() + 1; // Months are 0-indexed
+                                        const year = start.getFullYear();
+                                        const startTime = start.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+                                        const endTime = end.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+
+                                        // Check if start and end are on the same day
+                                        const isSameDay = startDay === endDay && month === (end.getMonth() + 1) && year === end.getFullYear();
+
+                                        if (isSameDay) {
+                                          // Format for same day: DD/MM/YYYY - HH:MM - HH:MM
+                                          return `${startDay.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year} - ${startTime} - ${endTime}`;
+                                        } else {
+                                          // Format for different days: DD-DD/MM/YYYY - HH:MM - HH:MM
+                                          return `${startDay.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year} - ${startTime} - ${endTime}`;
+                                        }
+                                      } catch (e) {
+                                        console.error("Error formatting timeline date:", e);
+                                        // Fallback to original function if error occurs
+                                        return formatDateAndTime(status.startDate, status.endDate);
+                                      }
+                                    })()}
+                                  </Text>
                                   <Text
                                     style={[
                                       styles.timelineTitle,
-                                      status.isActive && {
-                                        color: "#2ecc71",
-                                        fontWeight: "bold",
-                                      },
+                                      status.isActive &&
+                                        styles.timelineTitleActive, // Use dedicated active style
                                     ]}>
                                     {formatTimelineContent(status.description)}
                                   </Text>
@@ -1157,26 +1258,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: "#34495e",
   },
-  awardInfoContainer: {
-    marginTop: 16,
-    backgroundColor: "#ffffff",
-    padding: 12,
-    borderRadius: 8,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    borderWidth: 1,
-    borderColor: "#dadada",
-  },
-  awardInfoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  awardInfoText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#2c3e50",
-    fontWeight: "500",
-  },
   timelineContainer: {
     paddingLeft: 8,
     backgroundColor: "#f0f0f0",
@@ -1252,6 +1333,16 @@ const styles = StyleSheet.create({
   },
   timelineStatusActive: {
     color: "#000000",
+    fontWeight: "500",
+  },
+  // New styles for timeline date/time inside the card
+  timelineDateTimeInside: {
+    fontSize: 12,
+    color: "#7f8c8d", // Match the old left column style
+    marginBottom: 6, // Add some space below date/time
+  },
+  timelineDateTimeInsideActive: {
+    color: "#555", // Slightly darker for active item
     fontWeight: "500",
   },
   emptyStateContainer: {
@@ -1510,6 +1601,54 @@ const styles = StyleSheet.create({
     fontFamily: "Roboto",
     fontSize: 13,
     color: "#000000",
+  },
+  // Styles for Awards section in Category Card
+  awardsContainer: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#eee", // Lighter border
+  },
+  awardsTitle: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  awardItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  awardDetails: {
+    marginLeft: 8,
+  },
+  awardName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#444",
+  },
+  awardPrize: {
+    fontSize: 13,
+    color: "#e74c3c", // Use a distinct color for prize
+    fontWeight: "500",
+  },
+  awardsLoading: {
+    marginTop: 10,
+  },
+  noAwardsText: {
+    fontSize: 13,
+    color: "#888",
+    fontStyle: "italic",
+    marginTop: 10,
+    textAlign: "center",
+  },
+  categoryErrorText: {
+    fontSize: 13,
+    color: "red",
+    fontStyle: "italic",
+    marginTop: 10,
+    textAlign: "center",
   },
   bottomButtonContainer: {
     padding: 16,

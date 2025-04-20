@@ -68,14 +68,14 @@ const FishDetailsCard: React.FC<{
   // Lấy màu sắc status
   const getStatusColor = (status: string) => {
     switch(status) {
-      case "Confirmed": return "#15803D"; // Xanh lá
-      case "CheckIn": return "#047857"; // Xanh lá đậm
-      case "Pending": return "#EAB308"; // Vàng
-      case "WaitToPaid": return "#F59E0B"; // Cam
-      case "Rejected": return "#B91C1C"; // Đỏ
-      case "Refunded": return "#6366F1"; // Tím
-      case "Cancelled": return "#7C3AED"; // Tím đậm
-      default: return "#6B7280"; // Xám
+      case "Confirmed": return "#2ECC71"; // Emerald Green
+      case "CheckIn": return "#27AE60"; // Green
+      case "Pending": return "#F39C12"; // Orange
+      case "WaitToPaid": return "#E67E22"; // Carrot Orange
+      case "Rejected": return "#E74C3C"; // Alizarin Red
+      case "Refunded": return "#9B59B6"; // Amethyst
+      case "Cancelled": return "#8E44AD"; // Wisteria
+      default: return "#95A5A6"; // Concrete
     }
   };
   

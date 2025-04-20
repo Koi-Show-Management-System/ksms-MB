@@ -9,8 +9,13 @@
         "@21st-dev/magic@latest",
         "API_KEY=\"\"521a3d08b141126deeab141d14ff0debc991055764dc75c0cce2ff89b3ba7581\"\""
       ],
-      "disabled": true,
-      "alwaysAllow": []
+      "disabled": false,
+      "alwaysAllow": [
+        "21st_magic_component_builder",
+        "logo_search",
+        "21st_magic_component_inspiration",
+        "21st_magic_component_refiner"
+      ]
     },
     "brave-search": {
       "command": "cmd",

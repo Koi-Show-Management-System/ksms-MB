@@ -1,4 +1,4 @@
-import * as Linking from "expo-linking";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // Import AsyncStorage
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput, // Import TextInput
   TouchableOpacity,
   View,
 } from "react-native";
@@ -50,6 +51,7 @@ const BuyTickets: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showName, setShowName] = useState("");
+  const [emailInput, setEmailInput] = useState(""); // State for email input
 
   // Payment modal states
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
@@ -68,11 +70,11 @@ const BuyTickets: React.FC = () => {
         if (showData.ticketTypes) {
           setTicketOptions(showData.ticketTypes);
         } else {
-          setError("No tickets available for this event");
+          setError("Không có vé nào cho sự kiện này");
         }
       } catch (err) {
-        console.error("Failed to fetch show details:", err);
-        setError("Failed to load ticket information. Please try again.");
+        console.error("Lỗi khi lấy chi tiết show:", err);
+        setError("Không thể tải thông tin vé. Vui lòng thử lại.");
       } finally {
         setIsLoading(false);
       }
@@ -90,6 +92,22 @@ const BuyTickets: React.FC = () => {
       }
     };
   }, [paymentTimeoutId]);
+
+  // Fetch user email from AsyncStorage on mount to pre-fill the input
+  useEffect(() => {
+    const fetchUserEmailFromStorage = async () => {
+      try {
+        const storedEmail = await AsyncStorage.getItem("userEmail"); // Assuming 'userEmail' is the key
+        if (storedEmail) {
+          setEmailInput(storedEmail);
+        }
+      } catch (error) {
+        console.error("Lỗi khi lấy email từ AsyncStorage:", error);
+        // Optional: Show a non-blocking message or handle silently
+      }
+    };
+    fetchUserEmailFromStorage();
+  }, []); // Empty dependency array ensures this runs only once on mount
 
   // Handlers
   const handleTicketSelect = useCallback((ticketId: string) => {
@@ -118,104 +136,123 @@ const BuyTickets: React.FC = () => {
     }, 0);
   }, [selectedTickets, ticketOptions]);
 
-  const handleAction = useCallback(
-    async (type: "cart" | "pay") => {
-      try {
-        setIsSubmitting(true);
-        setError(null);
+  // Helper function to check if any selected ticket is unavailable
+  const isAnySelectedTicketUnavailable = useCallback(() => {
+    return Object.keys(selectedTickets).some((ticketId) => {
+      const ticket = ticketOptions.find((opt) => opt.id === ticketId);
+      // Check if ticket exists and its available quantity is 0,
+      // and the user has selected at least one of this ticket type.
+      return (
+        ticket &&
+        ticket.availableQuantity === 0 &&
+        selectedTickets[ticketId] > 0
+      );
+    });
+  }, [selectedTickets, ticketOptions]);
 
-        const total = calculateTotal();
-        if (total === 0) {
-          Alert.alert("Error", "Please select at least one ticket");
+  const handlePayment = useCallback(async () => {
+    try {
+      setIsSubmitting(true);
+      setError(null);
+
+      const total = calculateTotal();
+      if (total === 0) {
+        Alert.alert("Lỗi", "Vui lòng chọn ít nhất một vé");
+        return;
+      }
+
+      // Check availability before proceeding
+      if (isAnySelectedTicketUnavailable()) {
+        Alert.alert("Lỗi", "Một hoặc nhiều loại vé bạn chọn đã hết hàng.");
+        return;
+      }
+
+      // Prepare order items for API
+      const listOrder: PaymentOrderItem[] = [];
+      Object.keys(selectedTickets).forEach((ticketId) => {
+        if (selectedTickets[ticketId] > 0) {
+          listOrder.push({
+            ticketTypeId: ticketId,
+            quantity: selectedTickets[ticketId],
+          });
+        }
+      });
+
+      try {
+        // Validate email input
+        if (!emailInput.trim()) {
+          Alert.alert("Lỗi", "Vui lòng nhập địa chỉ email của bạn.");
+          return;
+        }
+        // Basic email format check (optional but recommended)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailInput)) {
+          Alert.alert("Lỗi", "Vui lòng nhập địa chỉ email hợp lệ.");
           return;
         }
 
-        if (type === "cart") {
-          // Handle add to cart logic
-          Alert.alert("Success", "Tickets added to cart successfully");
-        } else if (type === "pay") {
-          // Prepare order items for API
-          const listOrder: PaymentOrderItem[] = [];
+        // Get only fullName from user info (assuming email is now from input)
+        const { fullName } = await getUserPaymentInfo();
 
-          Object.keys(selectedTickets).forEach((ticketId) => {
-            if (selectedTickets[ticketId] > 0) {
-              listOrder.push({
-                ticketTypeId: ticketId,
-                quantity: selectedTickets[ticketId],
-              });
-            }
-          });
+        // Create payment order using the service with the entered email
+        const response = await createTicketOrder({
+          listOrder,
+          fullName, // Keep fullName from user profile
+          email: emailInput, // Use email from input state
+        });
 
-          try {
-            // Get user information for payment
-            const { fullName, email } = await getUserPaymentInfo();
+        // Handle successful response
+        if (response?.data?.url) {
+          setPaymentUrl(response.data.url);
+          setPaymentModalVisible(true);
 
-            // Create payment order using the service
-            const response = await createTicketOrder({
-              listOrder,
-              fullName,
-              email,
-            });
-
-            // Handle successful response
-            if (response?.data?.url) {
-              setPaymentUrl(response.data.url);
-              setPaymentModalVisible(true);
-
-              // Set payment timeout (15 minutes)
-              const paymentTimeout = setTimeout(() => {
-                if (paymentModalVisible) {
-                  setPaymentModalVisible(false);
-                  Alert.alert(
-                    "Payment Session Expired",
-                    "Your payment session has expired. Please try again."
-                  );
-                }
-              }, 15 * 60 * 1000);
-
-              // Store the timeout ID to clear it if component unmounts or payment completes
-              setPaymentTimeoutId(paymentTimeout);
-            } else {
+          // Set payment timeout (15 minutes)
+          const paymentTimeout = setTimeout(() => {
+            if (paymentModalVisible) {
+              setPaymentModalVisible(false);
               Alert.alert(
-                "Error",
-                "Payment processing failed. Please try again."
+                "Phiên thanh toán hết hạn",
+                "Phiên thanh toán của bạn đã hết hạn. Vui lòng thử lại."
               );
             }
-          } catch (error: any) {
-            const errorMessage =
-              error.response?.data?.message ||
-              "Payment processing failed. Please try again.";
+          }, 15 * 60 * 1000);
 
-            // Handle 401 error specifically
-            if (error.response?.status === 401) {
-              Alert.alert(
-                "Authentication Required",
-                "Please sign in to purchase tickets.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Sign In",
-                    onPress: () => router.push("/(auth)/signIn"),
-                  },
-                ]
-              );
-            } else {
-              Alert.alert("Payment Error", errorMessage);
-            }
-          }
+          // Store the timeout ID (cast via unknown to satisfy TypeScript)
+          setPaymentTimeoutId(paymentTimeout as unknown as NodeJS.Timeout);
+        } else {
+          Alert.alert("Lỗi", "Xử lý thanh toán thất bại. Vui lòng thử lại.");
         }
-      } catch (err: any) {
-        console.error("Payment error:", err);
-        setError(
-          err?.response?.data?.message ||
-            (type === "cart" ? "Failed to add to cart" : "Payment failed")
-        );
-      } finally {
-        setIsSubmitting(false);
+      } catch (error: any) {
+        const errorMessage =
+          error.response?.data?.message ||
+          "Xử lý thanh toán thất bại. Vui lòng thử lại.";
+
+        // Handle 401 error specifically
+        if (error.response?.status === 401) {
+          Alert.alert("Yêu cầu đăng nhập", "Vui lòng đăng nhập để mua vé.", [
+            { text: "Hủy", style: "cancel" },
+            {
+              text: "Đăng nhập",
+              onPress: () => router.push("/(auth)/signIn"),
+            },
+          ]);
+        } else {
+          Alert.alert("Lỗi thanh toán", errorMessage);
+        }
       }
-    },
-    [calculateTotal, selectedTickets]
-  );
+    } catch (err: any) {
+      console.error("Lỗi thanh toán:", err);
+      setError(err?.response?.data?.message || "Thanh toán thất bại");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [
+    calculateTotal,
+    selectedTickets,
+    ticketOptions,
+    isAnySelectedTicketUnavailable,
+    emailInput,
+  ]); // Add emailInput dependency
 
   // Ticket Item Component
   const TicketItem = ({ ticket }: { ticket: TicketType }) => (
@@ -225,7 +262,7 @@ const BuyTickets: React.FC = () => {
       <View style={styles.ticketInfo}>
         <Text style={styles.ticketTitle}>{ticket.name}</Text>
         <Text style={styles.ticketDescription}>
-          Available: {ticket.availableQuantity}
+          Còn lại: {ticket.availableQuantity}
         </Text>
       </View>
       <Text style={styles.ticketPrice}>
@@ -237,7 +274,7 @@ const BuyTickets: React.FC = () => {
   // Selected Tickets Component
   const SelectedTickets = () => (
     <View style={styles.selectedContainer}>
-      <Text style={styles.sectionTitle}>Selected Tickets</Text>
+      <Text style={styles.sectionTitle}>Vé đã chọn</Text>
       {ticketOptions.map((ticket) =>
         selectedTickets[ticket.id] ? (
           <View key={ticket.id} style={styles.selectedRow}>
@@ -271,7 +308,7 @@ const BuyTickets: React.FC = () => {
         ) : null
       )}
       <Text style={styles.totalText}>
-        Total: {calculateTotal().toLocaleString("vi-VN")} VNĐ
+        Tổng cộng: {calculateTotal().toLocaleString("vi-VN")} VNĐ
       </Text>
     </View>
   );
@@ -285,9 +322,9 @@ const BuyTickets: React.FC = () => {
       onRequestClose={() => setPaymentModalVisible(false)}>
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Complete Payment</Text>
+          <Text style={styles.modalTitle}>Hoàn tất thanh toán</Text>
           <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
-            <Text style={styles.closeButton}>Close</Text>
+            <Text style={styles.closeButton}>Đóng</Text>
           </TouchableOpacity>
         </View>
         {paymentUrl ? (
@@ -302,74 +339,76 @@ const BuyTickets: React.FC = () => {
             )}
             onNavigationStateChange={(navState) => {
               console.log("Navigation URL:", navState.url);
-              
+
               try {
                 // Check if this is our custom scheme deep link
-                if (navState.url.includes('ksms://app/')) {
+                if (navState.url.includes("ksms://app/")) {
                   setPaymentModalVisible(false);
-                  
+
                   // Clear the payment timeout
                   if (paymentTimeoutId) {
                     clearTimeout(paymentTimeoutId);
                     setPaymentTimeoutId(null);
                   }
-                  
+
                   // Parse status parameter from URL
                   const urlObj = new URL(navState.url);
-                  const status = urlObj.searchParams.get('status') || '';
-                  const isSuccess = navState.url.includes('/success');
-                  
+                  const status = urlObj.searchParams.get("status") || "";
+                  const isSuccess = navState.url.includes("/success");
+
                   // Navigate to appropriate screen
                   if (isSuccess) {
                     router.push({
                       pathname: "/(payments)/PaymentSuccess",
-                      params: { status }
+                      params: { status },
                     });
                   } else {
                     router.push({
-                      pathname: "/(payments)/PaymentFailed", 
-                      params: { status }
+                      pathname: "/(payments)/PaymentFailed",
+                      params: { status },
                     });
                   }
-                  
+
                   return false; // Prevent default navigation
                 }
-                
+
                 // Handle web URLs (your current approach)
-                if (navState.url.includes('ksms.news/app/') || 
-                    navState.url.includes('localhost:5173/')) {
+                if (
+                  navState.url.includes("ksms.news/app/") ||
+                  navState.url.includes("localhost:5173/")
+                ) {
                   setPaymentModalVisible(false);
-                  
+
                   // Clear the payment timeout
                   if (paymentTimeoutId) {
                     clearTimeout(paymentTimeoutId);
                     setPaymentTimeoutId(null);
                   }
-                  
-                  const isSuccess = navState.url.includes('/success');
-                  
+
+                  const isSuccess = navState.url.includes("/success");
+
                   // Try to extract status from URL if present
-                  let status = '';
+                  let status = "";
                   try {
                     const urlObj = new URL(navState.url);
-                    status = urlObj.searchParams.get('status') || '';
+                    status = urlObj.searchParams.get("status") || "";
                   } catch (e) {
                     console.log("Error parsing URL parameters:", e);
                   }
-                  
+
                   // Navigate based on success/failure path
                   if (isSuccess) {
                     router.push({
                       pathname: "/(payments)/PaymentSuccess",
-                      params: { status }
+                      params: { status },
                     });
                   } else {
                     router.push({
                       pathname: "/(payments)/PaymentFailed",
-                      params: { status }
+                      params: { status },
                     });
                   }
-                  
+
                   return false;
                 }
               } catch (e) {
@@ -388,8 +427,10 @@ const BuyTickets: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.pageTitle}>Select Your Ticket</Text>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}>
+        <Text style={styles.pageTitle}>Chọn loại vé của bạn</Text>
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -405,33 +446,41 @@ const BuyTickets: React.FC = () => {
               <TicketItem key={ticket.id} ticket={ticket} />
             ))}
 
+            {/* Email Input Section */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Email nhận vé:</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Nhập địa chỉ email của bạn"
+                value={emailInput}
+                onChangeText={setEmailInput}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+              />
+            </View>
+
             {Object.keys(selectedTickets).length > 0 && <SelectedTickets />}
 
+            {/* Payment Button */}
             <View style={styles.actionButtons}>
               <TouchableOpacity
                 style={[
-                  styles.actionButton,
-                  (isSubmitting || Object.keys(selectedTickets).length === 0) &&
+                  styles.actionButton, // Keep base style
+                  styles.payButton, // Add specific style if needed
+                  (isSubmitting ||
+                    Object.keys(selectedTickets).length === 0 ||
+                    isAnySelectedTicketUnavailable()) &&
                     styles.disabledButton,
                 ]}
-                onPress={() => handleAction("cart")}
+                onPress={handlePayment} // Use the dedicated payment handler
                 disabled={
-                  isSubmitting || Object.keys(selectedTickets).length === 0
-                }>
-                <Text style={styles.actionButtonText}>Add To Cart</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  (isSubmitting || Object.keys(selectedTickets).length === 0) &&
-                    styles.disabledButton,
-                ]}
-                onPress={() => handleAction("pay")}
-                disabled={
-                  isSubmitting || Object.keys(selectedTickets).length === 0
+                  isSubmitting ||
+                  Object.keys(selectedTickets).length === 0 ||
+                  isAnySelectedTicketUnavailable()
                 }>
                 <Text style={styles.actionButtonText}>
-                  {isSubmitting ? "Processing..." : "Pay Now"}
+                  {isSubmitting ? "Đang xử lý..." : "Thanh toán ngay"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -546,16 +595,21 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center", // Center the single button
     marginVertical: 20,
   },
   actionButton: {
-    width: (width - 52) / 2,
+    // width: (width - 52) / 2, // Remove fixed width
+    width: "100%", // Make button full width
     height: 48,
     backgroundColor: "#0A0A0A",
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
+  },
+  payButton: {
+    // Optional: Add specific style for pay button if needed
+    // e.g., backgroundColor: '#e74c3c',
   },
   disabledButton: {
     backgroundColor: "#858585",
@@ -573,6 +627,24 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginVertical: 30,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    backgroundColor: "#fff",
   },
 
   // Modal styles

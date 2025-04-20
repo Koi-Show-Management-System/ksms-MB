@@ -947,8 +947,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 8,
     overflow: 'hidden',
-    width: Dimensions.get('window').width * 0.7,
-    marginVertical: 12, // Thêm margin để các card không quá sát nhau
+    width: Dimensions.get('window').width * 0.6, // Adjusted width
+    marginVertical: 8, // Adjusted margin
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -956,13 +956,13 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    height: 300,
+    height: 280, // Adjusted height
   },
   contestantCardContent: {
     flex: 1,
   },
   contestantImageContainer: {
-    height: 180,
+    height: 160, // Adjusted height
     width: '100%',
     position: 'relative',
   },
@@ -986,16 +986,16 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   contestantInfo: {
-    padding: 12,
+    padding: 10, // Adjusted padding
   },
   contestantName: {
-    fontSize: 15,
+    fontSize: 14, // Adjusted font size
     fontWeight: '600',
     marginBottom: 2,
     color: '#000000',
   },
   contestantVariety: {
-    fontSize: 13,
+    fontSize: 12, // Adjusted font size
     color: '#666666',
     marginBottom: 4,
   },
@@ -1005,9 +1005,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   contestantDetail: {
-    fontSize: 12,
+    fontSize: 11, // Adjusted font size
     color: '#888888',
-  },
+    },
   tankNameContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1019,7 +1019,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   tankName: {
-    fontSize: 12,
+    fontSize: 11, // Adjusted font size
     color: '#3498db',
     marginLeft: 4,
   },
@@ -1034,7 +1034,7 @@ const styles = StyleSheet.create({
   },
   rankText: {
     color: '#ffffff',
-    fontSize: 12,
+    fontSize: 11, // Adjusted font size
     fontWeight: '700',
   },
   scoreStatusContainer: {
@@ -1048,7 +1048,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreText: {
-    fontSize: 12,
+    fontSize: 11, // Adjusted font size
     color: '#f39c12',
     fontWeight: '600',
     marginLeft: 4,
@@ -1061,7 +1061,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   contestantStatusText: {
-    fontSize: 11,
+    fontSize: 10, // Adjusted font size
     fontWeight: '500',
   },
   modalContainer: {

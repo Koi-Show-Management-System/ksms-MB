@@ -385,3 +385,119 @@ export const getShowMemberDetail = async (showId: string): Promise<ShowMemberDet
     throw error;
   }
 }; 
+// Interface for Award details within a category
+export interface CategoryAward {
+  id: string;
+  name: string;
+  awardType: string;
+  prizeValue: number;
+  description: string;
+}
+
+// Interface for Variety details within a category
+export interface CategoryVariety {
+  id: string;
+  variety: {
+    id: string;
+    name: string;
+    description: string;
+  };
+}
+
+// Interface for Criteria details within a category
+export interface CategoryCriteria {
+  id: string;
+  roundType: string;
+  weight: number;
+  order: number;
+  criteria: {
+    id: string;
+    name: string;
+    description: string;
+  };
+}
+
+// Interface for Referee Assignment details within a category
+export interface CategoryRefereeAssignment {
+  id: string;
+  roundType: string;
+  assignedAt: string;
+  refereeAccount: {
+    id: string;
+    email: string;
+    username: string;
+    fullName: string;
+    role: string;
+  };
+  assignedByNavigation: {
+    id: string;
+    email: string;
+    username: string;
+    fullName: string;
+    role: string;
+  };
+}
+
+// Interface for Round details within a category
+export interface CategoryRound {
+  id: string;
+  name: string;
+  roundOrder: number;
+  roundType: string;
+  startTime: string | null;
+  endTime: string | null;
+  numberOfRegistrationToAdvance: number;
+  status: string;
+}
+
+
+// Interface for Competition Category Detail (matching the provided API response)
+export interface CompetitionCategoryDetail {
+  id: string;
+  name: string;
+  sizeMin: number;
+  sizeMax: number;
+  description: string;
+  minEntries: number;
+  maxEntries: number;
+  hasTank: boolean;
+  registrationFee: number;
+  startTime: string | null;
+  endTime: string | null;
+  status: string | null;
+  awards: CategoryAward[];
+  categoryVarieties: CategoryVariety[];
+  criteriaCompetitionCategories: CategoryCriteria[];
+  refereeAssignments: CategoryRefereeAssignment[];
+  rounds: CategoryRound[];
+}
+
+
+/**
+ * Lấy thông tin chi tiết của một hạng mục thi đấu, bao gồm giải thưởng
+ * @param categoryId ID của hạng mục cần lấy thông tin
+ * @returns Promise với dữ liệu chi tiết của hạng mục
+ */
+export const getCompetitionCategoryDetail = async (categoryId: string): Promise<CompetitionCategoryDetail> => {
+  try {
+    const url = `/api/v1/competition-category/${categoryId}`;
+    console.log(`[API Request] GET ${url}`);
+
+    const response = await api.get<ApiResponse<CompetitionCategoryDetail>>(url);
+
+    if (response.data.statusCode === 200) {
+      return response.data.data;
+    } else {
+      throw new Error(response.data.message || 'Không thể lấy thông tin chi tiết hạng mục');
+    }
+  } catch (error: any) {
+    const errorMessage = error.response
+      ? `Lỗi ${error.response.status}: ${error.response.data?.message || 'Không có thông báo lỗi'}`
+      : `Lỗi kết nối: ${error.message}`;
+
+    console.error('Lỗi khi lấy thông tin chi tiết hạng mục:', errorMessage);
+    console.error('Tham số gọi API - CategoryId:', categoryId);
+
+    throw error;
+  }
+};
