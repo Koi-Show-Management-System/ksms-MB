@@ -3,15 +3,18 @@ import {
   FontAwesome5,
   MaterialCommunityIcons,
   MaterialIcons,
-} from "@expo/vector-icons"; // Giữ lại Ionicons nếu cần ở nơi khác hoặc đổi tên
-import Ionicons from "@expo/vector-icons/Ionicons"; // Có thể trùng tên, xem xét đổi tên nếu cần
+} from "@expo/vector-icons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { memo, useCallback, useEffect, useState } from "react";
+import { SceneMap, TabView, TabBar } from 'react-native-tab-view';
+import { Dimensions } from 'react-native'; // Need Dimensions for initialLayout
+
 import {
   ActivityIndicator,
   FlatList,
   Image,
-  ScrollView, // Keep for horizontal scrollviews and modal
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -21,26 +24,27 @@ import Animated, {
   Extrapolation,
   interpolate,
   useAnimatedScrollHandler,
-  useAnimatedStyle, // Import Animated components from reanimated
+  useAnimatedStyle,
   useSharedValue,
 } from "react-native-reanimated";
 import KoiContestants from "./KoiContestants";
 import KoiShowResults from "./KoiShowResults";
-import KoiShowVoting from "./KoiShowVoting"; // Import component mới
+import KoiShowVoting from "./KoiShowVoting";
 
 import { KoiShowProvider, useKoiShow } from "../../../context/KoiShowContext";
 import {
-  CompetitionCategoryDetail, // Import detail type
+  CompetitionCategoryDetail,
   getCompetitionCategoryDetail,
-} from "../../../services/competitionService"; // Import competition service
+} from "../../../services/competitionService";
 import {
   getAllLivestreamsForShow,
   LivestreamInfo,
 } from "../../../services/livestreamService";
 import { CompetitionCategory } from "../../../services/registrationService";
 
-// Skeleton Component
+// Skeleton Component (unchanged)
 const SkeletonLoader = () => {
+  // Skeleton implementation remains the same
   return (
     <ScrollView style={styles.scrollView}>
       {/* Banner Skeleton */}
@@ -122,7 +126,7 @@ const SkeletonLoader = () => {
 };
 
 // Wrapper component
-const KoiShowInformation: React.FC = () => {
+const KoiShowInformation = () => {
   const params = useLocalSearchParams();
   const id = params.id as string;
 
@@ -219,18 +223,22 @@ const CategoryItem = memo(
 );
 
 // Main content component
-const KoiShowInformationContent: React.FC = () => {
+const KoiShowInformationContent = () => {
   const { showData, categories, isLoading, error, refetch } = useKoiShow();
   const [expandedSections, setExpandedSections] = useState({
-    eventDetails: true, // Open by default
-    categories: true, // Open categories section by default
-    criteria: false, // Renamed from awards
+    eventDetails: true,
+    categories: true,
+    criteria: false,
     rules: false,
-    timeline: false, // Renamed from enteringKoi
+    timeline: false,
   });
-  const [activeTab, setActiveTab] = useState<
-    "info" | "contestants" | "results" | "vote"
-  >("info"); // Thêm 'vote'
+  const [index, setIndex] = useState(0); // Index của tab đang được chọn
+  const [routes] = useState([ // Danh sách các tab
+    { key: "info", title: "Thông tin" },
+    { key: "contestants", title: "Thí sinh" },
+    { key: "results", title: "Kết quả" },
+    { key: "vote", title: "Bình chọn" },
+  ]);
   const [livestreamInfo, setLivestreamInfo] = useState<LivestreamInfo | null>(
     null
   );
@@ -247,43 +255,35 @@ const KoiShowInformationContent: React.FC = () => {
 
   // Animation values for sticky header
   const scrollY = useSharedValue(0);
-  const bannerHeight = 200; // Chiều cao của banner
-  const titleHeight = 100; // Ước tính chiều cao của phần tiêu đề
+  const BANNER_HEIGHT = 200; // Chiều cao Banner của bạn
+  const TITLE_SECTION_HEIGHT = 100; // Chiều cao ước tính của khu vực Title + Quick Info
+  const TAB_BAR_HEIGHT = 55; // Chiều cao mong muốn cho TabBar (bao gồm padding)
+  const HEADER_HEIGHT = BANNER_HEIGHT + TITLE_SECTION_HEIGHT; // Tổng chiều cao Header ban đầu
+  const COLLAPSED_HEADER_HEIGHT = 0; // Header ẩn hoàn toàn khi thu gọn
+  const SCROLL_THRESHOLD = HEADER_HEIGHT - COLLAPSED_HEADER_HEIGHT; // Điểm TabBar bắt đầu dính lại
 
-  // Xử lý sự kiện scroll
+  // Scroll handler
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
     },
   });
 
-  // Animation styles for sticky title
-  const titleAnimatedStyles = useAnimatedStyle(() => {
+  // Animation styles for the header (Banner + Title/Info)
+  const headerAnimatedStyles = useAnimatedStyle(() => {
     const translateY = interpolate(
-      scrollY.value,
-      [0, bannerHeight],
-      [0, -bannerHeight],
-      Extrapolation.CLAMP
+        scrollY.value,
+        [0, SCROLL_THRESHOLD],
+        [0, -SCROLL_THRESHOLD], // Di chuyển lên trên
+        Extrapolation.CLAMP
     );
-
-    const opacity = interpolate(
-      scrollY.value,
-      [bannerHeight - 50, bannerHeight],
-      [0, 1],
-      Extrapolation.CLAMP
-    );
-
     return {
-      transform: [{ translateY }],
-      zIndex: 100,
-      opacity: opacity,
-      position: "absolute",
-      top: bannerHeight,
-      left: 0,
-      right: 0,
-      backgroundColor: "#ffffff",
-      borderBottomWidth: 1,
-      borderBottomColor: "#e5e7eb",
+        transform: [{ translateY }],
+        position: 'absolute', // Quan trọng
+        top: 0, left: 0, right: 0,
+        zIndex: 1,
+        backgroundColor: '#FFF', // Cần background
+        height: HEADER_HEIGHT, // Cần chiều cao cố định
     };
   });
 
@@ -291,15 +291,76 @@ const KoiShowInformationContent: React.FC = () => {
   const bannerAnimatedStyles = useAnimatedStyle(() => {
     return {
       transform: [
+  // Animation styles for the TabBar (sticky effect)
+  const tabBarAnimatedStyles = useAnimatedStyle(() => {
+    const translateY = interpolate(
+        scrollY.value,
+        [0, SCROLL_THRESHOLD],
+        [HEADER_HEIGHT, COLLAPSED_HEADER_HEIGHT], // Di chuyển từ dưới header lên vị trí sticky
+        Extrapolation.CLAMP
+    );
+    return {
+        transform: [{ translateY }],
+        position: 'absolute', // Quan trọng
+        top: 0, // Vị trí Y được điều khiển bởi transform
+        left: 0, right: 0,
+        zIndex: 2, // Nằm trên Header khi sticky
+    };
+
+  const renderScene = SceneMap({
+    info: () => <InfoTabContent scrollHandler={scrollHandler} /* ... các props khác ... */ />,
+    contestants: () => <KoiContestants scrollHandler={scrollHandler} showId={showData!.id} />,
+    results: () => <KoiShowResults scrollHandler={scrollHandler} showId={showData!.id} />,
+    vote: () => <KoiShowVoting scrollHandler={scrollHandler} showId={showData!.id} />,
+  });
+
+  });
+
+  const renderCustomTabBar = (props: any) => (
+    <Animated.View style={[styles.tabBarContainer, tabBarAnimatedStyles]}>
+        <TabBar
+            {...props}
+            scrollEnabled
+            style={styles.tabBarItself}
+            indicatorStyle={styles.tabIndicator}
+            activeColor="#007bff"
+            inactiveColor="#6c757d"
+            renderLabel={({ route, focused, color }) => ( /* ... JSX cho label + icon ... */ )}
+        />
+    </Animated.View>
+  );
+
+
         {
           translateY: interpolate(
             scrollY.value,
-            [0, bannerHeight],
-            [0, -bannerHeight / 2],
+            [0, BANNER_HEIGHT],
+            [0, -BANNER_HEIGHT / 2],
             Extrapolation.CLAMP
           ),
         },
       ],
+      opacity: interpolate(
+        scrollY.value,
+        [0, BANNER_HEIGHT],
+        [1, 0.3],
+        Extrapolation.CLAMP
+      ),
+    };
+  });
+
+  // Content padding animation to push content down when header is visible
+  const contentAnimatedStyles = useAnimatedStyle(() => {
+    // When scrolling, we reduce the top padding to allow content to flow under the header
+    const paddingTop = interpolate(
+      scrollY.value,
+      [0, BANNER_HEIGHT],
+      [BANNER_HEIGHT + HEADER_HEIGHT, HEADER_HEIGHT],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      paddingTop,
     };
   });
 
@@ -414,11 +475,11 @@ const KoiShowInformationContent: React.FC = () => {
     ({ item }: { item: CompetitionCategory }) => (
       <CategoryItem
         item={item}
-        detailedCategory={detailedCategories[item.id]} // Pass detailed data using item.id
-        isLoadingDetails={isCategoryDetailsLoading} // Pass loading state
+        detailedCategory={detailedCategories[item.id]}
+        isLoadingDetails={isCategoryDetailsLoading}
       />
     ),
-    [detailedCategories, isCategoryDetailsLoading] // Add dependencies
+    [detailedCategories, isCategoryDetailsLoading]
   );
 
   // Spacer component for FlatList
@@ -427,27 +488,25 @@ const KoiShowInformationContent: React.FC = () => {
   // --- Fetch Livestream Status ---
   useEffect(() => {
     async function fetchLivestreamStatus() {
-      if (!showData?.id) return; // Ensure showData and id exist
+      if (!showData?.id) return;
 
       setIsLivestreamLoading(true);
-      setLivestreamInfo(null); // Reset before fetching
+      setLivestreamInfo(null);
 
       try {
         const response = await getAllLivestreamsForShow(showData.id);
-        // Check if there's an active livestream in the response data array
         const activeStream = response.data.find(
           (stream) => stream.status === "active"
         );
         if (activeStream) {
           setLivestreamInfo(activeStream);
         } else {
-          setLivestreamInfo(null); // Explicitly set to null if no active stream
+          setLivestreamInfo(null);
           console.log(`No active livestream found for show ${showData.id}`);
         }
       } catch (error) {
-        // Error is already logged in the service and handled by interceptor toast
         console.error("Error fetching livestream status in component:", error);
-        setLivestreamInfo(null); // Ensure state is null on error
+        setLivestreamInfo(null);
       } finally {
         setIsLivestreamLoading(false);
       }
@@ -460,7 +519,7 @@ const KoiShowInformationContent: React.FC = () => {
   useEffect(() => {
     const fetchAllCategoryDetails = async () => {
       if (!categories || categories.length === 0) {
-        setDetailedCategories({}); // Reset if no categories
+        setDetailedCategories({});
         return;
       }
 
@@ -483,7 +542,6 @@ const KoiShowInformationContent: React.FC = () => {
               `Lỗi khi lấy chi tiết hạng mục ${categoryId}:`,
               result.reason
             );
-            // Optionally store partial errors or handle differently
           }
         });
 
@@ -499,13 +557,13 @@ const KoiShowInformationContent: React.FC = () => {
     };
 
     fetchAllCategoryDetails();
-  }, [categories]); // Re-run when categories from context change
+  }, [categories]);
 
   // --- Handle Navigation to Livestream ---
   const handleViewLivestream = useCallback(() => {
     if (!livestreamInfo) return;
 
-    const apiKey = "z87auffz2r8y"; // Hardcoded API key as requested
+    const apiKey = "z87auffz2r8y";
     console.log("--- Navigating to Livestream --- ");
     console.log("Livestream Info:", JSON.stringify(livestreamInfo, null, 2));
     console.log("Show Name:", showData?.name);
@@ -515,14 +573,13 @@ const KoiShowInformationContent: React.FC = () => {
     console.log("Call ID:", livestreamInfo.callId);
     console.log("API Key:", apiKey);
 
-    // Navigate to the livestream viewer screen
     router.push({
-      pathname: "/(tabs)/shows/LivestreamViewer", // Updated path
+      pathname: "/(tabs)/shows/LivestreamViewer",
       params: {
         livestreamId: livestreamInfo.id,
         callId: livestreamInfo.callId,
         apiKey: apiKey,
-        showName: showData?.name || "Livestream", // Pass show name for context
+        showName: showData?.name || "Livestream",
       },
     });
   }, [livestreamInfo, router, showData?.name]);
@@ -564,7 +621,7 @@ const KoiShowInformationContent: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header Banner (hiển thị tất cả tab) */}
+      {/* Banner */}
       <Animated.View style={[styles.bannerContainer, bannerAnimatedStyles]}>
         {showData?.imgUrl ? (
           <Image
@@ -592,572 +649,66 @@ const KoiShowInformationContent: React.FC = () => {
         </View>
       </Animated.View>
 
-      {/* Tiêu đề và thông tin nhanh (sticky khi scroll) */}
-      <Animated.View style={[styles.titleContainer, titleAnimatedStyles]}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>{showData?.name}</Text>
-          {isLivestreamLoading ? (
-            <ActivityIndicator
-              size="small"
-              color="#000000"
-              style={styles.livestreamLoadingIndicator}
-            />
-          ) : livestreamInfo && livestreamInfo.status === "active" ? (
-            <TouchableOpacity
-              style={styles.livestreamButton}
-              onPress={handleViewLivestream}>
-              <MaterialCommunityIcons name="video" size={18} color="#FFFFFF" />
-              <Text style={styles.livestreamButtonText}>Xem Livestream</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-        <View style={styles.quickInfoContainer}>
-          <View style={styles.quickInfoItem}>
-            <MaterialIcons name="location-on" size={18} color="#000000" />
-            <Text style={styles.quickInfoText}>{showData?.location}</Text>
-          </View>
-          <View style={styles.quickInfoItem}>
-            <MaterialIcons name="date-range" size={18} color="#000000" />
-            <Text style={styles.quickInfoText}>
-              {formatDateAndTime(
-                showData?.startDate || "",
-                showData?.endDate || ""
-              )}
+      {/* Integrated Header (Title + Tabs) - This will move together */}
+      <Animated.View style={[styles.headerContainer, headerAnimatedStyles]}>
+        {/* Title Section */}
+        <View style={styles.titleContainer}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={1}>
+              {showData?.name}
             </Text>
+            {isLivestreamLoading ? (
+              <ActivityIndicator
+                size="small"
+                color="#000000"
+                style={styles.livestreamLoadingIndicator}
+              />
+            ) : livestreamInfo && livestreamInfo.status === "active" ? (
+              <TouchableOpacity
+                style={styles.livestreamButton}
+                onPress={handleViewLivestream}>
+                <MaterialCommunityIcons
+                  name="video"
+                  size={18}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.livestreamButtonText}>Xem Livestream</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          <View style={styles.quickInfoContainer}>
+            <View style={styles.quickInfoItem}>
+              <MaterialIcons name="location-on" size={18} color="#000000" />
+              <Text style={styles.quickInfoText} numberOfLines={1}>
+                {showData?.location}
+              </Text>
+            </View>
+            <View style={styles.quickInfoItem}>
+              <MaterialIcons name="date-range" size={18} color="#000000" />
+              <Text style={styles.quickInfoText} numberOfLines={1}>
+                {formatDateAndTime(
+                  showData?.startDate || "",
+                  showData?.endDate || ""
+                )}
+              </Text>
+            </View>
           </View>
         </View>
+
       </Animated.View>
 
-      {/* Duplicate tiêu đề để tạo không gian trước khi scroll */}
-      <View style={[styles.titleContainer, { opacity: 1 }]}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>{showData?.name}</Text>
-          {isLivestreamLoading ? (
-            <ActivityIndicator
-              size="small"
-              color="#000000"
-              style={styles.livestreamLoadingIndicator}
-            />
-          ) : livestreamInfo && livestreamInfo.status === "active" ? (
-            <TouchableOpacity
-              style={styles.livestreamButton}
-              onPress={handleViewLivestream}>
-              <MaterialCommunityIcons name="video" size={18} color="#FFFFFF" />
-              <Text style={styles.livestreamButtonText}>Xem Livestream</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-        <View style={styles.quickInfoContainer}>
-          <View style={styles.quickInfoItem}>
-            <MaterialIcons name="location-on" size={18} color="#000000" />
-            <Text style={styles.quickInfoText}>{showData?.location}</Text>
-          </View>
-          <View style={styles.quickInfoItem}>
-            <MaterialIcons name="date-range" size={18} color="#000000" />
-            <Text style={styles.quickInfoText}>
-              {formatDateAndTime(
-                showData?.startDate || "",
-                showData?.endDate || ""
-              )}
-            </Text>
-          </View>
-        </View>
-      </View>
+      {/* Content Area */}
+      <TabView
+          navigationState={{ index, routes }}
+          renderScene={renderScene}
+          onIndexChange={setIndex}
+          initialLayout={{ width: Dimensions.get('window').width }} // Cần initialLayout
+          renderTabBar={renderCustomTabBar}
+          style={{ paddingTop: HEADER_HEIGHT }} // QUAN TRỌNG: Padding để nội dung không bị che ban đầu
+          lazy // Tùy chọn: Tăng hiệu năng
+          lazyPreloadDistance={1} // Tùy chọn
+      />
 
-      {/* Tab Navigation */}
-      <View style={styles.tabBarWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tabContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === "info" && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab("info")}>
-            <MaterialIcons
-              name="info-outline"
-              size={18}
-              color={activeTab === "info" ? "#000000" : "#666666"}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "info" && styles.activeTabText,
-              ]}>
-              Thông tin
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === "contestants" && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab("contestants")}>
-            <Ionicons
-              name="fish"
-              size={16}
-              color={activeTab === "contestants" ? "#000000" : "#666666"}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "contestants" && styles.activeTabText,
-              ]}>
-              Thí sinh
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === "results" && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab("results")}>
-            <FontAwesome
-              name="trophy"
-              size={18}
-              color={activeTab === "results" ? "#000000" : "#666666"}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "results" && styles.activeTabText,
-              ]}>
-              Kết quả
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.tabButton,
-              activeTab === "vote" && styles.activeTabButton,
-            ]}
-            onPress={() => setActiveTab("vote")}>
-            <MaterialIcons
-              name="how-to-vote" // Icon cho bình chọn
-              size={18}
-              color={activeTab === "vote" ? "#000000" : "#666666"}
-            />
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === "vote" && styles.activeTabText,
-              ]}>
-              Bình chọn
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
-      {/* Nội dung Tab */}
-      {activeTab === "info" ? (
-        <Animated.ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollViewContent}
-          showsVerticalScrollIndicator={false}
-          onScroll={scrollHandler}
-          scrollEventThrottle={16}>
-          {/* Chi tiết sự kiện */}
-          <View style={styles.sectionContainer}>
-            <TouchableOpacity
-              style={[
-                styles.sectionHeader,
-                expandedSections.eventDetails && styles.sectionHeaderExpanded,
-              ]}
-              onPress={() => toggleSection("eventDetails")}>
-              <View style={styles.sectionHeaderContent}>
-                <MaterialIcons name="info-outline" size={22} color="#000000" />
-                <Text style={styles.sectionTitle}>Chi tiết sự kiện</Text>
-              </View>
-              <MaterialIcons
-                name={
-                  expandedSections.eventDetails ? "expand-less" : "expand-more"
-                }
-                size={24}
-                color="#000000"
-              />
-            </TouchableOpacity>
-
-            {expandedSections.eventDetails && (
-              <View style={styles.sectionContent}>
-                <Text style={styles.descriptionText}>
-                  {showData?.description || "Chưa có thông tin chi tiết"}
-                </Text>
-
-                <View style={styles.detailsGrid}>
-                  <View style={styles.detailItem}>
-                    <MaterialIcons name="event" size={20} color="#3498db" />
-                    <View>
-                      <Text style={styles.detailLabel}>
-                        Thời gian biểu diễn
-                      </Text>
-                      <Text style={styles.detailValue}>
-                        {formatDateAndTime(
-                          showData?.startExhibitionDate || "",
-                          showData?.endExhibitionDate || ""
-                        )}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.detailItem}>
-                    <MaterialIcons
-                      name="hourglass-bottom"
-                      size={20}
-                      color="#3498db"
-                    />
-                    <View>
-                      <Text style={styles.detailLabel}>Thời lượng</Text>
-                      <Text style={styles.detailValue}>
-                        {/* Existing time duration content */}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Add Ticket Types Section */}
-                <View style={styles.fullWidthSection}>
-                  <MaterialIcons
-                    name="confirmation-number"
-                    size={20}
-                    color="#3498db"
-                  />
-                  <View>
-                    <Text style={styles.detailLabel}>Loại vé</Text>
-                    {showData?.ticketTypes &&
-                    showData.ticketTypes.length > 0 ? (
-                      <ScrollView
-                        horizontal={true}
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.ticketsCarouselContainer}>
-                        {showData.ticketTypes.map((ticket) => (
-                          <View key={ticket.id} style={styles.ticketCard}>
-                            <Text style={styles.ticketNameDetail}>
-                              {ticket.name}
-                            </Text>
-                            <Text style={styles.ticketPriceDetail}>
-                              {ticket.price.toLocaleString("vi-VN")} VNĐ
-                            </Text>
-                            <View style={styles.ticketAvailability}>
-                              <MaterialIcons
-                                name="event-seat"
-                                size={16}
-                                color="#3498db"
-                              />
-                              <Text style={styles.ticketQuantityDetail}>
-                                Còn {ticket.availableQuantity} vé
-                              </Text>
-                            </View>
-                          </View>
-                        ))}
-                      </ScrollView>
-                    ) : (
-                      <Text style={styles.emptyText}>Chưa có thông tin vé</Text>
-                    )}
-                  </View>
-                </View>
-              </View>
-            )}
-          </View>
-
-          {/* Categories Section - Sử dụng FlatList với performance optimization */}
-          <View style={styles.sectionContainer}>
-            <TouchableOpacity
-              style={[
-                styles.sectionHeader,
-                expandedSections.categories && styles.sectionHeaderExpanded,
-              ]}
-              onPress={() => toggleSection("categories")}>
-              <View style={styles.sectionHeaderContent}>
-                <MaterialIcons name="category" size={22} color="#000000" />
-                <Text style={styles.sectionTitle}>Hạng mục thi đấu</Text>
-              </View>
-              <MaterialIcons
-                name={
-                  expandedSections.categories ? "expand-less" : "expand-more"
-                }
-                size={24}
-                color="#000000"
-              />
-            </TouchableOpacity>
-
-            {expandedSections.categories && (
-              <View style={styles.sectionContent}>
-                {categories.length > 0 ? (
-                  <FlatList
-                    data={categories}
-                    renderItem={renderCategoryItem}
-                    keyExtractor={keyExtractor}
-                    horizontal={true}
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.categoriesContainer}
-                    ItemSeparatorComponent={ItemSeparator}
-                    initialNumToRender={3}
-                    maxToRenderPerBatch={5}
-                    windowSize={5}
-                    removeClippedSubviews={true}
-                  />
-                ) : (
-                  <View style={styles.emptyStateContainer}>
-                    <MaterialIcons name="category" size={48} color="#d1d5db" />
-                    <Text style={styles.emptyStateText}>
-                      Chưa có hạng mục thi đấu nào được thêm vào cuộc thi này
-                    </Text>
-                  </View>
-                )}
-                {categoryDetailsError && (
-                  <Text style={styles.categoryErrorText}>
-                    {categoryDetailsError}
-                  </Text>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Rules & Regulations Section */}
-          <View style={styles.sectionContainer}>
-            <TouchableOpacity
-              style={styles.sectionHeader}
-              onPress={() => toggleSection("rules")}>
-              <View style={styles.sectionHeaderContent}>
-                <MaterialIcons name="gavel" size={22} color="#000000" />
-                <Text style={styles.sectionTitle}>Quy định & Điều lệ</Text>
-              </View>
-              <MaterialIcons
-                name={expandedSections.rules ? "expand-less" : "expand-more"}
-                size={24}
-                color="#000000"
-              />
-            </TouchableOpacity>
-
-            {expandedSections.rules && (
-              <View style={styles.sectionContent}>
-                {showData?.showRules && showData.showRules.length > 0 ? (
-                  showData.showRules.map((rule, index) => (
-                    <View key={index} style={styles.ruleContainer}>
-                      <Text style={styles.ruleNumber}>{index + 1}</Text>
-                      <Text style={styles.ruleText}>
-                        {formatRuleContent(rule)}
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.emptyStateContainer}>
-                    <MaterialIcons name="info" size={40} color="#bdc3c7" />
-                    <Text style={styles.emptyStateText}>
-                      Chưa có quy định nào được đăng tải
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Criteria Section */}
-          <View style={styles.sectionContainer}>
-            <TouchableOpacity
-              style={styles.sectionHeader}
-              onPress={() => toggleSection("criteria")}>
-              <View style={styles.sectionHeaderContent}>
-                <MaterialIcons name="star" size={22} color="#000000" />
-                <Text style={styles.sectionTitle}>Tiêu chí đánh giá</Text>
-              </View>
-              <MaterialIcons
-                name={expandedSections.criteria ? "expand-less" : "expand-more"}
-                size={24}
-                color="#000000"
-              />
-            </TouchableOpacity>
-
-            {expandedSections.criteria && (
-              <View style={styles.sectionContent}>
-                {showData?.criteria && showData.criteria.length > 0 ? (
-                  showData.criteria.map((criterion, index) => (
-                    <View key={index} style={styles.criterionContainer}>
-                      <View style={styles.criterionBullet}>
-                        <Text style={styles.criterionBulletText}>
-                          {index + 1}
-                        </Text>
-                      </View>
-                      <Text style={styles.criterionText}>
-                        {formatCriterionContent(criterion)}
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.emptyStateContainer}>
-                    <MaterialIcons name="info" size={40} color="#bdc3c7" />
-                    <Text style={styles.emptyStateText}>
-                      Chưa có tiêu chí nào được đăng tải
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Event Timeline Section */}
-          <View style={styles.sectionContainer}>
-            <TouchableOpacity
-              style={styles.sectionHeader}
-              onPress={() => toggleSection("timeline")}>
-              <View style={styles.sectionHeaderContent}>
-                <MaterialIcons name="timeline" size={22} color="#000000" />
-                <Text style={styles.sectionTitle}>Lịch trình sự kiện</Text>
-              </View>
-              <MaterialIcons
-                name={expandedSections.timeline ? "expand-less" : "expand-more"}
-                size={24}
-                color="#000000"
-              />
-            </TouchableOpacity>
-
-            {expandedSections.timeline && (
-              <View style={styles.sectionContent}>
-                {showData?.showStatuses && showData.showStatuses.length > 0 ? (
-                  <View style={styles.timelineContainer}>
-                    {[...showData.showStatuses]
-                      .sort(
-                        (a, b) =>
-                          new Date(a.startDate).getTime() -
-                          new Date(b.startDate).getTime()
-                      )
-                      .map((status, index, sortedArray) => {
-                        const isLast = index === sortedArray.length - 1;
-                        return (
-                          <View key={status.id}>
-                            <View style={styles.timelineItemContainer}>
-                              {/* Center column now comes first for layout */}
-                              <View style={styles.timelineCenterColumn}>
-                                <View
-                                  style={[
-                                    styles.timelineDot,
-                                    status.isActive && styles.timelineDotActive, // Use dedicated active style
-                                  ]}
-                                />
-                                {!isLast && (
-                                  <View style={styles.timelineLine} />
-                                )}
-                              </View>
-
-                              {/* Right column now takes full width */}
-                              <View style={styles.timelineRightColumn}>
-                                <View
-                                  style={[
-                                    styles.timelineContent, // Keep base style
-                                    status.isActive &&
-                                      styles.timelineContentActive, // Use dedicated active style
-                                  ]}>
-                                  {/* Date/Time moved inside the card */}
-                                  <Text
-                                    style={[
-                                      styles.timelineDateTimeInside, // New style for date/time
-                                      status.isActive &&
-                                        styles.timelineDateTimeInsideActive,
-                                    ]}>
-                                    {(() => {
-                                      try {
-                                        const start = new Date(
-                                          status.startDate
-                                        );
-                                        const end = new Date(status.endDate);
-                                        const startDay = start.getDate();
-                                        const endDay = end.getDate();
-                                        const startMonth = start.getMonth() + 1; // Months are 0-indexed
-                                        const endMonth = end.getMonth() + 1;
-                                        const startYear = start.getFullYear();
-                                        const endYear = end.getFullYear();
-                                        const startTime =
-                                          start.toLocaleTimeString("vi-VN", {
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                          });
-                                        const endTime = end.toLocaleTimeString(
-                                          "vi-VN",
-                                          { hour: "2-digit", minute: "2-digit" }
-                                        );
-
-                                        // Check if start and end are on the same day, month, and year
-                                        const isSameDay =
-                                          startDay === endDay &&
-                                          startMonth === endMonth &&
-                                          startYear === endYear;
-
-                                        if (isSameDay) {
-                                          // Format for same day: HH:MM - HH:MM / DD/MM/YYYY
-                                          return `${startTime} - ${endTime} / ${startDay
-                                            .toString()
-                                            .padStart(2, "0")}/${startMonth
-                                            .toString()
-                                            .padStart(2, "0")}/${startYear}`;
-                                        } else {
-                                          // Format for different days: HH:MM - DD / HH:MM - DD/MM/YYYY
-                                          const endDayFormatted = endDay
-                                            .toString()
-                                            .padStart(2, "0");
-                                          const endMonthFormatted = endMonth
-                                            .toString()
-                                            .padStart(2, "0");
-                                          const endYearFormatted = endYear;
-                                          return `${startTime} - ${startDay
-                                            .toString()
-                                            .padStart(
-                                              2,
-                                              "0"
-                                            )} / ${endTime} - ${endDayFormatted}/${endMonthFormatted}/${endYearFormatted}`;
-                                        }
-                                      } catch (e) {
-                                        console.error(
-                                          "Error formatting timeline date:",
-                                          e
-                                        );
-                                        // Fallback to original function if error occurs
-                                        return formatDateAndTime(
-                                          status.startDate,
-                                          status.endDate
-                                        ); // Keep original fallback
-                                      }
-                                    })()}
-                                  </Text>
-                                  <Text
-                                    style={[
-                                      styles.timelineTitle,
-                                      status.isActive &&
-                                        styles.timelineTitleActive, // Use dedicated active style
-                                    ]}>
-                                    {formatTimelineContent(status.description)}
-                                  </Text>
-                                </View>
-                              </View>
-                            </View>
-                          </View>
-                        );
-                      })}
-                  </View>
-                ) : (
-                  <View style={styles.emptyStateContainer}>
-                    <MaterialIcons name="info" size={40} color="#bdc3c7" />
-                    <Text style={styles.emptyStateText}>
-                      Chưa có lịch trình nào được đăng tải
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
-        </Animated.ScrollView>
-      ) : activeTab === "contestants" ? (
-        // Tab Thí sinh
-        <KoiContestants showId={showData.id} />
-      ) : activeTab === "vote" ? (
-        // Tab Bình chọn
-        <KoiShowVoting showId={showData.id} />
-      ) : (
-        // Tab Kết quả (mặc định cuối cùng)
-        <KoiShowResults showId={showData.id} />
-      )}
       {/* Footer với 2 nút: đăng ký thi đấu và mua vé */}
       <View style={styles.footer}>
         <TouchableOpacity
@@ -1189,44 +740,20 @@ const KoiShowInformationContent: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  // ... other styles
-  titleRow: {
-    // New style to wrap title and button
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between", // Adjust as needed
-    // marginBottom: 8, // Removed as titleContainer has padding
-  },
-  title: {
-    // Adjust title style if needed to not take full width
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#2c3e50",
-    flexShrink: 1, // Allow title to shrink if button is present
-    marginRight: 8, // Add some space between title and button
-    // Removed marginBottom as titleRow handles spacing now
-  },
-  livestreamButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#e53935", // Red color for live
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 15,
-    // marginLeft: 'auto', // Use space-between on titleRow instead if preferred
-  },
-  livestreamButtonText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "600",
-    marginLeft: 5,
-  },
-  livestreamLoadingIndicator: {
-    marginLeft: 8, // Add some space from title
-  },
   container: {
     flex: 1,
     backgroundColor: "#f2f2f2",
+  },
+  // Header container (combines title and tabs)
+  headerContainer: {
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  // Tab content container
+  tabContentContainer: {
+    flex: 1,
+    paddingTop: 320, // Banner height + header height
   },
   scrollView: {
     flex: 1,
@@ -1272,9 +799,35 @@ const styles = StyleSheet.create({
   titleContainer: {
     padding: 16,
     backgroundColor: "#ffffff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-    marginBottom: 8,
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#2c3e50",
+    flexShrink: 1,
+    marginRight: 8,
+  },
+  livestreamButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#e53935",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  livestreamButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 5,
+  },
+  livestreamLoadingIndicator: {
+    marginLeft: 8,
   },
   quickInfoContainer: {
     marginTop: 8,
@@ -1289,6 +842,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#7f8c8d",
   },
+  // Tab styles
+  tabBarWrapper: {
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+  },
+  tabContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  tabButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginRight: 8,
+    borderRadius: 20,
+  },
+  activeTabButton: {
+    backgroundColor: "#f0f0f0",
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#666666",
+    marginLeft: 4,
+  },
+  activeTabText: {
+    color: "#000000",
+    fontWeight: "600",
+  },
+  // Section styles
   sectionContainer: {
     backgroundColor: "#e9e9e9",
     borderRadius: 10,
@@ -1356,57 +942,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     marginTop: 2,
   },
-  ruleContainer: {
-    flexDirection: "row",
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ecf0f1",
-  },
-  ruleNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#000000",
-    color: "white",
-    textAlign: "center",
-    lineHeight: 24,
-    marginRight: 12,
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  ruleText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#34495e",
-  },
-  criterionContainer: {
-    flexDirection: "row",
-    marginBottom: 12,
-    alignItems: "flex-start",
-  },
-  criterionBullet: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#000000",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-    marginTop: 2,
-  },
-  criterionBulletText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  criterionText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 22,
-    color: "#34495e",
-  },
+  // Timeline styles
   timelineContainer: {
     paddingLeft: 8,
     backgroundColor: "#f0f0f0",
@@ -1414,18 +950,6 @@ const styles = StyleSheet.create({
   timelineItemContainer: {
     flexDirection: "row",
     marginBottom: 16,
-  },
-  timelineLeftColumn: {
-    width: 80,
-  },
-  timelineDate: {
-    fontSize: 12,
-    color: "#7f8c8d",
-    marginBottom: 2,
-  },
-  timelineTime: {
-    fontSize: 11,
-    color: "#95a5a6",
   },
   timelineCenterColumn: {
     alignItems: "center",
@@ -1476,176 +1000,69 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontWeight: "700",
   },
-  timelineStatus: {
-    fontSize: 12,
-    color: "#666666",
-  },
-  timelineStatusActive: {
-    color: "#000000",
-    fontWeight: "500",
-  },
-  // New styles for timeline date/time inside the card
   timelineDateTimeInside: {
     fontSize: 12,
-    color: "#7f8c8d", // Match the old left column style
-    marginBottom: 6, // Add some space below date/time
+    color: "#7f8c8d",
+    marginBottom: 6,
   },
   timelineDateTimeInsideActive: {
-    color: "#555", // Slightly darker for active item
+    color: "#555",
     fontWeight: "500",
   },
-  emptyStateContainer: {
-    padding: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f0f0f0",
-  },
-  emptyStateText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-  },
-  emptyText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    fontStyle: "italic",
-  },
-  footer: {
-    backgroundColor: "#ffffff",
-    padding: 16,
+  // Rules styles
+  ruleContainer: {
     flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
-    gap: 12,
-    justifyContent: "space-between",
-    position: "absolute",
-    bottom: 60, // Thay đổi từ 0 thành 60 để nâng footer lên trên thanh điều hướng
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    elevation: 5, // Cho Android
-    shadowColor: "#000", // Cho iOS
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#ecf0f1",
   },
-  actionButton: {
-    borderRadius: 8,
-    paddingVertical: 12,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    flex: 1,
-  },
-  ticketButton: {
-    backgroundColor: "#1e88e5",
-  },
-  registerButton: {
-    backgroundColor: "#e53935",
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f2f2f2",
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#7f8c8d",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f6fa",
-    padding: 24,
-  },
-  errorText: {
-    fontSize: 16,
-    color: "#e74c3c",
-    textAlign: "center",
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  backButton: {
-    backgroundColor: "#000000",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  fullWidthSection: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 16,
-    paddingHorizontal: 10,
-    width: "100%",
-  },
-  ticketTypeContainer: {
-    marginTop: 8,
-  },
-  ticketTypeItem: {
-    backgroundColor: "#f0f8ff",
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  ticketCard: {
-    backgroundColor: "#f0f8ff",
+  ruleNumber: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
-    padding: 16,
+    backgroundColor: "#000000",
+    color: "white",
+    textAlign: "center",
+    lineHeight: 24,
     marginRight: 12,
-    width: 180,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: "#e1ecf4",
-  },
-  ticketNameDetail: {
+    fontSize: 12,
     fontWeight: "bold",
-    fontSize: 16,
-    marginBottom: 8,
-    color: "#2c3e50",
   },
-  ticketPriceDetail: {
-    color: "#e74c3c",
-    fontWeight: "bold",
-    fontSize: 18,
-    marginBottom: 10,
-  },
-  ticketAvailability: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  ticketQuantityDetail: {
-    marginLeft: 5,
-    color: "#7f8c8d",
+  ruleText: {
+    flex: 1,
     fontSize: 14,
+    lineHeight: 20,
+    color: "#34495e",
   },
-  ticketsCarouselContainer: {
-    paddingVertical: 10,
-    paddingRight: 16,
+  // Criteria styles
+  criterionContainer: {
+    flexDirection: "row",
+    marginBottom: 12,
+    alignItems: "flex-start",
   },
+  criterionBullet: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    marginTop: 2,
+  },
+  criterionBulletText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  criterionText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 22,
+    color: "#34495e",
+  },
+  // Category styles
   categoriesContainer: {
     paddingVertical: 8,
     paddingHorizontal: 4,
@@ -1751,12 +1168,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#000000",
   },
-  // Styles for Awards section in Category Card
+  // Awards styles
   awardsContainer: {
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#eee", // Lighter border
+    borderTopColor: "#eee",
   },
   awardsTitle: {
     fontSize: 15,
@@ -1779,7 +1196,7 @@ const styles = StyleSheet.create({
   },
   awardPrize: {
     fontSize: 13,
-    color: "#e74c3c", // Use a distinct color for prize
+    color: "#e74c3c",
     fontWeight: "500",
   },
   awardsLoading: {
@@ -1792,6 +1209,73 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: "center",
   },
+  // Ticket styles
+  fullWidthSection: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 16,
+    paddingHorizontal: 10,
+    width: "100%",
+  },
+  ticketCard: {
+    backgroundColor: "#f0f8ff",
+    borderRadius: 12,
+    padding: 16,
+    marginRight: 12,
+    width: 180,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#e1ecf4",
+  },
+  ticketNameDetail: {
+    fontWeight: "bold",
+    fontSize: 16,
+    marginBottom: 8,
+    color: "#2c3e50",
+  },
+  ticketPriceDetail: {
+    color: "#e74c3c",
+    fontWeight: "bold",
+    fontSize: 18,
+    marginBottom: 10,
+  },
+  ticketAvailability: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  ticketQuantityDetail: {
+    marginLeft: 5,
+    color: "#7f8c8d",
+    fontSize: 14,
+  },
+  ticketsCarouselContainer: {
+    paddingVertical: 10,
+    paddingRight: 16,
+  },
+  // Empty state styles
+  emptyStateContainer: {
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f0f0f0",
+  },
+  emptyStateText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+  },
+  emptyText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    fontStyle: "italic",
+  },
   categoryErrorText: {
     fontSize: 13,
     color: "red",
@@ -1799,16 +1283,74 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: "center",
   },
-  bottomButtonContainer: {
+  // Footer styles
+  footer: {
+    backgroundColor: "#ffffff",
     padding: 16,
-    backgroundColor: "#FFFFFF",
+    flexDirection: "row",
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: "#e5e7eb",
+    gap: 12,
+    justifyContent: "space-between",
+    position: "absolute",
+    bottom: 60,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  registerButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
+  actionButton: {
+    borderRadius: 8,
+    paddingVertical: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    flex: 1,
+  },
+  ticketButton: {
+    backgroundColor: "#1e88e5",
+  },
+  registerButton: {
+    backgroundColor: "#e53935",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#ffffff",
     fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  // Error and loading styles
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f6fa",
+    padding: 24,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#e74c3c",
+    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  backButton: {
+    backgroundColor: "#000000",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   // Skeleton styles
   skeletonBanner: {
@@ -1845,45 +1387,6 @@ const styles = StyleSheet.create({
   skeletonButton: {
     backgroundColor: "#e0e0e0",
     height: 48,
-  },
-  // Thêm styles cho tab
-  tabBarWrapper: {
-    // New style for the wrapper View
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 16,
-    paddingTop: 10, // Added padding top
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-  },
-  tabContainer: {
-    // Modified style for ScrollView contentContainerStyle
-    flexDirection: "row",
-    alignItems: "center", // Added to vertically align items
-    // Removed visual styles
-  },
-  tabButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8, // Thêm lại marginRight
-    borderRadius: 20,
-    // Bỏ border
-  },
-  activeTabButton: {
-    backgroundColor: "#f0f0f0", // Style active mong muốn
-    // Bỏ borderColor
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#666666",
-    marginLeft: 4,
-  },
-  activeTabText: {
-    color: "#000000",
-    fontWeight: "600",
   },
 });
 
