@@ -6,17 +6,24 @@ import {
 } from "@expo/vector-icons"; // Giữ lại Ionicons nếu cần ở nơi khác hoặc đổi tên
 import Ionicons from "@expo/vector-icons/Ionicons"; // Có thể trùng tên, xem xét đổi tên nếu cần
 import { router, useLocalSearchParams } from "expo-router";
-import React, { memo, useCallback, useEffect, useState } from "react"; // Add useEffect
+import React, { memo, useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
-  ScrollView,
+  ScrollView, // Keep for horizontal scrollviews and modal
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle, // Import Animated components from reanimated
+  useSharedValue,
+} from "react-native-reanimated";
 import KoiContestants from "./KoiContestants";
 import KoiShowResults from "./KoiShowResults";
 import KoiShowVoting from "./KoiShowVoting"; // Import component mới
@@ -24,8 +31,7 @@ import KoiShowVoting from "./KoiShowVoting"; // Import component mới
 import { KoiShowProvider, useKoiShow } from "../../../context/KoiShowContext";
 import {
   CompetitionCategoryDetail, // Import detail type
-  getCompetitionCategoryDetail, // Import API function
-  CategoryAward, // Import award type
+  getCompetitionCategoryDetail,
 } from "../../../services/competitionService"; // Import competition service
 import {
   getAllLivestreamsForShow,
@@ -141,71 +147,76 @@ const CategoryItem = memo(
     <View style={styles.categoryCard}>
       <View style={styles.categoryHeader}>
         <Text style={styles.categoryName}>{item.name}</Text>
-    </View>
+      </View>
 
-    <View style={styles.categoryFeeContainer}>
-      <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
-      <Text style={styles.categoryFee}>
-        {item.registrationFee.toLocaleString("vi-VN")} đ
-      </Text>
-    </View>
-
-    <View style={styles.categoryDetailsContainer}>
-      <View style={styles.categoryDetailItem}>
-        <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
-        <Text style={styles.categoryDetailValue}>
-          {item.sizeMin} - {item.sizeMax} cm
+      <View style={styles.categoryFeeContainer}>
+        <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
+        <Text style={styles.categoryFee}>
+          {item.registrationFee.toLocaleString("vi-VN")} đ
         </Text>
       </View>
 
-      <View style={styles.categoryDetailItem}>
-        <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
-        <Text style={styles.categoryDetailValue}>{item.maxEntries} Koi</Text>
+      <View style={styles.categoryDetailsContainer}>
+        <View style={styles.categoryDetailItem}>
+          <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
+          <Text style={styles.categoryDetailValue}>
+            {item.sizeMin} - {item.sizeMax} cm
+          </Text>
+        </View>
+
+        <View style={styles.categoryDetailItem}>
+          <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
+          <Text style={styles.categoryDetailValue}>{item.maxEntries} Koi</Text>
+        </View>
       </View>
-    </View>
 
-    {item.description && (
-      <Text style={styles.categoryDescription}>{item.description}</Text>
-    )}
+      {item.description && (
+        <Text style={styles.categoryDescription}>{item.description}</Text>
+      )}
 
-    {item.varieties && item.varieties.length > 0 && (
-      <View style={styles.varietiesContainer}>
-        <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
-        <View style={styles.varietiesList}>
-          {item.varieties.map((variety, index) => (
-            <View key={index} style={styles.varietyTag}>
-              <Text style={styles.varietyTagText}>{variety}</Text>
+      {item.varieties && item.varieties.length > 0 && (
+        <View style={styles.varietiesContainer}>
+          <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
+          <View style={styles.varietiesList}>
+            {item.varieties.map((variety, index) => (
+              <View key={index} style={styles.varietyTag}>
+                <Text style={styles.varietyTagText}>{variety}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Awards Section */}
+      {isLoadingDetails ? (
+        <ActivityIndicator
+          size="small"
+          color="#666"
+          style={styles.awardsLoading}
+        />
+      ) : detailedCategory?.awards && detailedCategory.awards.length > 0 ? (
+        <View style={styles.awardsContainer}>
+          <Text style={styles.awardsTitle}>Giải thưởng</Text>
+          {detailedCategory.awards.map((award) => (
+            <View key={award.id} style={styles.awardItem}>
+              <FontAwesome name="trophy" size={16} color="#FFD700" />
+              <View style={styles.awardDetails}>
+                <Text style={styles.awardName}>{award.name}</Text>
+                <Text style={styles.awardPrize}>
+                  {award.prizeValue.toLocaleString("vi-VN")} VNĐ
+                </Text>
+              </View>
             </View>
           ))}
         </View>
-      </View>
-    )}
-
-    {/* Awards Section */}
-    {isLoadingDetails ? (
-      <ActivityIndicator size="small" color="#666" style={styles.awardsLoading} />
-    ) : detailedCategory?.awards && detailedCategory.awards.length > 0 ? (
-      <View style={styles.awardsContainer}>
-        <Text style={styles.awardsTitle}>Giải thưởng</Text>
-        {detailedCategory.awards.map((award) => (
-          <View key={award.id} style={styles.awardItem}>
-            <FontAwesome name="trophy" size={16} color="#FFD700" />
-            <View style={styles.awardDetails}>
-              <Text style={styles.awardName}>{award.name}</Text>
-              <Text style={styles.awardPrize}>
-                {award.prizeValue.toLocaleString("vi-VN")} VNĐ
-              </Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    ) : (
-      !isLoadingDetails && (
-        <Text style={styles.noAwardsText}>Chưa có thông tin giải thưởng</Text>
-      )
-    )}
-  </View>
-));
+      ) : (
+        !isLoadingDetails && (
+          <Text style={styles.noAwardsText}>Chưa có thông tin giải thưởng</Text>
+        )
+      )}
+    </View>
+  )
+);
 
 // Main content component
 const KoiShowInformationContent: React.FC = () => {
@@ -223,15 +234,74 @@ const KoiShowInformationContent: React.FC = () => {
   const [livestreamInfo, setLivestreamInfo] = useState<LivestreamInfo | null>(
     null
   );
-  const [isLivestreamLoading, setIsLivestreamLoading] = useState<boolean>(false);
+  const [isLivestreamLoading, setIsLivestreamLoading] =
+    useState<boolean>(false);
   const [detailedCategories, setDetailedCategories] = useState<
     Record<string, CompetitionCategoryDetail>
   >({});
   const [isCategoryDetailsLoading, setIsCategoryDetailsLoading] =
     useState<boolean>(false);
-  const [categoryDetailsError, setCategoryDetailsError] = useState<string | null>(
-    null
-  );
+  const [categoryDetailsError, setCategoryDetailsError] = useState<
+    string | null
+  >(null);
+
+  // Animation values for sticky header
+  const scrollY = useSharedValue(0);
+  const bannerHeight = 200; // Chiều cao của banner
+  const titleHeight = 100; // Ước tính chiều cao của phần tiêu đề
+
+  // Xử lý sự kiện scroll
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
+  // Animation styles for sticky title
+  const titleAnimatedStyles = useAnimatedStyle(() => {
+    const translateY = interpolate(
+      scrollY.value,
+      [0, bannerHeight],
+      [0, -bannerHeight],
+      Extrapolation.CLAMP
+    );
+
+    const opacity = interpolate(
+      scrollY.value,
+      [bannerHeight - 50, bannerHeight],
+      [0, 1],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      transform: [{ translateY }],
+      zIndex: 100,
+      opacity: opacity,
+      position: "absolute",
+      top: bannerHeight,
+      left: 0,
+      right: 0,
+      backgroundColor: "#ffffff",
+      borderBottomWidth: 1,
+      borderBottomColor: "#e5e7eb",
+    };
+  });
+
+  // Banner animation
+  const bannerAnimatedStyles = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          translateY: interpolate(
+            scrollY.value,
+            [0, bannerHeight],
+            [0, -bannerHeight / 2],
+            Extrapolation.CLAMP
+          ),
+        },
+      ],
+    };
+  });
 
   // Memo key extractor for FlatList
   const keyExtractor = useCallback((item: CompetitionCategory) => item.id, []);
@@ -495,7 +565,7 @@ const KoiShowInformationContent: React.FC = () => {
   return (
     <View style={styles.container}>
       {/* Header Banner (hiển thị tất cả tab) */}
-      <View style={styles.bannerContainer}>
+      <Animated.View style={[styles.bannerContainer, bannerAnimatedStyles]}>
         {showData?.imgUrl ? (
           <Image
             source={{ uri: showData.imgUrl }}
@@ -520,10 +590,46 @@ const KoiShowInformationContent: React.FC = () => {
             </Text>
           </View>
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Tiêu đề và thông tin nhanh (hiển thị ở tất cả các tab) */}
-      <View style={styles.titleContainer}>
+      {/* Tiêu đề và thông tin nhanh (sticky khi scroll) */}
+      <Animated.View style={[styles.titleContainer, titleAnimatedStyles]}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{showData?.name}</Text>
+          {isLivestreamLoading ? (
+            <ActivityIndicator
+              size="small"
+              color="#000000"
+              style={styles.livestreamLoadingIndicator}
+            />
+          ) : livestreamInfo && livestreamInfo.status === "active" ? (
+            <TouchableOpacity
+              style={styles.livestreamButton}
+              onPress={handleViewLivestream}>
+              <MaterialCommunityIcons name="video" size={18} color="#FFFFFF" />
+              <Text style={styles.livestreamButtonText}>Xem Livestream</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <View style={styles.quickInfoContainer}>
+          <View style={styles.quickInfoItem}>
+            <MaterialIcons name="location-on" size={18} color="#000000" />
+            <Text style={styles.quickInfoText}>{showData?.location}</Text>
+          </View>
+          <View style={styles.quickInfoItem}>
+            <MaterialIcons name="date-range" size={18} color="#000000" />
+            <Text style={styles.quickInfoText}>
+              {formatDateAndTime(
+                showData?.startDate || "",
+                showData?.endDate || ""
+              )}
+            </Text>
+          </View>
+        </View>
+      </Animated.View>
+
+      {/* Duplicate tiêu đề để tạo không gian trước khi scroll */}
+      <View style={[styles.titleContainer, { opacity: 1 }]}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>{showData?.name}</Text>
           {isLivestreamLoading ? (
@@ -559,92 +665,100 @@ const KoiShowInformationContent: React.FC = () => {
       </View>
 
       {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === "info" && styles.activeTabButton,
-          ]}
-          onPress={() => setActiveTab("info")}>
-          <MaterialIcons
-            name="info-outline"
-            size={18}
-            color={activeTab === "info" ? "#000000" : "#666666"}
-          />
-          <Text
+      <View style={styles.tabBarWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tabContainer}>
+          <TouchableOpacity
             style={[
-              styles.tabText,
-              activeTab === "info" && styles.activeTabText,
-            ]}>
-            Thông tin
-          </Text>
-        </TouchableOpacity>
+              styles.tabButton,
+              activeTab === "info" && styles.activeTabButton,
+            ]}
+            onPress={() => setActiveTab("info")}>
+            <MaterialIcons
+              name="info-outline"
+              size={18}
+              color={activeTab === "info" ? "#000000" : "#666666"}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "info" && styles.activeTabText,
+              ]}>
+              Thông tin
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === "contestants" && styles.activeTabButton,
-          ]}
-          onPress={() => setActiveTab("contestants")}>
-          <Ionicons
-            name="fish"
-            size={16}
-            color={activeTab === "contestants" ? "#000000" : "#666666"}
-          />
-          <Text
+          <TouchableOpacity
             style={[
-              styles.tabText,
-              activeTab === "contestants" && styles.activeTabText,
-            ]}>
-            Thí sinh
-          </Text>
-        </TouchableOpacity>
+              styles.tabButton,
+              activeTab === "contestants" && styles.activeTabButton,
+            ]}
+            onPress={() => setActiveTab("contestants")}>
+            <Ionicons
+              name="fish"
+              size={16}
+              color={activeTab === "contestants" ? "#000000" : "#666666"}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "contestants" && styles.activeTabText,
+              ]}>
+              Thí sinh
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === "results" && styles.activeTabButton,
-          ]}
-          onPress={() => setActiveTab("results")}>
-          <FontAwesome
-            name="trophy"
-            size={18}
-            color={activeTab === "results" ? "#000000" : "#666666"}
-          />
-          <Text
+          <TouchableOpacity
             style={[
-              styles.tabText,
-              activeTab === "results" && styles.activeTabText,
-            ]}>
-            Kết quả
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === "vote" && styles.activeTabButton,
-          ]}
-          onPress={() => setActiveTab("vote")}>
-          <MaterialIcons
-            name="how-to-vote" // Icon cho bình chọn
-            size={18}
-            color={activeTab === "vote" ? "#000000" : "#666666"}
-          />
-          <Text
+              styles.tabButton,
+              activeTab === "results" && styles.activeTabButton,
+            ]}
+            onPress={() => setActiveTab("results")}>
+            <FontAwesome
+              name="trophy"
+              size={18}
+              color={activeTab === "results" ? "#000000" : "#666666"}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "results" && styles.activeTabText,
+              ]}>
+              Kết quả
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[
-              styles.tabText,
-              activeTab === "vote" && styles.activeTabText,
-            ]}>
-            Bình chọn
-          </Text>
-        </TouchableOpacity>
+              styles.tabButton,
+              activeTab === "vote" && styles.activeTabButton,
+            ]}
+            onPress={() => setActiveTab("vote")}>
+            <MaterialIcons
+              name="how-to-vote" // Icon cho bình chọn
+              size={18}
+              color={activeTab === "vote" ? "#000000" : "#666666"}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "vote" && styles.activeTabText,
+              ]}>
+              Bình chọn
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {/* Nội dung Tab */}
       {activeTab === "info" ? (
-        <ScrollView
+        <Animated.ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollViewContent}>
+          contentContainerStyle={styles.scrollViewContent}
+          showsVerticalScrollIndicator={false}
+          onScroll={scrollHandler}
+          scrollEventThrottle={16}>
           {/* Chi tiết sự kiện */}
           <View style={styles.sectionContainer}>
             <TouchableOpacity
@@ -945,29 +1059,65 @@ const KoiShowInformationContent: React.FC = () => {
                                     ]}>
                                     {(() => {
                                       try {
-                                        const start = new Date(status.startDate);
+                                        const start = new Date(
+                                          status.startDate
+                                        );
                                         const end = new Date(status.endDate);
                                         const startDay = start.getDate();
                                         const endDay = end.getDate();
-                                        const month = start.getMonth() + 1; // Months are 0-indexed
-                                        const year = start.getFullYear();
-                                        const startTime = start.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-                                        const endTime = end.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+                                        const startMonth = start.getMonth() + 1; // Months are 0-indexed
+                                        const endMonth = end.getMonth() + 1;
+                                        const startYear = start.getFullYear();
+                                        const endYear = end.getFullYear();
+                                        const startTime =
+                                          start.toLocaleTimeString("vi-VN", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          });
+                                        const endTime = end.toLocaleTimeString(
+                                          "vi-VN",
+                                          { hour: "2-digit", minute: "2-digit" }
+                                        );
 
-                                        // Check if start and end are on the same day
-                                        const isSameDay = startDay === endDay && month === (end.getMonth() + 1) && year === end.getFullYear();
+                                        // Check if start and end are on the same day, month, and year
+                                        const isSameDay =
+                                          startDay === endDay &&
+                                          startMonth === endMonth &&
+                                          startYear === endYear;
 
                                         if (isSameDay) {
-                                          // Format for same day: DD/MM/YYYY - HH:MM - HH:MM
-                                          return `${startDay.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year} - ${startTime} - ${endTime}`;
+                                          // Format for same day: HH:MM - HH:MM / DD/MM/YYYY
+                                          return `${startTime} - ${endTime} / ${startDay
+                                            .toString()
+                                            .padStart(2, "0")}/${startMonth
+                                            .toString()
+                                            .padStart(2, "0")}/${startYear}`;
                                         } else {
-                                          // Format for different days: DD-DD/MM/YYYY - HH:MM - HH:MM
-                                          return `${startDay.toString().padStart(2, '0')}-${endDay.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year} - ${startTime} - ${endTime}`;
+                                          // Format for different days: HH:MM - DD / HH:MM - DD/MM/YYYY
+                                          const endDayFormatted = endDay
+                                            .toString()
+                                            .padStart(2, "0");
+                                          const endMonthFormatted = endMonth
+                                            .toString()
+                                            .padStart(2, "0");
+                                          const endYearFormatted = endYear;
+                                          return `${startTime} - ${startDay
+                                            .toString()
+                                            .padStart(
+                                              2,
+                                              "0"
+                                            )} / ${endTime} - ${endDayFormatted}/${endMonthFormatted}/${endYearFormatted}`;
                                         }
                                       } catch (e) {
-                                        console.error("Error formatting timeline date:", e);
+                                        console.error(
+                                          "Error formatting timeline date:",
+                                          e
+                                        );
                                         // Fallback to original function if error occurs
-                                        return formatDateAndTime(status.startDate, status.endDate);
+                                        return formatDateAndTime(
+                                          status.startDate,
+                                          status.endDate
+                                        ); // Keep original fallback
                                       }
                                     })()}
                                   </Text>
@@ -997,7 +1147,7 @@ const KoiShowInformationContent: React.FC = () => {
               </View>
             )}
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
       ) : activeTab === "contestants" ? (
         // Tab Thí sinh
         <KoiContestants showId={showData.id} />
@@ -1008,7 +1158,6 @@ const KoiShowInformationContent: React.FC = () => {
         // Tab Kết quả (mặc định cuối cùng)
         <KoiShowResults showId={showData.id} />
       )}
-
       {/* Footer với 2 nút: đăng ký thi đấu và mua vé */}
       <View style={styles.footer}>
         <TouchableOpacity
@@ -1698,14 +1847,20 @@ const styles = StyleSheet.create({
     height: 48,
   },
   // Thêm styles cho tab
-  tabContainer: {
-    flexDirection: "row",
+  tabBarWrapper: {
+    // New style for the wrapper View
     backgroundColor: "#ffffff",
     paddingHorizontal: 16,
+    paddingTop: 10, // Added padding top
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
-    // Bỏ gap
+  },
+  tabContainer: {
+    // Modified style for ScrollView contentContainerStyle
+    flexDirection: "row",
+    alignItems: "center", // Added to vertically align items
+    // Removed visual styles
   },
   tabButton: {
     flexDirection: "row",

@@ -1,15 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { ResizeMode, Video } from "expo-av";
+import React, { useEffect, useState } from "react";
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, 
-  ActivityIndicator, Image, Modal, ScrollView,
+  ActivityIndicator,
   Dimensions,
-} from 'react-native';
-import { MaterialIcons } from "@expo/vector-icons";
-import { Ionicons } from "@expo/vector-icons";
-import { router } from 'expo-router';
-import { Video, ResizeMode } from 'expo-av';
-import { getCompetitionCategories, getRounds, getContestants, CompetitionCategory, Round, KoiContestant } from '../../../services/contestantService';
-import { translateStatus } from '../../../utils/statusTranslator'; // Import hàm dịch mới
+  FlatList,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
+  CompetitionCategory,
+  getCompetitionCategories,
+  getContestants,
+  getRounds,
+  KoiContestant,
+  Round,
+} from "../../../services/contestantService";
+import { translateStatus } from "../../../utils/statusTranslator"; // Import hàm dịch mới
 interface KoiContestantsProps {
   showId: string;
 }
@@ -18,23 +30,30 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
   const [categories, setCategories] = useState<CompetitionCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
-  const [roundTypes] = useState<string[]>(['Preliminary', 'Evaluation', 'Final']);
+  const [roundTypes] = useState<string[]>([
+    "Preliminary",
+    "Evaluation",
+    "Final",
+  ]);
   const [roundTypeLabels] = useState<Record<string, string>>({
-    'Preliminary': 'Sơ khảo',
-    'Evaluation': 'Đánh giá',
-    'Final': 'Chung kết'
+    Preliminary: "Sơ khảo",
+    Evaluation: "Đánh giá",
+    Final: "Chung kết",
   });
-  const [selectedRoundType, setSelectedRoundType] = useState<string | null>(null);
+  const [selectedRoundType, setSelectedRoundType] = useState<string | null>(
+    null
+  );
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRound, setSelectedRound] = useState<string | null>(null);
   const [contestants, setContestants] = useState<KoiContestant[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedContestant, setSelectedContestant] = useState<KoiContestant | null>(null);
+  const [selectedContestant, setSelectedContestant] =
+    useState<KoiContestant | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [showAllContestants, setShowAllContestants] = useState(false);
-  const [activeTabInModal, setActiveTabInModal] = useState('info');
+  const [activeTabInModal, setActiveTabInModal] = useState("info");
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 4;
 
@@ -55,7 +74,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
           setError("Không tìm thấy hạng mục thi đấu");
         }
       } catch (error) {
-        console.error('Lỗi khi lấy danh sách hạng mục:', error);
+        console.error("Lỗi khi lấy danh sách hạng mục:", error);
         setError("Đã xảy ra lỗi khi tải danh sách hạng mục");
       } finally {
         setLoading(false);
@@ -71,7 +90,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
   useEffect(() => {
     const fetchRounds = async () => {
       if (!selectedCategory || !selectedRoundType) return;
-      
+
       setLoading(true);
       setError(null);
       try {
@@ -81,11 +100,15 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
           setSelectedRound(null);
           setContestants([]);
         } else {
-          setError(`Không tìm thấy vòng đấu ${roundTypeLabels[selectedRoundType]}`);
+          setError(
+            `Không tìm thấy vòng đấu ${roundTypeLabels[selectedRoundType]}`
+          );
         }
       } catch (error) {
-        console.error('Lỗi khi lấy danh sách vòng đấu:', error);
-        setError(`Đã xảy ra lỗi khi tải vòng đấu ${roundTypeLabels[selectedRoundType]}`);
+        console.error("Lỗi khi lấy danh sách vòng đấu:", error);
+        setError(
+          `Đã xảy ra lỗi khi tải vòng đấu ${roundTypeLabels[selectedRoundType]}`
+        );
       } finally {
         setLoading(false);
       }
@@ -100,7 +123,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
   useEffect(() => {
     const fetchContestants = async () => {
       if (!selectedRound) return;
-      
+
       setLoading(true);
       setError(null);
       try {
@@ -114,7 +137,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
           setError("Không thể tải danh sách thí sinh");
         }
       } catch (error) {
-        console.error('Lỗi khi lấy danh sách thí sinh:', error);
+        console.error("Lỗi khi lấy danh sách thí sinh:", error);
         setError("Đã xảy ra lỗi khi tải danh sách thí sinh");
       } finally {
         setLoading(false);
@@ -128,7 +151,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
 
   // Tính số trang
   const totalPages = Math.ceil(contestants.length / itemsPerPage);
-  
+
   // Lấy dữ liệu cho trang hiện tại
   const getCurrentPageData = () => {
     const start = currentPage * itemsPerPage;
@@ -155,7 +178,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
     console.log("Contestant pressed:", contestant.id);
     setSelectedContestant(contestant);
     setActiveMediaIndex(0); // Reset về media đầu tiên
-    setActiveTabInModal('info'); // Reset tab về info khi mở modal
+    setActiveTabInModal("info"); // Reset tab về info khi mở modal
     setShowModal(true);
   };
 
@@ -181,13 +204,16 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
         selectedCategory === item.id && styles.selectedCard,
       ]}
       onPress={() => handleCategorySelect(item.id, item.name)}>
-      <Text style={[
-        styles.categoryName,
-        selectedCategory === item.id && styles.selectedText
-      ]}>
+      <Text
+        style={[
+          styles.categoryName,
+          selectedCategory === item.id && styles.selectedText,
+        ]}>
         {item.name}
       </Text>
-      <Text style={styles.categorySize}>{item.sizeMin}-{item.sizeMax}cm</Text>
+      <Text style={styles.categorySize}>
+        {item.sizeMin}-{item.sizeMax}cm
+      </Text>
     </TouchableOpacity>
   );
 
@@ -203,10 +229,11 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
         setSelectedRound(null);
         setContestants([]);
       }}>
-      <Text style={[
-        styles.roundTypeName,
-        selectedRoundType === item && styles.selectedText
-      ]}>
+      <Text
+        style={[
+          styles.roundTypeName,
+          selectedRoundType === item && styles.selectedText,
+        ]}>
         {roundTypeLabels[item]}
       </Text>
     </TouchableOpacity>
@@ -220,19 +247,23 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
         selectedRound === item.id && styles.selectedCard,
       ]}
       onPress={() => setSelectedRound(item.id)}>
-      <Text style={[
-        styles.roundName,
-        selectedRound === item.id && styles.selectedText
-      ]}>
+      <Text
+        style={[
+          styles.roundName,
+          selectedRound === item.id && styles.selectedText,
+        ]}>
         {item.name}
       </Text>
       <View style={styles.roundStatusContainer}>
-        <Text style={[
-          styles.roundStatus,
-          item.status === 'completed' ? styles.completedStatus :
-          item.status === 'active' ? styles.activeStatus :
-          styles.upcomingStatus
-        ]}>
+        <Text
+          style={[
+            styles.roundStatus,
+            item.status === "completed"
+              ? styles.completedStatus
+              : item.status === "active"
+              ? styles.activeStatus
+              : styles.upcomingStatus,
+          ]}>
           {translateStatus(item.status)}
         </Text>
       </View>
@@ -241,17 +272,22 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
 
   // Render một thí sinh
   const renderContestantItem = ({ item }: { item: KoiContestant }) => {
-    const imageMedia = item.registration.koiMedia.find(m => m.mediaType === 'Image');
-    const hasVideo = item.registration.koiMedia.some(m => m.mediaType === 'Video');
-    
+    const imageMedia = item.registration.koiMedia.find(
+      (m) => m.mediaType === "Image"
+    );
+    const hasVideo = item.registration.koiMedia.some(
+      (m) => m.mediaType === "Video"
+    );
+
     // Lấy kết quả thi đấu mới nhất nếu có
-    const latestResult = item.roundResults && item.roundResults.length > 0 
-      ? item.roundResults[item.roundResults.length - 1] 
-      : null;
-    
+    const latestResult =
+      item.roundResults && item.roundResults.length > 0
+        ? item.roundResults[item.roundResults.length - 1]
+        : null;
+
     // Xác định loại vòng đấu
     const roundType = selectedRoundType;
-    
+
     return (
       <View style={styles.contestantCard}>
         <TouchableOpacity
@@ -271,22 +307,28 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
             )}
             {hasVideo && (
               <View style={styles.videoIndicator}>
-                <MaterialIcons name="play-circle-filled" size={24} color="#ffffff" />
+                <MaterialIcons
+                  name="play-circle-filled"
+                  size={24}
+                  color="#ffffff"
+                />
               </View>
             )}
-            
+
             {/* Hiển thị xếp hạng nếu có */}
             {item.rank && (
               <View style={styles.rankBadge}>
                 <Text style={styles.rankText}>#{item.rank}</Text>
               </View>
             )}
-            
+
             {/* Hiển thị mã đăng ký */}
             {(item.registration.registrationNumber || item.id) && (
               <View style={styles.registrationBadge}>
                 <Text style={styles.registrationText}>
-                  #{item.registration.registrationNumber || item.id.substring(0, 8)}
+                  #
+                  {item.registration.registrationNumber ||
+                    item.id.substring(0, 8)}
                 </Text>
               </View>
             )}
@@ -306,37 +348,46 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                 {item.registration.koiProfile.gender}
               </Text>
             </View>
-            
+
             {/* Hiển thị điểm tổng và trạng thái trên cùng một hàng */}
             {latestResult && (
               <View style={styles.scoreStatusContainer}>
                 {/* Hiển thị điểm tổng cho vòng Evaluation và Final */}
-                {(roundType === 'Evaluation' || roundType === 'Final') && latestResult.totalScore !== undefined && (
-                  <View style={styles.scoreContainer}>
-                    <MaterialIcons name="star" size={14} color="#f39c12" />
-                    <Text style={styles.scoreText}>{latestResult.totalScore.toFixed(2)}</Text>
-                  </View>
-                )}
-                
+                {(roundType === "Evaluation" || roundType === "Final") &&
+                  latestResult.totalScore !== undefined && (
+                    <View style={styles.scoreContainer}>
+                      <MaterialIcons name="star" size={14} color="#f39c12" />
+                      <Text style={styles.scoreText}>
+                        {latestResult.totalScore.toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+
                 {/* Hiển thị trạng thái */}
-                <View style={[
-                  styles.contestantStatusBadge,
-                  latestResult.status === 'Pass' ? styles.advancedStatus :
-                  latestResult.status === 'Fail' ? styles.eliminatedStatus :
-                  styles.pendingStatus
-                ]}>
-                  <Text style={[
-                    styles.contestantStatusText,
-                    latestResult.status === 'Pass' ? {color: '#27ae60'} :
-                    latestResult.status === 'Fail' ? {color: '#e74c3c'} :
-                    {color: '#3498db'}
+                <View
+                  style={[
+                    styles.contestantStatusBadge,
+                    latestResult.status === "Pass"
+                      ? styles.advancedStatus
+                      : latestResult.status === "Fail"
+                      ? styles.eliminatedStatus
+                      : styles.pendingStatus,
                   ]}>
+                  <Text
+                    style={[
+                      styles.contestantStatusText,
+                      latestResult.status === "Pass"
+                        ? { color: "#27ae60" }
+                        : latestResult.status === "Fail"
+                        ? { color: "#e74c3c" }
+                        : { color: "#3498db" },
+                    ]}>
                     {translateStatus(latestResult.status)}
                   </Text>
                 </View>
               </View>
             )}
-            
+
             {item.tankName && (
               <View style={styles.tankNameContainer}>
                 <MaterialIcons name="pool" size={14} color="#3498db" />
@@ -351,14 +402,19 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContentContainer}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContentContainer}>
         {/* Breadcrumb navigation */}
         <View style={styles.breadcrumbContainer}>
           <Text style={styles.breadcrumbText}>
             {selectedCategoryName}
-            {selectedRoundType ? ` > ${roundTypeLabels[selectedRoundType]}` : ''}
-            {selectedRound && rounds.find(r => r.id === selectedRound) ? 
-              ` > ${rounds.find(r => r.id === selectedRound)?.name}` : ''}
+            {selectedRoundType
+              ? ` > ${roundTypeLabels[selectedRoundType]}`
+              : ""}
+            {selectedRound && rounds.find((r) => r.id === selectedRound)
+              ? ` > ${rounds.find((r) => r.id === selectedRound)?.name}`
+              : ""}
           </Text>
         </View>
 
@@ -369,7 +425,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
             data={categories}
             horizontal
             showsHorizontalScrollIndicator={false}
-            keyExtractor={item => item.id}
+            keyExtractor={(item) => item.id}
             renderItem={renderCategoryItem}
             contentContainerStyle={styles.horizontalListContent}
             nestedScrollEnabled={true}
@@ -384,7 +440,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               data={roundTypes}
               horizontal
               showsHorizontalScrollIndicator={false}
-              keyExtractor={item => item}
+              keyExtractor={(item) => item}
               renderItem={renderRoundTypeItem}
               contentContainerStyle={styles.horizontalListContent}
               nestedScrollEnabled={true}
@@ -400,7 +456,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               data={rounds}
               horizontal
               showsHorizontalScrollIndicator={false}
-              keyExtractor={item => item.id}
+              keyExtractor={(item) => item.id}
               renderItem={renderRoundItem}
               contentContainerStyle={styles.horizontalListContent}
               nestedScrollEnabled={true}
@@ -434,54 +490,73 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               <FlatList
                 data={getCurrentPageData()}
                 renderItem={renderContestantItem}
-                keyExtractor={item => item.id}
+                keyExtractor={(item) => item.id}
                 horizontal={true}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.carouselContent}
                 ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
                 snapToAlignment="start"
                 decelerationRate="fast"
-                snapToInterval={Dimensions.get('window').width * 0.7 + 16}
+                snapToInterval={Dimensions.get("window").width * 0.7 + 16}
                 initialNumToRender={4}
                 maxToRenderPerBatch={4}
                 windowSize={5}
                 getItemLayout={(data, index) => ({
-                  length: Dimensions.get('window').width * 0.7,
-                  offset: (Dimensions.get('window').width * 0.7 + 16) * index,
+                  length: Dimensions.get("window").width * 0.7,
+                  offset: (Dimensions.get("window").width * 0.7 + 16) * index,
                   index,
                 })}
               />
-              
+
               {/* Pagination */}
               <View style={styles.paginationContainer}>
-                <TouchableOpacity 
-                  style={[styles.pageButton, currentPage === 0 && styles.pageButtonDisabled]}
+                <TouchableOpacity
+                  style={[
+                    styles.pageButton,
+                    currentPage === 0 && styles.pageButtonDisabled,
+                  ]}
                   onPress={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 0}>
-                  <MaterialIcons name="chevron-left" size={24} color={currentPage === 0 ? "#ccc" : "#000"} />
+                  <MaterialIcons
+                    name="chevron-left"
+                    size={24}
+                    color={currentPage === 0 ? "#ccc" : "#000"}
+                  />
                 </TouchableOpacity>
-                
+
                 <View style={styles.pageIndicatorContainer}>
                   {Array.from({ length: totalPages }).map((_, index) => (
                     <TouchableOpacity
                       key={index}
-                      style={[styles.pageIndicator, currentPage === index && styles.activePageIndicator]}
+                      style={[
+                        styles.pageIndicator,
+                        currentPage === index && styles.activePageIndicator,
+                      ]}
                       onPress={() => handlePageChange(index)}>
-                      <Text style={[
-                        styles.pageIndicatorText,
-                        currentPage === index && styles.activePageIndicatorText
-                      ]}>
+                      <Text
+                        style={[
+                          styles.pageIndicatorText,
+                          currentPage === index &&
+                            styles.activePageIndicatorText,
+                        ]}>
                         {index + 1}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
-                <TouchableOpacity 
-                  style={[styles.pageButton, currentPage === totalPages - 1 && styles.pageButtonDisabled]}
+                <TouchableOpacity
+                  style={[
+                    styles.pageButton,
+                    currentPage === totalPages - 1 && styles.pageButtonDisabled,
+                  ]}
                   onPress={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages - 1}>
-                  <MaterialIcons name="chevron-right" size={24} color={currentPage === totalPages - 1 ? "#ccc" : "#000"} />
+                  <MaterialIcons
+                    name="chevron-right"
+                    size={24}
+                    color={currentPage === totalPages - 1 ? "#ccc" : "#000"}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -502,45 +577,55 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               onPress={() => setShowModal(false)}>
               <MaterialIcons name="close" size={24} color="#000000" />
             </TouchableOpacity>
-            
+
             {selectedContestant ? (
               <View style={styles.fullDetailsContainer}>
                 {/* Tab Navigation */}
                 <View style={styles.modalTabContainer}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[
-                      styles.modalTabButton, 
-                      activeTabInModal === 'info' && styles.activeModalTabButton
+                      styles.modalTabButton,
+                      activeTabInModal === "info" &&
+                        styles.activeModalTabButton,
                     ]}
-                    onPress={() => setActiveTabInModal('info')}>
-                    <MaterialIcons 
-                      name="info-outline" 
-                      size={18} 
-                      color={activeTabInModal === 'info' ? "#2196F3" : "#777777"} 
+                    onPress={() => setActiveTabInModal("info")}>
+                    <MaterialIcons
+                      name="info-outline"
+                      size={18}
+                      color={
+                        activeTabInModal === "info" ? "#2196F3" : "#777777"
+                      }
                     />
-                    <Text style={[
-                      styles.modalTabText, 
-                      activeTabInModal === 'info' && styles.activeModalTabText
-                    ]}>
+                    <Text
+                      style={[
+                        styles.modalTabText,
+                        activeTabInModal === "info" &&
+                          styles.activeModalTabText,
+                      ]}>
                       Thông tin chi tiết
                     </Text>
                   </TouchableOpacity>
-                  
-                  <TouchableOpacity 
+
+                  <TouchableOpacity
                     style={[
                       styles.modalTabButton,
-                      activeTabInModal === 'media' && styles.activeModalTabButton
+                      activeTabInModal === "media" &&
+                        styles.activeModalTabButton,
                     ]}
-                    onPress={() => setActiveTabInModal('media')}>
-                    <MaterialIcons 
-                      name="photo-library" 
-                      size={18} 
-                      color={activeTabInModal === 'media' ? "#2196F3" : "#777777"} 
+                    onPress={() => setActiveTabInModal("media")}>
+                    <MaterialIcons
+                      name="photo-library"
+                      size={18}
+                      color={
+                        activeTabInModal === "media" ? "#2196F3" : "#777777"
+                      }
                     />
-                    <Text style={[
-                      styles.modalTabText,
-                      activeTabInModal === 'media' && styles.activeModalTabText
-                    ]}>
+                    <Text
+                      style={[
+                        styles.modalTabText,
+                        activeTabInModal === "media" &&
+                          styles.activeModalTabText,
+                      ]}>
                       Hình ảnh & Video
                     </Text>
                   </TouchableOpacity>
@@ -548,119 +633,175 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
 
                 {/* Tab Content */}
                 <View style={styles.modalTabContentContainer}>
-                  {activeTabInModal === 'info' ? (
+                  {activeTabInModal === "info" ? (
                     <ScrollView style={styles.modalScrollContent}>
                       <View style={styles.infoContainer}>
-                        <InfoRow 
-                          label="Mã Đăng Ký" 
-                          value={selectedContestant.registration.registrationNumber || selectedContestant.id.substring(0, 8)} 
+                        <InfoRow
+                          label="Mã Đăng Ký"
+                          value={
+                            selectedContestant.registration
+                              .registrationNumber ||
+                            selectedContestant.id.substring(0, 8)
+                          }
                         />
-                        <InfoRow 
-                          label="Tên Người Đăng Ký" 
-                          value={selectedContestant.registration.registerName || "Không có thông tin"} 
+                        <InfoRow
+                          label="Tên Người Đăng Ký"
+                          value={
+                            selectedContestant.registration.registerName ||
+                            "Không có thông tin"
+                          }
                         />
-                        <InfoRow 
-                          label="Tên Cá Koi" 
-                          value={selectedContestant.registration.koiProfile.name} 
+                        <InfoRow
+                          label="Tên Cá Koi"
+                          value={
+                            selectedContestant.registration.koiProfile.name
+                          }
                         />
-                        <InfoRow 
-                          label="Giống" 
-                          value={selectedContestant.registration.koiProfile.variety.name} 
+                        <InfoRow
+                          label="Giống"
+                          value={
+                            selectedContestant.registration.koiProfile.variety
+                              .name
+                          }
                         />
-                        <InfoRow 
-                          label="Kích Thước" 
-                          value={`${selectedContestant.registration.koiSize} cm`} 
+                        <InfoRow
+                          label="Kích Thước"
+                          value={`${selectedContestant.registration.koiSize} cm`}
                         />
-                        <InfoRow 
-                          label="Tuổi Cá" 
-                          value={`${Math.floor(selectedContestant.registration.koiAge / 12) || 0} năm`} 
+                        <InfoRow
+                          label="Tuổi Cá"
+                          value={`${
+                            Math.floor(
+                              selectedContestant.registration.koiAge / 12
+                            ) || 0
+                          } năm`}
                         />
-                        <InfoRow 
-                          label="Dòng máu" 
-                          value={selectedContestant.registration.koiProfile.bloodline || "Không có thông tin"} 
+                        <InfoRow
+                          label="Dòng máu"
+                          value={
+                            selectedContestant.registration.koiProfile
+                              .bloodline || "Không có thông tin"
+                          }
                         />
-                        <InfoRow 
-                          label="Hạng Mục" 
-                          value={selectedCategoryName} 
+                        <InfoRow
+                          label="Hạng Mục"
+                          value={selectedCategoryName}
                         />
-                        <InfoRow 
-                          label="Phí Đăng Ký" 
-                          value={`${selectedContestant.registration.registrationFee?.toLocaleString('vi-VN') || 0} VND`} 
+                        <InfoRow
+                          label="Phí Đăng Ký"
+                          value={`${
+                            selectedContestant.registration.registrationFee?.toLocaleString(
+                              "vi-VN"
+                            ) || 0
+                          } VND`}
                         />
-                        <InfoRow 
-                          label="Trạng Thái" 
+                        <InfoRow
+                          label="Trạng Thái"
                           value={
                             <View style={styles.statusBadge}>
                               <Text style={styles.statusBadgeText}>
                                 {translateStatus(selectedContestant.status)}
                               </Text>
                             </View>
-                          } 
+                          }
                         />
-                        <InfoRow 
-                          label="Bể" 
-                          value={selectedContestant.tankName || "Chưa gán bể"} 
+                        <InfoRow
+                          label="Bể"
+                          value={selectedContestant.tankName || "Chưa gán bể"}
                         />
-                        <InfoRow 
-                          label="Thời gian check in" 
-                          value={selectedContestant.checkInTime ? new Date(selectedContestant.checkInTime).toLocaleString('vi-VN') : "Chưa check in"} 
+                        <InfoRow
+                          label="Thời gian check in"
+                          value={
+                            selectedContestant.checkInTime
+                              ? new Date(
+                                  selectedContestant.checkInTime
+                                ).toLocaleString("vi-VN")
+                              : "Chưa check in"
+                          }
                         />
-                        
+
                         {/* Hiển thị kết quả thi đấu */}
-                        {selectedContestant.roundResults && selectedContestant.roundResults.length > 0 && (
-                          <View style={styles.resultSection}>
-                            <Text style={styles.resultSectionTitle}>Kết quả thi đấu:</Text>
-                            {selectedContestant.roundResults.map((result, index) => {
-                              // Xác định loại vòng đấu
-                              const roundType = selectedRoundType;
-                              
-                              return (
-                                <View key={`result-${index}`} style={styles.resultItem}>
-                                  <View style={styles.resultDetailsContainer}>
-                                    {/* Hiển thị xếp hạng cho tất cả các loại vòng đấu */}
-                                    <View style={styles.resultDetail}>
-                                      <Text style={styles.resultLabel}>Xếp hạng:</Text>
-                                      <Text style={styles.resultValue}>
-                                        {selectedContestant.rank || "Chưa xếp hạng"}
-                                      </Text>
-                                    </View>
-                                    
-                                    {/* Hiển thị điểm tổng và trạng thái trên cùng một hàng */}
-                                    <View style={styles.resultDetailRow}>
-                                      {/* Hiển thị điểm tổng cho vòng Evaluation và Final */}
-                                      {(roundType === 'Evaluation' || roundType === 'Final') && (
-                                        <View style={styles.resultDetailHalf}>
-                                          <Text style={styles.resultLabel}>Điểm tổng:</Text>
-                                          <Text style={styles.resultValue}>{result.totalScore.toFixed(2)}</Text>
-                                        </View>
-                                      )}
-                                      
-                                      {/* Hiển thị trạng thái cho tất cả các loại vòng đấu */}
-                                      <View style={styles.resultDetailHalf}>
-                                        <Text style={styles.resultLabel}>Trạng thái:</Text>
-                                        <View style={[
-                                          styles.resultStatusBadge,
-                                          result.status === 'Pass' ? styles.advancedStatus :
-                                          result.status === 'Fail' ? styles.eliminatedStatus :
-                                          styles.pendingStatus
-                                        ]}>
-                                          <Text style={styles.resultStatusText}>
-                                            {translateStatus(result.status)}
+                        {selectedContestant.roundResults &&
+                          selectedContestant.roundResults.length > 0 && (
+                            <View style={styles.resultSection}>
+                              <Text style={styles.resultSectionTitle}>
+                                Kết quả thi đấu:
+                              </Text>
+                              {selectedContestant.roundResults.map(
+                                (result, index) => {
+                                  // Xác định loại vòng đấu
+                                  const roundType = selectedRoundType;
+
+                                  return (
+                                    <View
+                                      key={`result-${index}`}
+                                      style={styles.resultItem}>
+                                      <View
+                                        style={styles.resultDetailsContainer}>
+                                        {/* Hiển thị xếp hạng cho tất cả các loại vòng đấu */}
+                                        <View style={styles.resultDetail}>
+                                          <Text style={styles.resultLabel}>
+                                            Xếp hạng:
                                           </Text>
+                                          <Text style={styles.resultValue}>
+                                            {selectedContestant.rank ||
+                                              "Chưa xếp hạng"}
+                                          </Text>
+                                        </View>
+
+                                        {/* Hiển thị điểm tổng và trạng thái trên cùng một hàng */}
+                                        <View style={styles.resultDetailRow}>
+                                          {/* Hiển thị điểm tổng cho vòng Evaluation và Final */}
+                                          {(roundType === "Evaluation" ||
+                                            roundType === "Final") && (
+                                            <View
+                                              style={styles.resultDetailHalf}>
+                                              <Text style={styles.resultLabel}>
+                                                Điểm tổng:
+                                              </Text>
+                                              <Text style={styles.resultValue}>
+                                                {result.totalScore.toFixed(2)}
+                                              </Text>
+                                            </View>
+                                          )}
+
+                                          {/* Hiển thị trạng thái cho tất cả các loại vòng đấu */}
+                                          <View style={styles.resultDetailHalf}>
+                                            <Text style={styles.resultLabel}>
+                                              Trạng thái:
+                                            </Text>
+                                            <View
+                                              style={[
+                                                styles.resultStatusBadge,
+                                                result.status === "Pass"
+                                                  ? styles.advancedStatus
+                                                  : result.status === "Fail"
+                                                  ? styles.eliminatedStatus
+                                                  : styles.pendingStatus,
+                                              ]}>
+                                              <Text
+                                                style={styles.resultStatusText}>
+                                                {translateStatus(result.status)}
+                                              </Text>
+                                            </View>
+                                          </View>
                                         </View>
                                       </View>
                                     </View>
-                                  </View>
-                                </View>
-                              );
-                            })}
-                          </View>
-                        )}
-                        
+                                  );
+                                }
+                              )}
+                            </View>
+                          )}
+
                         {selectedContestant.registration.notes && (
                           <View style={styles.notesSection}>
-                            <Text style={styles.notesSectionTitle}>Ghi chú:</Text>
-                            <Text style={styles.notesContent}>{selectedContestant.registration.notes}</Text>
+                            <Text style={styles.notesSectionTitle}>
+                              Ghi chú:
+                            </Text>
+                            <Text style={styles.notesContent}>
+                              {selectedContestant.registration.notes}
+                            </Text>
                           </View>
                         )}
                       </View>
@@ -669,17 +810,28 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                     <View style={styles.mediaTabContent}>
                       {/* Carousel */}
                       <View style={styles.mediaCarouselContainer}>
-                        {selectedContestant.registration.koiMedia.length > 0 && (
+                        {selectedContestant.registration.koiMedia.length >
+                          0 && (
                           <View style={styles.mediaContainer}>
-                            {selectedContestant.registration.koiMedia[activeMediaIndex].mediaType === 'Image' ? (
-                              <Image 
-                                source={{ uri: selectedContestant.registration.koiMedia[activeMediaIndex].mediaUrl }}
+                            {selectedContestant.registration.koiMedia[
+                              activeMediaIndex
+                            ].mediaType === "Image" ? (
+                              <Image
+                                source={{
+                                  uri: selectedContestant.registration.koiMedia[
+                                    activeMediaIndex
+                                  ].mediaUrl,
+                                }}
                                 style={styles.modalImage}
                                 resizeMode="contain"
                               />
                             ) : (
                               <Video
-                                source={{ uri: selectedContestant.registration.koiMedia[activeMediaIndex].mediaUrl }}
+                                source={{
+                                  uri: selectedContestant.registration.koiMedia[
+                                    activeMediaIndex
+                                  ].mediaUrl,
+                                }}
                                 style={styles.modalVideo}
                                 useNativeControls
                                 resizeMode={ResizeMode.CONTAIN}
@@ -689,49 +841,61 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                             )}
                           </View>
                         )}
-                        
-                        {selectedContestant.registration.koiMedia.length > 1 && (
+
+                        {selectedContestant.registration.koiMedia.length >
+                          1 && (
                           <View style={styles.mediaDots}>
-                            {selectedContestant.registration.koiMedia.map((_, index: number) => (
-                              <TouchableOpacity 
-                                key={index}
-                                style={[
-                                  styles.mediaDot,
-                                  index === activeMediaIndex && styles.activeMediaDot
-                                ]}
-                                onPress={() => setActiveMediaIndex(index)}
-                              />
-                            ))}
+                            {selectedContestant.registration.koiMedia.map(
+                              (_, index: number) => (
+                                <TouchableOpacity
+                                  key={index}
+                                  style={[
+                                    styles.mediaDot,
+                                    index === activeMediaIndex &&
+                                      styles.activeMediaDot,
+                                  ]}
+                                  onPress={() => setActiveMediaIndex(index)}
+                                />
+                              )
+                            )}
                           </View>
                         )}
                       </View>
-                      
+
                       {/* Thumbnails */}
                       <ScrollView style={styles.mediaListScrollContainer}>
                         <View style={styles.mediaListContainer}>
-                          <Text style={styles.mediaListTitle}>Tất cả hình ảnh và video</Text>
+                          <Text style={styles.mediaListTitle}>
+                            Tất cả hình ảnh và video
+                          </Text>
                           <View style={styles.thumbnailGrid}>
-                            {selectedContestant.registration.koiMedia.map((item, index) => (
-                              <TouchableOpacity 
-                                key={`media-${index}`}
-                                style={[
-                                  styles.mediaThumbnailContainer,
-                                  activeMediaIndex === index && styles.activeThumbnail
-                                ]}
-                                onPress={() => setActiveMediaIndex(index)}
-                              >
-                                <Image 
-                                  source={{ uri: item.mediaUrl }} 
-                                  style={styles.mediaThumbnail} 
-                                  resizeMode="cover"
-                                />
-                                {item.mediaType === 'Video' && (
-                                  <View style={styles.videoOverlay}>
-                                    <MaterialIcons name="play-circle-outline" size={24} color="#FFFFFF" />
-                                  </View>
-                                )}
-                              </TouchableOpacity>
-                            ))}
+                            {selectedContestant.registration.koiMedia.map(
+                              (item, index) => (
+                                <TouchableOpacity
+                                  key={`media-${index}`}
+                                  style={[
+                                    styles.mediaThumbnailContainer,
+                                    activeMediaIndex === index &&
+                                      styles.activeThumbnail,
+                                  ]}
+                                  onPress={() => setActiveMediaIndex(index)}>
+                                  <Image
+                                    source={{ uri: item.mediaUrl }}
+                                    style={styles.mediaThumbnail}
+                                    resizeMode="cover"
+                                  />
+                                  {item.mediaType === "Video" && (
+                                    <View style={styles.videoOverlay}>
+                                      <MaterialIcons
+                                        name="play-circle-outline"
+                                        size={24}
+                                        color="#FFFFFF"
+                                      />
+                                    </View>
+                                  )}
+                                </TouchableOpacity>
+                              )
+                            )}
                           </View>
                         </View>
                       </ScrollView>
@@ -753,10 +917,16 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
 };
 
 // Component hiển thị một dòng thông tin
-const InfoRow = ({ label, value }: { label: string, value: string | React.ReactNode }) => (
+const InfoRow = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | React.ReactNode;
+}) => (
   <View style={styles.infoRow}>
     <Text style={styles.infoLabel}>{label}</Text>
-    {typeof value === 'string' ? (
+    {typeof value === "string" ? (
       <Text style={styles.infoValue}>{value}</Text>
     ) : (
       value
@@ -767,7 +937,7 @@ const InfoRow = ({ label, value }: { label: string, value: string | React.ReactN
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   scrollContainer: {
     flex: 1,
@@ -778,12 +948,12 @@ const styles = StyleSheet.create({
   breadcrumbContainer: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
   breadcrumbText: {
     fontSize: 14,
-    color: '#666666',
-    fontWeight: '500',
+    color: "#666666",
+    fontWeight: "500",
   },
   sectionContainer: {
     marginBottom: 12,
@@ -792,170 +962,170 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
-    color: '#333333',
+    color: "#333333",
   },
   horizontalListContent: {
     paddingBottom: 4,
   },
   categoryCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     padding: 12,
     marginRight: 12,
     borderRadius: 8,
     minWidth: 140,
     maxWidth: 160,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   selectedCard: {
-    borderColor: '#000000',
-    backgroundColor: '#f8f8f8',
+    borderColor: "#000000",
+    backgroundColor: "#f8f8f8",
     borderWidth: 2,
   },
   selectedText: {
-    color: '#000000',
-    fontWeight: '700',
+    color: "#000000",
+    fontWeight: "700",
   },
   categoryName: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 4,
-    color: '#333333',
+    color: "#333333",
   },
   categorySize: {
     fontSize: 13,
-    color: '#666666',
+    color: "#666666",
   },
   roundTypeCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     padding: 12,
     marginRight: 12,
     borderRadius: 8,
     minWidth: 100,
     maxWidth: 120,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   roundTypeName: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#333333',
+    fontWeight: "500",
+    color: "#333333",
   },
   roundCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     padding: 12,
     marginRight: 12,
     borderRadius: 8,
     minWidth: 180,
     maxWidth: 200,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   roundName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
-    color: '#333333',
+    color: "#333333",
   },
   roundStatusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   roundStatus: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   completedStatus: {
-    backgroundColor: '#e6f7ef',
-    color: '#2ecc71',
+    backgroundColor: "#e6f7ef",
+    color: "#2ecc71",
   },
   activeStatus: {
-    backgroundColor: '#e6f0ff',
-    color: '#3498db',
+    backgroundColor: "#e6f0ff",
+    color: "#3498db",
   },
   upcomingStatus: {
-    backgroundColor: '#f7f7f7',
-    color: '#95a5a6',
+    backgroundColor: "#f7f7f7",
+    color: "#95a5a6",
   },
   loadingContainer: {
     padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 16,
     fontSize: 14,
-    color: '#666666',
+    color: "#666666",
   },
   errorContainer: {
     padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
     marginTop: 16,
     fontSize: 14,
-    color: '#e74c3c',
-    textAlign: 'center',
+    color: "#e74c3c",
+    textAlign: "center",
   },
   contestantsContainer: {
     paddingHorizontal: 16,
     marginBottom: 16,
-    position: 'relative',
+    position: "relative",
     flex: 1,
   },
   contestantsWrapper: {
     maxHeight: 460, // Tăng lên để hiển thị hai hàng đầy đủ
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   contestantsWrapperExpanded: {
     maxHeight: undefined,
   },
   contestantsTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
-    color: '#333333',
+    color: "#333333",
     paddingHorizontal: 16,
   },
   contestantsGrid: {
     paddingBottom: 16,
   },
   contestantCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 8,
-    overflow: 'hidden',
-    width: Dimensions.get('window').width * 0.6, // Adjusted width
+    overflow: "hidden",
+    width: Dimensions.get("window").width * 0.6, // Adjusted width
     marginVertical: 8, // Adjusted margin
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     height: 280, // Adjusted height
   },
   contestantCardContent: {
@@ -963,25 +1133,25 @@ const styles = StyleSheet.create({
   },
   contestantImageContainer: {
     height: 160, // Adjusted height
-    width: '100%',
-    position: 'relative',
+    width: "100%",
+    position: "relative",
   },
   contestantImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   noImageContainer: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   videoIndicator: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: "rgba(0,0,0,0.5)",
     borderRadius: 20,
     padding: 4,
   },
@@ -990,67 +1160,67 @@ const styles = StyleSheet.create({
   },
   contestantName: {
     fontSize: 14, // Adjusted font size
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
-    color: '#000000',
+    color: "#000000",
   },
   contestantVariety: {
     fontSize: 12, // Adjusted font size
-    color: '#666666',
+    color: "#666666",
     marginBottom: 4,
   },
   contestantDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 4,
   },
   contestantDetail: {
     fontSize: 11, // Adjusted font size
-    color: '#888888',
-    },
+    color: "#888888",
+  },
   tankNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 6,
-    backgroundColor: '#f0f7ff',
+    backgroundColor: "#f0f7ff",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   tankName: {
     fontSize: 11, // Adjusted font size
-    color: '#3498db',
+    color: "#3498db",
     marginLeft: 4,
   },
   rankBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     left: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: "rgba(0,0,0,0.7)",
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   rankText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 11, // Adjusted font size
-    fontWeight: '700',
+    fontWeight: "700",
   },
   scoreStatusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 6,
   },
   scoreContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   scoreText: {
     fontSize: 11, // Adjusted font size
-    color: '#f39c12',
-    fontWeight: '600',
+    color: "#f39c12",
+    fontWeight: "600",
     marginLeft: 4,
   },
   contestantStatusBadge: {
@@ -1058,45 +1228,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   contestantStatusText: {
     fontSize: 10, // Adjusted font size
-    fontWeight: '500',
+    fontWeight: "500",
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   modalContent: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 12,
-    width: '100%',
-    maxHeight: '90%',
+    width: "100%",
+    maxHeight: "90%",
     height: 600,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: '#000000',
+    position: "relative",
+    overflow: "hidden",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
   },
   closeButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 10,
     zIndex: 10,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: "rgba(255,255,255,0.9)",
     borderRadius: 20,
     padding: 6,
   },
@@ -1105,31 +1275,31 @@ const styles = StyleSheet.create({
     paddingTop: 40,
   },
   modalTabContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: "#e0e0e0",
   },
   modalTabButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   activeModalTabButton: {
     borderBottomWidth: 2,
-    borderBottomColor: '#2196F3',
+    borderBottomColor: "#2196F3",
   },
   modalTabText: {
     marginLeft: 6,
     fontSize: 14,
-    fontWeight: '500',
-    color: '#777777',
+    fontWeight: "500",
+    color: "#777777",
   },
   activeModalTabText: {
-    color: '#2196F3',
-    fontWeight: '600',
+    color: "#2196F3",
+    fontWeight: "600",
   },
   modalTabContentContainer: {
     flex: 1,
@@ -1141,58 +1311,58 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   infoLabel: {
     fontSize: 14,
-    color: '#666666',
+    color: "#666666",
     flex: 1,
   },
   infoValue: {
     fontSize: 14,
-    color: '#000000',
-    fontWeight: '500',
+    color: "#000000",
+    fontWeight: "500",
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
   },
   statusBadge: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: "#e8f5e9",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
   },
   statusBadgeText: {
-    color: '#43a047',
+    color: "#43a047",
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   notesSection: {
     marginTop: 16,
-    backgroundColor: '#fff8e1',
+    backgroundColor: "#fff8e1",
     padding: 12,
     borderRadius: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#ffc107',
+    borderLeftColor: "#ffc107",
   },
   notesSectionTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#795548',
+    fontWeight: "600",
+    color: "#795548",
     marginBottom: 8,
   },
   notesContent: {
     fontSize: 14,
-    color: '#333333',
+    color: "#333333",
     lineHeight: 20,
   },
   mediaTabContent: {
     flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
+    display: "flex",
+    flexDirection: "column",
   },
   mediaListScrollContainer: {
     flex: 1,
@@ -1202,115 +1372,115 @@ const styles = StyleSheet.create({
   },
   mediaListTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333333',
+    fontWeight: "600",
+    color: "#333333",
     marginBottom: 12,
   },
   thumbnailGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   mediaCarouselContainer: {
     height: 250,
-    backgroundColor: '#f0f0f0',
-    position: 'relative',
+    backgroundColor: "#f0f0f0",
+    position: "relative",
   },
   mediaContainer: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   modalVideo: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   mediaDots: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 10,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
   },
   mediaDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: "rgba(255,255,255,0.4)",
     marginHorizontal: 4,
   },
   activeMediaDot: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
   },
   showMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 12,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: "#f8f8f8",
     borderRadius: 8,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   showMoreText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#3498db',
+    fontWeight: "600",
+    color: "#3498db",
     marginRight: 4,
   },
   videoOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   mediaThumbnailContainer: {
-    width: '31%',
+    width: "31%",
     aspectRatio: 1,
     marginBottom: 8,
-    marginRight: '2%',
-    marginLeft: '0%',
+    marginRight: "2%",
+    marginLeft: "0%",
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
   },
   activeThumbnail: {
     borderWidth: 2,
-    borderColor: '#2196F3',
+    borderColor: "#2196F3",
   },
   mediaThumbnail: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   // Styles cho phần kết quả thi đấu
   resultSection: {
     marginTop: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     padding: 12,
     borderRadius: 8,
     borderLeftWidth: 3,
-    borderLeftColor: '#3498db',
+    borderLeftColor: "#3498db",
   },
   resultSectionTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
+    fontWeight: "600",
+    color: "#333333",
     marginBottom: 12,
   },
   resultItem: {
     marginBottom: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 8,
     padding: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1,
@@ -1318,70 +1488,70 @@ const styles = StyleSheet.create({
   },
   resultRoundName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333333',
+    fontWeight: "600",
+    color: "#333333",
     marginBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
     paddingBottom: 4,
   },
   resultDetailsContainer: {
     marginTop: 4,
   },
   resultDetail: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 6,
   },
   resultDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 6,
   },
   resultDetailHalf: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     flex: 1,
     paddingRight: 8,
   },
   resultLabel: {
     fontSize: 13,
-    color: '#666666',
+    color: "#666666",
     flex: 1,
   },
   resultValue: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#333333',
+    fontWeight: "600",
+    color: "#333333",
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
   },
   resultStatusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
   },
   advancedStatus: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: "#e8f5e9",
   },
   eliminatedStatus: {
-    backgroundColor: '#ffebee',
+    backgroundColor: "#ffebee",
   },
   pendingStatus: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: "#e3f2fd",
   },
   resultStatusText: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   carouselContainer: {
     paddingVertical: 16,
     marginBottom: 16,
-    position: 'relative',
+    position: "relative",
     minHeight: 380,
     paddingBottom: 60,
   },
@@ -1390,20 +1560,20 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    position: 'absolute',
+    borderTopColor: "#e5e7eb",
+    position: "absolute",
     bottom: 0,
     left: 16,
     right: 16,
     zIndex: 10,
     borderRadius: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -1414,27 +1584,27 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f8f8f8',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#f8f8f8",
+    justifyContent: "center",
+    alignItems: "center",
     marginHorizontal: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1,
     elevation: 1,
   },
   pageButtonDisabled: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     shadowOpacity: 0,
     elevation: 0,
   },
   pageIndicatorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     flex: 1,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
     maxWidth: 200,
     gap: 4,
     paddingHorizontal: 8,
@@ -1443,19 +1613,19 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#f8f8f8',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#f8f8f8",
+    justifyContent: "center",
+    alignItems: "center",
     margin: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 1,
     elevation: 1,
   },
   activePageIndicator: {
-    backgroundColor: '#2196F3',
-    shadowColor: '#1976D2',
+    backgroundColor: "#2196F3",
+    shadowColor: "#1976D2",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
@@ -1463,26 +1633,26 @@ const styles = StyleSheet.create({
   },
   pageIndicatorText: {
     fontSize: 14,
-    color: '#666666',
-    fontWeight: '500',
+    color: "#666666",
+    fontWeight: "500",
   },
   activePageIndicatorText: {
-    color: '#ffffff',
-    fontWeight: '600',
+    color: "#ffffff",
+    fontWeight: "600",
   },
   registrationBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: "rgba(0,0,0,0.7)",
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   registrationText: {
-    color: '#ffffff',
+    color: "#ffffff",
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });
 
