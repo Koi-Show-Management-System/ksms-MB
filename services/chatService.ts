@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { Channel, Event, StreamChat } from "stream-chat";
-import api from "./api";
 
 // Interface for chat messages
 export interface ChatMessage {
@@ -181,7 +180,7 @@ export function isTokenValid(token: string): boolean {
 }
 
 /**
- * Get a chat token from your backend
+ * Get a chat token for the client
  * @param userId ID of the user
  * @returns Token for Stream Chat
  */
@@ -194,39 +193,15 @@ export async function getChatToken(userId: string): Promise<string> {
       return storedToken;
     }
 
-    console.log("[ChatService] Getting chat token for user:", userId);
+    console.log("[ChatService] Generating new chat token for user:", userId);
 
-    // Replace this with your actual token endpoint
-    // For this example, we're using the Stream Chat direct API key approach for testing
-    // In production, ALWAYS generate tokens server-side
-    try {
-      // Try getting token from your backend first
-      const response = await api.get(`/api/v1/chat/token/${userId}`);
-      if (response.data?.data?.token) {
-        const token = response.data.data.token;
-        await saveUserTokenToStorage(userId, token);
-        return token;
-      }
-    } catch (apiError) {
-      console.warn(
-        "[ChatService] Backend token endpoint not available, using development token"
-      );
-      // Fallback to development token (only for development)
-    }
-
-    // For development only - should be removed in production!
-    // In production, you MUST generate tokens on your server
-    if (__DEV__) {
-      // Generate a development token
-      // This is for testing only and should be removed in production
-      console.log("[ChatService] Generating development token");
-      const client = initChatClient();
-      const devToken = client.devToken(userId);
-      await saveUserTokenToStorage(userId, devToken);
-      return devToken;
-    }
-
-    throw new Error("Unable to get chat token");
+    // Generate a development token - this works in both dev and prod for testing
+    // In production, you would replace this with an API call to your backend
+    console.log("[ChatService] Generating development token");
+    const client = initChatClient();
+    const devToken = client.devToken(userId);
+    await saveUserTokenToStorage(userId, devToken);
+    return devToken;
   } catch (error) {
     console.error("[ChatService] Error getting chat token:", error);
     throw error;

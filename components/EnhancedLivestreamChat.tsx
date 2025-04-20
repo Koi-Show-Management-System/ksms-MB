@@ -2,27 +2,27 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { getChatMessages, sendChatMessage } from "../services/chatService";
-
-// Define message interface for better type safety
-export interface ChatMessage {
-  id: string;
-  author: string;
-  authorId: string;
-  content: string;
-  timestamp: Date;
-  profileImage?: string;
-}
+import { Channel as ChannelType, StreamChat } from "stream-chat";
+import {
+  Channel,
+  Chat,
+  MessageInput,
+  MessageList,
+  OverlayProvider,
+} from "stream-chat-expo";
+import {
+  connectUser,
+  getChatToken,
+  initChatClient,
+  setupAutomaticChatReconnection,
+} from "../services/chatService";
 
 interface EnhancedLivestreamChatProps {
   userId: string;
@@ -39,232 +39,243 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
   showName,
   profileImage,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [client, setClient] = useState<StreamChat | null>(null);
+  const [channel, setChannel] = useState<ChannelType | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const messageListRef = useRef<FlatList>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [reconnecting, setReconnecting] = useState(false);
+  const reconnectAttempts = useRef(0);
+  const maxReconnectAttempts = 3;
 
-  // Format the message timestamp
-  const formatTime = (date: Date) => {
+  // Initialize chat client and connect user
+  const initializeChat = useCallback(async () => {
     try {
-      return new Date(date).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch (e) {
-      console.error("Error formatting date:", e);
-      return "";
-    }
-  };
+      setIsLoading(true);
 
-  // Load chat messages with retry mechanism
-  const loadMessages = useCallback(
-    async (silent = false) => {
-      if (!silent) setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await getChatMessages(livestreamId);
-        if (response.success && Array.isArray(response.data)) {
-          setMessages(response.data);
-        } else {
-          console.warn("Failed to load chat messages:", response.message);
-          setError("Không thể tải tin nhắn. Vui lòng thử lại sau.");
-        }
-      } catch (err) {
-        console.error("Error loading chat messages:", err);
-        setError("Lỗi kết nối. Vui lòng kiểm tra mạng của bạn.");
-      } finally {
-        setIsLoading(false);
+      if (!userId) {
+        throw new Error("User ID is required for chat");
       }
-    },
-    [livestreamId]
-  );
 
-  // Send a new message with error handling
-  const handleSend = useCallback(async () => {
-    if (!newMessage.trim() || isSending) return;
+      console.log(
+        "[EnhancedLivestreamChat] Initializing chat for user:",
+        userId
+      );
 
-    setIsSending(true);
-    try {
-      const messageToSend = {
-        authorId: userId,
-        author: userName,
-        content: newMessage.trim(),
-        profileImage: profileImage,
+      // Initialize the chat client
+      const chatClient = initChatClient();
+
+      // Get token for authentication
+      const token = await getChatToken(userId);
+
+      if (!token) {
+        throw new Error("Failed to obtain chat authentication token");
+      }
+
+      // Connect user to Stream Chat
+      await connectUser(userId, userName, token, profileImage);
+
+      setClient(chatClient);
+      console.log("[EnhancedLivestreamChat] Stream Chat client initialized");
+
+      // Create or get channel
+      const channelId = `livestream-${livestreamId}`;
+      const channelType = "livestream";
+
+      // Set up channel data
+      const channelData = {
+        name: `${showName || "Koi Show"} Chat`,
+        image:
+          "https://getstream.io/random_svg/?name=" +
+          encodeURIComponent(showName || "Koi Show"),
+        members: [userId],
+        created_by_id: userId,
       };
 
-      const response = await sendChatMessage(livestreamId, messageToSend);
+      // Create a channel instance
+      const channelInstance = chatClient.channel(
+        channelType,
+        channelId,
+        channelData
+      );
 
-      if (response.success) {
-        // Optimistically add message to the list
-        const optimisticMessage: ChatMessage = {
-          id: Date.now().toString(), // Temporary ID
-          ...messageToSend,
-          timestamp: new Date(),
-        };
+      // Watch the channel to connect to it
+      await channelInstance.watch();
+      console.log(
+        "[EnhancedLivestreamChat] Channel watched successfully:",
+        channelId
+      );
 
-        setMessages((prev) => [...prev, optimisticMessage]);
-        setNewMessage("");
+      setChannel(channelInstance);
+      setError(null);
+      reconnectAttempts.current = 0;
+    } catch (err: any) {
+      console.error("[EnhancedLivestreamChat] Error initializing chat:", err);
 
-        // Scroll to bottom
-        setTimeout(() => {
-          messageListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
+      // User-friendly error message based on error type
+      if (err.message?.includes("token") || err.code === 40) {
+        setError("Authentication error. Please try again.");
+      } else if (
+        err.message?.includes("network") ||
+        err.message?.includes("connection")
+      ) {
+        setError("Network issue. Please check your connection.");
 
-        // Refresh messages to get server-generated ID
-        setTimeout(() => {
-          loadMessages(true);
-        }, 1000);
+        // Attempt to reconnect
+        if (reconnectAttempts.current < maxReconnectAttempts) {
+          reconnectAttempts.current += 1;
+          setReconnecting(true);
+
+          setTimeout(() => {
+            console.log(
+              `[EnhancedLivestreamChat] Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`
+            );
+            initializeChat();
+          }, 3000);
+        } else {
+          setError(
+            "Failed to connect after multiple attempts. Please try again later."
+          );
+        }
       } else {
-        console.warn("Failed to send message:", response.message);
-        alert("Không thể gửi tin nhắn. Vui lòng thử lại.");
+        setError(`Chat error: ${err.message}`);
       }
-    } catch (err) {
-      console.error("Error sending message:", err);
-      alert("Lỗi kết nối. Vui lòng kiểm tra mạng của bạn.");
     } finally {
-      setIsSending(false);
+      setIsLoading(false);
+      setReconnecting(false);
     }
-  }, [
-    newMessage,
-    userId,
-    userName,
-    profileImage,
-    livestreamId,
-    isSending,
-    loadMessages,
-  ]);
+  }, [userId, userName, livestreamId, showName, profileImage]);
 
-  // Set up polling for new messages
+  // Initialize chat when component mounts
   useEffect(() => {
-    loadMessages();
+    const setupChat = async () => {
+      // Setup automatic reconnection for the app
+      await setupAutomaticChatReconnection();
 
-    // Start polling for new messages every 3 seconds
-    pollingIntervalRef.current = setInterval(() => {
-      loadMessages(true); // Silent refresh
-    }, 3000);
+      // Initialize chat
+      await initializeChat();
+    };
 
-    // Clean up on component unmount
+    setupChat();
+
+    // Cleanup function - no need to disconnect user here
+    // as it's handled by chatService.disconnectUser() when app closes
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
+      // Optional: unsubscribe from channel if needed
+      if (channel) {
+        channel.stopWatching().catch(console.error);
       }
     };
-  }, [loadMessages]);
+  }, [initializeChat]);
 
-  // Render a single chat message
-  const renderMessage = useCallback(
-    ({ item }: { item: ChatMessage }) => (
-      <View style={styles.messageContainer}>
-        <View style={styles.messageAvatar}>
-          {item.profileImage ? (
-            <Image source={{ uri: item.profileImage }} style={styles.avatar} />
-          ) : (
-            <View style={styles.defaultAvatar}>
-              <Text style={styles.avatarText}>
-                {item.author.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.messageContent}>
-          <View style={styles.messageHeader}>
-            <Text style={styles.messageSender}>{item.author}</Text>
-            <Text style={styles.messageTime}>{formatTime(item.timestamp)}</Text>
-          </View>
-          <Text style={styles.messageText}>{item.content}</Text>
-        </View>
+  // Handle retry button press
+  const handleRetry = () => {
+    reconnectAttempts.current = 0;
+    initializeChat();
+  };
+
+  // Render loading state
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0066CC" />
+        <Text style={styles.loadingText}>
+          {reconnecting ? "Reconnecting to chat..." : "Connecting to chat..."}
+        </Text>
       </View>
-    ),
-    []
-  );
+    );
+  }
 
-  // Extract message keys for FlatList
-  const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
+  // Render error state
+  if (error && !channel) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={24} color="#FF6B6B" />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
+  // Render not initialized state
+  if (!client || !channel) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>
+          Chat service is not available. Please try again later.
+        </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Text style={styles.retryButtonText}>Thử lại</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Define custom chat theme based on your web component styling
+  const chatTheme = {
+    messageList: {
+      container: styles.messageListContainer,
+    },
+    messageInput: {
+      container: styles.messageInputContainer,
+      inputBox: styles.inputBox,
+    },
+    message: {
+      content: {
+        container: styles.messageContent,
+        containerMine: styles.myMessageContent,
+      },
+      avatarWrapper: {
+        container: styles.avatarWrapper,
+      },
+      status: {
+        readBy: styles.readBy,
+      },
+    },
+  };
+
+  // Render Stream Chat UI with proper components
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>
-          {showName ? `Chat - ${showName}` : "Livestream Chat"}
-        </Text>
-      </View>
-
-      {isLoading && messages.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0066cc" />
-          <Text style={styles.loadingText}>Đang tải tin nhắn...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={24} color="red" />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => loadMessages()}>
-            <Text style={styles.retryButtonText}>Thử lại</Text>
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeftContent}>
+            <View style={styles.activeDot} />
+            <Text style={styles.headerTitle}>
+              {showName ? `Chat - ${showName}` : "Livestream Chat"}
+            </Text>
+          </View>
+          <TouchableOpacity>
+            <Ionicons
+              name="information-circle-outline"
+              size={22}
+              color="#666"
+            />
           </TouchableOpacity>
         </View>
-      ) : (
-        <FlatList
-          ref={messageListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={keyExtractor}
-          style={styles.messageList}
-          contentContainerStyle={
-            messages.length === 0 ? styles.emptyList : styles.messageListContent
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={36}
-                color="#ccc"
-              />
-              <Text style={styles.emptyText}>
-                Không có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!
-              </Text>
-            </View>
-          }
-          initialNumToRender={15}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          onEndReachedThreshold={0.5}
-          removeClippedSubviews={Platform.OS !== "web"}
-        />
+      </View>
+
+      {error && (
+        <View style={styles.warningBanner}>
+          <Ionicons name="warning-outline" size={16} color="#FFD700" />
+          <Text style={styles.warningText}>{error}</Text>
+        </View>
       )}
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Nhập tin nhắn..."
-          value={newMessage}
-          onChangeText={setNewMessage}
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            !newMessage.trim() && styles.sendButtonDisabled,
-          ]}
-          onPress={handleSend}
-          disabled={!newMessage.trim() || isSending}>
-          {isSending ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Ionicons name="send" size={20} color="white" />
-          )}
-        </TouchableOpacity>
-      </View>
+      <OverlayProvider>
+        <Chat client={client} style={chatTheme}>
+          <Channel channel={channel}>
+            <View style={styles.chatContainer}>
+              <MessageList />
+              <MessageInput />
+            </View>
+          </Channel>
+        </Chat>
+      </OverlayProvider>
     </KeyboardAvoidingView>
   );
 };
@@ -272,152 +283,125 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#FFFFFF",
   },
   header: {
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-    backgroundColor: "#fff",
+    borderBottomColor: "#E9ECEF",
+  },
+  headerContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerLeftContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  activeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#52c41a",
+    marginRight: 8,
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: "bold",
-    color: "#333",
+    color: "#333333",
   },
-  messageList: {
+  chatContainer: {
     flex: 1,
+    display: "flex",
+    flexDirection: "column",
   },
-  messageListContent: {
+  messageListContainer: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+  },
+  messageInputContainer: {
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#E9ECEF",
     paddingVertical: 8,
+    paddingHorizontal: 12,
   },
-  emptyList: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  messageContainer: {
-    flexDirection: "row",
-    padding: 10,
-    marginBottom: 4,
-  },
-  messageAvatar: {
-    marginRight: 10,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  defaultAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#0066cc",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  avatarText: {
-    color: "white",
-    fontWeight: "bold",
-    fontSize: 16,
+  inputBox: {
+    backgroundColor: "#F1F3F5",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    fontSize: 14,
   },
   messageContent: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    backgroundColor: "#E9ECEF",
+    borderRadius: 16,
     padding: 10,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  messageHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     marginBottom: 4,
   },
-  messageSender: {
-    fontWeight: "bold",
-    fontSize: 14,
-    color: "#333",
-  },
-  messageTime: {
-    fontSize: 12,
-    color: "#888",
-  },
-  messageText: {
-    fontSize: 14,
-    color: "#333",
-    lineHeight: 20,
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  myMessageContent: {
+    backgroundColor: "#0084FF",
+    borderRadius: 16,
     padding: 10,
-    backgroundColor: "white",
-    borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
+    marginBottom: 4,
   },
-  input: {
-    flex: 1,
-    backgroundColor: "#f1f1f1",
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    maxHeight: 100,
-    fontSize: 14,
+  avatarWrapper: {
+    marginRight: 8,
   },
-  sendButton: {
-    marginLeft: 10,
-    backgroundColor: "#0066cc",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  sendButtonDisabled: {
-    backgroundColor: "#b3d1ff",
+  readBy: {
+    fontSize: 10,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#F5F5F5",
   },
   loadingText: {
-    marginTop: 10,
-    color: "#666",
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  emptyText: {
-    marginTop: 10,
-    color: "#888",
-    textAlign: "center",
+    marginTop: 12,
+    color: "#666666",
+    fontSize: 14,
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#F5F5F5",
     padding: 20,
   },
   errorText: {
-    marginTop: 10,
-    color: "#dc3545",
+    marginTop: 8,
+    marginBottom: 16,
+    color: "#FF6B6B",
+    fontSize: 14,
     textAlign: "center",
-    marginBottom: 15,
+  },
+  warningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF3CD",
+    padding: 8,
+    borderRadius: 4,
+    marginHorizontal: 8,
+    marginTop: 8,
+  },
+  warningText: {
+    color: "#856404",
+    fontSize: 12,
+    marginLeft: 4,
+    flex: 1,
   },
   retryButton: {
-    backgroundColor: "#0066cc",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    backgroundColor: "#0066CC",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 4,
+    marginTop: 8,
   },
   retryButtonText: {
-    color: "white",
+    color: "#FFFFFF",
     fontWeight: "bold",
   },
 });
