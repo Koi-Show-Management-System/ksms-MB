@@ -182,9 +182,13 @@ export function isTokenValid(token: string): boolean {
 /**
  * Get a chat token for the client
  * @param userId ID of the user
+ * @param livestreamId Optional livestream ID to fetch token from the livestream viewer token API
  * @returns Token for Stream Chat
  */
-export async function getChatToken(userId: string): Promise<string> {
+export async function getChatToken(
+  userId: string,
+  livestreamId?: string
+): Promise<string> {
   try {
     // First check if we have a valid token in storage
     const storedToken = await getSavedUserToken();
@@ -193,13 +197,64 @@ export async function getChatToken(userId: string): Promise<string> {
       return storedToken;
     }
 
-    console.log("[ChatService] Generating new chat token for user:", userId);
+    console.log("[ChatService] Getting new chat token for user:", userId);
 
-    // Generate a development token - this works in both dev and prod for testing
-    // In production, you would replace this with an API call to your backend
-    console.log("[ChatService] Generating development token");
+    // If livestreamId is provided, try to get token from the livestream viewer token API
+    if (livestreamId) {
+      try {
+        console.log(
+          `[ChatService] Attempting to use livestream viewer token for livestream: ${livestreamId}`
+        );
+
+        // Import the function to get livestream viewer token
+        const { getLivestreamViewerToken } = await import(
+          "./livestreamService"
+        );
+
+        // Fetch the token from the API
+        const response = await getLivestreamViewerToken(livestreamId);
+
+        if (response.data?.token) {
+          const token = response.data.token;
+          console.log(
+            "[ChatService] Successfully got token from livestream viewer API"
+          );
+
+          // Save the token for future use
+          await saveUserTokenToStorage(userId, token);
+          return token;
+        } else {
+          console.warn(
+            "[ChatService] Livestream viewer token API response missing token data"
+          );
+        }
+      } catch (tokenError) {
+        console.error(
+          "[ChatService] Error getting token from livestream viewer API:",
+          tokenError
+        );
+        // Continue to fallback methods
+      }
+    }
+
+    // If livestream token failed or was not provided, try to use development token
     const client = initChatClient();
     const devToken = client.devToken(userId);
+
+    if (__DEV__) {
+      console.log("[ChatService] In development mode - using dev token");
+      await saveUserTokenToStorage(userId, devToken);
+      return devToken;
+    }
+
+    // For production: Use dev token only as a last resort
+    console.warn(
+      "[ChatService] ⚠️ Falling back to development token in production"
+    );
+    console.warn(
+      "[ChatService] This may cause authentication issues with Stream Chat"
+    );
+
     await saveUserTokenToStorage(userId, devToken);
     return devToken;
   } catch (error) {

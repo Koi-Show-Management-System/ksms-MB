@@ -64,8 +64,8 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
       // Initialize the chat client
       const chatClient = initChatClient();
 
-      // Get token for authentication
-      const token = await getChatToken(userId);
+      // Get token for authentication - pass livestreamId to use the same token
+      const token = await getChatToken(userId, livestreamId);
 
       if (!token) {
         throw new Error("Failed to obtain chat authentication token");
