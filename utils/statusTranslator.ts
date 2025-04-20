@@ -22,6 +22,7 @@ const statusMap: Record<string, string> = {
   completed: "Đã Hoàn Thành",
   upcoming: "Sắp Diễn Ra",
   inprogress: "Đang Diễn Ra",
+  ongoing: "Đang Diễn Ra",
   finished: "Kết Thúc",
   published: "Đã Công Bố",
   Pass: "Đạt",

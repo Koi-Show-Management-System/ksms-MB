@@ -6,7 +6,7 @@ import {
 } from "@expo/vector-icons";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { memo, useCallback, useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState, useRef } from "react";
 import { Dimensions } from "react-native";
 import { SceneMap, TabBar, TabView } from "react-native-tab-view";
 
@@ -237,42 +237,32 @@ const InfoTabContent = ({
   renderCategoryItem,
   ItemSeparator,
 }) => {
+  // Add a ref to maintain scroll position
+  const scrollViewRef = useRef(null);
+  const [scrollPosition, setScrollPosition] = useState(0);
+  
+  const handleScroll = (event) => {
+    setScrollPosition(event.nativeEvent.contentOffset.y);
+  };
+  
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      // No need to track scroll position for this tab
+      // Store the scroll position
+      global.ReactNativeWebView && setScrollPosition(event.contentOffset.y);
     },
   });
 
   return (
     <Animated.ScrollView
+      ref={scrollViewRef}
       style={styles.scrollView}
       contentContainerStyle={styles.scrollViewContent}
       showsVerticalScrollIndicator={false}
-      scrollEventThrottle={16}>
-      {/* Title Section */}
-      <View style={styles.titleContainer}>
-        <Text style={styles.title} numberOfLines={1}>
-          {showData?.name}
-        </Text>
-        <View style={styles.quickInfoContainer}>
-          <View style={styles.quickInfoItem}>
-            <MaterialIcons name="location-on" size={18} color="#000000" />
-            <Text style={styles.quickInfoText} numberOfLines={1}>
-              {showData?.location}
-            </Text>
-          </View>
-          <View style={styles.quickInfoItem}>
-            <MaterialIcons name="date-range" size={18} color="#000000" />
-            <Text style={styles.quickInfoText} numberOfLines={1}>
-              {formatDateAndTime(
-                showData?.startDate || "",
-                showData?.endDate || ""
-              )}
-            </Text>
-          </View>
-        </View>
-      </View>
-
+      scrollEventThrottle={16}
+      onScroll={handleScroll}
+      onScrollAnimationEnd={() => {
+        // Optional: for when animation ends
+      }}>
       {/* Chi tiết sự kiện */}
       <View style={styles.sectionContainer}>
         <TouchableOpacity
@@ -280,7 +270,7 @@ const InfoTabContent = ({
             styles.sectionHeader,
             expandedSections.eventDetails && styles.sectionHeaderExpanded,
           ]}
-          onPress={() => toggleSection("eventDetails")}>
+          onPress={() => toggleSection("eventDetails", scrollViewRef, scrollPosition)}>
           <View style={styles.sectionHeaderContent}>
             <MaterialIcons name="info-outline" size={22} color="#000000" />
             <Text style={styles.sectionTitle}>Chi tiết sự kiện</Text>
@@ -378,7 +368,7 @@ const InfoTabContent = ({
             styles.sectionHeader,
             expandedSections.categories && styles.sectionHeaderExpanded,
           ]}
-          onPress={() => toggleSection("categories")}>
+          onPress={() => toggleSection("categories", scrollViewRef, scrollPosition)}>
           <View style={styles.sectionHeaderContent}>
             <MaterialIcons name="category" size={22} color="#000000" />
             <Text style={styles.sectionTitle}>Hạng mục thi đấu</Text>
@@ -427,7 +417,7 @@ const InfoTabContent = ({
       <View style={styles.sectionContainer}>
         <TouchableOpacity
           style={styles.sectionHeader}
-          onPress={() => toggleSection("rules")}>
+          onPress={() => toggleSection("rules", scrollViewRef, scrollPosition)}>
           <View style={styles.sectionHeaderContent}>
             <MaterialIcons name="gavel" size={22} color="#000000" />
             <Text style={styles.sectionTitle}>Quy định & Điều lệ</Text>
@@ -464,7 +454,7 @@ const InfoTabContent = ({
       <View style={styles.sectionContainer}>
         <TouchableOpacity
           style={styles.sectionHeader}
-          onPress={() => toggleSection("criteria")}>
+          onPress={() => toggleSection("criteria", scrollViewRef, scrollPosition)}>
           <View style={styles.sectionHeaderContent}>
             <MaterialIcons name="star" size={22} color="#000000" />
             <Text style={styles.sectionTitle}>Tiêu chí đánh giá</Text>
@@ -505,7 +495,7 @@ const InfoTabContent = ({
       <View style={styles.sectionContainer}>
         <TouchableOpacity
           style={styles.sectionHeader}
-          onPress={() => toggleSection("timeline")}>
+          onPress={() => toggleSection("timeline", scrollViewRef, scrollPosition)}>
           <View style={styles.sectionHeaderContent}>
             <MaterialIcons name="timeline" size={22} color="#000000" />
             <Text style={styles.sectionTitle}>Lịch trình sự kiện</Text>
@@ -697,13 +687,20 @@ const KoiShowInformationContent = () => {
     };
   });
 
-  // Toggle section expansion
+  // Toggle section expansion - Updated to maintain scroll position
   const toggleSection = useCallback(
-    (section: keyof typeof expandedSections) => {
+    (section: keyof typeof expandedSections, scrollRef = null, position = 0) => {
       setExpandedSections((prev) => ({
         ...prev,
         [section]: !prev[section],
       }));
+      
+      // Use setTimeout to maintain scroll position after the state update and re-render
+      if (scrollRef && scrollRef.current) {
+        setTimeout(() => {
+          scrollRef.current.scrollTo({ y: position, animated: false });
+        }, 0);
+      }
     },
     []
   );
@@ -1002,6 +999,25 @@ const KoiShowInformationContent = () => {
               <Ionicons name="fish" size={64} color="#ffffff" />
             </View>
           )}
+
+          {/* Event info overlay on banner */}
+          <View style={styles.eventInfoOverlay}>
+            <Text style={styles.eventTitle}>{showData?.name}</Text>
+            <View style={styles.eventInfoRow}>
+              <MaterialIcons name="location-on" size={18} color="#ffffff" />
+              <Text style={styles.eventInfoText}>{showData?.location}</Text>
+            </View>
+            <View style={styles.eventInfoRow}>
+              <MaterialIcons name="date-range" size={18} color="#ffffff" />
+              <Text style={styles.eventInfoText}>
+                {formatDateAndTime(
+                  showData?.startDate || "",
+                  showData?.endDate || ""
+                )}
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.overlay}>
             <View style={styles.statusBadge}>
               <Text style={styles.statusText}>
@@ -1098,15 +1114,37 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  overlay: {
+  // Event info overlay on banner
+  eventInfoOverlay: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     padding: 16,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  eventTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginBottom: 8,
+  },
+  eventInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  eventInfoText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#ffffff",
+  },
+  overlay: {
+    position: "absolute",
+    top: 16,
+    right: 16,
     flexDirection: "row",
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
   },
   statusBadge: {
     backgroundColor: "#000000",

@@ -15,42 +15,42 @@ const UserMenu: React.FC<UserMenuProps> = ({
   const menuItems = [
     {
       id: "koilist",
-      label: "My Koi",
+      label: "Koi Của Tôi",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame.png",
     },
     // {
     //   id: "cart",
-    //   label: "Cart",
+    //   label: "Giỏ Hàng",
     //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-2.png",
     // },
     {
       id: "notification",
-      label: "Notification",
+      label: "Thông Báo",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-3.png",
     },
     // {
     //   id: "dashboard",
-    //   label: "Dashboard",
+    //   label: "Bảng Điều Khiển",
     //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-4.png",
     // },
     // {
     //   id: "transactions",
-    //   label: "Transactions",
+    //   label: "Giao Dịch",
     //   icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     // },
     {
       id: "myorders",
-      label: "My Orders",
+      label: "Đơn Hàng",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     },
     {
       id: "profile",
-      label: "User Profile",
+      label: "Hồ Sơ Cá Nhân",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     },
     {
       id: "competitionsjoined",
-      label: "Competitions Joined",
+      label: "Cuộc Thi Đã Tham Gia",
       icon: "https://dashboard.codeparrot.ai/api/image/Z7z3sKxVDdhgd23o/frame-5.png",
     },
   ];
