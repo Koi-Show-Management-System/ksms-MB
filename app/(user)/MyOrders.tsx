@@ -22,6 +22,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import api from "../../services/api";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -426,7 +427,7 @@ const MyOrders: React.FC = () => {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
@@ -487,14 +488,13 @@ const MyOrders: React.FC = () => {
 
         {renderContent()}
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   // Header Styles
   header: {
@@ -504,8 +504,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    backgroundColor: "transparent", // Or your desired background
-    marginTop: 20,
+    backgroundColor: "transparent",
   },
   homeText: {
     fontFamily: "Poppins",
