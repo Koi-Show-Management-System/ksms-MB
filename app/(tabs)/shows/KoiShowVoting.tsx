@@ -252,21 +252,23 @@ export function KoiShowVoting({ showId }: KoiShowVotingProps) {
           );
         }
         return (
-          <FlatList
-            data={registrations}
-            renderItem={({ item }) => (
-              <ContestantItem
-                item={item}
-                onVote={handleVote}
-                isVotingEnabled={true}
-                hasVoted={hasUserVoted}
-              />
-            )}
-            keyExtractor={(item) => item.registrationId}
-            contentContainerStyle={styles.listContainer}
-            ListHeaderComponent={<Text style={styles.listHeader}>Chọn thí sinh bạn yêu thích</Text>}
-            extraData={isSubmittingVote || hasUserVoted}
-          />
+          <View style={{flex: 1}}>
+            <FlatList
+              data={registrations}
+              renderItem={({ item }) => (
+                <ContestantItem
+                  item={item}
+                  onVote={handleVote}
+                  isVotingEnabled={true}
+                  hasVoted={hasUserVoted}
+                />
+              )}
+              keyExtractor={(item) => item.registrationId}
+              contentContainerStyle={styles.listContainer}
+              ListHeaderComponent={<Text style={styles.listHeader}>Chọn thí sinh bạn yêu thích</Text>}
+              extraData={isSubmittingVote || hasUserVoted}
+            />
+          </View>
         );
       case 'voted':
         return (
@@ -292,13 +294,15 @@ export function KoiShowVoting({ showId }: KoiShowVotingProps) {
              );
            }
         return (
-          <FlatList
-            data={results}
-            renderItem={({ item }) => <ResultItem item={item} />}
-            keyExtractor={(item) => item.registrationId}
-            contentContainerStyle={styles.listContainer}
-            ListHeaderComponent={<Text style={styles.listHeader}>Kết quả bình chọn</Text>}
-          />
+          <View style={{flex: 1}}>
+            <FlatList
+              data={results}
+              renderItem={({ item }) => <ResultItem item={item} />}
+              keyExtractor={(item) => item.registrationId}
+              contentContainerStyle={styles.listContainer}
+              ListHeaderComponent={<Text style={styles.listHeader}>Kết quả bình chọn</Text>}
+            />
+          </View>
         );
       case 'loading': // Fallback
          return <ActivityIndicator size="large" color="#0000ff" style={styles.centered} />;
@@ -378,6 +382,7 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingVertical: 16,
     paddingHorizontal: 12,
+    paddingBottom: 150,
   },
   listHeader: {
     fontSize: 20,

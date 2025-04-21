@@ -205,12 +205,14 @@ const KoiShowResults: React.FC<KoiShowResultsProps> = ({ showId }) => {
              <Text style={styles.errorText}>{error}</Text>
            </View>
         ) : results.length > 0 ? (
-          <FlatList
-            data={results}
-            renderItem={renderResultItem}
-            keyExtractor={(item) => item.registrationId} // Sử dụng ID duy nhất
-            contentContainerStyle={styles.resultsListContent}
-          />
+          <View style={{flex: 1}}>
+            <FlatList
+              data={results}
+              renderItem={renderResultItem}
+              keyExtractor={(item) => item.registrationId} // Sử dụng ID duy nhất
+              contentContainerStyle={styles.resultsListContent}
+            />
+          </View>
          ) : !selectedCategory && !isLoadingCategories ? ( // Chỉ hiển thị khi không loading categories và chưa chọn category
              <Text style={styles.emptyText}>Vui lòng chọn hạng mục để xem kết quả.</Text>
          ) : null
@@ -285,7 +287,8 @@ const styles = StyleSheet.create({
   },
   resultsListContent: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingTop: 8,
+    paddingBottom: 150, // Thêm padding bottom lớn để tránh bị footer che khuất
   },
   winnerCard: {
     backgroundColor: '#ffffff',

@@ -450,7 +450,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
 
         {/* Danh sách vòng đấu phụ */}
         {selectedRoundType && rounds.length > 0 && (
-          <View style={styles.sectionContainer}>
+          <View style={[styles.sectionContainer, { marginBottom: 24, paddingBottom: 12 }]}>
             <Text style={styles.sectionTitle}>Vòng đấu phụ</Text>
             <FlatList
               data={rounds}
@@ -943,7 +943,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContentContainer: {
-    paddingBottom: 16,
+    paddingBottom: 120,
   },
   breadcrumbContainer: {
     paddingHorizontal: 16,
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
     color: "#333333",
   },
   horizontalListContent: {
-    paddingBottom: 4,
+    paddingBottom: 16,
   },
   categoryCard: {
     backgroundColor: "#ffffff",
@@ -1493,7 +1493,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
-    paddingBottom: 4,
+    paddingBottom: 40,
   },
   resultDetailsContainer: {
     marginTop: 4,
