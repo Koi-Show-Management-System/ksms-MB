@@ -23,6 +23,7 @@ interface EnhancedLivestreamChatProps {
   userName: string;
   livestreamId: string;
   showName: string;
+  callId?: string;
   profileImage?: string;
 }
 
@@ -31,6 +32,7 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
   userName,
   livestreamId,
   showName,
+  callId,
   profileImage,
 }) => {
   const [client, setClient] = useState<StreamChat | null>(null);
@@ -73,12 +75,13 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
       console.log("[EnhancedLivestreamChat] Stream Chat client initialized");
 
       // Create or get channel
-      const channelId = `livestream-${livestreamId}`;
+      const channelIdBase = callId || livestreamId;
+      const channelId = `livestream-${channelIdBase}`;
       const channelType = "livestream";
 
       // Set up channel data according to official docs
       const channelData = {
-        name: `${showName || "Koi Show"} Chat`,
+        name: `Chat for ${showName || "Livestream"}`,
         image:
           "https://getstream.io/random_svg/?name=" +
           encodeURIComponent(showName || "Koi Show"),
@@ -165,7 +168,7 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
       setIsLoading(false);
       setReconnecting(false);
     }
-  }, [userId, userName, livestreamId, showName, profileImage]);
+  }, [userId, userName, livestreamId, showName, callId, profileImage]);
 
   // Initialize chat when component mounts
   useEffect(() => {

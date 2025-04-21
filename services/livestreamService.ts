@@ -116,13 +116,15 @@ export async function getLivestreamChatToken(
   livestreamId: string
 ): Promise<GetLivestreamChatTokenResponse> {
   try {
+    console.log("[LivestreamService] Fetching chat token for livestream:", livestreamId);
     const response = await api.get<GetLivestreamChatTokenResponse>(
       `/api/v1/livestream/chat-token/${livestreamId}`
     );
+    console.log("[LivestreamService] Chat token received successfully");
     return response.data;
   } catch (error) {
     console.error(
-      `Error fetching chat token for livestream ${livestreamId}:`,
+      `[LivestreamService] Error fetching chat token for livestream ${livestreamId}:`,
       error
     );
     throw error;

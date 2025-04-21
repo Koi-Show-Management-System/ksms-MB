@@ -28,6 +28,7 @@ interface LivestreamChatProps {
   userName: string; // Tên người dùng
   livestreamId: string; // ID của livestream
   showName: string; // Tên hiển thị của show
+  callId?: string; // ID cuộc gọi stream (cần thiết để đồng bộ với web)
   token?: string; // Optional token xác thực stream chat
   profileImage?: string; // URL hình ảnh đại diện (tùy chọn)
 }
@@ -37,6 +38,7 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
   userName,
   livestreamId,
   showName,
+  callId,
   token,
   profileImage,
 }) => {
@@ -94,7 +96,7 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
       const chatClient = initChatClient();
 
       // Get authentication token - if token is provided in props, use it, otherwise fetch it
-      const authToken = token || (await getChatToken(userId));
+      const authToken = token || (await getChatToken(userId, livestreamId));
 
       if (!authToken) {
         throw new Error("Failed to obtain valid authentication token");
@@ -111,7 +113,8 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
         const livestreamChannel = await getOrCreateLivestreamChannel(
           chatClient,
           livestreamId,
-          showName
+          showName,
+          callId
         );
 
         console.log(`[LivestreamChat] Channel ready: ${livestreamChannel.id}`);
@@ -129,11 +132,12 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
           setError("Chat channel not found. Creating a new one...");
           // Try to create a new channel
           try {
+            const channelIdBase = callId || livestreamId;
             const newChannel = chatClient.channel(
               "livestream",
-              `livestream-${livestreamId}`,
+              `livestream-${channelIdBase}`,
               {
-                name: `${showName || "Koi Show"} Chat`,
+                name: `Chat for ${showName || "Livestream"}`,
                 created_by_id: userId,
                 members: [userId],
               }
@@ -177,6 +181,7 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
     userName,
     livestreamId,
     showName,
+    callId,
     token,
     profileImage,
     attemptReconnect,
@@ -220,14 +225,16 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
   useEffect(() => {
     if (!client) return;
 
-    const handleConnectionChange = (event: { online: boolean }) => {
+    const handleConnectionChange = (event: any) => {
+      const isOnline = !!event.online; // Chuyển sang boolean rõ ràng
+      
       console.log(
         `[LivestreamChat] Connection status changed: ${
-          event.online ? "online" : "offline"
+          isOnline ? "online" : "offline"
         }`
       );
 
-      if (!event.online) {
+      if (!isOnline) {
         setError("You are offline. Messages will be sent when you reconnect.");
       } else {
         setError(null);

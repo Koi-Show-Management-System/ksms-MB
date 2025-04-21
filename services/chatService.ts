@@ -199,93 +199,42 @@ export async function getChatToken(
 
     console.log("[ChatService] Getting new chat token for user:", userId);
 
-    // === TEMPORARY SOLUTION: Using viewer token instead of chat token ===
-    // If livestreamId is provided, try to get token from the livestream VIEWER token API
+    // If livestreamId is provided, get viewer token (ĐỒNG BỘ VỚI WEB)
+    // Web cũng sử dụng viewer-token cho cả video và chat nên mobile cũng vậy để đồng bộ
     if (livestreamId) {
       try {
         console.log(
-          `[ChatService] Attempting to use livestream viewer token for livestream: ${livestreamId}`
+          `[ChatService] Getting VIEWER token for livestream: ${livestreamId}`
         );
 
-        // Import the function to get livestream VIEWER token
-        const { getLivestreamViewerToken } = await import(
-          "./livestreamService"
-        );
+        // Sử dụng require thay vì dynamic import
+        const streamServices = require("./livestreamService");
+        const { getLivestreamViewerToken } = streamServices;
 
         // Fetch the token from the API
         const response = await getLivestreamViewerToken(livestreamId);
 
         if (response.data?.token) {
           const token = response.data.token;
-          console.log(
-            "[ChatService] Successfully got token from livestream viewer API"
-          );
-          console.log("[ChatService] Token:", token);
+          console.log("[ChatService] Successfully got token from VIEWER token API");
+          console.log("[ChatService] VIEWER Token:", token.substring(0, 20) + "...");
 
           // Save the token for future use
           await saveUserTokenToStorage(userId, token);
           return token;
         } else {
-          console.warn(
-            "[ChatService] Livestream viewer token API response missing token data"
-          );
+          console.warn("[ChatService] Viewer token API response missing token data");
+          throw new Error("Invalid token response from API");
         }
-      } catch (tokenError) {
+      } catch (viewerTokenError: any) {
         console.error(
           "[ChatService] Error getting token from livestream viewer API:",
-          tokenError
+          viewerTokenError.message || viewerTokenError
         );
-        // Continue to fallback methods
+        throw new Error(`Failed to get chat token: ${viewerTokenError.message || "Unknown error"}`);
       }
     }
 
-    /* === ORIGINAL CODE: Using chat token API ===
-    // If livestreamId is provided, try to get token from the livestream CHAT token API
-    if (livestreamId) {
-      try {
-        console.log(
-          `[ChatService] Attempting to use livestream chat token for livestream: ${livestreamId}`
-        );
-
-        // Import the function to get livestream CHAT token
-        const { getLivestreamChatToken } = await import("./livestreamService");
-
-        // Fetch the token from the API
-        const response = await getLivestreamChatToken(livestreamId);
-
-        if (response.data?.token) {
-          const token = response.data.token;
-          console.log(
-            "[ChatService] Successfully got token from livestream chat API"
-          );
-
-          // Save the token for future use
-          await saveUserTokenToStorage(userId, token);
-          return token;
-        } else {
-          console.warn(
-            "[ChatService] Livestream chat token API response missing token data"
-          );
-        }
-      } catch (tokenError) {
-        console.error(
-          "[ChatService] Error getting token from livestream chat API:",
-          tokenError
-        );
-        // Continue to fallback methods
-      }
-    }
-    */
-
-    // === TEMPORARY SOLUTION: Using dev token in production ===
-    // Tạm thời sử dụng dev token cho cả môi trường production để test
-    const client = initChatClient();
-    const devToken = client.devToken(userId);
-    console.log("[ChatService] Using dev token for testing");
-    await saveUserTokenToStorage(userId, devToken);
-    return devToken;
-
-    /* === ORIGINAL CODE: Only use dev token in development ===
     // Only use dev token in development environment
     if (__DEV__) {
       const client = initChatClient();
@@ -297,8 +246,7 @@ export async function getChatToken(
 
     // For production: Don't use dev token, throw an error instead
     throw new Error("Không thể lấy token chat hợp lệ. Vui lòng thử lại sau.");
-    */
-  } catch (error) {
+  } catch (error: any) {
     console.error("[ChatService] Error getting chat token:", error);
     throw error;
   }
@@ -385,7 +333,7 @@ export async function connectUser(
     setupConnectionEventHandlers(client);
 
     return client;
-  } catch (error) {
+  } catch (error: any) {
     console.error("[ChatService] Error connecting user to chat:", error);
 
     // Handle "already connected" error gracefully
@@ -439,15 +387,19 @@ function setupConnectionEventHandlers(client: StreamChat): void {
  * @param client Stream Chat client
  * @param livestreamId Livestream ID
  * @param showName Show name
+ * @param callId Optional call ID (used to ensure same channel ID as web)
  * @returns Channel instance
  */
 export async function getOrCreateLivestreamChannel(
   client: StreamChat,
   livestreamId: string,
-  showName: string
+  showName: string,
+  callId?: string
 ): Promise<Channel> {
   try {
-    const channelId = `livestream-${livestreamId}`;
+    // Use callId if provided (to match web's channel format), otherwise fallback to livestreamId
+    const channelIdBase = callId || livestreamId;
+    const channelId = `livestream-${channelIdBase}`;
     console.log("[ChatService] Creating/getting channel:", channelId);
 
     // Check if we already have this channel instance
@@ -490,7 +442,7 @@ export async function getOrCreateLivestreamChannel(
 
     console.log("[ChatService] Channel ready:", channelId);
     return channel;
-  } catch (error) {
+  } catch (error: any) {
     console.error("[ChatService] Error creating livestream channel:", error);
 
     // More detailed error info for troubleshooting
@@ -506,7 +458,9 @@ export async function getOrCreateLivestreamChannel(
       console.log(
         "[ChatService] Attempting channel creation with minimal data"
       );
-      const channelId = `livestream-${livestreamId}`;
+      // Use callId if provided, otherwise fallback to livestreamId
+      const channelIdBase = callId || livestreamId;
+      const channelId = `livestream-${channelIdBase}`;
       const minimalChannel = client.channel("livestream", channelId);
       await minimalChannel.create();
       channelInstances[channelId] = minimalChannel;
@@ -521,13 +475,17 @@ export async function getOrCreateLivestreamChannel(
 /**
  * Get chat messages from a livestream channel
  * @param livestreamId Livestream ID
+ * @param callId Optional call ID (for matching web's channel format)
  * @returns Chat messages
  */
 export async function getChatMessages(
-  livestreamId: string
+  livestreamId: string,
+  callId?: string
 ): Promise<ChatMessagesResponse> {
   try {
-    const channelId = `livestream-${livestreamId}`;
+    // Use callId if provided (to match web's channel format), otherwise fallback to livestreamId
+    const channelIdBase = callId || livestreamId;
+    const channelId = `livestream-${channelIdBase}`;
     console.log(
       `[ChatService] Getting messages for livestream channel: ${channelId}`
     );
@@ -569,8 +527,8 @@ export async function getChatMessages(
       author: msg.user?.name || "Unknown",
       authorId: msg.user?.id || "unknown",
       content: msg.text || "",
-      timestamp: new Date(msg.created_at || Date.now()),
-      profileImage: msg.user?.image,
+      timestamp: new Date(msg.created_at ? msg.created_at : Date.now()),
+      profileImage: typeof msg.user?.image === 'string' ? msg.user?.image : undefined,
     }));
 
     console.log(
@@ -582,7 +540,7 @@ export async function getChatMessages(
       data: messages,
       message: "Messages fetched successfully",
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("[ChatService] Error getting chat messages:", error);
 
     // Provide more specific error information
@@ -595,7 +553,7 @@ export async function getChatMessages(
     return {
       success: false,
       data: [],
-      message: "Failed to load messages",
+      message: error.message || "Failed to load messages",
     };
   }
 }
@@ -604,14 +562,18 @@ export async function getChatMessages(
  * Send a chat message to a livestream channel
  * @param livestreamId Livestream ID
  * @param message Message to send
+ * @param callId Optional call ID (for matching web's channel format)
  * @returns Response with sent message
  */
 export async function sendChatMessage(
   livestreamId: string,
-  message: MessageToSend
+  message: MessageToSend,
+  callId?: string
 ): Promise<SendMessageResponse> {
   try {
-    const channelId = `livestream-${livestreamId}`;
+    // Use callId if provided (to match web's channel format), otherwise fallback to livestreamId
+    const channelIdBase = callId || livestreamId;
+    const channelId = `livestream-${channelIdBase}`;
     console.log(`[ChatService] Sending message to channel: ${channelId}`);
 
     // Make sure we have a client and it's connected
@@ -654,12 +616,12 @@ export async function sendChatMessage(
         author: message.author,
         authorId: message.authorId,
         content: message.content,
-        timestamp: new Date(response.message.created_at),
+        timestamp: new Date(response.message.created_at || Date.now()),
         profileImage: message.profileImage,
       },
       message: "Message sent successfully",
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("[ChatService] Error sending chat message:", error);
 
     // Provide more detailed error information
@@ -679,7 +641,7 @@ export async function sendChatMessage(
         timestamp: new Date(),
         profileImage: message.profileImage,
       },
-      message: "Failed to send message",
+      message: error.message || "Failed to send message",
     };
   }
 }
@@ -700,7 +662,7 @@ export async function setupAutomaticChatReconnection(): Promise<void> {
       );
       await connectUser(userData.id, userData.name, token, userData.image);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("[ChatService] Error in automatic reconnection:", error);
   }
 }

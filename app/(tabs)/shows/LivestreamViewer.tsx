@@ -29,6 +29,8 @@ import {
   getLivestreamDetails,
   getLivestreamViewerToken,
 } from "../../../services/livestreamService";
+import EnhancedLivestreamChat from "../../../components/EnhancedLivestreamChat";
+import LivestreamChat from "../../../components/LivestreamChat";
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
@@ -784,6 +786,18 @@ const LivestreamViewerScreen: React.FC = () => {
           // ref={(c) => callRef.current = c} // This won't work directly on functional components
         />
       </StreamVideo>
+
+      {/* Chat panel */}
+      {client && callId && livestreamId && (
+        <EnhancedLivestreamChat
+          userId={userId}
+          userName={userName}
+          livestreamId={livestreamId}
+          showName={showName || "Livestream"}
+          callId={callId}
+          profileImage={userProfileImage}
+        />
+      )}
     </SafeAreaView>
   );
 };
