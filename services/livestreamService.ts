@@ -1,15 +1,14 @@
 // services/livestreamService.ts
-import api from "./api"; // Import instance axios đã cấu hình
+import api from "./api";
 
-// Interfaces for Livestream API responses
 export interface LivestreamInfo {
   id: string;
   callId: string;
-  startTime: string; // Consider using Date type after fetching
+  startTime: string;
   endTime: string | null;
   showName: string;
   viewerCount: number;
-  status: string; // Could be 'active', 'ended', etc. Consider a specific type or enum map
+  status: string;
 }
 
 export interface GetAllLivestreamsResponse {
@@ -27,7 +26,6 @@ export interface GetLivestreamDetailsResponse {
 export interface GetViewerTokenResponse {
   data: {
     token: string;
-    // Add other potential fields if the API returns more
   };
   statusCode: number;
   message: string;
@@ -36,7 +34,6 @@ export interface GetViewerTokenResponse {
 export interface GetLivestreamChatTokenResponse {
   data: {
     token: string;
-    // Add other potential fields if the API returns more
   };
   statusCode: number;
   message: string;

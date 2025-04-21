@@ -121,6 +121,21 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
       // User-friendly error message based on error type
       if (err.message?.includes("token") || err.code === 40) {
         setError("Authentication error. Please try again.");
+
+        // Xóa token đã lưu trong trường hợp lỗi xác thực
+        try {
+          const AsyncStorage =
+            require("@react-native-async-storage/async-storage").default;
+          await AsyncStorage.removeItem("@StreamChat:userToken");
+          console.log(
+            "[EnhancedLivestreamChat] Cleared stored token due to auth error"
+          );
+        } catch (storageError) {
+          console.error(
+            "[EnhancedLivestreamChat] Error clearing token:",
+            storageError
+          );
+        }
       } else if (
         err.message?.includes("network") ||
         err.message?.includes("connection")
@@ -271,9 +286,9 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
       )}
 
       {/* Removed OverlayProvider as it's already provided at root level */}
-      <Chat client={client}>
+      <Chat client={client as any} style={chatTheme}>
         <Channel
-          channel={channel}
+          channel={channel as any}
           thread={thread}
           keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
           <View style={styles.chatContainer}>
