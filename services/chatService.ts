@@ -190,116 +190,66 @@ export async function getChatToken(
   livestreamId?: string
 ): Promise<string> {
   try {
-    // First check if we have a valid token in storage
+    // Kiểm tra token đã lưu
     const storedToken = await getSavedUserToken();
     if (storedToken && isTokenValid(storedToken)) {
-      console.log("[ChatService] Using valid token from storage");
+      console.log("[ChatService] Using stored token");
       return storedToken;
     }
 
-    console.log("[ChatService] Getting new chat token for user:", userId);
-
-    // === TEMPORARY SOLUTION: Using viewer token instead of chat token ===
-    // If livestreamId is provided, try to get token from the livestream VIEWER token API
+    // Nếu có livestreamId, lấy token từ API
     if (livestreamId) {
       try {
         console.log(
-          `[ChatService] Attempting to use livestream viewer token for livestream: ${livestreamId}`
+          `[ChatService] Getting token for livestream: ${livestreamId}`
         );
 
-        // Import the function to get livestream VIEWER token
+        // Sử dụng getLivestreamViewerToken
         const { getLivestreamViewerToken } = await import(
           "./livestreamService"
         );
-
-        // Fetch the token from the API
         const response = await getLivestreamViewerToken(livestreamId);
 
         if (response.data?.token) {
           const token = response.data.token;
-          console.log(
-            "[ChatService] Successfully got token from livestream viewer API"
-          );
-          console.log("[ChatService] Token:", token);
+          console.log("[ChatService] Got token from livestream API");
 
-          // Save the token for future use
+          // Thử kết nối với token này
+          const client = initChatClient();
+          try {
+            await client.connectUser({ id: userId }, token);
+            console.log(
+              "[ChatService] Successfully connected with livestream token"
+            );
+          } catch (connectError) {
+            console.error(
+              "[ChatService] Error connecting with livestream token:",
+              connectError
+            );
+            throw new Error("Token không có quyền chat");
+          }
+
           await saveUserTokenToStorage(userId, token);
           return token;
-        } else {
-          console.warn(
-            "[ChatService] Livestream viewer token API response missing token data"
-          );
         }
-      } catch (tokenError) {
-        console.error(
-          "[ChatService] Error getting token from livestream viewer API:",
-          tokenError
-        );
-        // Continue to fallback methods
+      } catch (error) {
+        console.error("[ChatService] Error getting token:", error);
+        throw error;
       }
     }
 
-    /* === ORIGINAL CODE: Using chat token API ===
-    // If livestreamId is provided, try to get token from the livestream CHAT token API
-    if (livestreamId) {
-      try {
-        console.log(
-          `[ChatService] Attempting to use livestream chat token for livestream: ${livestreamId}`
-        );
-
-        // Import the function to get livestream CHAT token
-        const { getLivestreamChatToken } = await import("./livestreamService");
-
-        // Fetch the token from the API
-        const response = await getLivestreamChatToken(livestreamId);
-
-        if (response.data?.token) {
-          const token = response.data.token;
-          console.log(
-            "[ChatService] Successfully got token from livestream chat API"
-          );
-
-          // Save the token for future use
-          await saveUserTokenToStorage(userId, token);
-          return token;
-        } else {
-          console.warn(
-            "[ChatService] Livestream chat token API response missing token data"
-          );
-        }
-      } catch (tokenError) {
-        console.error(
-          "[ChatService] Error getting token from livestream chat API:",
-          tokenError
-        );
-        // Continue to fallback methods
-      }
-    }
-    */
-
-    // === TEMPORARY SOLUTION: Using dev token in production ===
-    // Tạm thời sử dụng dev token cho cả môi trường production để test
-    const client = initChatClient();
-    const devToken = client.devToken(userId);
-    console.log("[ChatService] Using dev token for testing");
-    await saveUserTokenToStorage(userId, devToken);
-    return devToken;
-
-    /* === ORIGINAL CODE: Only use dev token in development ===
-    // Only use dev token in development environment
+    // Fallback cho development
     if (__DEV__) {
+      console.log("[ChatService] Using dev token in development mode");
       const client = initChatClient();
       const devToken = client.devToken(userId);
-      console.log("[ChatService] In development mode - using dev token");
       await saveUserTokenToStorage(userId, devToken);
       return devToken;
     }
 
-    // For production: Don't use dev token, throw an error instead
-    throw new Error("Không thể lấy token chat hợp lệ. Vui lòng thử lại sau.");
-    */
+    throw new Error("Không thể lấy token chat hợp lệ");
   } catch (error) {
-    console.error("[ChatService] Error getting chat token:", error);
+    console.error("[ChatService] Error in getChatToken:", error);
     throw error;
   }
 }

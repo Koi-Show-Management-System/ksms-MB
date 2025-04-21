@@ -72,7 +72,8 @@ const EnhancedLivestreamUI: React.FC<EnhancedLivestreamUIProps> = ({
         {/* Back button */}
         <TouchableOpacity
           style={styles.backButtonOverlay}
-          onPress={handleLeave}>
+          onPress={handleLeave}
+        >
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
       </View>

@@ -26,6 +26,16 @@ interface EnhancedLivestreamChatProps {
   profileImage?: string;
 }
 
+// Thêm interface cho error
+interface StreamError {
+  response?: {
+    data?: any;
+  };
+  message?: string;
+  code?: number;
+  status?: number;
+}
+
 const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
   userId,
   userName,
@@ -42,128 +52,94 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 3;
 
+  // Thêm hàm xử lý lỗi
+  const handleChatError = (error: StreamError) => {
+    console.error("[EnhancedLivestreamChat] Handling chat error:", error);
+
+    if (error.message?.includes("token") || error.code === 40) {
+      setError("Lỗi xác thực. Vui lòng thử lại.");
+    } else if (
+      error.message?.includes("network") ||
+      error.message?.includes("connection")
+    ) {
+      setError("Lỗi kết nối mạng. Vui lòng kiểm tra kết nối.");
+    } else {
+      setError(`Lỗi chat: ${error.message || "Không xác định"}`);
+    }
+  };
+
   // Initialize chat client and connect user
   const initializeChat = useCallback(async () => {
     try {
       setIsLoading(true);
+      console.log("[EnhancedLivestreamChat] Starting initialization...");
 
       if (!userId) {
         throw new Error("User ID is required for chat");
       }
 
-      console.log(
-        "[EnhancedLivestreamChat] Initializing chat for user:",
-        userId
-      );
-
-      // Initialize the chat client
+      // Khởi tạo chat client
       const chatClient = initChatClient();
+      console.log("[EnhancedLivestreamChat] Chat client initialized");
 
-      // Get token for authentication - pass livestreamId to use the same token
+      // Lấy token
       const token = await getChatToken(userId, livestreamId);
+      console.log("[EnhancedLivestreamChat] Got token:", token ? "Yes" : "No");
 
       if (!token) {
-        throw new Error("Failed to obtain chat authentication token");
+        throw new Error("Không thể lấy token chat");
       }
 
-      // Connect user to Stream Chat
+      // Kết nối user
       await connectUser(userId, userName, token, profileImage);
+      console.log("[EnhancedLivestreamChat] User connected");
 
       setClient(chatClient);
-      console.log("[EnhancedLivestreamChat] Stream Chat client initialized");
 
-      // Create or get channel
+      // Tạo channel
       const channelId = `livestream-${livestreamId}`;
-      const channelType = "livestream";
+      console.log("[EnhancedLivestreamChat] Creating channel:", channelId);
 
-      // Set up channel data according to official docs
-      const channelData = {
+      const channelInstance = chatClient.channel("livestream", channelId, {
         name: `${showName || "Koi Show"} Chat`,
-        image:
-          "https://getstream.io/random_svg/?name=" +
-          encodeURIComponent(showName || "Koi Show"),
-        // Stream docs recommend adding these fields
-        created_by_id: userId,
         members: [userId],
-      };
+        created_by_id: userId,
+      });
 
-      // Create a channel instance
-      const channelInstance = chatClient.channel(
-        channelType,
-        channelId,
-        channelData
-      );
-
-      // Send a system message to verify channel is working
+      // Watch channel
       try {
-        await channelInstance.sendMessage({
-          text: `${userName} joined the livestream chat`,
-          type: "system",
-        });
-      } catch (msgError) {
-        console.error("Error sending system message:", msgError);
-        // Continue even if system message fails
+        const watchResponse = await channelInstance.watch();
+        console.log(
+          "[EnhancedLivestreamChat] Channel watch response:",
+          watchResponse
+        );
+      } catch (watchError) {
+        console.error(
+          "[EnhancedLivestreamChat] Error watching channel:",
+          watchError
+        );
+        throw watchError;
       }
-
-      // Watch the channel to connect to it
-      await channelInstance.watch();
-      console.log(
-        "[EnhancedLivestreamChat] Channel watched successfully:",
-        channelId
-      );
 
       setChannel(channelInstance);
       setError(null);
-      reconnectAttempts.current = 0;
-    } catch (err: any) {
-      console.error("[EnhancedLivestreamChat] Error initializing chat:", err);
-
-      // User-friendly error message based on error type
-      if (err.message?.includes("token") || err.code === 40) {
-        setError("Authentication error. Please try again.");
-
-        // Xóa token đã lưu trong trường hợp lỗi xác thực
-        try {
-          const AsyncStorage =
-            require("@react-native-async-storage/async-storage").default;
-          await AsyncStorage.removeItem("@StreamChat:userToken");
-          console.log(
-            "[EnhancedLivestreamChat] Cleared stored token due to auth error"
-          );
-        } catch (storageError) {
-          console.error(
-            "[EnhancedLivestreamChat] Error clearing token:",
-            storageError
-          );
-        }
-      } else if (
-        err.message?.includes("network") ||
-        err.message?.includes("connection")
-      ) {
-        setError("Network issue. Please check your connection.");
-
-        // Attempt to reconnect
-        if (reconnectAttempts.current < maxReconnectAttempts) {
-          reconnectAttempts.current += 1;
-          setReconnecting(true);
-
-          setTimeout(() => {
-            console.log(
-              `[EnhancedLivestreamChat] Reconnect attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`
-            );
-            initializeChat();
-          }, 3000);
-        } else {
-          setError(
-            "Failed to connect after multiple attempts. Please try again later."
-          );
-        }
-      } else {
-        setError(`Chat error: ${err.message}`);
+      console.log("[EnhancedLivestreamChat] Chat initialized successfully");
+    } catch (err: unknown) {
+      console.error("[EnhancedLivestreamChat] Error:", err);
+      // Log chi tiết lỗi
+      const error = err as StreamError;
+      if (error.response) {
+        console.error(
+          "[EnhancedLivestreamChat] Error response:",
+          error.response.data
+        );
       }
+      if (error.message) {
+        console.error("[EnhancedLivestreamChat] Error message:", error.message);
+      }
+      handleChatError(error);
     } finally {
       setIsLoading(false);
-      setReconnecting(false);
     }
   }, [userId, userName, livestreamId, showName, profileImage]);
 
@@ -259,7 +235,8 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+    >
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeftContent}>
@@ -290,7 +267,8 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
         <Channel
           channel={channel as any}
           thread={thread}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        >
           <View style={styles.chatContainer}>
             <MessageList
               onThreadSelect={(message) => {
