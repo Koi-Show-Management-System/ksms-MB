@@ -523,28 +523,42 @@ export default function KoiInformation() {
                     <View
                       style={[
                         styles.achievementIcon,
-                        index === 0 ? styles.goldIcon : styles.silverIcon,
+                        achievement.awardType === "first" 
+                          ? styles.goldIcon 
+                          : achievement.awardType === "second" 
+                          ? styles.silverIcon 
+                          : achievement.awardType === "third" 
+                          ? styles.bronzeIcon 
+                          : achievement.awardType === "grand_champion" 
+                          ? styles.grandChampionIcon 
+                          : styles.otherAwardIcon,
                       ]}>
                       <Text style={styles.achievementIconText}>
-                        {achievement.icon === "trophy" ? "🏆" : "🥇"}
+                        {achievement.awardType === "first" ? "🥇" : 
+                         achievement.awardType === "second" ? "🥈" : 
+                         achievement.awardType === "third" ? "🥉" : 
+                         achievement.awardType === "grand_champion" ? "🏆" : 
+                         achievement.awardType === "peoples_choice" ? "👑" : "🎖️"}
                       </Text>
                     </View>
                     <View style={styles.achievementTitleContainer}>
                       <Text style={styles.achievementTitle}>
-                        {achievement.title}
+                        {achievement.awardName}
                       </Text>
                       <Text style={styles.achievementSubtitle}>
-                        {achievement.show} - {achievement.year}
+                        {achievement.showName} - {new Date(achievement.competitionDate).getFullYear()}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.achievementDetails}>
-                    <Text style={styles.achievementDetail}>
-                      <Text style={styles.achievementDetailLabel}>
-                        Danh mục:
-                      </Text>{" "}
-                      {achievement.category}
-                    </Text>
+                    {achievement.categoryName && (
+                      <Text style={styles.achievementDetail}>
+                        <Text style={styles.achievementDetailLabel}>
+                          Danh mục:
+                        </Text>{" "}
+                        {achievement.categoryName}
+                      </Text>
+                    )}
                     {achievement.location && (
                       <Text style={styles.achievementDetail}>
                         <Text style={styles.achievementDetailLabel}>
@@ -553,6 +567,20 @@ export default function KoiInformation() {
                         {achievement.location}
                       </Text>
                     )}
+                    {achievement.prizeValue && (
+                      <Text style={styles.achievementDetail}>
+                        <Text style={styles.achievementDetailLabel}>
+                          Giá trị giải thưởng:
+                        </Text>{" "}
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(achievement.prizeValue)}
+                      </Text>
+                    )}
+                    <Text style={styles.achievementDetail}>
+                      <Text style={styles.achievementDetailLabel}>
+                        Ngày thi đấu:
+                      </Text>{" "}
+                      {new Date(achievement.competitionDate).toLocaleDateString('vi-VN')}
+                    </Text>
                   </View>
                 </View>
               ))}
@@ -560,7 +588,7 @@ export default function KoiInformation() {
           ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                Cá Koi này chưa có thành tích nào
+                Cá Koi này chưa đạt bất kỳ giải thưởng nào
               </Text>
             </View>
           )}
@@ -1187,6 +1215,15 @@ const styles = StyleSheet.create({
   },
   silverIcon: {
     backgroundColor: "#C0C0C0",
+  },
+  bronzeIcon: {
+    backgroundColor: "#CD7F32",
+  },
+  grandChampionIcon: {
+    backgroundColor: "#FF4500",
+  },
+  otherAwardIcon: {
+    backgroundColor: "#9370DB",
   },
   achievementIconText: {
     fontSize: 20,
