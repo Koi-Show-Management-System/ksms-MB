@@ -1126,7 +1126,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: "#e0e0e0",
-    height: 280, // Adjusted height
+    height: 320, // Increased height to show more content
   },
   contestantCardContent: {
     flex: 1,
@@ -1156,7 +1156,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   contestantInfo: {
-    padding: 10, // Adjusted padding
+    padding: 12, // Increased padding for better spacing
+    flex: 1, // Use all available space
   },
   contestantName: {
     fontSize: 14, // Adjusted font size
