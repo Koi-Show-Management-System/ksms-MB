@@ -327,11 +327,15 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
         </View>
       )}
 
-      <OverlayProvider>
-        <Chat client={client} style={chatTheme}>
-          <Channel channel={channel}>
+      <OverlayProvider bottomInset={0} topInset={0}>
+        <Chat client={client as any} style={chatTheme}>
+          <Channel channel={channel as any} keyboardVerticalOffset={0}>
             <View style={styles.chatContainer}>
-              <MessageList />
+              <MessageList
+                additionalFlatListProps={{
+                  showsVerticalScrollIndicator: true,
+                }}
+              />
               <MessageInput />
             </View>
           </Channel>
