@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCall, useCallStateHooks } from "@stream-io/video-react-native-sdk";
 import React, { useCallback } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import EnhancedLivestreamChat from "./EnhancedLivestreamChat";
 
 interface EnhancedLivestreamUIProps {
   children: React.ReactNode;
@@ -77,33 +76,11 @@ const EnhancedLivestreamUI: React.FC<EnhancedLivestreamUIProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Stream information */}
-      <View style={styles.infoSection}>
-        <Text style={styles.streamTitle}>
-          {showName || "Koi Show Livestream"}
-        </Text>
-        <View style={styles.streamStats}>
-          <TouchableOpacity style={styles.statButton}>
-            <Ionicons name="chatbubble-outline" size={20} color="#333" />
-            <Text style={styles.statText}>Chat</Text>
-          </TouchableOpacity>
+      {/* Stream information - Removed redundant section */}
 
-          <TouchableOpacity style={styles.statButton}>
-            <Ionicons name="share-social-outline" size={20} color="#333" />
-            <Text style={styles.statText}>Chia sẻ</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Chat section */}
+      {/* Chat section - Kept container but removed redundant chat component */}
       <View style={styles.commentsContainer}>
-        <EnhancedLivestreamChat
-          userId={userId}
-          userName={userName}
-          livestreamId={livestreamId}
-          showName={showName}
-          profileImage={userProfileImage}
-        />
+        {/* Chat component removed to avoid duplication */}
       </View>
     </View>
   );

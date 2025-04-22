@@ -31,6 +31,7 @@ import {
 } from "../../../services/livestreamService";
 import EnhancedLivestreamChat from "../../../components/EnhancedLivestreamChat";
 import LivestreamChat from "../../../components/LivestreamChat";
+import api from "../../../services/api";
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
@@ -195,8 +196,8 @@ const LivestreamContent: React.FC<
   const [isLoadingCall, setIsLoadingCall] = useState(true);
   const [callError, setCallError] = useState<string | null>(null);
   const [apiStatus, setApiStatus] = useState<string | null>(null); // Store status from API
-  const intervalRef = useRef<NodeJS.Timeout | null>(null); // Use NodeJS.Timeout for setInterval ID
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null); // For retry timeouts
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null); // Sửa kiểu cho setInterval
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null); // Sửa kiểu cho setTimeout
   const joinAttemptsRef = useRef<number>(0);
   const MAX_JOIN_ATTEMPTS = 3;
 
@@ -288,6 +289,11 @@ const LivestreamContent: React.FC<
             });
 
             try {
+              // Kiểm tra null trước khi gọi join
+              if (!currentCall) {
+                throw new Error("Call instance is null");
+              }
+
               // Use valid options for join call
               const joinResult = await currentCall.join({
                 create: false,
@@ -350,7 +356,7 @@ const LivestreamContent: React.FC<
                 const delayMs = 1000 * Math.pow(2, joinAttemptsRef.current - 1);
 
                 if (isMounted) {
-                  retryTimeoutRef.current = setTimeout(attemptJoin, delayMs);
+                  retryTimeoutRef.current = setTimeout(attemptJoin, delayMs) as ReturnType<typeof setTimeout>;
                 }
               } else {
                 throw new Error(
@@ -559,6 +565,31 @@ const LivestreamViewerScreen: React.FC = () => {
     undefined
   );
 
+  // Function để lấy thông tin user profile từ API
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      console.log(`[LivestreamViewer] Fetching user profile for ID: ${userId}`);
+      const response = await api.get(`/api/v1/account/${userId}`);
+      
+      if (response.data.statusCode === 200) {
+        const userInfo = response.data.data;
+        
+        // Cập nhật thông tin người dùng với dữ liệu thật từ API
+        const username = userInfo.username || userInfo.fullName || `User-${userId.slice(0, 8)}`;
+        const profileImage = userInfo.avatar || userInfo.profileImage || undefined;
+        
+        console.log(`[LivestreamViewer] User profile fetched successfully: ${username}`);
+        return { username, profileImage };
+      } else {
+        console.warn(`[LivestreamViewer] Failed to fetch user profile: ${response.data.message}`);
+        return null;
+      }
+    } catch (error) {
+      console.error('[LivestreamViewer] Error fetching user profile:', error);
+      return null;
+    }
+  };
+
   // --- Effect for Client Setup and Token Fetching ---
   useEffect(() => {
     let isMounted = true;
@@ -642,19 +673,42 @@ const LivestreamViewerScreen: React.FC = () => {
           throw new Error("Token không có quyền truy cập vào livestream này");
         }
 
-        // Chuẩn bị đối tượng người dùng để kết nối
-        const userToConnect: User = {
-          id: tokenPayload.user_id,
-          name: `Viewer-${tokenPayload.user_id.slice(0, 8)}`,
+        // Lưu ID người dùng
+        const userId = tokenPayload.user_id;
+        if (isMounted) setUserId(userId);
+
+        // Tạo đối tượng user tạm thời
+        let userToConnect: User = {
+          id: userId,
+          name: `Viewer-${userId.slice(0, 8)}`,
           type: "authenticated",
         };
 
-        // Lưu thông tin người dùng để sử dụng cho chat
-        if (isMounted) {
-          setUserId(userToConnect.id);
-          setUserName(userToConnect.name);
-          // Có thể lấy profile image từ storage hoặc API nếu có
-          setUserProfileImage(userToConnect.image);
+        // Lấy thông tin chi tiết người dùng từ API
+        try {
+          const userInfo = await fetchUserProfile(userId);
+          
+          // Nếu lấy được thông tin từ API, cập nhật tên và avatar
+          if (userInfo) {
+            userToConnect.name = userInfo.username;
+            userToConnect.image = userInfo.profileImage;
+            
+            if (isMounted) {
+              setUserName(userInfo.username || "");
+              setUserProfileImage(userInfo.profileImage);
+            }
+          } else {
+            // Nếu không lấy được từ API, dùng thông tin từ token
+            if (isMounted) {
+              setUserName(userToConnect.name || "");
+            }
+          }
+        } catch (profileError) {
+          console.error("[LivestreamViewer] Error fetching user profile:", profileError);
+          // Vẫn dùng thông tin từ token nếu có lỗi
+          if (isMounted) {
+            setUserName(userToConnect.name || "");
+          }
         }
 
         // --- TRỰC TIẾP TRUYỀN TOKEN ---
@@ -666,7 +720,7 @@ const LivestreamViewerScreen: React.FC = () => {
         videoClient = new StreamVideoClient({
           apiKey,
           token: fetchedToken, // Sử dụng token trực tiếp, không qua tokenProvider
-          user: userToConnect, // Truyền user object cùng lúc
+          user: userToConnect, // Sử dụng user object đã cập nhật từ API
           options: {
             timeout: 15000, // Tăng timeout lên để tránh issues với mạng chậm
           },
