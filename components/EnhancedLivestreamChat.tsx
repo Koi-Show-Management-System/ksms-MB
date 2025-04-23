@@ -262,7 +262,7 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}>
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeftContent}>
@@ -293,7 +293,7 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
         <Channel
           channel={channel as any}
           thread={thread}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
+          keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}>
           <View style={styles.chatContainer}>
             <MessageList
               onThreadSelect={(message) => {
@@ -312,13 +312,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+    marginTop: 0,
+    paddingTop: 0,
   },
   header: {
-    paddingVertical: 8,
+    paddingVertical: 6,
     paddingHorizontal: 16,
     backgroundColor: "#FFFFFF",
+    borderTopWidth: 0,
     borderBottomWidth: 1,
     borderBottomColor: "#E9ECEF",
+    marginTop: 0,
   },
   headerContent: {
     flexDirection: "row",

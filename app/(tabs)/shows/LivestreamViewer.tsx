@@ -829,7 +829,7 @@ const LivestreamViewerScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.streamChatContainer}>
-        {/* Stream section */}
+        {/* Stream section - chiều cao cố định */}
         <View style={styles.streamWrapper}>
           <StreamVideo client={client}>
             {/* Pass livestreamId down */}
@@ -845,7 +845,7 @@ const LivestreamViewerScreen: React.FC = () => {
           </StreamVideo>
         </View>
 
-        {/* Chat panel - ngay phía dưới stream, không có khoảng cách */}
+        {/* Chat panel - trực tiếp ngay bên dưới stream */}
         {client && callId && livestreamId && (
           <View style={styles.chatWrapper}>
             <EnhancedLivestreamChat
@@ -874,15 +874,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   streamWrapper: {
-    // Sử dụng tỷ lệ cố định thay vì flex để stream không chiếm quá nhiều không gian
+    // Sử dụng tỷ lệ cố định thay vì flex
     height: (width * 9) / 16, // Tỷ lệ 16:9 cho video
     backgroundColor: "#000",
+    borderBottomWidth: 0, // Đảm bảo không có đường viền
   },
   chatWrapper: {
-    flex: 1, // Chat chiếm phần còn lại của màn hình
+    flex: 1, // Chat chiếm phần còn lại
+    marginTop: 0, // Không có margin
+    paddingTop: 0, // Không có padding
     backgroundColor: "#FFF",
-    // Loại bỏ padding và margin để sát với stream
-    borderTopWidth: 0,
   },
   centered: {
     // For initial loading/error covering the whole screen

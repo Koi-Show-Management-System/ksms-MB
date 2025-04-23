@@ -75,13 +75,6 @@ const EnhancedLivestreamUI: React.FC<EnhancedLivestreamUIProps> = ({
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
       </View>
-
-      {/* Stream information - Removed redundant section */}
-
-      {/* Chat section - Kept container but removed redundant chat component */}
-      <View style={styles.commentsContainer}>
-        {/* Chat component removed to avoid duplication */}
-      </View>
     </View>
   );
 };
@@ -89,7 +82,7 @@ const EnhancedLivestreamUI: React.FC<EnhancedLivestreamUIProps> = ({
 const styles = StyleSheet.create({
   livestreamContainer: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#000",
   },
   videoWrapper: {
     width: "100%",
@@ -175,11 +168,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 4,
     color: "#666",
-  },
-  commentsContainer: {
-    flex: 1,
-    backgroundColor: "#fff",
-    padding: 0,
   },
   centeredContent: {
     flex: 1,
