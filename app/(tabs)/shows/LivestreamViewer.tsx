@@ -847,7 +847,7 @@ const LivestreamViewerScreen: React.FC = () => {
 
         {/* Chat panel - trực tiếp ngay bên dưới stream */}
         {client && callId && livestreamId && (
-          <View style={styles.chatWrapper}>
+          <View style={[styles.chatWrapper, {flex: 2}]}>
             <EnhancedLivestreamChat
               userId={userId}
               userName={userName}
@@ -875,7 +875,7 @@ const styles = StyleSheet.create({
   },
   streamWrapper: {
     // Sử dụng tỷ lệ cố định thay vì flex
-    height: (width * 9) / 16, // Tỷ lệ 16:9 cho video
+    height: (width * 9) / 24, // Giảm tỷ lệ xuống thấp hơn để chat có nhiều không gian hơn
     backgroundColor: "#000",
     borderBottomWidth: 0, // Đảm bảo không có đường viền
   },
@@ -883,6 +883,7 @@ const styles = StyleSheet.create({
     flex: 1, // Chat chiếm phần còn lại
     marginTop: 0, // Không có margin
     paddingTop: 0, // Không có padding
+    paddingBottom: 80, // Tăng padding bottom lên 80
     backgroundColor: "#FFF",
   },
   centered: {

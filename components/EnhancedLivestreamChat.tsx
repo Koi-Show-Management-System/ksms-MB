@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import {
   initChatClient,
   setupAutomaticChatReconnection,
 } from "../services/chatService";
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 interface EnhancedLivestreamChatProps {
   userId: string;
@@ -259,52 +259,71 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
 
   // Render Stream Chat UI - following EXACT structure from official examples
   return (
-    <KeyboardAvoidingView
+    <KeyboardAwareScrollView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.headerLeftContent}>
-            <View style={styles.activeDot} />
-            <Text style={styles.headerTitle}>
-              {showName ? `Chat - ${showName}` : "Livestream Chat"}
-            </Text>
+      contentContainerStyle={{ flexGrow: 1 }}
+      keyboardShouldPersistTaps="handled"
+      enableOnAndroid={true}
+      enableAutomaticScroll={Platform.OS === 'ios'}
+      extraScrollHeight={150}
+      extraHeight={150}
+      keyboardOpeningTime={0}>
+      <View style={{flex: 1, paddingBottom: 100}}>
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.headerLeftContent}>
+              <View style={styles.activeDot} />
+              <Text style={styles.headerTitle}>
+                {showName ? `Chat - ${showName}` : "Livestream Chat"}
+              </Text>
+            </View>
+            <TouchableOpacity>
+              <Ionicons
+                name="information-circle-outline"
+                size={22}
+                color="#666"
+              />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity>
-            <Ionicons
-              name="information-circle-outline"
-              size={22}
-              color="#666"
-            />
-          </TouchableOpacity>
         </View>
+
+        {error && (
+          <View style={styles.warningBanner}>
+            <Ionicons name="warning-outline" size={16} color="#FFD700" />
+            <Text style={styles.warningText}>{error}</Text>
+          </View>
+        )}
+
+        {/* Removed OverlayProvider as it's already provided at root level */}
+        <Chat client={client as any} style={chatTheme}>
+          <Channel
+            channel={channel as any}
+            thread={thread}
+            keyboardVerticalOffset={150}>
+            <View style={styles.chatContainer}>
+              <View style={{flex: 0.85}}>
+                <MessageList
+                  onThreadSelect={(message) => {
+                    setThread(message);
+                  }}
+                />
+              </View>
+              <View style={{flex: 0.15, minHeight: 70}}>
+                <MessageInput 
+                  additionalTextInputProps={{
+                    style: {
+                      marginBottom: 10,
+                      paddingBottom: 5,
+                    }
+                  }}
+                />
+              </View>
+              <View style={styles.bottomSpacer} />
+            </View>
+          </Channel>
+        </Chat>
       </View>
-
-      {error && (
-        <View style={styles.warningBanner}>
-          <Ionicons name="warning-outline" size={16} color="#FFD700" />
-          <Text style={styles.warningText}>{error}</Text>
-        </View>
-      )}
-
-      {/* Removed OverlayProvider as it's already provided at root level */}
-      <Chat client={client as any} style={chatTheme}>
-        <Channel
-          channel={channel as any}
-          thread={thread}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}>
-          <View style={styles.chatContainer}>
-            <MessageList
-              onThreadSelect={(message) => {
-                setThread(message);
-              }}
-            />
-            <MessageInput />
-          </View>
-        </Channel>
-      </Chat>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   );
 };
 
@@ -314,6 +333,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     marginTop: 0,
     paddingTop: 0,
+    paddingBottom: 80,
   },
   header: {
     paddingVertical: 6,
@@ -353,6 +373,7 @@ const styles = StyleSheet.create({
   messageListContainer: {
     flex: 1,
     backgroundColor: "#F8F9FA",
+    maxHeight: "80%",
   },
   messageInputContainer: {
     backgroundColor: "#FFFFFF",
@@ -360,12 +381,18 @@ const styles = StyleSheet.create({
     borderTopColor: "#E9ECEF",
     paddingVertical: 8,
     paddingHorizontal: 12,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E9ECEF",
+    marginBottom: 50,
+    minHeight: 60,
   },
   inputBox: {
     backgroundColor: "#F1F3F5",
     borderRadius: 20,
     paddingHorizontal: 12,
     fontSize: 14,
+    minHeight: 40,
   },
   messageContent: {
     backgroundColor: "#E9ECEF",
@@ -432,6 +459,10 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: "#FFFFFF",
     fontWeight: "bold",
+  },
+  bottomSpacer: {
+    height: 80,
+    backgroundColor: "transparent",
   },
 });
 
