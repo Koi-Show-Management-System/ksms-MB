@@ -155,7 +155,9 @@ const CallStateHandler: React.FC<{
           userId={userId}
           userName={userName}
           userProfileImage={userProfileImage}>
-          <ViewerLivestream />
+          <View style={{ height: '100%' }}>
+            <ViewerLivestream />
+          </View>
         </EnhancedLivestreamUI>
       );
     default:
@@ -826,32 +828,37 @@ const LivestreamViewerScreen: React.FC = () => {
   console.log("Rendering StreamVideo provider and LivestreamContent");
   return (
     <SafeAreaView style={styles.container}>
-      <StreamVideo client={client}>
-        {/* Pass livestreamId down */}
-        <LivestreamContent
-          callId={callId}
-          callType="livestream"
-          livestreamId={livestreamId}
-          showName={showName}
-          userId={userId}
-          userName={userName}
-          userProfileImage={userProfileImage}
-          // Pass the call object up via ref if needed by parent, though maybe not necessary now
-          // ref={(c) => callRef.current = c} // This won't work directly on functional components
-        />
-      </StreamVideo>
+      <View style={styles.streamChatContainer}>
+        {/* Stream section */}
+        <View style={styles.streamWrapper}>
+          <StreamVideo client={client}>
+            {/* Pass livestreamId down */}
+            <LivestreamContent
+              callId={callId}
+              callType="livestream"
+              livestreamId={livestreamId}
+              showName={showName}
+              userId={userId}
+              userName={userName}
+              userProfileImage={userProfileImage}
+            />
+          </StreamVideo>
+        </View>
 
-      {/* Chat panel */}
-      {client && callId && livestreamId && (
-        <EnhancedLivestreamChat
-          userId={userId}
-          userName={userName}
-          livestreamId={livestreamId}
-          showName={showName || "Livestream"}
-          callId={callId}
-          profileImage={userProfileImage}
-        />
-      )}
+        {/* Chat panel - ngay phía dưới stream, không có khoảng cách */}
+        {client && callId && livestreamId && (
+          <View style={styles.chatWrapper}>
+            <EnhancedLivestreamChat
+              userId={userId}
+              userName={userName}
+              livestreamId={livestreamId}
+              showName={showName || "Livestream"}
+              callId={callId}
+              profileImage={userProfileImage}
+            />
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 };
@@ -860,6 +867,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
+  },
+  streamChatContainer: {
+    flex: 1,
+    flexDirection: 'column',
+    backgroundColor: "#000",
+  },
+  streamWrapper: {
+    // Sử dụng tỷ lệ cố định thay vì flex để stream không chiếm quá nhiều không gian
+    height: (width * 9) / 16, // Tỷ lệ 16:9 cho video
+    backgroundColor: "#000",
+  },
+  chatWrapper: {
+    flex: 1, // Chat chiếm phần còn lại của màn hình
+    backgroundColor: "#FFF",
+    // Loại bỏ padding và margin để sát với stream
+    borderTopWidth: 0,
   },
   centered: {
     // For initial loading/error covering the whole screen

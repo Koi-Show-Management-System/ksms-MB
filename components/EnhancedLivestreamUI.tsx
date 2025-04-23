@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   commentsContainer: {
     flex: 1,
     backgroundColor: "#fff",
-    padding: 16,
+    padding: 0,
   },
   centeredContent: {
     flex: 1,
