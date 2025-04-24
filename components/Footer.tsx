@@ -206,6 +206,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
+    // Không đặt chiều cao cố định ở đây để tự động điều chỉnh theo nội dung
   },
   footerBorder: {
     height: 1,
@@ -216,7 +217,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    height: 70, // Nên đặt chiều cao cố định cho content nếu wrapper không có chiều cao
+    minHeight: 70, // Sử dụng minHeight thay vì height để đảm bảo có thể mở rộng nếu cần
     // paddingBottom được thêm động ở trên
   },
   footerItem: {

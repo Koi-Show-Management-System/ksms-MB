@@ -227,7 +227,7 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
 
     const handleConnectionChange = (event: any) => {
       const isOnline = !!event.online; // Chuyển sang boolean rõ ràng
-      
+
       console.log(
         `[LivestreamChat] Connection status changed: ${
           isOnline ? "online" : "offline"
@@ -266,6 +266,13 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
         <Text style={styles.loadingText}>
           {reconnecting ? "Reconnecting to chat..." : "Connecting to chat..."}
         </Text>
+        <Text
+          style={[
+            styles.loadingText,
+            { fontSize: 12, marginTop: 4, opacity: 0.7 },
+          ]}>
+          Please wait while we connect you to the livestream chat
+        </Text>
       </View>
     );
   }
@@ -275,8 +282,21 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={24} color="#FF6B6B" />
         <Text style={styles.errorText}>{error}</Text>
+        <Text
+          style={[
+            styles.errorText,
+            { fontSize: 12, opacity: 0.7, marginBottom: 8 },
+          ]}>
+          Unable to connect to the livestream chat at this time
+        </Text>
         <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Ionicons
+            name="refresh-outline"
+            size={16}
+            color="#FFFFFF"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.retryButtonText}>Retry Connection</Text>
         </TouchableOpacity>
       </View>
     );
@@ -285,29 +305,44 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
   if (!client || !channel) {
     return (
       <View style={styles.errorContainer}>
+        <Ionicons
+          name="chatbubble-ellipses-outline"
+          size={32}
+          color="#666666"
+        />
         <Text style={styles.errorText}>
           Unable to connect to chat. Please reload the livestream.
         </Text>
         <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+          <Ionicons
+            name="refresh-outline"
+            size={16}
+            color="#FFFFFF"
+            style={{ marginRight: 6 }}
+          />
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  // Define theme for Stream Chat components
+  // Define theme for Stream Chat components - enhanced for livestream appearance
   const chatTheme = {
     messageList: {
       container: styles.messageListContainer,
+      contentContainer: styles.messageListContentContainer,
     },
     messageInput: {
       container: styles.messageInputContainer,
       inputBox: styles.inputBox,
+      sendButton: styles.sendButton,
+      attachButton: styles.attachButton,
     },
     message: {
       content: {
         container: styles.messageContent,
         containerMine: styles.myMessageContent,
+        markdown: styles.messageText,
       },
       avatarWrapper: {
         container: styles.avatarWrapper,
@@ -315,6 +350,33 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
       status: {
         readBy: styles.readBy,
       },
+      gallery: {
+        width: 200, // Limit gallery width for livestream chat
+      },
+      card: {
+        container: styles.cardContainer,
+      },
+      replies: {
+        container: styles.repliesContainer,
+      },
+    },
+    messageSimple: {
+      container: styles.messageContainer,
+      content: {
+        container: styles.messageContentWrapper,
+        containerInner: styles.messageContentInner,
+      },
+      avatarWrapper: {
+        container: styles.avatarWrapper,
+      },
+      metadata: {
+        container: styles.metadataContainer,
+      },
+      textContainer: styles.textContainer,
+    },
+    typing: {
+      container: styles.typingContainer,
+      text: styles.typingText,
     },
   };
 
@@ -324,6 +386,9 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
         <View style={styles.warningBanner}>
           <Ionicons name="warning-outline" size={16} color="#FFD700" />
           <Text style={styles.warningText}>{error}</Text>
+          <TouchableOpacity onPress={handleRetry}>
+            <Ionicons name="refresh-outline" size={16} color="#856404" />
+          </TouchableOpacity>
         </View>
       )}
 
@@ -334,9 +399,20 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
               <MessageList
                 additionalFlatListProps={{
                   showsVerticalScrollIndicator: true,
+                  initialNumToRender: 15,
+                  maxToRenderPerBatch: 10,
+                  windowSize: 10,
+                  removeClippedSubviews: true, // Optimize performance
+                }}
+                noGroupByUser={true} // Don't group messages by user for livestream style
+              />
+              <MessageInput
+                additionalTextInputProps={{
+                  placeholder: "Chat in livestream...",
+                  placeholderTextColor: "rgba(255, 255, 255, 0.5)",
+                  maxLength: 200, // Limit message length for livestream chat
                 }}
               />
-              <MessageInput />
             </View>
           </Channel>
         </Chat>
@@ -348,7 +424,7 @@ const LivestreamChat: React.FC<LivestreamChatProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#1A1A1A", // Darker background for livestream chat
   },
   chatContainer: {
     flex: 1,
@@ -357,51 +433,115 @@ const styles = StyleSheet.create({
   },
   messageListContainer: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: "rgba(26, 26, 26, 0.9)", // Semi-transparent dark background
+  },
+  messageListContentContainer: {
+    paddingHorizontal: 8, // Tighter padding for livestream chat
   },
   messageInputContainer: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(40, 40, 40, 0.95)", // Darker input area
     borderTopWidth: 1,
-    borderTopColor: "#E9ECEF",
-    paddingVertical: 8,
+    borderTopColor: "#333333",
+    paddingVertical: 6, // Smaller padding for more compact input
+    paddingHorizontal: 8,
   },
   inputBox: {
-    backgroundColor: "#F1F3F5",
+    backgroundColor: "rgba(60, 60, 60, 0.6)", // Semi-transparent input
     borderRadius: 20,
     paddingHorizontal: 12,
+    paddingVertical: 6, // Smaller vertical padding
+    color: "#FFFFFF", // White text
+    fontSize: 14, // Smaller font size
+  },
+  sendButton: {
+    backgroundColor: "#0066CC",
+  },
+  attachButton: {
+    backgroundColor: "transparent",
+  },
+  // Message styling
+  messageContainer: {
+    paddingVertical: 4, // Tighter spacing between messages
+    marginVertical: 1,
   },
   messageContent: {
-    backgroundColor: "#E9ECEF",
-    borderRadius: 16,
-    padding: 10,
+    backgroundColor: "rgba(60, 60, 60, 0.6)", // Semi-transparent message bubbles
+    borderRadius: 12,
+    padding: 8, // Smaller padding
+    borderWidth: 1,
+    borderColor: "rgba(80, 80, 80, 0.5)",
   },
   myMessageContent: {
-    backgroundColor: "#0084FF",
-    borderRadius: 16,
-    padding: 10,
+    backgroundColor: "rgba(0, 132, 255, 0.6)", // Semi-transparent blue for own messages
+    borderRadius: 12,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "rgba(0, 132, 255, 0.3)",
+  },
+  messageContentWrapper: {
+    backgroundColor: "transparent",
+    padding: 0,
+  },
+  messageContentInner: {
+    backgroundColor: "transparent",
+  },
+  textContainer: {
+    marginLeft: 0,
+    marginRight: 0,
+  },
+  messageText: {
+    color: "#FFFFFF", // White text
+    fontSize: 14, // Smaller font
   },
   avatarWrapper: {
-    marginRight: 8,
+    marginRight: 6, // Smaller margin
+    width: 24, // Smaller avatar
+    height: 24, // Smaller avatar
+  },
+  metadataContainer: {
+    marginTop: 2,
   },
   readBy: {
-    fontSize: 10,
+    fontSize: 8, // Smaller read indicator
+    color: "rgba(255, 255, 255, 0.6)",
   },
+  // Card and attachment styling
+  cardContainer: {
+    backgroundColor: "rgba(60, 60, 60, 0.8)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(80, 80, 80, 0.5)",
+  },
+  repliesContainer: {
+    backgroundColor: "rgba(60, 60, 60, 0.4)",
+    borderRadius: 12,
+  },
+  // Typing indicator
+  typingContainer: {
+    padding: 4,
+    backgroundColor: "transparent",
+  },
+  typingText: {
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 12,
+  },
+  // Loading and error states
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#1A1A1A", // Match the dark theme
   },
   loadingText: {
     marginTop: 8,
-    color: "#666666",
+    color: "#CCCCCC", // Lighter text for dark background
     fontSize: 14,
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#1A1A1A", // Match the dark theme
     padding: 20,
   },
   errorText: {
@@ -414,7 +554,7 @@ const styles = StyleSheet.create({
   warningBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF3CD",
+    backgroundColor: "rgba(255, 243, 205, 0.8)", // Semi-transparent warning
     padding: 8,
     borderRadius: 4,
     marginHorizontal: 8,

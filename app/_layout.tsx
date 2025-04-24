@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { enableScreens } from "react-native-screens";
 import Toast from "react-native-toast-message";
 import { OverlayProvider } from "stream-chat-expo";
+import AndroidSafeAreaConfig from "../components/AndroidSafeAreaConfig";
 import { QueryProvider } from "../context/QueryProvider";
 import { signalRService } from "../services/signalRService";
 // import { navigationRef } from '@/utils/navigationService';
@@ -56,6 +57,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+        <AndroidSafeAreaConfig />
         <QueryProvider>
           <OverlayProvider>
             <ThemeProvider

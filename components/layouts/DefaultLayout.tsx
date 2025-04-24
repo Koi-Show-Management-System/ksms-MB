@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import Header from '../Header';
-import Footer from '../Footer';
+import React from "react";
+import { StyleSheet, View } from "react-native";
+import Footer from "../Footer";
+import Header from "../Header";
 
 interface DefaultLayoutProps {
   children: React.ReactNode;
@@ -12,25 +12,25 @@ interface DefaultLayoutProps {
 
 export function DefaultLayout({
   children,
-  title = 'KSMS',
-  description = '',
-  showFooter = true
+  title = "KSMS",
+  description = "",
+  showFooter = true,
 }: DefaultLayoutProps) {
   return (
-    <View style={styles.container}>
+    <SafeAreaView
+      style={styles.container}
+      edges={["top", "right", "bottom", "left"]}>
       <Header title={title} description={description} />
-      <View style={styles.content}>
-        {children}
-      </View>
+      <View style={styles.content}>{children}</View>
       {showFooter && <Footer />}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   content: {
     flex: 1,

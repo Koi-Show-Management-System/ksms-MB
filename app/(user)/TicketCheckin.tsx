@@ -214,16 +214,20 @@ const TicketCheckin: React.FC = () => {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
+      <SafeAreaView
+        style={[styles.container, styles.loadingContainer]}
+        edges={["top", "right", "bottom", "left"]}>
         <ActivityIndicator size="large" color="#4A90E2" />
         <Text style={styles.loadingText}>Loading ticket information...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (!ticket) {
     return (
-      <View style={[styles.container, styles.errorContainer]}>
+      <SafeAreaView
+        style={[styles.container, styles.errorContainer]}
+        edges={["top", "right", "bottom", "left"]}>
         <Text style={styles.errorText}>Ticket not found</Text>
         <TouchableOpacity
           style={styles.backToTicketsButton}
@@ -232,12 +236,14 @@ const TicketCheckin: React.FC = () => {
             Back to Competition Joined
           </Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView
+      style={styles.container}
+      edges={["top", "right", "bottom", "left"]}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -283,7 +289,7 @@ const TicketCheckin: React.FC = () => {
         <QRCodeSection />
         <RegisteredKoiFish koiFish={ticket.koiFish} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -332,7 +338,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 70,
     backgroundColor: "#FFFFFF",
-    marginTop: 40,
     width: "100%",
   },
   backButton: {

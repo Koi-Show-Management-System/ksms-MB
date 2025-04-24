@@ -244,7 +244,7 @@ const InfoTabContent = ({
   });
 
   return (
-    <View style={{flex: 1}}>
+    <View style={{ flex: 1 }}>
       <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
@@ -263,7 +263,9 @@ const InfoTabContent = ({
               <Text style={styles.sectionTitle}>Chi tiết sự kiện</Text>
             </View>
             <MaterialIcons
-              name={expandedSections.eventDetails ? "expand-less" : "expand-more"}
+              name={
+                expandedSections.eventDetails ? "expand-less" : "expand-more"
+              }
               size={24}
               color="#000000"
             />
@@ -422,7 +424,9 @@ const InfoTabContent = ({
                 showData.showRules.map((rule, index) => (
                   <View key={index} style={styles.ruleContainer}>
                     <Text style={styles.ruleNumber}>{index + 1}</Text>
-                    <Text style={styles.ruleText}>{formatRuleContent(rule)}</Text>
+                    <Text style={styles.ruleText}>
+                      {formatRuleContent(rule)}
+                    </Text>
                   </View>
                 ))
               ) : (
@@ -459,7 +463,9 @@ const InfoTabContent = ({
                 showData.criteria.map((criterion, index) => (
                   <View key={index} style={styles.criterionContainer}>
                     <View style={styles.criterionBullet}>
-                      <Text style={styles.criterionBulletText}>{index + 1}</Text>
+                      <Text style={styles.criterionBulletText}>
+                        {index + 1}
+                      </Text>
                     </View>
                     <Text style={styles.criterionText}>
                       {formatCriterionContent(criterion)}
@@ -523,7 +529,8 @@ const InfoTabContent = ({
                               <View
                                 style={[
                                   styles.timelineContent,
-                                  status.isActive && styles.timelineContentActive,
+                                  status.isActive &&
+                                    styles.timelineContentActive,
                                 ]}>
                                 <Text
                                   style={[
@@ -541,13 +548,11 @@ const InfoTabContent = ({
                                       const endMonth = end.getMonth() + 1;
                                       const startYear = start.getFullYear();
                                       const endYear = end.getFullYear();
-                                      const startTime = start.toLocaleTimeString(
-                                        "vi-VN",
-                                        {
+                                      const startTime =
+                                        start.toLocaleTimeString("vi-VN", {
                                           hour: "2-digit",
                                           minute: "2-digit",
-                                        }
-                                      );
+                                        });
                                       const endTime = end.toLocaleTimeString(
                                         "vi-VN",
                                         { hour: "2-digit", minute: "2-digit" }
@@ -594,7 +599,8 @@ const InfoTabContent = ({
                                 <Text
                                   style={[
                                     styles.timelineTitle,
-                                    status.isActive && styles.timelineTitleActive,
+                                    status.isActive &&
+                                      styles.timelineTitleActive,
                                   ]}>
                                   {formatTimelineContent(status.description)}
                                 </Text>
@@ -1208,7 +1214,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollViewContent: {
-    paddingBottom: 200, // Tăng padding từ 140 lên 200 để tránh bị footer che phủ
+    paddingBottom: 120, // Đủ không gian cho footer và các nút
   },
   // Section styles
   sectionContainer: {
@@ -1622,14 +1628,17 @@ const styles = StyleSheet.create({
   // Footer styles
   footer: {
     backgroundColor: "#ffffff",
-    padding: 16,
+    padding: 6, // Giảm padding từ 8px xuống 6px
+    paddingHorizontal: 10, // Thêm padding ngang để nút không quá sát cạnh
+    paddingBottom: 4, // Giảm padding dưới thêm
     flexDirection: "row",
     borderTopWidth: 1,
     borderTopColor: "#e5e7eb",
-    gap: 12,
+    gap: 8, // Giữ nguyên gap giữa các nút
     justifyContent: "space-between",
     position: "absolute",
-    bottom: 60,
+    bottom: 0,
+    marginBottom: -6, // Tăng margin âm để đẩy footer xuống dưới nhiều hơn
     left: 0,
     right: 0,
     zIndex: 10,
@@ -1640,27 +1649,27 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   actionButton: {
-    borderRadius: 8,
-    paddingVertical: 12,
+    borderRadius: 6,
+    paddingVertical: 10, // Tăng lại padding để nút có đủ chiều cao
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     flex: 1,
+    height: 38, // Đặt chiều cao cố định cho nút
   },
   ticketButton: {
     backgroundColor: "#1e88e5",
   },
   registerButton: {
     backgroundColor: "#e53935",
-    paddingVertical: 14,
-    borderRadius: 8,
+    borderRadius: 6,
     alignItems: "center",
   },
   buttonText: {
     color: "#ffffff",
-    fontSize: 16,
+    fontSize: 14, // Tăng lại kích thước font để dễ đọc
     fontWeight: "600",
-    marginLeft: 8,
+    marginLeft: 6, // Tăng lại khoảng cách với icon
   },
   // Error and loading styles
   errorContainer: {

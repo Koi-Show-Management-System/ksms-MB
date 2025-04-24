@@ -24,14 +24,13 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import EnhancedLivestreamChat from "../../../components/EnhancedLivestreamChat";
 import EnhancedLivestreamUI from "../../../components/EnhancedLivestreamUI";
+import api from "../../../services/api";
 import {
   getLivestreamDetails,
   getLivestreamViewerToken,
 } from "../../../services/livestreamService";
-import EnhancedLivestreamChat from "../../../components/EnhancedLivestreamChat";
-import LivestreamChat from "../../../components/LivestreamChat";
-import api from "../../../services/api";
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
@@ -155,7 +154,7 @@ const CallStateHandler: React.FC<{
           userId={userId}
           userName={userName}
           userProfileImage={userProfileImage}>
-          <View style={{ height: '100%' }}>
+          <View style={{ height: "100%" }}>
             <ViewerLivestream />
           </View>
         </EnhancedLivestreamUI>
@@ -358,7 +357,10 @@ const LivestreamContent: React.FC<
                 const delayMs = 1000 * Math.pow(2, joinAttemptsRef.current - 1);
 
                 if (isMounted) {
-                  retryTimeoutRef.current = setTimeout(attemptJoin, delayMs) as ReturnType<typeof setTimeout>;
+                  retryTimeoutRef.current = setTimeout(
+                    attemptJoin,
+                    delayMs
+                  ) as ReturnType<typeof setTimeout>;
                 }
               } else {
                 throw new Error(
@@ -572,22 +574,30 @@ const LivestreamViewerScreen: React.FC = () => {
     try {
       console.log(`[LivestreamViewer] Fetching user profile for ID: ${userId}`);
       const response = await api.get(`/api/v1/account/${userId}`);
-      
+
       if (response.data.statusCode === 200) {
         const userInfo = response.data.data;
-        
+
         // Cập nhật thông tin người dùng với dữ liệu thật từ API
-        const username = userInfo.username || userInfo.fullName || `User-${userId.slice(0, 8)}`;
-        const profileImage = userInfo.avatar || userInfo.profileImage || undefined;
-        
-        console.log(`[LivestreamViewer] User profile fetched successfully: ${username}`);
+        const username =
+          userInfo.username ||
+          userInfo.fullName ||
+          `User-${userId.slice(0, 8)}`;
+        const profileImage =
+          userInfo.avatar || userInfo.profileImage || undefined;
+
+        console.log(
+          `[LivestreamViewer] User profile fetched successfully: ${username}`
+        );
         return { username, profileImage };
       } else {
-        console.warn(`[LivestreamViewer] Failed to fetch user profile: ${response.data.message}`);
+        console.warn(
+          `[LivestreamViewer] Failed to fetch user profile: ${response.data.message}`
+        );
         return null;
       }
     } catch (error) {
-      console.error('[LivestreamViewer] Error fetching user profile:', error);
+      console.error("[LivestreamViewer] Error fetching user profile:", error);
       return null;
     }
   };
@@ -689,12 +699,12 @@ const LivestreamViewerScreen: React.FC = () => {
         // Lấy thông tin chi tiết người dùng từ API
         try {
           const userInfo = await fetchUserProfile(userId);
-          
+
           // Nếu lấy được thông tin từ API, cập nhật tên và avatar
           if (userInfo) {
             userToConnect.name = userInfo.username;
             userToConnect.image = userInfo.profileImage;
-            
+
             if (isMounted) {
               setUserName(userInfo.username || "");
               setUserProfileImage(userInfo.profileImage);
@@ -706,7 +716,10 @@ const LivestreamViewerScreen: React.FC = () => {
             }
           }
         } catch (profileError) {
-          console.error("[LivestreamViewer] Error fetching user profile:", profileError);
+          console.error(
+            "[LivestreamViewer] Error fetching user profile:",
+            profileError
+          );
           // Vẫn dùng thông tin từ token nếu có lỗi
           if (isMounted) {
             setUserName(userToConnect.name || "");
@@ -847,7 +860,7 @@ const LivestreamViewerScreen: React.FC = () => {
 
         {/* Chat panel - trực tiếp ngay bên dưới stream */}
         {client && callId && livestreamId && (
-          <View style={[styles.chatWrapper, {flex: 2}]}>
+          <View style={[styles.chatWrapper, { flex: 2 }]}>
             <EnhancedLivestreamChat
               userId={userId}
               userName={userName}
@@ -870,7 +883,7 @@ const styles = StyleSheet.create({
   },
   streamChatContainer: {
     flex: 1,
-    flexDirection: 'column',
+    flexDirection: "column",
     backgroundColor: "#000",
   },
   streamWrapper: {
@@ -1121,4 +1134,5 @@ const styles = StyleSheet.create({
 });
 
 // Đảm bảo export mặc định đúng cách
-export default LivestreamViewerScreen;
+const LivestreamViewer = LivestreamViewerScreen;
+export default LivestreamViewer;

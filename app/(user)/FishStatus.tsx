@@ -442,6 +442,9 @@ const PaymentInfo: React.FC<PaymentInfoProps> = ({
               style={styles.qrcodeImage}
               resizeMode="contain"
             />
+            <Text style={styles.qrcodeNote}>
+              Vui lòng kiểm tra lịch trình để tham gia check-in đúng giờ
+            </Text>
           </View>
         )}
       </View>
@@ -1298,6 +1301,14 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     height: undefined,
     borderRadius: 8,
+  },
+  qrcodeNote: {
+    fontSize: 14,
+    color: "#E74C3C",
+    fontWeight: "500",
+    marginTop: 12,
+    textAlign: "center",
+    fontStyle: "italic",
   },
   galleryContainer: {
     paddingVertical: 20,

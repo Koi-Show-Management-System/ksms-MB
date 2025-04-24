@@ -1,6 +1,7 @@
-import React, { ReactNode } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Header from './Header';
+import React, { ReactNode } from "react";
+import { StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Header from "./Header";
 
 interface LayoutWithHeaderProps {
   children: ReactNode;
@@ -11,28 +12,26 @@ interface LayoutWithHeaderProps {
 
 const LayoutWithHeader: React.FC<LayoutWithHeaderProps> = ({
   children,
-  title = 'KSMS',
-  description = '',
+  title = "KSMS",
+  description = "",
   showHeader = true,
 }) => {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       {showHeader && <Header title={title} />}
-      <View style={styles.content}>
-        {children}
-      </View>
-    </View>
+      <View style={styles.content}>{children}</View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   content: {
     flex: 1,
   },
 });
 
-export default LayoutWithHeader; 
+export default LayoutWithHeader;

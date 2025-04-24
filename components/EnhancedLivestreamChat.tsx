@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { Channel as ChannelType, StreamChat } from "stream-chat";
 import { Channel, Chat, MessageInput, MessageList } from "stream-chat-expo";
 import {
@@ -16,7 +17,6 @@ import {
   initChatClient,
   setupAutomaticChatReconnection,
 } from "../services/chatService";
-import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 interface EnhancedLivestreamChatProps {
   userId: string;
@@ -264,11 +264,11 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
       contentContainerStyle={{ flexGrow: 1 }}
       keyboardShouldPersistTaps="handled"
       enableOnAndroid={true}
-      enableAutomaticScroll={Platform.OS === 'ios'}
+      enableAutomaticScroll={Platform.OS === "ios"}
       extraScrollHeight={150}
       extraHeight={150}
       keyboardOpeningTime={0}>
-      <View style={{flex: 1, paddingBottom: 100}}>
+      <View style={{ flex: 1, paddingBottom: 100 }}>
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <View style={styles.headerLeftContent}>
@@ -301,20 +301,20 @@ const EnhancedLivestreamChat: React.FC<EnhancedLivestreamChatProps> = ({
             thread={thread}
             keyboardVerticalOffset={150}>
             <View style={styles.chatContainer}>
-              <View style={{flex: 0.85}}>
+              <View style={{ flex: 0.85 }}>
                 <MessageList
                   onThreadSelect={(message) => {
                     setThread(message);
                   }}
                 />
               </View>
-              <View style={{flex: 0.15, minHeight: 70}}>
-                <MessageInput 
+              <View style={{ flex: 0.15, minHeight: 70 }}>
+                <MessageInput
                   additionalTextInputProps={{
                     style: {
                       marginBottom: 10,
                       paddingBottom: 5,
-                    }
+                    },
                   }}
                 />
               </View>
