@@ -785,6 +785,13 @@ const KoiList: React.FC = () => {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#000" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Danh sách cá Koi</Text>
+          <View style={{ width: 24 }} />
+        </View>
         {isLoading && !isRefreshing && !isLoadingMore ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FFA500" />
@@ -1407,10 +1414,34 @@ const KoiList: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F8F9FF",
+    backgroundColor: "#fff",
   },
   container: {
     flex: 1,
+  },
+  header: {
+    width: "100%",
+    height: 60,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333333",
+    textAlign: "center",
+    marginLeft: 24, // Điều chỉnh để căn giữa chính xác, bù trừ cho nút back
   },
   headerGradient: {
     height: 70,
@@ -1420,28 +1451,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: Platform.OS === "ios" ? 0 : 20,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
-  },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 16,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1A2138",
   },
   headerRight: {
     flexDirection: "row",

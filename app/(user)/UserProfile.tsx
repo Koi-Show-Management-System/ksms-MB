@@ -1,13 +1,16 @@
 // app/(user)/UserProfile.tsx
-import { LinearGradient } from "expo-linear-gradient";
+import api from "@/services/api";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
   Modal,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,9 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import api from "@/services/api";
-import * as ImagePicker from "expo-image-picker";
 
 // --- User Data Interface ---
 interface UserData {
@@ -262,15 +262,18 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
 };
 
 // Thêm hàm helper để chuyển đổi URL ảnh thành File
-const urlToFile = async (url: string | null | undefined, fileName: string): Promise<File | null> => {
+const urlToFile = async (
+  url: string | null | undefined,
+  fileName: string
+): Promise<File | null> => {
   if (!url) return null;
-  
+
   try {
     // Tránh xử lý URL nếu là đường dẫn tương đối
-    if (!url.startsWith('http') && !url.startsWith('blob:')) {
+    if (!url.startsWith("http") && !url.startsWith("blob:")) {
       return null;
     }
-    
+
     const response = await fetch(url);
     const blob = await response.blob();
     // Tạo File object từ Blob
@@ -314,13 +317,15 @@ const UserProfile: React.FC = () => {
     setLoading(true);
     try {
       const userId = await AsyncStorage.getItem("userId");
-      
+
       if (!userId) {
         throw new Error("Không tìm thấy ID người dùng");
       }
 
-      const response = await api.get<ApiResponse<UserData>>(`/api/v1/account/${userId}`);
-      
+      const response = await api.get<ApiResponse<UserData>>(
+        `/api/v1/account/${userId}`
+      );
+
       if (response.data.statusCode === 200) {
         const userInfo = response.data.data;
         setUserData({
@@ -334,7 +339,9 @@ const UserProfile: React.FC = () => {
           phone: userInfo.phone || "",
         });
       } else {
-        throw new Error(response.data.message || "Không thể tải dữ liệu người dùng");
+        throw new Error(
+          response.data.message || "Không thể tải dữ liệu người dùng"
+        );
       }
     } catch (error: any) {
       console.error("Lỗi khi tải dữ liệu người dùng:", error);
@@ -349,40 +356,43 @@ const UserProfile: React.FC = () => {
     setLoading(true);
     try {
       const userId = await AsyncStorage.getItem("userId");
-      
+
       if (!userId) {
         throw new Error("Không tìm thấy ID người dùng");
       }
 
       // Tạo FormData object để gửi cả dữ liệu văn bản và tệp
       const formData = new FormData();
-      
+
       // Thêm tất cả thông tin hiện tại vào FormData
       formData.append("FullName", updateData.fullName);
       formData.append("Username", updateData.username);
       formData.append("Phone", updateData.phone);
-      
+
       // Thêm các trường khác từ userData để đảm bảo không mất dữ liệu
       if (userData.email) formData.append("Email", userData.email);
       if (userData.location) formData.append("Location", userData.location);
       if (userData.role) formData.append("Role", userData.role);
       if (userData.status) formData.append("Status", userData.status);
-      
+
       // Nếu đã có ảnh đại diện, chuyển đổi URL thành file và thêm vào FormData
       if (userData.profileImage || userData.avatar) {
         const avatarUrl = userData.profileImage || userData.avatar;
         try {
           // Chỉ tạo file khi ảnh là URL tuyệt đối (không phải đường dẫn tương đối)
-          if (avatarUrl && (avatarUrl.startsWith('http') || avatarUrl.startsWith('blob:'))) {
+          if (
+            avatarUrl &&
+            (avatarUrl.startsWith("http") || avatarUrl.startsWith("blob:"))
+          ) {
             const response = await fetch(avatarUrl);
             const blob = await response.blob();
-            const filename = avatarUrl.split('/').pop() || 'avatar.jpg';
-            
+            const filename = avatarUrl.split("/").pop() || "avatar.jpg";
+
             // @ts-ignore - React Native's FormData is not fully compatible with TypeScript definitions
-            formData.append('AvatarUrl', {
+            formData.append("AvatarUrl", {
               uri: avatarUrl,
               name: filename,
-              type: blob.type || 'image/jpeg'
+              type: blob.type || "image/jpeg",
             });
           }
         } catch (error) {
@@ -393,7 +403,7 @@ const UserProfile: React.FC = () => {
 
       const response = await api.put(`/api/v1/account/${userId}`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
       });
 
@@ -402,11 +412,16 @@ const UserProfile: React.FC = () => {
         setIsEditing(false);
         fetchUserData(); // Tải lại dữ liệu sau khi cập nhật
       } else {
-        throw new Error(response.data.message || "Không thể cập nhật thông tin");
+        throw new Error(
+          response.data.message || "Không thể cập nhật thông tin"
+        );
       }
     } catch (error: any) {
       console.error("Lỗi khi cập nhật thông tin:", error);
-      Alert.alert("Lỗi", error.message || "Có lỗi xảy ra khi cập nhật thông tin");
+      Alert.alert(
+        "Lỗi",
+        error.message || "Có lỗi xảy ra khi cập nhật thông tin"
+      );
     } finally {
       setLoading(false);
     }
@@ -415,13 +430,17 @@ const UserProfile: React.FC = () => {
   const handleUploadAvatar = async () => {
     try {
       // Yêu cầu quyền truy cập thư viện ảnh
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert('Lỗi', 'Cần cấp quyền truy cập thư viện ảnh để tải lên ảnh đại diện');
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== "granted") {
+        Alert.alert(
+          "Lỗi",
+          "Cần cấp quyền truy cập thư viện ảnh để tải lên ảnh đại diện"
+        );
         return;
       }
-      
+
       // Mở thư viện ảnh để chọn
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -429,59 +448,71 @@ const UserProfile: React.FC = () => {
         aspect: [1, 1],
         quality: 0.8,
       });
-      
+
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setUploadingImage(true);
-        
+
         try {
           const userId = await AsyncStorage.getItem("userId");
-          
+
           if (!userId) {
             throw new Error("Không tìm thấy ID người dùng");
           }
-          
+
           // Tạo form data để upload ảnh
           const formData = new FormData();
           const localUri = result.assets[0].uri;
-          const filename = localUri.split('/').pop() || 'avatar.jpg';
-          
+          const filename = localUri.split("/").pop() || "avatar.jpg";
+
           // Xác định kiểu MIME
           const match = /\.(\w+)$/.exec(filename);
-          const type = match ? `image/${match[1]}` : 'image/jpeg';
-          
+          const type = match ? `image/${match[1]}` : "image/jpeg";
+
           // @ts-ignore - React Native's FormData is not fully compatible with TypeScript definitions
-          formData.append('AvatarUrl', {
+          formData.append("AvatarUrl", {
             uri: localUri,
             name: filename,
-            type
+            type,
           });
-          
+
           // Thêm tất cả thông tin hiện tại vào FormData
           formData.append("FullName", userData.fullName || "");
           formData.append("Username", userData.username || "");
-          formData.append("Phone", userData.phone || userData.phoneNumber || "");
-          
+          formData.append(
+            "Phone",
+            userData.phone || userData.phoneNumber || ""
+          );
+
           // Thêm các trường khác từ userData để đảm bảo không mất dữ liệu
           if (userData.email) formData.append("Email", userData.email);
           if (userData.location) formData.append("Location", userData.location);
           if (userData.role) formData.append("Role", userData.role);
           if (userData.status) formData.append("Status", userData.status);
-          
-          const response = await api.put(`/api/v1/account/${userId}`, formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          });
-          
+
+          const response = await api.put(
+            `/api/v1/account/${userId}`,
+            formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+
           if (response.data.statusCode === 200) {
             Alert.alert("Thành công", "Cập nhật ảnh đại diện thành công");
             fetchUserData(); // Tải lại dữ liệu sau khi cập nhật
           } else {
-            throw new Error(response.data.message || "Không thể cập nhật ảnh đại diện");
+            throw new Error(
+              response.data.message || "Không thể cập nhật ảnh đại diện"
+            );
           }
         } catch (error: any) {
           console.error("Lỗi khi tải lên ảnh đại diện:", error);
-          Alert.alert("Lỗi", error.message || "Có lỗi xảy ra khi tải lên ảnh đại diện");
+          Alert.alert(
+            "Lỗi",
+            error.message || "Có lỗi xảy ra khi tải lên ảnh đại diện"
+          );
         } finally {
           setUploadingImage(false);
         }
@@ -504,17 +535,20 @@ const UserProfile: React.FC = () => {
     const payload = {
       oldPassword: currentPassword,
       newPassword: newPassword,
-      confirmNewPassword: confirmPassword
+      confirmNewPassword: confirmPassword,
     };
 
     // Gọi API để đổi mật khẩu
-    api.post('/api/v1/auth/change-password', payload)
+    api
+      .post("/api/v1/auth/change-password", payload)
       .then((response) => {
         if (response.data.statusCode === 200) {
           // Hiển thị thông báo thành công
-          Alert.alert("Thành công", "Mật khẩu của bạn đã được thay đổi thành công.", [
-            { text: "OK" },
-          ]);
+          Alert.alert(
+            "Thành công",
+            "Mật khẩu của bạn đã được thay đổi thành công.",
+            [{ text: "OK" }]
+          );
           setPasswordModalVisible(false);
         } else {
           // Xử lý trường hợp API trả về lỗi
@@ -525,7 +559,9 @@ const UserProfile: React.FC = () => {
         console.error("Lỗi khi đổi mật khẩu:", error);
         Alert.alert(
           "Lỗi",
-          error.response?.data?.message || error.message || "Có lỗi xảy ra khi đổi mật khẩu. Vui lòng thử lại."
+          error.response?.data?.message ||
+            error.message ||
+            "Có lỗi xảy ra khi đổi mật khẩu. Vui lòng thử lại."
         );
       })
       .finally(() => {
@@ -572,35 +608,41 @@ const UserProfile: React.FC = () => {
           <TextInput
             style={styles.editInput}
             value={updateData.fullName}
-            onChangeText={(text) => setUpdateData({ ...updateData, fullName: text })}
+            onChangeText={(text) =>
+              setUpdateData({ ...updateData, fullName: text })
+            }
             placeholder="Nhập họ tên"
             placeholderTextColor="#999"
           />
         </View>
-        
+
         <View style={styles.editField}>
           <Text style={styles.editLabel}>Tên người dùng</Text>
           <TextInput
             style={styles.editInput}
             value={updateData.username}
-            onChangeText={(text) => setUpdateData({ ...updateData, username: text })}
+            onChangeText={(text) =>
+              setUpdateData({ ...updateData, username: text })
+            }
             placeholder="Nhập tên người dùng"
             placeholderTextColor="#999"
           />
         </View>
-        
+
         <View style={styles.editField}>
           <Text style={styles.editLabel}>Số điện thoại</Text>
           <TextInput
             style={styles.editInput}
             value={updateData.phone}
-            onChangeText={(text) => setUpdateData({ ...updateData, phone: text })}
+            onChangeText={(text) =>
+              setUpdateData({ ...updateData, phone: text })
+            }
             placeholder="Nhập số điện thoại"
             placeholderTextColor="#999"
             keyboardType="phone-pad"
           />
         </View>
-        
+
         <View style={styles.editButtonsContainer}>
           <TouchableOpacity
             style={[styles.editActionButton, styles.cancelButton]}
@@ -608,7 +650,7 @@ const UserProfile: React.FC = () => {
             disabled={loading}>
             <Text style={styles.cancelButtonText}>Hủy</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[styles.editActionButton, styles.saveButton]}
             onPress={handleUpdateProfile}
@@ -629,7 +671,8 @@ const UserProfile: React.FC = () => {
       <View style={styles.userInfoContainer}>
         <Text style={styles.userEmail}>{userData.email}</Text>
         <Text style={styles.userStatus}>
-          {userData.role || "Thành viên"} | {userData.status || "Đang hoạt động"}
+          {userData.role || "Thành viên"} |{" "}
+          {userData.status || "Đang hoạt động"}
         </Text>
       </View>
     );
@@ -645,132 +688,146 @@ const UserProfile: React.FC = () => {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}>
-      {/* Profile Information Section */}
-      <View style={styles.profileInfoSection}>
-        <View style={styles.profileImageContainer}>
-          {userData.profileImage ? (
-            <Image source={{ uri: userData.profileImage }} style={styles.profileImage} />
-          ) : (
-            <View style={styles.placeholderImage}>
-              <Text style={styles.placeholderText}>
-                {getUserInitials(userData.fullName || "User Profile")}
-              </Text>
-            </View>
-          )}
-
-          {/* Image Upload Button */}
-          <TouchableOpacity
-            style={styles.uploadButton}
-            onPress={handleUploadAvatar}
-            disabled={uploadingImage}>
-            {uploadingImage ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Thông tin cá nhân</Text>
+        <View style={{ width: 24 }} />
+      </View>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
+        {/* Profile Information Section */}
+        <View style={styles.profileInfoSection}>
+          <View style={styles.profileImageContainer}>
+            {userData.profileImage ? (
+              <Image
+                source={{ uri: userData.profileImage }}
+                style={styles.profileImage}
+              />
             ) : (
-              <Text style={styles.uploadButtonText}>Tải ảnh</Text>
+              <View style={styles.placeholderImage}>
+                <Text style={styles.placeholderText}>
+                  {getUserInitials(userData.fullName || "User Profile")}
+                </Text>
+              </View>
             )}
+
+            {/* Image Upload Button */}
+            <TouchableOpacity
+              style={styles.uploadButton}
+              onPress={handleUploadAvatar}
+              disabled={uploadingImage}>
+              {uploadingImage ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.uploadButtonText}>Tải ảnh</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.profileDetailsContainer}>
+            <View style={styles.profileNameContainer}>
+              <Text style={styles.profileName}>
+                {userData.fullName || "Đang tải..."}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsEditing(!isEditing)}
+                style={styles.editButton}>
+                <Text style={styles.editButtonText}>
+                  {isEditing ? "Hủy" : "Chỉnh sửa"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {isEditing ? renderEditFields() : renderUserInfo()}
+          </View>
+        </View>
+
+        {/* Profile Fields Section */}
+        <View style={styles.profileContainer}>
+          <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
+
+          <View style={styles.profileInfoRow}>
+            <View style={styles.profileLabelContainer}>
+              <Image
+                source={{
+                  uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/email-icon.png",
+                }}
+                style={styles.profileItemIcon}
+              />
+              <Text style={styles.profileLabel}>Email</Text>
+            </View>
+            <Text style={styles.profileValue}>{userData.email}</Text>
+          </View>
+
+          <View style={styles.profileInfoRow}>
+            <View style={styles.profileLabelContainer}>
+              <Image
+                source={{
+                  uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/phone-icon.png",
+                }}
+                style={styles.profileItemIcon}
+              />
+              <Text style={styles.profileLabel}>Điện thoại</Text>
+            </View>
+            <Text style={styles.profileValue}>
+              {userData.phone || "Chưa cập nhật"}
+            </Text>
+          </View>
+
+          <View style={styles.profileInfoRow}>
+            <View style={styles.profileLabelContainer}>
+              <Image
+                source={{
+                  uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/user-icon.png",
+                }}
+                style={styles.profileItemIcon}
+              />
+              <Text style={styles.profileLabel}>Vai trò</Text>
+            </View>
+            <Text style={styles.profileValue}>
+              {userData.role || "Thành viên"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Nút đổi mật khẩu và đăng xuất */}
+        <View style={styles.actionsContainer}>
+          <Text style={styles.sectionTitle}>Quản lý tài khoản</Text>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.changePasswordButton]}
+            onPress={() => setPasswordModalVisible(true)}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/key.png",
+              }}
+              style={styles.actionButtonIcon}
+            />
+            <Text style={styles.actionButtonText}>Đổi Mật Khẩu</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, styles.logoutButton]}
+            onPress={handleLogout}>
+            <Image
+              source={{
+                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/logout.png",
+              }}
+              style={styles.actionButtonIcon}
+            />
+            <Text style={styles.actionButtonText}>Đăng Xuất</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.profileDetailsContainer}>
-          <View style={styles.profileNameContainer}>
-            <Text style={styles.profileName}>
-              {userData.fullName || "Đang tải..."}
-            </Text>
-            <TouchableOpacity
-              onPress={() => setIsEditing(!isEditing)}
-              style={styles.editButton}>
-              <Text style={styles.editButtonText}>
-                {isEditing ? "Hủy" : "Chỉnh sửa"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {isEditing ? renderEditFields() : renderUserInfo()}
-        </View>
-      </View>
-
-      {/* Profile Fields Section */}
-      <View style={styles.profileContainer}>
-        <Text style={styles.sectionTitle}>Thông tin cá nhân</Text>
-
-        <View style={styles.profileInfoRow}>
-          <View style={styles.profileLabelContainer}>
-            <Image 
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/email-icon.png",
-              }} 
-              style={styles.profileItemIcon} 
-            />
-            <Text style={styles.profileLabel}>Email</Text>
-          </View>
-          <Text style={styles.profileValue}>{userData.email}</Text>
-        </View>
-
-        <View style={styles.profileInfoRow}>
-          <View style={styles.profileLabelContainer}>
-            <Image 
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/phone-icon.png",
-              }} 
-              style={styles.profileItemIcon} 
-            />
-            <Text style={styles.profileLabel}>Điện thoại</Text>
-          </View>
-          <Text style={styles.profileValue}>{userData.phone || "Chưa cập nhật"}</Text>
-        </View>
-
-        <View style={styles.profileInfoRow}>
-          <View style={styles.profileLabelContainer}>
-            <Image 
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/user-icon.png",
-              }} 
-              style={styles.profileItemIcon} 
-            />
-            <Text style={styles.profileLabel}>Vai trò</Text>
-          </View>
-          <Text style={styles.profileValue}>{userData.role || "Thành viên"}</Text>
-        </View>
-      </View>
-
-      {/* Nút đổi mật khẩu và đăng xuất */}
-      <View style={styles.actionsContainer}>
-        <Text style={styles.sectionTitle}>Quản lý tài khoản</Text>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.changePasswordButton]}
-          onPress={() => setPasswordModalVisible(true)}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/key.png",
-            }}
-            style={styles.actionButtonIcon}
-          />
-          <Text style={styles.actionButtonText}>Đổi Mật Khẩu</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, styles.logoutButton]}
-          onPress={handleLogout}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/logout.png",
-            }}
-            style={styles.actionButtonIcon}
-          />
-          <Text style={styles.actionButtonText}>Đăng Xuất</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Password Change Modal */}
-      <PasswordChangeModal
-        visible={passwordModalVisible}
-        onClose={() => setPasswordModalVisible(false)}
-        onSubmit={handleChangePassword}
-        loading={loading}
-      />
-    </ScrollView>
+        {/* Password Change Modal */}
+        <PasswordChangeModal
+          visible={passwordModalVisible}
+          onClose={() => setPasswordModalVisible(false)}
+          onSubmit={handleChangePassword}
+          loading={loading}
+        />
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -779,6 +836,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  header: {
+    width: "100%",
+    height: 60,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333333",
+    textAlign: "center",
+    marginLeft: 24, // Điều chỉnh để căn giữa chính xác, bù trừ cho nút back
   },
   contentContainer: {
     paddingBottom: 40,

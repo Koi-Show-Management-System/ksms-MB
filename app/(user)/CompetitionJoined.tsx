@@ -1,25 +1,26 @@
 // app/(user)/CompetitionJoined.tsx
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  RefreshControl,
 } from "react-native";
+
 import {
   HistoryRegisterShowItem,
-  getRegistrationHistory,
   getFilterParams,
-  mapToCompetitionData,
+  getRegistrationHistory,
   getStatusColorWithRegistration,
-  // getStatusTextWithRegistration removed
+  mapToCompetitionData,
 } from "../../services/competitionService";
 import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
 
@@ -29,10 +30,9 @@ const CompetitionCard: React.FC<{
   onPress: (competitionId: string) => void;
 }> = ({ competition, onPress }) => {
   return (
-    <TouchableOpacity 
-      style={styles.competitionCard} 
-      onPress={() => onPress(competition.id)}
-    >
+    <TouchableOpacity
+      style={styles.competitionCard}
+      onPress={() => onPress(competition.id)}>
       <Image
         source={{ uri: competition.image }}
         style={styles.competitionImage}
@@ -44,7 +44,11 @@ const CompetitionCard: React.FC<{
           <View
             style={[
               styles.statusBadge,
-              { backgroundColor: getStatusColorWithRegistration(competition.status) },
+              {
+                backgroundColor: getStatusColorWithRegistration(
+                  competition.status
+                ),
+              },
             ]}>
             <Text style={styles.statusText}>
               {translateStatus(competition.status)}
@@ -135,12 +139,14 @@ const CompetitionJoined: React.FC = () => {
   >("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [registrations, setRegistrations] = useState<HistoryRegisterShowItem[]>([]);
+  const [registrations, setRegistrations] = useState<HistoryRegisterShowItem[]>(
+    []
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showStatus, setShowStatus] = useState<string | undefined>(undefined);
   const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Prepare empty message text based on filter
   const getEmptyStateMessage = () => {
@@ -158,7 +164,11 @@ const CompetitionJoined: React.FC = () => {
   };
 
   // Fetch registrations
-  const fetchRegistrations = async (page = 1, showStat = showStatus, refresh = false) => {
+  const fetchRegistrations = async (
+    page = 1,
+    showStat = showStatus,
+    refresh = false
+  ) => {
     try {
       if (refresh) {
         setRefreshing(true);
@@ -168,21 +178,27 @@ const CompetitionJoined: React.FC = () => {
 
       // Reset error state
       setHasError(false);
-      setErrorMessage('');
+      setErrorMessage("");
 
-      const paginatedResponse = await getRegistrationHistory(page, 10, showStat);
-      
+      const paginatedResponse = await getRegistrationHistory(
+        page,
+        10,
+        showStat
+      );
+
       if (refresh || page === 1) {
         setRegistrations(paginatedResponse.items);
       } else {
-        setRegistrations(prev => [...prev, ...paginatedResponse.items]);
+        setRegistrations((prev) => [...prev, ...paginatedResponse.items]);
       }
       setTotalPages(paginatedResponse.totalPages);
       setCurrentPage(paginatedResponse.page);
     } catch (error: any) {
-      console.error('Lỗi khi tải danh sách đăng ký:', error);
+      console.error("Lỗi khi tải danh sách đăng ký:", error);
       setHasError(true);
-      setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+      setErrorMessage(
+        error.message || "Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau."
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -194,7 +210,7 @@ const CompetitionJoined: React.FC = () => {
     const filterParams = getFilterParams(activeFilter);
     setShowStatus(filterParams.showStatus || undefined);
     setCurrentPage(1); // Reset về trang 1
-    
+
     // Khi chọn "all", gọi API với size lớn
     if (activeFilter === "all") {
       const fetchAllShows = async () => {
@@ -206,14 +222,17 @@ const CompetitionJoined: React.FC = () => {
           setTotalPages(response.totalPages);
           setCurrentPage(response.page);
         } catch (error: any) {
-          console.error('Lỗi khi tải danh sách đăng ký:', error);
+          console.error("Lỗi khi tải danh sách đăng ký:", error);
           setHasError(true);
-          setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+          setErrorMessage(
+            error.message ||
+              "Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau."
+          );
         } finally {
           setLoading(false);
         }
       };
-      
+
       fetchAllShows();
     } else {
       fetchRegistrations(1, filterParams.showStatus || undefined, true);
@@ -244,14 +263,17 @@ const CompetitionJoined: React.FC = () => {
           setTotalPages(response.totalPages);
           setCurrentPage(response.page);
         } catch (error: any) {
-          console.error('Lỗi khi làm mới dữ liệu:', error);
+          console.error("Lỗi khi làm mới dữ liệu:", error);
           setHasError(true);
-          setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+          setErrorMessage(
+            error.message ||
+              "Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau."
+          );
         } finally {
           setRefreshing(false);
         }
       };
-      
+
       refreshAllShows();
     } else {
       fetchRegistrations(1, showStatus, true);
@@ -259,13 +281,15 @@ const CompetitionJoined: React.FC = () => {
   };
 
   // Map registration data to competition data
-  const mappedCompetitions = registrations.map((item) => mapToCompetitionData(item));
+  const mappedCompetitions = registrations.map((item) =>
+    mapToCompetitionData(item)
+  );
 
   // Handle competition press
   const handleCardPress = (competitionId: string) => {
     router.push({
       pathname: "/(user)/ParticipateResult",
-      params: { competitionId }
+      params: { competitionId },
     });
   };
 
@@ -281,14 +305,17 @@ const CompetitionJoined: React.FC = () => {
           setTotalPages(response.totalPages);
           setCurrentPage(response.page);
         } catch (error: any) {
-          console.error('Lỗi khi tải danh sách đăng ký:', error);
+          console.error("Lỗi khi tải danh sách đăng ký:", error);
           setHasError(true);
-          setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+          setErrorMessage(
+            error.message ||
+              "Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau."
+          );
         } finally {
           setLoading(false);
         }
       };
-      
+
       initialFetchAllShows();
     } else {
       fetchRegistrations();
@@ -301,18 +328,11 @@ const CompetitionJoined: React.FC = () => {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/back-icon.png",
-            }}
-            style={styles.backIcon}
-          />
-          <Text style={styles.backText}>Quay lại</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Cuộc thi của tôi</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       {/* Filter Tabs */}
@@ -379,14 +399,17 @@ const CompetitionJoined: React.FC = () => {
                     setCurrentPage(response.page);
                     setHasError(false);
                   } catch (error: any) {
-                    console.error('Lỗi khi tải danh sách đăng ký:', error);
+                    console.error("Lỗi khi tải danh sách đăng ký:", error);
                     setHasError(true);
-                    setErrorMessage(error.message || 'Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau.');
+                    setErrorMessage(
+                      error.message ||
+                        "Có lỗi xảy ra khi tải dữ liệu. Vui lòng thử lại sau."
+                    );
                   } finally {
                     setLoading(false);
                   }
                 };
-                
+
                 retryAllShows();
               } else {
                 fetchRegistrations(1, showStatus, true);
@@ -405,7 +428,7 @@ const CompetitionJoined: React.FC = () => {
           />
           <Text style={styles.emptyTitle}>Không tìm thấy cuộc thi</Text>
           <Text style={styles.emptyText}>{getEmptyStateMessage()}</Text>
-          
+
           <View style={styles.buttonContainer}>
             {(activeFilter === "completed" || activeFilter === "cancelled") && (
               <TouchableOpacity
@@ -414,24 +437,20 @@ const CompetitionJoined: React.FC = () => {
                 <Text style={styles.viewAllButtonText}>Xem tất cả</Text>
               </TouchableOpacity>
             )}
-            
+
             <TouchableOpacity
               style={[styles.actionButton, styles.browseButton]}
               onPress={() => router.push("/(tabs)/shows/KoiShowsPage")}>
               <Text style={styles.browseButtonText}>Tìm cuộc thi</Text>
             </TouchableOpacity>
           </View>
-          
         </View>
       ) : (
         <FlatList
           data={mappedCompetitions}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <CompetitionCard
-              competition={item}
-              onPress={handleCardPress}
-            />
+            <CompetitionCard competition={item} onPress={handleCardPress} />
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -446,10 +465,10 @@ const CompetitionJoined: React.FC = () => {
           onEndReachedThreshold={0.3}
           ListFooterComponent={
             currentPage < totalPages ? (
-              <ActivityIndicator 
-                style={{ marginVertical: 20 }} 
-                size="small" 
-                color="#4A90E2" 
+              <ActivityIndicator
+                style={{ marginVertical: 20 }}
+                size="small"
+                color="#4A90E2"
               />
             ) : null
           }
@@ -463,37 +482,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8F9FA",
+    paddingTop: 0, // Loại bỏ khoảng trống phía trên
   },
   header: {
+    width: "100%",
+    height: 60,
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#EEEEEE",
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginRight: 16,
-  },
-  backIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 4,
-  },
-  backText: {
-    fontSize: 16,
-    color: "#4A90E2",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   headerTitle: {
     flex: 1,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
     color: "#333333",
     textAlign: "center",
-    marginRight: 40, // To center the title accounting for the back button
+    marginLeft: 24, // Điều chỉnh để căn giữa chính xác, bù trừ cho nút back
   },
   filterContainer: {
     backgroundColor: "#FFFFFF",

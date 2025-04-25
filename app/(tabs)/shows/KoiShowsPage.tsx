@@ -1,47 +1,33 @@
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
-  ScrollView,
+  RefreshControl,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  StatusBar,
-  RefreshControl,
-  Platform,
 } from "react-native";
 import Animated, {
+  FadeIn,
+  SlideInRight,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
-  useAnimatedScrollHandler,
-  interpolate,
-  Extrapolation,
-  FadeIn,
-  SlideInRight,
 } from "react-native-reanimated";
 import { getKoiShows, KoiShow } from "../../../services/showService";
-import { format } from "date-fns";
-import { vi } from "date-fns/locale";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { translateStatus } from "../../../utils/statusTranslator"; // Import hàm dịch mới
 
 const { width: screenWidth } = Dimensions.get("window");
-const HEADER_MAX_HEIGHT = 100;
-const HEADER_MIN_HEIGHT = 60;
-const HEADER_SCROLL_RANGE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
-
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 const KoiShowsPage: React.FC = () => {
-  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState(0);
   const [shows, setShows] = useState<KoiShow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,47 +35,6 @@ const KoiShowsPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const tabWidth = screenWidth / 2;
   const translateX = useSharedValue(0);
-  const scrollY = useSharedValue(0);
-
-  const headerHeight = useAnimatedStyle(() => {
-    return {
-      height: interpolate(
-        scrollY.value,
-        [0, HEADER_SCROLL_RANGE],
-        [HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
-        Extrapolation.CLAMP
-      ),
-      opacity: interpolate(
-        scrollY.value,
-        [0, HEADER_SCROLL_RANGE / 2, HEADER_SCROLL_RANGE],
-        [1, 0.8, 0.7],
-        Extrapolation.CLAMP
-      ),
-    };
-  });
-
-  const titleStyle = useAnimatedStyle(() => {
-    return {
-      fontSize: interpolate(
-        scrollY.value,
-        [0, HEADER_SCROLL_RANGE],
-        [24, 20],
-        Extrapolation.CLAMP
-      ),
-      opacity: interpolate(
-        scrollY.value,
-        [0, HEADER_SCROLL_RANGE],
-        [1, 0.9],
-        Extrapolation.CLAMP
-      ),
-    };
-  });
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
 
   useEffect(() => {
     fetchKoiShows();
@@ -102,14 +47,14 @@ const KoiShowsPage: React.FC = () => {
         setLoading(true);
       }
       const result = await getKoiShows(1, 1000);
-      
+
       // Lọc danh sách shows dựa vào tab đang active
-      const filteredShows = result.items.filter(show => 
-        activeTab === 0 
-          ? show.status !== "finished" && show.status !== "completed" 
+      const filteredShows = result.items.filter((show) =>
+        activeTab === 0
+          ? show.status !== "finished" && show.status !== "completed"
           : show.status === "completed" || show.status === "finished"
       );
-      
+
       setShows(filteredShows);
     } catch (err) {
       setError("Không thể tải danh sách sự kiện. Vui lòng thử lại sau.");
@@ -142,58 +87,47 @@ const KoiShowsPage: React.FC = () => {
   const formatDateRange = (startDate: string, endDate: string) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     if (start.toDateString() === end.toDateString()) {
       return format(start, "dd/MM/yyyy", { locale: vi });
     }
-    
-    return `${format(start, "dd/MM", { locale: vi })} - ${format(end, "dd/MM/yyyy", { locale: vi })}`;
+
+    return `${format(start, "dd/MM", { locale: vi })} - ${format(
+      end,
+      "dd/MM/yyyy",
+      { locale: vi }
+    )}`;
   };
 
   const HeaderSection = () => (
-    <Animated.View style={[styles.headerContainer, headerHeight]}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
-      <View style={styles.headerContent}>
-        <View style={styles.leftSection}>
-          <TouchableOpacity style={styles.homeContainer}>
-            <Ionicons name="home-outline" size={22} color="#030303" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.centerSection}>
-          <Animated.Text style={[styles.title, titleStyle]}>
-            Koi Shows
-          </Animated.Text>
-        </View>
-        <View style={styles.rightSection}>
-          <TouchableOpacity style={styles.profileButton}>
-            <Ionicons name="person-circle-outline" size={28} color="#030303" />
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Animated.View>
+    <View style={styles.header}>
+      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+      <TouchableOpacity onPress={() => router.back()}>
+        <Ionicons name="arrow-back" size={24} color="#000" />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Koi Shows</Text>
+      <View style={{ width: 24 }} />
+    </View>
   );
 
   const TabsSection = () => (
     <View style={styles.tabsContainer}>
-      <BlurView intensity={90} tint="light" style={styles.blurView}>
-        <View style={styles.tabs}>
-          {["Đang Diễn Ra", "Đã Kết Thúc"].map((label, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.tab, activeTab === index && styles.activeTab]}
-              onPress={() => handleTabChange(index)}>
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === index && styles.activeTabText,
-                ]}>
-                {label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <Animated.View style={[styles.indicator, indicatorStyle]} />
-      </BlurView>
+      {["Đang Diễn Ra", "Đã Kết Thúc"].map((label, index) => (
+        <TouchableOpacity
+          key={index}
+          style={styles.tab}
+          onPress={() => handleTabChange(index)}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === index && styles.activeTabText,
+            ]}>
+            {label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+      <Animated.View style={[styles.indicator, indicatorStyle]} />
+      <View style={styles.bottomBorder} />
     </View>
   );
 
@@ -218,7 +152,7 @@ const KoiShowsPage: React.FC = () => {
             resizeMode="cover"
           />
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.7)']}
+            colors={["transparent", "rgba(0,0,0,0.7)"]}
             style={styles.cardImageOverlay}
           />
           <View style={styles.cardStatusBadge}>
@@ -228,20 +162,25 @@ const KoiShowsPage: React.FC = () => {
           </View>
           <View style={styles.cardContentContainer}>
             <View style={styles.cardContent}>
-              <Text style={styles.cardTitle} numberOfLines={1} ellipsizeMode="tail">
+              <Text
+                style={styles.cardTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail">
                 {show.name}
               </Text>
               <View style={styles.cardInfoRow}>
-                <MaterialCommunityIcons name="calendar-range" size={16} color="#CBD5E1" />
+                <MaterialCommunityIcons
+                  name="calendar-range"
+                  size={16}
+                  color="#CBD5E1"
+                />
                 <Text style={styles.cardInfo}>
                   {formatDateRange(show.startDate, show.endDate)}
                 </Text>
               </View>
               <View style={styles.cardInfoRow}>
                 <Ionicons name="location-outline" size={16} color="#CBD5E1" />
-                <Text style={styles.cardInfo}>
-                  {show.location}
-                </Text>
+                <Text style={styles.cardInfo}>{show.location}</Text>
               </View>
               <View style={styles.participantsContainer}>
                 <Text style={styles.participantsText}>
@@ -261,7 +200,7 @@ const KoiShowsPage: React.FC = () => {
   const handleShowPress = (showId: string) => {
     router.push({
       pathname: "/(tabs)/shows/KoiShowInformation",
-      params: { id: showId }
+      params: { id: showId },
     });
   };
 
@@ -273,39 +212,38 @@ const KoiShowsPage: React.FC = () => {
           <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
         </View>
       );
-    } 
-    
+    }
+
     if (error) {
       return (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={fetchKoiShows}>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchKoiShows}>
             <Text style={styles.retryButtonText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
       );
     }
-    
+
     if (shows.length === 0) {
       return (
         <View style={styles.emptyContainer}>
           <Ionicons name="calendar-outline" size={48} color="#94A3B8" />
           <Text style={styles.emptyText}>
-            Không có {activeTab === 0 ? "sự kiện đang diễn ra" : "sự kiện đã kết thúc"}
+            Không có{" "}
+            {activeTab === 0 ? "sự kiện đang diễn ra" : "sự kiện đã kết thúc"}
           </Text>
         </View>
       );
     }
-    
+
     return (
       <Animated.View entering={FadeIn} style={styles.showCardsContainer}>
         {shows.map((show, index) => (
-          <ShowCardItem 
-            key={show.id} 
-            show={show} 
+          <ShowCardItem
+            key={show.id}
+            show={show}
             onPress={handleShowPress}
             index={index}
           />
@@ -319,8 +257,6 @@ const KoiShowsPage: React.FC = () => {
       <HeaderSection />
       <TabsSection />
       <Animated.ScrollView
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
         contentContainerStyle={styles.scrollViewContent}
         refreshControl={
           <RefreshControl
@@ -330,8 +266,7 @@ const KoiShowsPage: React.FC = () => {
             colors={["#3B82F6"]}
           />
         }
-        style={styles.scrollView}
-      >
+        style={styles.scrollView}>
         {renderContent()}
       </Animated.ScrollView>
     </View>
@@ -342,6 +277,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F8FAFC",
+    paddingTop: 0, // Loại bỏ padding phía trên
+  },
+  header: {
+    width: "100%",
+    height: 60,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#333333",
+    textAlign: "center",
+    marginLeft: 24, // Điều chỉnh để căn giữa chính xác, bù trừ cho nút back
   },
   scrollView: {
     flex: 1,
@@ -352,7 +312,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     backgroundColor: "#FFFFFF",
-    paddingTop: Platform.OS === 'ios' ? 48 : StatusBar.currentHeight,
+    paddingTop: 0, // Loại bỏ padding phía trên
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -401,14 +361,11 @@ const styles = StyleSheet.create({
     width: "100%",
     zIndex: 99,
     backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 3,
+    flexDirection: "row",
+    height: 55,
+    position: "relative",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
   },
   blurView: {
     width: "100%",
@@ -422,18 +379,19 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    alignItems: "center",
     justifyContent: "center",
-    height: "100%",
+    alignItems: "center",
+    paddingVertical: 15,
   },
   tabText: {
-    fontFamily: "Lexend Deca",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
-    color: "#64748B",
+    color: "#666",
+    opacity: 0.5,
   },
   activeTabText: {
-    color: "#1E40AF",
+    color: "#3B82F6",
+    opacity: 1,
   },
   indicator: {
     height: 3,
@@ -442,6 +400,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     borderRadius: 3,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+    elevation: 3,
+  },
+  bottomBorder: {
+    width: "100%",
+    height: 1,
+    backgroundColor: "#E5E5E5",
+    position: "absolute",
+    bottom: 0,
   },
   activeTab: {},
   showCardsContainer: {
