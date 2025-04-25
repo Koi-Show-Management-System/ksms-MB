@@ -1,5 +1,4 @@
-import api from './api';
-import { translateStatus } from '../utils/statusTranslator'; // Import hàm dịch mới
+import api from "./api";
 
 // Interface cho API response
 export interface ApiResponse<T> {
@@ -51,7 +50,14 @@ export interface RegistrationItem {
     name: string;
   };
   rank: string | null;
-  status: "WaitToPaid" | "Cancelled" | "Pending" | "Confirmed" | "CheckIn" | "Rejected" | "Refunded";
+  status:
+    | "WaitToPaid"
+    | "Cancelled"
+    | "Pending"
+    | "Confirmed"
+    | "CheckIn"
+    | "Rejected"
+    | "Refunded";
   checkInExpiredDate: string | null;
   isCheckedIn: boolean;
   checkInTime: string | null;
@@ -80,7 +86,14 @@ export interface HistoryRegisterShowItem {
   location: string;
   startDate: string;
   endDate: string;
-  status: "upcoming" | "ongoing" | "completed" | "pending" | "published" | "inprogress" | "finished";
+  status:
+    | "upcoming"
+    | "ongoing"
+    | "completed"
+    | "pending"
+    | "published"
+    | "inprogress"
+    | "finished";
 }
 
 // Interface cho phản hồi phân trang từ API mới
@@ -119,6 +132,23 @@ interface AwardInfo {
   prizeValue: number;
 }
 
+// Interface cho thông tin checkout
+export interface CheckOutLog {
+  imgCheckOut: string;
+  checkOutTime: string;
+  checkedOutByNavigation: {
+    id: string;
+    email: string;
+    username: string;
+    fullName: string;
+    phone: string;
+    status: string;
+    role: string;
+    avatar: string;
+  };
+  notes: string;
+}
+
 // Interface cho registration item trong show detail
 export interface ShowDetailRegistration {
   registrationId: string;
@@ -142,6 +172,7 @@ export interface ShowDetailRegistration {
   eliminatedAtRound: string | null;
   payment: ShowDetailPayment;
   media: RegistrationMedia[];
+  checkOutLog?: CheckOutLog; // Thêm thông tin checkout
 }
 
 // Interface cho show detail
@@ -177,22 +208,33 @@ export const getRegistrationHistory = async (
     const url = `/api/v1/koi-show/get-history-register-show${query}`;
     console.log(`[API Request] GET ${url}`);
 
-    const response = await api.get<ApiResponse<HistoryRegisterShowResponse>>(url);
-    
+    const response = await api.get<ApiResponse<HistoryRegisterShowResponse>>(
+      url
+    );
+
     if (response.data.statusCode === 200) {
       return response.data.data;
     } else {
-      throw new Error(response.data.message || 'Không thể tải lịch sử đăng ký');
+      throw new Error(response.data.message || "Không thể tải lịch sử đăng ký");
     }
   } catch (error: any) {
     // Ghi log chi tiết hơn
-    const errorMessage = error.response 
-      ? `Lỗi ${error.response.status}: ${error.response.data?.message || 'Không có thông báo lỗi'}`
+    const errorMessage = error.response
+      ? `Lỗi ${error.response.status}: ${
+          error.response.data?.message || "Không có thông báo lỗi"
+        }`
       : `Lỗi kết nối: ${error.message}`;
-    
-    console.error('Lỗi khi tải danh sách đăng ký:', errorMessage);
-    console.error('Tham số gọi API - Page:', page, 'Size:', size, 'ShowStatus:', showStatus);
-    
+
+    console.error("Lỗi khi tải danh sách đăng ký:", errorMessage);
+    console.error(
+      "Tham số gọi API - Page:",
+      page,
+      "Size:",
+      size,
+      "ShowStatus:",
+      showStatus
+    );
+
     throw error;
   }
 };
@@ -206,26 +248,26 @@ export const getFilterParams = (
   filter: "all" | "upcoming" | "ongoing" | "completed" | "cancelled"
 ): { showStatus: string | undefined } => {
   switch (filter) {
-    case 'upcoming':
+    case "upcoming":
       return {
-        showStatus: 'Upcoming'
+        showStatus: "Upcoming",
       };
-    case 'ongoing':
+    case "ongoing":
       return {
-        showStatus: 'InProgress'
+        showStatus: "InProgress",
       };
-    case 'completed':
+    case "completed":
       return {
-        showStatus: 'Finished'
+        showStatus: "Finished",
       };
-    case 'cancelled':
+    case "cancelled":
       return {
-        showStatus: 'Cancelled'
+        showStatus: "Cancelled",
       };
-    case 'all':
+    case "all":
     default:
       return {
-        showStatus: undefined
+        showStatus: undefined,
       };
   }
 };
@@ -235,26 +277,30 @@ export const getFilterParams = (
  * @param status Trạng thái từ API
  * @returns Trạng thái đã được chuẩn hóa
  */
-export function normalizeRegistrationStatus(status: string): RegistrationItem['status'] {
-  const statusMap: Record<string, RegistrationItem['status']> = {
-    'waittopaid': 'WaitToPaid',
-    'cancelled': 'Cancelled',
-    'pending': 'Pending',
-    'confirmed': 'Confirmed',
-    'checkin': 'CheckIn',
-    'rejected': 'Rejected',
-    'refunded': 'Refunded',
+export function normalizeRegistrationStatus(
+  status: string
+): RegistrationItem["status"] {
+  const statusMap: Record<string, RegistrationItem["status"]> = {
+    waittopaid: "WaitToPaid",
+    cancelled: "Cancelled",
+    pending: "Pending",
+    confirmed: "Confirmed",
+    checkin: "CheckIn",
+    rejected: "Rejected",
+    refunded: "Refunded",
     // Thêm các trường hợp với chữ hoa đầu để đảm bảo phù hợp nếu API trả về đúng định dạng
-    'WaitToPaid': 'WaitToPaid',
-    'Cancelled': 'Cancelled',
-    'Pending': 'Pending',
-    'Confirmed': 'Confirmed',
-    'CheckIn': 'CheckIn',
-    'Rejected': 'Rejected',
-    'Refunded': 'Refunded'
+    WaitToPaid: "WaitToPaid",
+    Cancelled: "Cancelled",
+    Pending: "Pending",
+    Confirmed: "Confirmed",
+    CheckIn: "CheckIn",
+    Rejected: "Rejected",
+    Refunded: "Refunded",
   };
-  
-  return statusMap[status.toLowerCase()] || status as RegistrationItem['status'];
+
+  return (
+    statusMap[status.toLowerCase()] || (status as RegistrationItem["status"])
+  );
 }
 
 /**
@@ -262,22 +308,22 @@ export function normalizeRegistrationStatus(status: string): RegistrationItem['s
  * @param status Trạng thái từ API
  * @returns Trạng thái đã được chuẩn hóa
  */
-export function normalizeShowStatus(status: string): KoiShow['status'] {
-  const statusMap: Record<string, KoiShow['status']> = {
-    'pending': 'Pending',
-    'published': 'Published',
-    'upcoming': 'Upcoming',
-    'inprogress': 'InProgress',
-    'finished': 'Finished',
+export function normalizeShowStatus(status: string): KoiShow["status"] {
+  const statusMap: Record<string, KoiShow["status"]> = {
+    pending: "Pending",
+    published: "Published",
+    upcoming: "Upcoming",
+    inprogress: "InProgress",
+    finished: "Finished",
     // Thêm các trường hợp với chữ hoa đầu để đảm bảo phù hợp nếu API trả về đúng định dạng
-    'Pending': 'Pending',
-    'Published': 'Published',
-    'Upcoming': 'Upcoming',
-    'InProgress': 'InProgress',
-    'Finished': 'Finished'
+    Pending: "Pending",
+    Published: "Published",
+    Upcoming: "Upcoming",
+    InProgress: "InProgress",
+    Finished: "Finished",
   };
-  
-  return statusMap[status.toLowerCase()] || status as KoiShow['status'];
+
+  return statusMap[status.toLowerCase()] || (status as KoiShow["status"]);
 }
 
 /**
@@ -288,12 +334,15 @@ export function normalizeShowStatus(status: string): KoiShow['status'] {
 export const mapToCompetitionData = (item: HistoryRegisterShowItem) => {
   // Format ngày từ startDate
   const startDate = new Date(item.startDate);
-  const formattedDate = `${startDate.getDate()}/${startDate.getMonth() + 1}/${startDate.getFullYear()}`;
+  const formattedDate = `${startDate.getDate()}/${
+    startDate.getMonth() + 1
+  }/${startDate.getFullYear()}`;
 
   // Chuẩn hóa status để phù hợp với logic hiển thị
-  let displayStatus: "upcoming" | "ongoing" | "completed" | "cancelled" = "upcoming";
+  let displayStatus: "upcoming" | "ongoing" | "completed" | "cancelled" =
+    "upcoming";
   let normalizedStatus = item.status.toLowerCase();
-  
+
   if (normalizedStatus === "finished") {
     displayStatus = "completed";
   } else if (normalizedStatus === "inprogress") {
@@ -310,25 +359,30 @@ export const mapToCompetitionData = (item: HistoryRegisterShowItem) => {
     date: formattedDate,
     location: item.location || "Đang cập nhật",
     status: displayStatus,
-    image: item.imageUrl || "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png",
+    image:
+      item.imageUrl ||
+      "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png",
     participantCount: 0,
     fishCount: 0,
-    result: displayStatus === "completed" ? {
-      rank: "N/A",
-      awarded: false,
-      awardTitle: "",
-    } : undefined,
+    result:
+      displayStatus === "completed"
+        ? {
+            rank: "N/A",
+            awarded: false,
+            awardTitle: "",
+          }
+        : undefined,
     koiProfile: {
       name: "Không có thông tin",
       variety: {
-        name: ""
-      }
+        name: "",
+      },
     },
     koiSize: 0,
     koiAge: 0,
     categoryName: "",
     payment: null,
-    registrationStatus: null
+    registrationStatus: null,
   };
 };
 
@@ -361,30 +415,36 @@ export const getStatusColorWithRegistration = (status: string) => {
  * @param showId ID của show cần lấy thông tin
  * @returns Promise với dữ liệu chi tiết của show
  */
-export const getShowMemberDetail = async (showId: string): Promise<ShowMemberDetail> => {
+export const getShowMemberDetail = async (
+  showId: string
+): Promise<ShowMemberDetail> => {
   try {
     const url = `/api/v1/registration/get-show-member-detail/${showId}`;
     console.log(`[API Request] GET ${url}`);
 
     const response = await api.get<ApiResponse<ShowMemberDetail>>(url);
-    
+
     if (response.data.statusCode === 200) {
       return response.data.data;
     } else {
-      throw new Error(response.data.message || 'Không thể lấy thông tin chi tiết của show');
+      throw new Error(
+        response.data.message || "Không thể lấy thông tin chi tiết của show"
+      );
     }
   } catch (error: any) {
     // Ghi log chi tiết hơn
-    const errorMessage = error.response 
-      ? `Lỗi ${error.response.status}: ${error.response.data?.message || 'Không có thông báo lỗi'}`
+    const errorMessage = error.response
+      ? `Lỗi ${error.response.status}: ${
+          error.response.data?.message || "Không có thông báo lỗi"
+        }`
       : `Lỗi kết nối: ${error.message}`;
-    
-    console.error('Lỗi khi lấy thông tin chi tiết của show:', errorMessage);
-    console.error('Tham số gọi API - ShowId:', showId);
-    
+
+    console.error("Lỗi khi lấy thông tin chi tiết của show:", errorMessage);
+    console.error("Tham số gọi API - ShowId:", showId);
+
     throw error;
   }
-}; 
+};
 // Interface for Award details within a category
 export interface CategoryAward {
   id: string;
@@ -450,7 +510,6 @@ export interface CategoryRound {
   status: string;
 }
 
-
 // Interface for Competition Category Detail (matching the provided API response)
 export interface CompetitionCategoryDetail {
   id: string;
@@ -472,13 +531,14 @@ export interface CompetitionCategoryDetail {
   rounds: CategoryRound[];
 }
 
-
 /**
  * Lấy thông tin chi tiết của một hạng mục thi đấu, bao gồm giải thưởng
  * @param categoryId ID của hạng mục cần lấy thông tin
  * @returns Promise với dữ liệu chi tiết của hạng mục
  */
-export const getCompetitionCategoryDetail = async (categoryId: string): Promise<CompetitionCategoryDetail> => {
+export const getCompetitionCategoryDetail = async (
+  categoryId: string
+): Promise<CompetitionCategoryDetail> => {
   try {
     const url = `/api/v1/competition-category/${categoryId}`;
     console.log(`[API Request] GET ${url}`);
@@ -488,15 +548,19 @@ export const getCompetitionCategoryDetail = async (categoryId: string): Promise<
     if (response.data.statusCode === 200) {
       return response.data.data;
     } else {
-      throw new Error(response.data.message || 'Không thể lấy thông tin chi tiết hạng mục');
+      throw new Error(
+        response.data.message || "Không thể lấy thông tin chi tiết hạng mục"
+      );
     }
   } catch (error: any) {
     const errorMessage = error.response
-      ? `Lỗi ${error.response.status}: ${error.response.data?.message || 'Không có thông báo lỗi'}`
+      ? `Lỗi ${error.response.status}: ${
+          error.response.data?.message || "Không có thông báo lỗi"
+        }`
       : `Lỗi kết nối: ${error.message}`;
 
-    console.error('Lỗi khi lấy thông tin chi tiết hạng mục:', errorMessage);
-    console.error('Tham số gọi API - CategoryId:', categoryId);
+    console.error("Lỗi khi lấy thông tin chi tiết hạng mục:", errorMessage);
+    console.error("Tham số gọi API - CategoryId:", categoryId);
 
     throw error;
   }

@@ -452,6 +452,90 @@ const PaymentInfo: React.FC<PaymentInfoProps> = ({
   );
 };
 
+// --- Checkout Information ---
+interface CheckoutInfoProps {
+  imgCheckOut?: string;
+  checkOutTime?: string;
+  checkedOutBy?: {
+    fullName: string;
+    role: string;
+    avatar: string;
+  };
+  notes?: string;
+}
+
+const CheckoutInfo: React.FC<CheckoutInfoProps> = ({
+  imgCheckOut,
+  checkOutTime,
+  checkedOutBy,
+  notes,
+}) => {
+  if (!imgCheckOut && !checkOutTime && !checkedOutBy) return null;
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "Chưa có thông tin";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  return (
+    <View style={styles.checkoutContainer}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionIndicator} />
+        <Text style={styles.sectionTitle}>Thông tin checkout</Text>
+      </View>
+      <View style={styles.checkoutContent}>
+        <View style={styles.checkoutRow}>
+          <Text style={styles.checkoutLabel}>Thời gian checkout:</Text>
+          <Text style={styles.checkoutValue}>{formatDate(checkOutTime)}</Text>
+        </View>
+
+        {checkedOutBy && (
+          <View style={styles.checkoutRow}>
+            <Text style={styles.checkoutLabel}>Người thực hiện:</Text>
+            <View style={styles.staffInfoContainer}>
+              {checkedOutBy.avatar && (
+                <Image
+                  source={{ uri: checkedOutBy.avatar }}
+                  style={styles.staffAvatar}
+                />
+              )}
+              <View style={styles.staffTextContainer}>
+                <Text style={styles.staffName}>{checkedOutBy.fullName}</Text>
+                <Text style={styles.staffRole}>{checkedOutBy.role}</Text>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {notes && (
+          <View style={styles.checkoutRow}>
+            <Text style={styles.checkoutLabel}>Ghi chú:</Text>
+            <Text style={styles.checkoutValue}>{notes}</Text>
+          </View>
+        )}
+
+        {imgCheckOut && (
+          <View style={styles.checkoutImageContainer}>
+            <Text style={styles.checkoutImageLabel}>Hình ảnh checkout:</Text>
+            <Image
+              source={{ uri: imgCheckOut }}
+              style={styles.checkoutImage}
+              resizeMode="contain"
+            />
+          </View>
+        )}
+      </View>
+    </View>
+  );
+};
+
 // --- Media Gallery ---
 interface MediaGalleryProps {
   media?: Array<{ id: string; mediaUrl: string; mediaType: string }>;
@@ -951,6 +1035,18 @@ const FishStatus: React.FC = () => {
           qrcodeData={fishData.payment?.qrcodeData}
           status={fishData.payment?.status}
         />
+        {fishData.checkOutLog && (
+          <CheckoutInfo
+            imgCheckOut={fishData.checkOutLog.imgCheckOut}
+            checkOutTime={fishData.checkOutLog.checkOutTime}
+            checkedOutBy={{
+              fullName: fishData.checkOutLog.checkedOutByNavigation.fullName,
+              role: fishData.checkOutLog.checkedOutByNavigation.role,
+              avatar: fishData.checkOutLog.checkedOutByNavigation.avatar,
+            }}
+            notes={fishData.checkOutLog.notes}
+          />
+        )}
         <MediaGallery media={fishData.media} />
       </ScrollView>
     </SafeAreaView>
@@ -1309,6 +1405,85 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: "center",
     fontStyle: "italic",
+  },
+  checkoutContainer: {
+    padding: 20,
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  checkoutContent: {
+    marginTop: 12,
+  },
+  checkoutRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 14,
+    alignItems: "center",
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  checkoutLabel: {
+    fontSize: 14,
+    color: "#666666",
+    marginRight: 8,
+  },
+  checkoutValue: {
+    fontSize: 14,
+    color: "#333333",
+    fontWeight: "500",
+    textAlign: "right",
+    flex: 1,
+    marginLeft: 8,
+  },
+  staffInfoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  staffAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 8,
+  },
+  staffTextContainer: {
+    alignItems: "flex-end",
+  },
+  staffName: {
+    fontSize: 14,
+    color: "#333333",
+    fontWeight: "600",
+  },
+  staffRole: {
+    fontSize: 12,
+    color: "#666666",
+  },
+  checkoutImageContainer: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#EEEEEE",
+  },
+  checkoutImageLabel: {
+    fontSize: 14,
+    color: "#666666",
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  checkoutImage: {
+    width: "100%",
+    aspectRatio: 1.5,
+    height: undefined,
+    borderRadius: 8,
   },
   galleryContainer: {
     paddingVertical: 20,
