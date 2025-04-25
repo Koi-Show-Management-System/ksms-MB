@@ -1,31 +1,26 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { router } from "expo-router";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
-  Image,
-  ScrollView,
+  FlatList,
+  RefreshControl,
+  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  RefreshControl
 } from "react-native";
 import Animated, {
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
-  withTiming,
-  interpolate,
-  Easing,
 } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
 import api from "../../services/api";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
 // --- Interface Definitions ---
 interface OrderItem {
@@ -64,7 +59,10 @@ type RootStackParamList = {
   OrderDetail: { orderId: string };
 };
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'OrderDetail'>;
+type NavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  "OrderDetail"
+>;
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -72,28 +70,28 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
   const [showFullId, setShowFullId] = useState(false);
   const animatedValue = useSharedValue(0);
   // Tính toán chiều rộng màn hình ở cấp độ component
-  const currentScreenWidth = Dimensions.get('window').width;
+  const currentScreenWidth = Dimensions.get("window").width;
   const maxContainerWidth = currentScreenWidth * 0.9;
   const minContainerWidth = currentScreenWidth * 0.3;
-  
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
-      case 'PENDING': 
-        return '#FFA500';
-      case 'paid':
-      case 'PAID': 
-        return '#4CAF50';
-      case 'cancelled':
-      case 'CANCELLED': 
-        return '#F44336';
-      default: 
-        return '#999999';
+      case "pending":
+      case "PENDING":
+        return "#FFA500";
+      case "paid":
+      case "PAID":
+        return "#4CAF50";
+      case "cancelled":
+      case "CANCELLED":
+        return "#F44336";
+      default:
+        return "#999999";
     }
   };
 
   // Hàm getStatusText đã được thay thế bằng translateStatus import từ utils
-  
+
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -102,35 +100,35 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
 
   const formatOrderId = (id: string) => {
     if (!id) return "N/A";
-    
-    const screenWidth = Dimensions.get('window').width;
+
+    const screenWidth = Dimensions.get("window").width;
     // Ước tính số ký tự có thể hiển thị dựa trên độ rộng màn hình
     // Giả sử mỗi ký tự chiếm khoảng 10 điểm ảnh và style id có letterSpacing: 0.5
     // Để an toàn, giảm bớt khoảng 30% diện tích cho các yếu tố khác trong giao diện
     const availableWidth = screenWidth * 0.3; // 30% của màn hình dành cho ID
     const charWidth = 10.5; // Mỗi ký tự khoảng 10px + letterSpacing
     const maxChars = Math.floor(availableWidth / charWidth);
-    
+
     // Nếu ID ngắn hơn số ký tự tối đa có thể hiển thị, hiển thị toàn bộ
     if (id.length <= maxChars) {
       return id.toUpperCase();
     }
-    
+
     // Nếu không, chỉ hiển thị phần đầu của ID và kết thúc bằng dấu ba chấm
     // Trừ 3 ký tự cho dấu "..."
     const visibleChars = maxChars - 3;
     const prefix = id.slice(0, visibleChars);
-    
+
     return `${prefix}...`.toUpperCase();
   };
 
   const status = order.orderStatus || order.status || "";
   const orderDate = order.orderDate || order.date;
-  
+
   // Tạo 2 phiên bản của orderId: dạng rút gọn và dạng đầy đủ
   const shortOrderId = formatOrderId(order.transactionCode);
   const fullOrderId = order.transactionCode.toUpperCase();
-  
+
   // Xử lý khi người dùng nhấn vào mã vé
   const toggleOrderIdDisplay = () => {
     setShowFullId(!showFullId);
@@ -139,38 +137,38 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
       stiffness: 90,
     });
   };
-  
+
   // Style animation cho container của mã vé
   const animatedOrderIdStyle = useAnimatedStyle(() => {
     return {
       maxWidth: interpolate(
         animatedValue.value,
         [0, 1],
-        [minContainerWidth, maxContainerWidth], // Sử dụng biến đã tính trước
+        [minContainerWidth, maxContainerWidth] // Sử dụng biến đã tính trước
       ),
       paddingRight: interpolate(
         animatedValue.value,
         [0, 1],
-        [8, 16], // Thêm padding khi mở rộng
+        [8, 16] // Thêm padding khi mở rộng
       ),
     };
   });
-  
+
   // Style animation cho text mã vé
   const animatedOrderIdTextStyle = useAnimatedStyle(() => {
     return {
       fontSize: interpolate(
         animatedValue.value,
         [0, 1],
-        [16, 14], // Thu nhỏ font chữ khi hiển thị mã đầy đủ
+        [16, 14] // Thu nhỏ font chữ khi hiển thị mã đầy đủ
       ),
     };
   });
 
   const navigation = useNavigation<NavigationProp>();
-  
+
   const handleViewDetail = () => {
-    navigation.navigate('OrderDetail', { orderId: order.id });
+    navigation.navigate("OrderDetail", { orderId: order.id });
   };
 
   return (
@@ -192,23 +190,29 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
             </View>
           </TouchableOpacity>
         </Animated.View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) }]}>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: getStatusColor(status) },
+          ]}>
           <Text style={styles.statusText}>{translateStatus(status)}</Text>
         </View>
       </View>
-      
-      <View style={styles.orderDetailContainer}>        
+
+      <View style={styles.orderDetailContainer}>
         <View style={styles.orderInfo}>
           <Text style={styles.orderLabel}>Ngày đặt:</Text>
           <Text style={styles.orderValue}>{formatDate(orderDate)}</Text>
         </View>
-        
+
         <View style={styles.orderInfo}>
           <Text style={styles.orderLabel}>Tổng tiền:</Text>
-          <Text style={styles.orderAmount}>{order.totalAmount?.toLocaleString('vi-VN')} VNĐ</Text>
+          <Text style={styles.orderAmount}>
+            {order.totalAmount?.toLocaleString("vi-VN")} VNĐ
+          </Text>
         </View>
       </View>
-      
+
       <View style={styles.viewDetailContainer}>
         <Text style={styles.viewDetailText}>Xem chi tiết</Text>
         <Ionicons name="chevron-forward" size={18} color="#FFA500" />
@@ -219,7 +223,9 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
 
 // --- Main Component ---
 const MyOrders: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "paid" | "cancelled">("all");
+  const [activeTab, setActiveTab] = useState<
+    "all" | "pending" | "paid" | "cancelled"
+  >("all");
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -227,8 +233,8 @@ const MyOrders: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  
-  const tabWidth = screenWidth / 4; 
+
+  const tabWidth = screenWidth / 4;
   const translateX = useSharedValue(0);
 
   useEffect(() => {
@@ -245,25 +251,25 @@ const MyOrders: React.FC = () => {
         setLoadingMore(true);
       }
 
-      setError('');
-      
+      setError("");
+
       // Determine if we need to add status filter
       let endpoint = `/api/v1/ticket-order/get-paging-orders?page=${pageToLoad}&size=10`;
       if (activeTab !== "all") {
         endpoint += `&orderStatus=${activeTab}`;
       }
-      
+
       const response = await api.get<OrderListResponse>(endpoint);
-      
+
       if (response.data.statusCode === 200) {
         const newItems = response.data.data.items;
-        
+
         if (shouldRefresh || pageToLoad === 1) {
           setOrders(newItems);
         } else {
-          setOrders(prevOrders => [...prevOrders, ...newItems]);
+          setOrders((prevOrders) => [...prevOrders, ...newItems]);
         }
-        
+
         setTotalPages(response.data.data.totalPages);
         setPage(pageToLoad);
       } else {
@@ -281,16 +287,24 @@ const MyOrders: React.FC = () => {
 
   const handleTabChange = (tab: "all" | "pending" | "paid" | "cancelled") => {
     setActiveTab(tab);
-    
+
     // Calculate translateX based on tab index
     let tabIndex = 0;
-    switch(tab) {
-      case "all": tabIndex = 0; break;
-      case "pending": tabIndex = 1; break;
-      case "paid": tabIndex = 2; break;
-      case "cancelled": tabIndex = 3; break;
+    switch (tab) {
+      case "all":
+        tabIndex = 0;
+        break;
+      case "pending":
+        tabIndex = 1;
+        break;
+      case "paid":
+        tabIndex = 2;
+        break;
+      case "cancelled":
+        tabIndex = 3;
+        break;
     }
-    
+
     translateX.value = withSpring(tabIndex * tabWidth, {
       damping: 20,
       stiffness: 90,
@@ -307,10 +321,10 @@ const MyOrders: React.FC = () => {
     // Navigate to OrderDetail with order ID and status
     router.push({
       pathname: "/(user)/OrderDetail",
-      params: { 
+      params: {
         orderId: order.id,
-        status: order.orderStatus || order.status || "PENDING"
-      }
+        status: order.orderStatus || order.status || "PENDING",
+      },
     });
   };
 
@@ -339,10 +353,9 @@ const MyOrders: React.FC = () => {
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={64} color="#F44336" />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => fetchOrders(1)}
-          >
+            onPress={() => fetchOrders(1)}>
             <Text style={styles.retryButtonText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
@@ -359,7 +372,7 @@ const MyOrders: React.FC = () => {
         renderItem={({ item }) => (
           <OrderCard key={item.id} order={item} onPress={handleOrderPress} />
         )}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.scrollViewContent}
         ListEmptyComponent={renderEmptyState}
         ListFooterComponent={renderFooter}
@@ -367,20 +380,20 @@ const MyOrders: React.FC = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={['#FFA500']}
+            colors={["#FFA500"]}
             tintColor="#FFA500"
           />
         }
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.3}
         showsVerticalScrollIndicator={false}
-        ItemSeparatorComponent={() => <View style={{height: 8}} />}
+        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <Text style={styles.listHeaderText}>
-              {orders.length > 0 
-                ? `Đang hiển thị ${orders.length} đơn hàng` 
-                : ''}
+              {orders.length > 0
+                ? `Đang hiển thị ${orders.length} đơn hàng`
+                : ""}
             </Text>
           </View>
         }
@@ -390,25 +403,23 @@ const MyOrders: React.FC = () => {
 
   const renderEmptyState = () => {
     if (loading) return null;
-    
+
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="receipt-outline" size={80} color="#CCCCCC" />
         <Text style={styles.emptyText}>Không có đơn hàng nào</Text>
         <Text style={styles.emptySubtext}>
-          {activeTab === "all" 
+          {activeTab === "all"
             ? "Đơn hàng của bạn sẽ được hiển thị ở đây sau khi bạn mua vé"
-            : activeTab === "pending" 
+            : activeTab === "pending"
             ? "Bạn không có đơn hàng nào đang chờ thanh toán"
             : activeTab === "paid"
             ? "Bạn không có đơn hàng nào đã thanh toán"
-            : "Bạn không có đơn hàng nào đã hủy"
-          }
+            : "Bạn không có đơn hàng nào đã hủy"}
         </Text>
         <TouchableOpacity
           style={styles.browseButton}
-          onPress={() => router.back()}
-        >
+          onPress={() => router.back()}>
           <Text style={styles.browseButtonText}>Quay lại trang chủ</Text>
         </TouchableOpacity>
       </View>
@@ -417,7 +428,7 @@ const MyOrders: React.FC = () => {
 
   const renderFooter = () => {
     if (!loadingMore) return null;
-    
+
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color="#FFA500" />
@@ -427,7 +438,7 @@ const MyOrders: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
+    <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
@@ -493,6 +504,11 @@ const MyOrders: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingTop: 0, // Loại bỏ padding phía trên
+  },
   container: {
     flex: 1,
   },
@@ -504,7 +520,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    backgroundColor: "transparent",
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   homeText: {
     fontFamily: "Poppins",
@@ -623,8 +646,8 @@ const styles = StyleSheet.create({
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999999',
-    textAlign: 'center',
+    color: "#999999",
+    textAlign: "center",
     marginTop: 8,
   },
   browseButton: {
@@ -645,28 +668,28 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   listHeader: {
-    width: '100%',
+    width: "100%",
     marginBottom: 12,
     paddingHorizontal: 8,
   },
   listHeaderText: {
     fontSize: 15,
-    color: '#666666',
-    textAlign: 'center',
-    fontWeight: '500',
+    color: "#666666",
+    textAlign: "center",
+    fontWeight: "500",
   },
   footerLoader: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 16,
-    width: '100%',
+    width: "100%",
   },
   footerText: {
     fontSize: 15,
-    color: '#666666',
+    color: "#666666",
     marginLeft: 8,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 
   // New OrderCard styles
@@ -690,7 +713,7 @@ const styles = StyleSheet.create({
   },
   orderIdContainer: {
     flex: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   orderIdLabel: {
     fontSize: 13,
@@ -704,15 +727,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   idTooltip: {
-    position: 'absolute',
+    position: "absolute",
     right: 0,
     bottom: -16,
     opacity: 0.6,
   },
   idTooltipText: {
     fontSize: 10,
-    color: '#666',
-    fontStyle: 'italic',
+    color: "#666",
+    fontStyle: "italic",
   },
   statusBadge: {
     paddingHorizontal: 10,
