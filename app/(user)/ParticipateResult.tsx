@@ -1,27 +1,29 @@
 // ParticipateResult.tsx
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
   Image,
-  ScrollView,
+  ImageBackground,
+  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
-  Alert,
-  SafeAreaView,
-  StatusBar as RNStatusBar,
-  Dimensions,
-  ImageBackground,
-  Animated,
 } from "react-native";
-import { getShowMemberDetail, ShowMemberDetail, ShowDetailRegistration } from "../../services/competitionService";
-import { StatusBar } from "expo-status-bar";
-import { LinearGradient } from "expo-linear-gradient";
+import Modal from "react-native-modal"; // Import Modal
+import { WebView } from "react-native-webview"; // Import WebView
+import {
+  getShowMemberDetail,
+  ShowDetailRegistration,
+  ShowMemberDetail,
+} from "../../services/competitionService";
 import { translateStatus } from "../../utils/statusTranslator";
-import { WebView } from 'react-native-webview'; // Import WebView
-import Modal from 'react-native-modal'; // Import Modal
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
@@ -57,35 +59,56 @@ const FishDetailsCard: React.FC<{
   onPress: () => void;
   onShare: () => void;
   onContinuePayment: (url: string) => void; // Thêm prop mới
-}> = ({ registration, onPress, onShare, onContinuePayment }) => { // Thêm onContinuePayment vào props destructured
+}> = ({ registration, onPress, onShare, onContinuePayment }) => {
+  // Thêm onContinuePayment vào props destructured
   // Chọn ảnh đầu tiên từ media hoặc sử dụng ảnh mặc định
-  const fishImage = registration.media.find(item => item.mediaType === "Image")?.mediaUrl || 
+  const fishImage =
+    registration.media.find((item) => item.mediaType === "Image")?.mediaUrl ||
     "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/group-4.png";
-  
+
   // Kiểm tra xem cá có được trao giải thưởng không dựa trên status
-  const hasAward = registration.status === 'prizewinner';
-  
-  // Lấy màu sắc status
+  const hasAward = registration.status === "prizewinner";
+
+  // Lấy màu sắc status cho badge
   const getStatusColor = (status: string) => {
-    switch(status) {
-      case "Confirmed": return "#2ECC71"; // Emerald Green
-      case "CheckIn": return "#27AE60"; // Green
-      case "Pending": return "#F39C12"; // Orange
-      case "WaitToPaid": return "#E67E22"; // Carrot Orange
-      case "Rejected": return "#E74C3C"; // Alizarin Red
-      case "Refunded": return "#9B59B6"; // Amethyst
-      case "Cancelled": return "#8E44AD"; // Wisteria
-      default: return "#95A5A6"; // Concrete
+    // Chuyển status về chữ thường để so sánh dễ dàng hơn
+    const statusLower = status.toLowerCase();
+
+    switch (statusLower) {
+      case "confirmed":
+        return "#2ECC71"; // Emerald Green
+      case "checkin":
+        return "#27AE60"; // Green
+      case "pending":
+        return "#F39C12"; // Orange
+      case "waittopaid":
+        return "#E67E22"; // Carrot Orange
+      case "rejected":
+        return "#E74C3C"; // Alizarin Red
+      case "refunded":
+        return "#9B59B6"; // Amethyst
+      case "cancelled":
+        return "#8E44AD"; // Wisteria
+      case "prizewinner":
+        return "#B8860B"; // Dark Goldenrod
+      case "eliminated":
+        return "#FF5733"; // Bright Red-Orange
+      case "completed":
+        return "#3498DB"; // Blue
+      case "competition":
+        return "#1ABC9C"; // Turquoise - Màu xanh ngọc cho trạng thái đang thi đấu
+      default:
+        return "#95A5A6"; // Concrete
     }
   };
-  
+
   return (
     <View style={styles.fishCard}>
       <View style={styles.fishImageContainer}>
-        <Image 
-          source={{ uri: fishImage }} 
-          style={styles.fishImage} 
-          resizeMode="cover" 
+        <Image
+          source={{ uri: fishImage }}
+          style={styles.fishImage}
+          resizeMode="cover"
         />
         {hasAward && (
           <View style={styles.awardBadge}>
@@ -95,14 +118,16 @@ const FishDetailsCard: React.FC<{
               }}
               style={styles.awardBadgeIcon}
             />
-            <Text style={styles.awardBadgeText}>{registration.awards[0]?.awardName || 'Đạt giải'}</Text>
+            <Text style={styles.awardBadgeText}>
+              {registration.awards[0]?.awardName || "Đạt giải"}
+            </Text>
           </View>
         )}
       </View>
-      
+
       <View style={styles.fishCardContent}>
         <Text style={styles.fishCardTitle}>{registration.koiName}</Text>
-        
+
         <View style={styles.fishCardDetails}>
           <View style={styles.detailRow}>
             <View style={styles.detailItem}>
@@ -114,76 +139,86 @@ const FishDetailsCard: React.FC<{
               <Text style={styles.detailValue}>{registration.size} cm</Text>
             </View>
           </View>
-          
+
           <View style={styles.detailRow}>
             <View style={styles.detailItemFull}>
               <Text style={styles.detailLabel}>Hạng mục:</Text>
-              <Text style={styles.detailValue}>{registration.categoryName}</Text>
+              <Text style={styles.detailValue}>
+                {registration.categoryName}
+              </Text>
             </View>
           </View>
-          
+
           {/* Hiển thị trạng thái cá */}
           <View style={styles.detailRow}>
             <View style={styles.detailItemFull}>
               <Text style={styles.detailLabel}>Trạng thái:</Text>
-              <View style={[styles.statusChip, { backgroundColor: getStatusColor(registration.status) }]}>
-                <Text style={styles.statusText}>{translateStatus(registration.status)}</Text>
+              <View
+                style={[
+                  styles.statusChip,
+                  { backgroundColor: getStatusColor(registration.status) },
+                ]}>
+                <Text style={styles.statusText}>
+                  {translateStatus(registration.status)}
+                </Text>
               </View>
             </View>
           </View>
-          
+
           <View style={styles.rankingContainer}>
             {hasAward ? (
               <LinearGradient
-                colors={['#FFD700', '#FFA500']}
+                colors={["#FFD700", "#FFA500"]}
                 style={styles.awardContainer}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
+                end={{ x: 1, y: 0 }}>
                 <Image
                   source={{
                     uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/frame.png",
                   }}
                   style={styles.awardIcon}
                 />
-                <Text style={styles.awardText}>{registration.awards[0]?.awardName || 'Đạt giải'}</Text>
+                <Text style={styles.awardText}>
+                  {registration.awards[0]?.awardName || "Đạt giải"}
+                </Text>
               </LinearGradient>
             ) : (
               <View style={styles.rankContainer}>
                 <Text style={styles.rankText}>
-                  {registration.rank 
-                    ? `Xếp hạng: ${registration.rank}` 
+                  {registration.rank
+                    ? `Xếp hạng: ${registration.rank}`
                     : "Chưa xếp hạng"}
                 </Text>
               </View>
             )}
           </View>
         </View>
-        
+
         <View style={styles.actionButtonsContainer}>
-          <TouchableOpacity
-            style={styles.viewDetailButton}
-            onPress={onPress}>
+          <TouchableOpacity style={styles.viewDetailButton} onPress={onPress}>
             <Text style={styles.viewDetailButtonText}>Xem chi tiết</Text>
           </TouchableOpacity>
 
           {/* Nút Tiếp tục thanh toán */}
-          {registration.status.toLowerCase() === "waittopaid" && registration.payment?.paymentUrl && (
-            <TouchableOpacity
-              style={styles.continuePaymentButton} // Thêm style mới
-              onPress={() => registration.payment?.paymentUrl && onContinuePayment(registration.payment.paymentUrl)}
-            >
-              <Text style={styles.continuePaymentButtonText}>Tiếp tục thanh toán</Text>
-            </TouchableOpacity>
-          )}
+          {registration.status.toLowerCase() === "waittopaid" &&
+            registration.payment?.paymentUrl && (
+              <TouchableOpacity
+                style={styles.continuePaymentButton} // Thêm style mới
+                onPress={() =>
+                  registration.payment?.paymentUrl &&
+                  onContinuePayment(registration.payment.paymentUrl)
+                }>
+                <Text style={styles.continuePaymentButtonText}>
+                  Tiếp tục thanh toán
+                </Text>
+              </TouchableOpacity>
+            )}
 
           {/* Chỉ hiển thị nút chia sẻ nếu cá đạt giải */}
           {hasAward && (
-             <TouchableOpacity
-               style={styles.shareButton}
-               onPress={onShare}>
-               <Text style={styles.shareButtonText}>Chia sẻ kết quả</Text>
-             </TouchableOpacity>
+            <TouchableOpacity style={styles.shareButton} onPress={onShare}>
+              <Text style={styles.shareButtonText}>Chia sẻ kết quả</Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -207,20 +242,26 @@ const StatBadge: React.FC<{
 
 // --- Competition Details ---
 const CompetitionDetails: React.FC<{
-  showDetail: EnhancedShowMemberDetail
+  showDetail: EnhancedShowMemberDetail;
 }> = ({ showDetail }) => {
   // Tính toán số cá đã được trao giải dựa trên status
-  const awardedFishCount = showDetail.registrations.filter(reg => reg.status === 'prizewinner').length;
+  const awardedFishCount = showDetail.registrations.filter(
+    (reg) => reg.status === "prizewinner"
+  ).length;
   // Đếm số lượng cá đạt giải nhất (rank 1 và status Prizewinner)
-  const highestRankAwardCount = showDetail.registrations
-    .filter(reg => reg.status === 'prizewinner' && reg.rank === 1)
-    .length;
-  
+  const highestRankAwardCount = showDetail.registrations.filter(
+    (reg) => reg.status === "prizewinner" && reg.rank === 1
+  ).length;
+
   // Tìm giải thưởng cao nhất (awardName của con cá có rank nhỏ nhất trong số các con đạt giải)
-  const highestAwardType = showDetail.registrations
-    .filter(reg => reg.status === 'prizewinner' && reg.awards && reg.awards.length > 0) // Lọc cá đạt giải và có thông tin giải thưởng
-    .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999)) // Sắp xếp theo rank tăng dần
-    [0]?.awards[0]?.awardName || null; // Lấy awardName của giải đầu tiên của cá rank cao nhất
+  const highestAwardType =
+    showDetail.registrations
+      .filter(
+        (reg) =>
+          reg.status === "prizewinner" && reg.awards && reg.awards.length > 0
+      ) // Lọc cá đạt giải và có thông tin giải thưởng
+      .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))[0]?.awards[0] // Sắp xếp theo rank tăng dần
+      ?.awardName || null; // Lấy awardName của giải đầu tiên của cá rank cao nhất
 
   // Log giá trị để debug
   console.log("Highest Award Type Calculated:", highestAwardType);
@@ -230,27 +271,27 @@ const CompetitionDetails: React.FC<{
 
   return (
     <View style={styles.competitionContainer}>
-      <ImageBackground 
-        source={{ uri: showDetail.showImageUrl }} 
-        style={styles.competitionBanner} 
-        resizeMode="cover"
-      >
+      <ImageBackground
+        source={{ uri: showDetail.showImageUrl }}
+        style={styles.competitionBanner}
+        resizeMode="cover">
         <LinearGradient
-          colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.7)']}
-          style={styles.bannerGradient}
-        >
+          colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.7)"]}
+          style={styles.bannerGradient}>
           <Text style={styles.competitionTitle}>{showDetail.showName}</Text>
           <Text style={styles.competitionSubtitle}>Kết quả chi tiết</Text>
-          
+
           {/* Hiển thị banner khi cuộc thi bị hủy */}
           {isShowCancelled && (
             <View style={styles.cancelledBanner}>
-              <Text style={styles.cancelledText}>{translateStatus("Cancelled")}</Text>
+              <Text style={styles.cancelledText}>
+                {translateStatus("Cancelled")}
+              </Text>
             </View>
           )}
         </LinearGradient>
       </ImageBackground>
-      
+
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleContainer}>
@@ -258,7 +299,7 @@ const CompetitionDetails: React.FC<{
             <Text style={styles.sectionTitle}>Thông tin cuộc thi</Text>
           </View>
         </View>
-        
+
         <View style={styles.infoContainer}>
           <View style={styles.infoItem}>
             <Image
@@ -269,7 +310,7 @@ const CompetitionDetails: React.FC<{
             />
             <Text style={styles.infoText}>{showDetail.duration}</Text>
           </View>
-          
+
           <View style={styles.infoItem}>
             <Image
               source={{
@@ -279,7 +320,7 @@ const CompetitionDetails: React.FC<{
             />
             <Text style={styles.infoText}>{showDetail.location}</Text>
           </View>
-          
+
           {/* Hiển thị lý do hủy nếu triển lãm bị hủy */}
           {isShowCancelled && showDetail.cancellationReason && (
             <View style={styles.cancellationContainer}>
@@ -294,7 +335,7 @@ const CompetitionDetails: React.FC<{
               </Text>
             </View>
           )}
-          
+
           {showDetail.description && (
             <View style={styles.infoItem}>
               <Image
@@ -308,7 +349,7 @@ const CompetitionDetails: React.FC<{
           )}
         </View>
       </View>
-      
+
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleContainer}>
@@ -316,7 +357,7 @@ const CompetitionDetails: React.FC<{
             <Text style={styles.sectionTitle}>Kết quả của bạn</Text>
           </View>
         </View>
-        
+
         <View style={styles.statsContainer}>
           <StatBadge
             value={showDetail.totalRegisteredKoi}
@@ -334,7 +375,7 @@ const CompetitionDetails: React.FC<{
             color="#F6FFED"
           />
         </View>
-        
+
         {/* Hiển thị lại chi tiết giải thưởng cao nhất với awardType */}
         {highestAwardType && (
           <View style={styles.highestAwardContainer}>
@@ -345,16 +386,18 @@ const CompetitionDetails: React.FC<{
               style={styles.highestAwardIcon}
             />
             <Text style={styles.highestAwardText}>
-              Giải thưởng cao nhất: {highestAwardType} 
+              Giải thưởng cao nhất: {highestAwardType}
             </Text>
           </View>
         )}
-        
+
         <Text style={styles.congratulationText}>
-          {isShowCancelled ? "Rất tiếc cuộc thi đã bị hủy" : "Chúc mừng bạn đã tham gia!"}
+          {isShowCancelled
+            ? "Rất tiếc cuộc thi đã bị hủy"
+            : "Chúc mừng bạn đã tham gia!"}
         </Text>
       </View>
-      
+
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleContainer}>
@@ -362,10 +405,9 @@ const CompetitionDetails: React.FC<{
             <Text style={styles.sectionTitle}>Danh sách cá tham gia</Text>
           </View>
         </View>
-        
+
         <Text style={styles.infoTextSubtle}>
-          Xem kết quả chi tiết cho từng con cá bạn đã đăng ký 
-          tham gia cuộc thi.
+          Xem kết quả chi tiết cho từng con cá bạn đã đăng ký tham gia cuộc thi.
         </Text>
       </View>
     </View>
@@ -376,10 +418,15 @@ const CompetitionDetails: React.FC<{
 const ParticipateResult: React.FC = () => {
   const params = useLocalSearchParams();
   const competitionId = params.competitionId as string;
-  
+
   const [loading, setLoading] = useState(true);
   // Cập nhật kiểu dữ liệu với enhancedData
-  const [showDetail, setShowDetail] = useState<EnhancedShowMemberDetail & { registrations: EnhancedShowDetailRegistration[] } | null>(null);
+  const [showDetail, setShowDetail] = useState<
+    | (EnhancedShowMemberDetail & {
+        registrations: EnhancedShowDetailRegistration[];
+      })
+    | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   // Animation state
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -396,11 +443,11 @@ const ParticipateResult: React.FC = () => {
       // Cập nhật thêm thông tin totalParticipants và payment cho mỗi registration
       const enhancedData = {
         ...data,
-        registrations: data.registrations.map(reg => ({
+        registrations: data.registrations.map((reg) => ({
           ...reg,
           totalParticipants: data.totalRegisteredKoi, // Thêm thông tin tổng số cá
-          payment: reg.payment // Đảm bảo payment được truyền vào
-        }))
+          payment: reg.payment, // Đảm bảo payment được truyền vào
+        })),
       };
 
       setShowDetail(enhancedData);
@@ -412,10 +459,10 @@ const ParticipateResult: React.FC = () => {
         duration: 500,
         useNativeDriver: true,
       }).start();
-
-    } catch (error: any) { // Sửa lỗi cú pháp: dấu phẩy không cần thiết
-      console.error('Lỗi khi lấy thông tin chi tiết show:', error);
-      setError(error.message || 'Có lỗi xảy ra khi tải dữ liệu');
+    } catch (error: any) {
+      // Sửa lỗi cú pháp: dấu phẩy không cần thiết
+      console.error("Lỗi khi lấy thông tin chi tiết show:", error);
+      setError(error.message || "Có lỗi xảy ra khi tải dữ liệu");
     } finally {
       setLoading(false);
     }
@@ -426,12 +473,14 @@ const ParticipateResult: React.FC = () => {
   }, [competitionId]); // Dependency array vẫn giữ nguyên
 
   // Xử lý chuyển hướng đến màn hình chi tiết cá
-  const handleViewFishDetail = (registration: EnhancedShowDetailRegistration) => {
+  const handleViewFishDetail = (
+    registration: EnhancedShowDetailRegistration
+  ) => {
     router.push({
       pathname: "/(user)/FishStatus",
       params: {
         showId: competitionId,
-        registrationId: registration.registrationId
+        registrationId: registration.registrationId,
       },
     });
   };
@@ -443,7 +492,10 @@ const ParticipateResult: React.FC = () => {
       `Chia sẻ kết quả của cá "${registration.koiName}" trên mạng xã hội?`,
       [
         { text: "Hủy", style: "cancel" },
-        { text: "Chia sẻ", onPress: () => console.log("Chia sẻ kết quả:", registration.koiName) }
+        {
+          text: "Chia sẻ",
+          onPress: () => console.log("Chia sẻ kết quả:", registration.koiName),
+        },
       ]
     );
   };
@@ -467,12 +519,11 @@ const ParticipateResult: React.FC = () => {
     fetchShowDetail();
   };
 
-
   return (
     <View style={{ flex: 1 }}>
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="dark" />
-        
+
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -511,35 +562,35 @@ const ParticipateResult: React.FC = () => {
             </TouchableOpacity>
           </View>
         ) : showDetail ? (
-          <Animated.ScrollView 
-            contentContainerStyle={styles.scrollContent} 
+          <Animated.ScrollView
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            style={{ opacity: fadeAnim }}
-          >
+            style={{ opacity: fadeAnim }}>
             <CompetitionDetails showDetail={showDetail} />
-            
+
             {showDetail.registrations.length > 0 ? (
               <View style={styles.fishListContainer}>
                 {showDetail.registrations.map((registration) => (
-                  <FishDetailsCard 
-                    key={registration.registrationId} 
-                    registration={registration} 
+                  <FishDetailsCard
+                    key={registration.registrationId}
+                    registration={registration}
                     onPress={() => handleViewFishDetail(registration)}
                     onShare={() => handleShareResults(registration)}
                     onContinuePayment={handleContinuePayment} // Truyền hàm xử lý
                   />
                 ))}
-                
+
                 <TouchableOpacity
                   style={styles.joinOtherButton}
                   onPress={handleJoinOtherCompetitions}>
                   <LinearGradient
-                    colors={['#4A90E2', '#007AFF']}
+                    colors={["#4A90E2", "#007AFF"]}
                     style={styles.gradientButton}
                     start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.joinOtherButtonText}>Tham gia cuộc thi khác</Text>
+                    end={{ x: 1, y: 0 }}>
+                    <Text style={styles.joinOtherButtonText}>
+                      Tham gia cuộc thi khác
+                    </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -552,18 +603,21 @@ const ParticipateResult: React.FC = () => {
                   style={styles.emptyIcon}
                 />
                 <Text style={styles.emptyTitle}>Không có dữ liệu</Text>
-                <Text style={styles.emptyText}>Bạn chưa đăng ký cá nào cho cuộc thi này</Text>
-                
+                <Text style={styles.emptyText}>
+                  Bạn chưa đăng ký cá nào cho cuộc thi này
+                </Text>
+
                 <TouchableOpacity
                   style={styles.joinOtherButton}
                   onPress={handleJoinOtherCompetitions}>
                   <LinearGradient
-                    colors={['#4A90E2', '#007AFF']}
+                    colors={["#4A90E2", "#007AFF"]}
                     style={styles.gradientButton}
                     start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <Text style={styles.joinOtherButtonText}>Tham gia cuộc thi</Text>
+                    end={{ x: 1, y: 0 }}>
+                    <Text style={styles.joinOtherButtonText}>
+                      Tham gia cuộc thi
+                    </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
@@ -574,53 +628,62 @@ const ParticipateResult: React.FC = () => {
             <Text style={styles.errorText}>Không có dữ liệu</Text>
           </View>
         )}
-        </SafeAreaView>
+      </SafeAreaView>
 
-        {/* Modal hiển thị WebView - Render bên ngoài ScrollView và điều kiện loading/error */}
-        <Modal
-          isVisible={showPaymentWebView}
-           style={styles.webViewModal}
-           onBackdropPress={handleCloseWebView} // Đóng khi nhấn bên ngoài
-           onBackButtonPress={handleCloseWebView} // Đóng khi nhấn nút back Android
-           animationIn="slideInUp"
-           animationOut="slideOutDown"
-           backdropOpacity={0.5}
-         >
-           <SafeAreaView style={styles.webViewSafeArea}>
-             <View style={styles.webViewContainer}>
-               <View style={styles.webViewHeader}>
-                 <Text style={styles.webViewTitle}>Tiếp tục thanh toán</Text>
-                 <TouchableOpacity onPress={handleCloseWebView} style={styles.closeButton}>
-                    <Image source={{ uri: 'https://img.icons8.com/ios-glyphs/30/777777/multiply.png' }} style={styles.closeIcon} />
-                 </TouchableOpacity>
-               </View>
-               {paymentUrl ? ( // Chỉ render WebView khi có URL
-                 <WebView
-                   source={{ uri: paymentUrl }}
-                   style={styles.webView}
-                   startInLoadingState={true}
-                   renderLoading={() => (
-                     <ActivityIndicator
-                       color="#4A90E2"
-                       size="large"
-                       style={styles.webViewLoading}
-                     />
-                   )}
-                   onError={(syntheticEvent) => {
-                     const { nativeEvent } = syntheticEvent;
-                     console.warn('WebView error: ', nativeEvent);
-                     Alert.alert('Lỗi tải trang', 'Không thể tải trang thanh toán. Vui lòng thử lại.');
-                     handleCloseWebView(); // Đóng modal nếu có lỗi
-                   }}
-                 />
-               ) : (
-                  <View style={styles.webViewLoading}>
-                     <Text>Đang tải URL...</Text>
-                  </View>
-               )}
-             </View>
-           </SafeAreaView>
-         </Modal>
+      {/* Modal hiển thị WebView - Render bên ngoài ScrollView và điều kiện loading/error */}
+      <Modal
+        isVisible={showPaymentWebView}
+        style={styles.webViewModal}
+        onBackdropPress={handleCloseWebView} // Đóng khi nhấn bên ngoài
+        onBackButtonPress={handleCloseWebView} // Đóng khi nhấn nút back Android
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+        backdropOpacity={0.5}>
+        <SafeAreaView style={styles.webViewSafeArea}>
+          <View style={styles.webViewContainer}>
+            <View style={styles.webViewHeader}>
+              <Text style={styles.webViewTitle}>Tiếp tục thanh toán</Text>
+              <TouchableOpacity
+                onPress={handleCloseWebView}
+                style={styles.closeButton}>
+                <Image
+                  source={{
+                    uri: "https://img.icons8.com/ios-glyphs/30/777777/multiply.png",
+                  }}
+                  style={styles.closeIcon}
+                />
+              </TouchableOpacity>
+            </View>
+            {paymentUrl ? ( // Chỉ render WebView khi có URL
+              <WebView
+                source={{ uri: paymentUrl }}
+                style={styles.webView}
+                startInLoadingState={true}
+                renderLoading={() => (
+                  <ActivityIndicator
+                    color="#4A90E2"
+                    size="large"
+                    style={styles.webViewLoading}
+                  />
+                )}
+                onError={(syntheticEvent) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.warn("WebView error: ", nativeEvent);
+                  Alert.alert(
+                    "Lỗi tải trang",
+                    "Không thể tải trang thanh toán. Vui lòng thử lại."
+                  );
+                  handleCloseWebView(); // Đóng modal nếu có lỗi
+                }}
+              />
+            ) : (
+              <View style={styles.webViewLoading}>
+                <Text>Đang tải URL...</Text>
+              </View>
+            )}
+          </View>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }; // Sửa lỗi cú pháp: Đặt dấu chấm phẩy đúng vị trí
@@ -630,7 +693,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#F8F9FA",
-    paddingTop: RNStatusBar.currentHeight,
   },
   header: {
     flexDirection: "row",
@@ -690,7 +752,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
     color: "#FFFFFF",
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
@@ -699,7 +761,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#FFFFFF",
     marginTop: 4,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 10,
   },
@@ -922,14 +984,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 15,
   },
-  continuePaymentButton: { // Style cho nút mới
+  continuePaymentButton: {
+    // Style cho nút mới
     backgroundColor: "#F59E0B", // Màu cam
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: "center",
     elevation: 2,
   },
-  continuePaymentButtonText: { // Style cho text nút mới
+  continuePaymentButtonText: {
+    // Style cho text nút mới
     color: "#FFFFFF",
     fontWeight: "600",
     fontSize: 15,
@@ -1052,16 +1116,22 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   statusChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 12,
     alignSelf: "flex-start",
     marginTop: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.5,
+    elevation: 2,
   },
   statusText: {
     color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   // Thêm lại style cho highestAwardContainer
   highestAwardContainer: {
@@ -1086,33 +1156,33 @@ const styles = StyleSheet.create({
   // WebView Modal Styles
   webViewModal: {
     margin: 0, // Modal chiếm toàn màn hình
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   webViewSafeArea: {
     flex: 1,
-    backgroundColor: 'white', // Nền trắng cho safe area
+    backgroundColor: "white", // Nền trắng cho safe area
     borderTopLeftRadius: 15, // Bo góc trên
     borderTopRightRadius: 15,
-    overflow: 'hidden', // Đảm bảo bo góc hoạt động
+    overflow: "hidden", // Đảm bảo bo góc hoạt động
     maxHeight: height * 0.9, // Giới hạn chiều cao modal
   },
   webViewContainer: {
     flex: 1,
   },
   webViewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: '#f8f8f8',
+    borderBottomColor: "#eee",
+    backgroundColor: "#f8f8f8",
   },
   webViewTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   closeButton: {
     padding: 8, // Tăng vùng chạm
@@ -1125,14 +1195,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   webViewLoading: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
   },
 });
 
