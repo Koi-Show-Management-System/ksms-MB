@@ -24,8 +24,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import EnhancedLivestreamChat from "../../../components/EnhancedLivestreamChat";
-import EnhancedLivestreamUI from "../../../components/EnhancedLivestreamUI";
 import api from "../../../services/api";
 import {
   getLivestreamDetails,
@@ -145,9 +143,9 @@ const CallStateHandler: React.FC<{
         );
       }
 
-      // Import EnhancedLivestreamUI from components and use it directly
+      // Use TikTokStyleLivestreamUI for a TikTok-like chat experience
       return (
-        <EnhancedLivestreamUI
+        <TikTokStyleLivestreamUI
           showName={showName}
           onLeave={() => call && onLeave(call)}
           livestreamId={livestreamId}
@@ -157,7 +155,7 @@ const CallStateHandler: React.FC<{
           <View style={{ height: "100%" }}>
             <ViewerLivestream />
           </View>
-        </EnhancedLivestreamUI>
+        </TikTokStyleLivestreamUI>
       );
     default:
       return (
@@ -840,44 +838,29 @@ const LivestreamViewerScreen: React.FC = () => {
   // --- Render Livestream via Wrapper ---
   console.log("Rendering StreamVideo provider and LivestreamContent");
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.streamChatContainer}>
-        {/* Stream section - chiều cao cố định */}
-        <View style={styles.streamWrapper}>
-          <StreamVideo client={client}>
-            {/* Pass livestreamId down */}
-            <LivestreamContent
-              callId={callId}
-              callType="livestream"
-              livestreamId={livestreamId}
-              showName={showName}
-              userId={userId}
-              userName={userName}
-              userProfileImage={userProfileImage}
-            />
-          </StreamVideo>
-        </View>
-
-        {/* Chat panel - trực tiếp ngay bên dưới stream */}
-        {client && callId && livestreamId && (
-          <View style={[styles.chatWrapper, { flex: 2 }]}>
-            <EnhancedLivestreamChat
-              userId={userId}
-              userName={userName}
-              livestreamId={livestreamId}
-              showName={showName || "Livestream"}
-              callId={callId}
-              profileImage={userProfileImage}
-            />
-          </View>
-        )}
-      </View>
-    </SafeAreaView>
+    <View style={styles.fullScreenContainer}>
+      <StreamVideo client={client}>
+        {/* Pass livestreamId down */}
+        <LivestreamContent
+          callId={callId}
+          callType="livestream"
+          livestreamId={livestreamId}
+          showName={showName}
+          userId={userId}
+          userName={userName}
+          userProfileImage={userProfileImage}
+        />
+      </StreamVideo>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  fullScreenContainer: {
     flex: 1,
     backgroundColor: "#000",
   },
