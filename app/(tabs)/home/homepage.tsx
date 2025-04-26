@@ -1,11 +1,21 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { translateStatus } from "../../../utils/statusTranslator";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
-  ActivityIndicator,
   Dimensions,
   FlatList,
+  Platform,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -13,78 +23,79 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Platform,
-  RefreshControl,
 } from "react-native";
-import { getKoiShows, KoiShow } from "../../../services/showService";
-import { LinearGradient } from "expo-linear-gradient";
-import Carousel3DLandscape from "../../../components/Carousel3DLandscape";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
-  useSharedValue,
   useAnimatedScrollHandler,
-  useAnimatedStyle,
-  interpolate,
-  Extrapolate,
-  withTiming,
-  withDelay,
-  withSpring,
-  withSequence,
-  Easing,
+  useSharedValue,
 } from "react-native-reanimated";
-import ShimmerEffect from "../../../components/animations/ShimmerEffect";
 import FadeInView from "../../../components/animations/FadeInView";
-import ParallaxHeroSection from "../../../components/animations/ParallaxHeroSection";
-import ParallaxSection from "../../../components/animations/ParallaxSection";
-import ParallaxItem from "../../../components/animations/ParallaxItem";
 import MicroInteraction from "../../../components/animations/MicroInteraction";
-import { BlurView } from "expo-blur";
-import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
+import ParallaxHeroSection from "../../../components/animations/ParallaxHeroSection";
+import ParallaxItem from "../../../components/animations/ParallaxItem";
+import ShimmerEffect from "../../../components/animations/ShimmerEffect";
+import Carousel3DLandscape from "../../../components/Carousel3DLandscape";
+import { BlogPost, getBlogPosts } from "../../../services/blogService";
+import { getKoiShows, KoiShow } from "../../../services/showService";
+import { translateStatus } from "../../../utils/statusTranslator";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width * 0.8;
 
 // Định nghĩa bảng màu gradient cho ứng dụng
 const COLORS = {
-  primary: '#FF8C00' as const, // Cam đậm
-  primaryLight: '#FFA500' as const, // Cam nhạt
-  primaryGradient: ['#FF8C00', '#FFA500', '#FFD700'] as const, // Gradient cam đến vàng
-  secondary: '#1E88E5' as const, // Xanh dương
-  secondaryLight: '#64B5F6' as const, // Xanh dương nhạt
-  secondaryGradient: ['#1E88E5', '#64B5F6', '#90CAF9'] as const, // Gradient xanh dương
-  dark: '#222222' as const, // Đen đậm
-  darkGradient: ['#222222', '#333333', '#444444'] as const, // Gradient đen
-  light: '#FFFFFF' as const, // Trắng
-  lightGradient: ['#FFFFFF', '#F5F5F5', '#EEEEEE'] as const, // Gradient trắng
-  background: '#F8F9FA', // Nền chính
-  card: '#FFFFFF', // Nền thẻ
+  primary: "#FF8C00" as const, // Cam đậm
+  primaryLight: "#FFA500" as const, // Cam nhạt
+  primaryGradient: ["#FF8C00", "#FFA500", "#FFD700"] as const, // Gradient cam đến vàng
+  secondary: "#1E88E5" as const, // Xanh dương
+  secondaryLight: "#64B5F6" as const, // Xanh dương nhạt
+  secondaryGradient: ["#1E88E5", "#64B5F6", "#90CAF9"] as const, // Gradient xanh dương
+  dark: "#222222" as const, // Đen đậm
+  darkGradient: ["#222222", "#333333", "#444444"] as const, // Gradient đen
+  light: "#FFFFFF" as const, // Trắng
+  lightGradient: ["#FFFFFF", "#F5F5F5", "#EEEEEE"] as const, // Gradient trắng
+  background: "#F8F9FA", // Nền chính
+  card: "#FFFFFF", // Nền thẻ
   text: {
-    primary: '#212121', // Chữ chính
-    secondary: '#757575', // Chữ phụ
-    light: '#FFFFFF', // Chữ trên nền tối
-    accent: '#FF8C00', // Chữ nhấn mạnh
+    primary: "#212121", // Chữ chính
+    secondary: "#757575", // Chữ phụ
+    light: "#FFFFFF", // Chữ trên nền tối
+    accent: "#FF8C00", // Chữ nhấn mạnh
   },
-  border: '#E0E0E0', // Viền
-  shadow: 'rgba(0, 0, 0, 0.1)', // Bóng đổ
+  border: "#E0E0E0", // Viền
+  shadow: "rgba(0, 0, 0, 0.1)", // Bóng đổ
 };
 
 // Skeleton components for loading states with shimmer effect
-const SkeletonBox = memo(({ width, height, style }: { width: string | number; height: string | number; style?: any }) => (
-  <ShimmerEffect
-    width={width}
-    height={height}
-    style={{ borderRadius: 8, ...(style as object) }}
-    shimmerColors={['#E8E8E8', '#F5F5F5', '#E0E0E0'] as const}
-    shimmerDuration={1800}
-  />
-));
+const SkeletonBox = memo(
+  ({
+    width,
+    height,
+    style,
+  }: {
+    width: string | number;
+    height: string | number;
+    style?: any;
+  }) => (
+    <ShimmerEffect
+      width={width}
+      height={height}
+      style={{ borderRadius: 8, ...(style as object) }}
+      shimmerColors={["#E8E8E8", "#F5F5F5", "#E0E0E0"] as const}
+      shimmerDuration={1800}
+    />
+  )
+);
 
 const HeroSkeleton = memo(() => (
   <View style={styles.heroSection}>
     <View style={styles.carouselWrapper}>
-      <SkeletonBox width="80%" height={30} style={{ marginBottom: 20, marginTop: 12, alignSelf: 'center' }} />
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <SkeletonBox
+        width="80%"
+        height={30}
+        style={{ marginBottom: 20, marginTop: 12, alignSelf: "center" }}
+      />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <SkeletonBox width={200} height={320} style={{ borderRadius: 12 }} />
       </View>
     </View>
@@ -93,11 +104,27 @@ const HeroSkeleton = memo(() => (
 
 const ShowCardSkeleton = memo(() => (
   <View style={[styles.showCard, { backgroundColor: COLORS.background }]}>
-    <SkeletonBox width="100%" height={160} style={{ marginBottom: 12, borderRadius: 12 }} />
+    <SkeletonBox
+      width="100%"
+      height={160}
+      style={{ marginBottom: 12, borderRadius: 12 }}
+    />
     <View style={{ padding: 16 }}>
-      <SkeletonBox width="80%" height={22} style={{ marginBottom: 14, borderRadius: 6 }} />
-      <SkeletonBox width="60%" height={16} style={{ marginBottom: 10, borderRadius: 4 }} />
-      <SkeletonBox width="70%" height={16} style={{ marginBottom: 14, borderRadius: 4 }} />
+      <SkeletonBox
+        width="80%"
+        height={22}
+        style={{ marginBottom: 14, borderRadius: 6 }}
+      />
+      <SkeletonBox
+        width="60%"
+        height={16}
+        style={{ marginBottom: 10, borderRadius: 4 }}
+      />
+      <SkeletonBox
+        width="70%"
+        height={16}
+        style={{ marginBottom: 14, borderRadius: 4 }}
+      />
       <View
         style={{
           flexDirection: "row",
@@ -106,8 +133,7 @@ const ShowCardSkeleton = memo(() => (
           paddingTop: 12,
           borderTopWidth: 1,
           borderTopColor: COLORS.border,
-        }}
-      >
+        }}>
         <SkeletonBox width="40%" height={18} style={{ borderRadius: 4 }} />
         <SkeletonBox width="30%" height={18} style={{ borderRadius: 4 }} />
       </View>
@@ -122,10 +148,13 @@ const CarouselSkeleton = memo(({ title }: { title: string }) => (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}
-      >
+        contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
         {[1, 2, 3].map((item) => (
-          <FadeInView key={item} delay={item * 150} duration={500} from={{ opacity: 0, translateX: 50 }}>
+          <FadeInView
+            key={item}
+            delay={item * 150}
+            duration={500}
+            from={{ opacity: 0, translateX: 50 }}>
             <ShowCardSkeleton />
           </FadeInView>
         ))}
@@ -136,11 +165,14 @@ const CarouselSkeleton = memo(({ title }: { title: string }) => (
 
 const Homepage: React.FC = () => {
   const [shows, setShows] = useState<KoiShow[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [blogLoading, setBlogLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState("");
+  const [blogError, setBlogError] = useState("");
   const [currentHeroIndex, setCurrentHeroIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -161,39 +193,51 @@ const Homepage: React.FC = () => {
   });
 
   // Filtered shows based on search query - memoized để tránh tính toán lại khi component re-render
-  const filteredShows = useMemo(() =>
-    shows.filter(show =>
-      show.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      show.location?.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
+  const filteredShows = useMemo(
+    () =>
+      shows.filter(
+        (show) =>
+          show.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          show.location?.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
     [shows, searchQuery]
   );
 
   // Group shows by status - memoized để tránh tính toán lại khi component re-render
-  const publishedShows = useMemo(() =>
-    filteredShows.filter((show) => show.status && show.status.toLowerCase() === "published"),
+  const publishedShows = useMemo(
+    () =>
+      filteredShows.filter(
+        (show) => show.status && show.status.toLowerCase() === "published"
+      ),
     [filteredShows]
   );
 
-  const upcomingShows = useMemo(() =>
-    filteredShows.filter((show) => show.status && show.status.toLowerCase() === "upcoming"),
+  const upcomingShows = useMemo(
+    () =>
+      filteredShows.filter(
+        (show) => show.status && show.status.toLowerCase() === "upcoming"
+      ),
     [filteredShows]
   );
 
-  const completedShows = useMemo(() =>
-    filteredShows.filter((show) => show.status && show.status.toLowerCase() === "finished"),
+  const completedShows = useMemo(
+    () =>
+      filteredShows.filter(
+        (show) => show.status && show.status.toLowerCase() === "finished"
+      ),
     [filteredShows]
   );
 
   useEffect(() => {
     fetchShows();
+    fetchBlogPosts();
   }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await fetchShows();
+      await Promise.all([fetchShows(), fetchBlogPosts()]);
     } finally {
       setRefreshing(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -214,6 +258,24 @@ const Homepage: React.FC = () => {
     }
   };
 
+  // Fetch blog posts - get the 2 most recent posts
+  const fetchBlogPosts = async () => {
+    try {
+      setBlogLoading(true);
+      const response = await getBlogPosts(1, 2); // Get page 1 with 2 items
+      if (response.statusCode === 200) {
+        setBlogPosts(response.data.items);
+      } else {
+        setBlogError("Không thể tải bài viết mới nhất");
+      }
+    } catch (error) {
+      console.error("Không thể tải bài viết:", error);
+      setBlogError("Không thể tải bài viết mới nhất");
+    } finally {
+      setBlogLoading(false);
+    }
+  };
+
   const handleSearch = useCallback((text: string) => {
     setSearchQuery(text);
     if (text.length > 0) {
@@ -230,11 +292,24 @@ const Homepage: React.FC = () => {
   // Format date function to avoid errors - memoized để tránh tạo lại hàm khi component re-render
   const formatDate = useCallback((dateString: string) => {
     try {
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString).toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
     } catch (error) {
       console.error("Ngày tháng không hợp lệ:", dateString);
       return "Chưa cập nhật ngày";
     }
+  }, []);
+
+  // Extract plain text from HTML content for blog preview
+  const extractTextFromHtml = useCallback((html: string, maxLength = 100) => {
+    // Simple regex to remove HTML tags
+    const text = html.replace(/<[^>]*>?/gm, "");
+    return text.length > maxLength
+      ? text.substring(0, maxLength) + "..."
+      : text;
   }, []);
 
   // Prepare carousel data from shows - memoized để tránh tính toán lại khi component re-render
@@ -242,24 +317,27 @@ const Homepage: React.FC = () => {
     if (!shows || shows.length === 0) return [];
 
     // Tạo danh sách các items từ shows hiện có
-    const carouselItems = shows.map(show => {
+    const carouselItems = shows.map((show) => {
       // Tạo mô tả ngắn gọn và hấp dẫn hơn cho carousel theo chiều ngang
-      let shortDescription = '';
+      let shortDescription = "";
 
       // Kết hợp ngày và địa điểm vào mô tả
       if (show.location) {
         shortDescription = `Tại: ${show.location} • `;
       }
 
-      shortDescription += `${formatDate(show.startDate)} - ${formatDate(show.endDate)}`;
+      shortDescription += `${formatDate(show.startDate)} - ${formatDate(
+        show.endDate
+      )}`;
 
       return {
-        uri: show.imgUrl && show.imgUrl.startsWith("http")
-          ? show.imgUrl
-          : "https://images.unsplash.com/photo-1616989161881-6c788f319bd7?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+        uri:
+          show.imgUrl && show.imgUrl.startsWith("http")
+            ? show.imgUrl
+            : "https://images.unsplash.com/photo-1616989161881-6c788f319bd7?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
         title: show.name || "Chưa cập nhật tên cuộc thi",
         description: shortDescription,
-        showData: show // Lưu trữ dữ liệu show đầy đủ để sử dụng khi click
+        showData: show, // Lưu trữ dữ liệu show đầy đủ để sử dụng khi click
       };
     });
 
@@ -285,35 +363,38 @@ const Homepage: React.FC = () => {
     });
   }, []);
 
-  const handleCardPress = useCallback((item: any, index: number) => {
-    if (item && item.showData) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      handleShowPress(item.showData);
-    }
-  }, [handleShowPress]);
+  const handleCardPress = useCallback(
+    (item: any, index: number) => {
+      if (item && item.showData) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        handleShowPress(item.showData);
+      }
+    },
+    [handleShowPress]
+  );
 
   // Quick access routes
   const quickAccessRoutes = [
     {
       text: "Shows",
       icon: "trophy-outline" as const,
-      route: "/(tabs)/shows/KoiShowsPage"
+      route: "/(tabs)/shows/KoiShowsPage",
     },
     {
-      text: "Đăng ký ngay",
+      text: "Blogs",
       icon: "create-outline" as const,
-      route: "/(tabs)/shows/KoiRegistration"
+      route: "/(tabs)/blog",
     },
     {
       text: "Ban giám khảo",
       icon: "star-outline" as const,
-      route: "/(tabs)/judges"
+      route: "/(tabs)/judges",
     },
     {
       text: "Tài khoản",
       icon: "person-outline" as const,
-      route: "/(tabs)/user/UserProfile"
-    }
+      route: "/(tabs)/user/UserProfile",
+    },
   ];
 
   // Update the quick access button rendering with micro-interactions and gradients
@@ -322,9 +403,8 @@ const Homepage: React.FC = () => {
       <View style={styles.quickAccessButtons}>
         {quickAccessRoutes.map((item, index) => {
           // Chọn gradient khác nhau cho mỗi nút
-          const gradientColors = index % 2 === 0
-            ? COLORS.primaryGradient
-            : COLORS.secondaryGradient;
+          const gradientColors =
+            index % 2 === 0 ? COLORS.primaryGradient : COLORS.secondaryGradient;
 
           return (
             <MicroInteraction
@@ -336,14 +416,12 @@ const Homepage: React.FC = () => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 router.push(item.route as any);
               }}
-              style={styles.quickAccessButtonContainer}
-            >
+              style={styles.quickAccessButtonContainer}>
               <LinearGradient
                 colors={gradientColors}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.quickAccessButton}
-              >
+                style={styles.quickAccessButton}>
                 <View style={styles.quickAccessIconContainer}>
                   <Ionicons name={item.icon} size={24} color="#FFFFFF" />
                 </View>
@@ -357,167 +435,195 @@ const Homepage: React.FC = () => {
   }, [quickAccessRoutes]);
 
   // Render a carousel for shows with parallax effect
-  const renderShowCarousel = useCallback((statusShows: KoiShow[], title: string, sectionPosition = 600, showSearch = false) => {
-    // Luôn hiển thị section, ngay cả khi không có shows
-    return (
-      <>
-        <View style={styles.featuredShows}>
-          <ParallaxItem
-            scrollY={scrollY}
-            startPosition={sectionPosition - 200}
-            endPosition={sectionPosition + 200}
-            parallaxFactor={0.2}
-          >
-            <View style={styles.sectionTitleRow}>
-              <Text style={styles.sectionTitle}>{title}</Text>
-              {showSearch && (
-                <TouchableOpacity
-                  style={styles.searchButton}
-                  onPress={() => {
-                    setIsSearchFocused(!isSearchFocused);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  }}
-                >
-                  <Ionicons
-                    name={isSearchFocused ? "close-outline" : "search-outline"}
-                    size={22}
-                    color={COLORS.text.primary}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-          </ParallaxItem>
+  const renderShowCarousel = useCallback(
+    (
+      statusShows: KoiShow[],
+      title: string,
+      sectionPosition = 600,
+      showSearch = false
+    ) => {
+      // Luôn hiển thị section, ngay cả khi không có shows
+      return (
+        <>
+          <View style={styles.featuredShows}>
+            <ParallaxItem
+              scrollY={scrollY}
+              startPosition={sectionPosition - 200}
+              endPosition={sectionPosition + 200}
+              parallaxFactor={0.2}>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>{title}</Text>
+                {showSearch && (
+                  <TouchableOpacity
+                    style={styles.searchButton}
+                    onPress={() => {
+                      setIsSearchFocused(!isSearchFocused);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    }}>
+                    <Ionicons
+                      name={
+                        isSearchFocused ? "close-outline" : "search-outline"
+                      }
+                      size={22}
+                      color={COLORS.text.primary}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ParallaxItem>
 
-          {showSearch && isSearchFocused && renderShowSearchBar()}
+            {showSearch && isSearchFocused && renderShowSearchBar()}
 
-          {loading ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
-              {[1, 2, 3].map((item) => (
-                <ShowCardSkeleton key={item} />
-              ))}
-            </ScrollView>
-          ) : statusShows.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
-              {statusShows.map((show, index) => (
-                <ParallaxItem
-                  key={show.id}
-                  scrollY={scrollY}
-                  startPosition={sectionPosition - 100}
-                  endPosition={sectionPosition + 300}
-                  parallaxFactor={0.1 + (index * 0.05)}
-                  direction="horizontal"
-                >
-                  <FadeInView
-                    delay={index * 100}
-                    duration={600}
-                    from={{ opacity: 0, translateX: 50 }}
-                  >
-                    <MicroInteraction
-                      scaleOnPress={true}
-                      springConfig={{ damping: 10, stiffness: 100 }}
-                      onPress={() => handleShowPress(show)}
-                      style={styles.showCard}
-                    >
-                      <View style={styles.imageContainer}>
-                        <Image
-                          source={{
-                            uri:
-                              show.imgUrl && show.imgUrl.startsWith("http")
-                                ? show.imgUrl
-                                : "https://ugc.futurelearn.com/uploads/images/d5/6d/d56d20b4-1072-48c0-b832-deecf6641d49.jpg",
-                          }}
-                          style={styles.showImage}
-                          contentFit="cover"
-                          transition={300}
-                          placeholder={require("../../../assets/images/test_image.png")}
-                          cachePolicy="memory-disk"
-                        />
-                        <LinearGradient
-                          colors={['transparent', 'rgba(0,0,0,0.85)']}
-                          style={styles.imageGradient}
-                        />
-                        <LinearGradient
-                          colors={COLORS.primaryGradient}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.statusBadge}
-                        >
-                          <Text style={styles.statusText}>{translateStatus(show.status)}</Text>
-                        </LinearGradient>
-                      </View>
-                      <View style={styles.showDetails}>
-                        <Text style={styles.showName} numberOfLines={1}>
-                          {show.name || "Chưa cập nhật tên cuộc thi"}
-                        </Text>
-                        <View style={styles.infoRow}>
-                          <Ionicons
-                            name="calendar-outline"
-                            size={14}
-                            color={COLORS.text.secondary}
+            {loading ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
+                {[1, 2, 3].map((item) => (
+                  <ShowCardSkeleton key={item} />
+                ))}
+              </ScrollView>
+            ) : statusShows.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingRight: 20, paddingLeft: 5 }}>
+                {statusShows.map((show, index) => (
+                  <ParallaxItem
+                    key={show.id}
+                    scrollY={scrollY}
+                    startPosition={sectionPosition - 100}
+                    endPosition={sectionPosition + 300}
+                    parallaxFactor={0.1 + index * 0.05}
+                    direction="horizontal">
+                    <FadeInView
+                      delay={index * 100}
+                      duration={600}
+                      from={{ opacity: 0, translateX: 50 }}>
+                      <MicroInteraction
+                        scaleOnPress={true}
+                        springConfig={{ damping: 10, stiffness: 100 }}
+                        onPress={() => handleShowPress(show)}
+                        style={styles.showCard}>
+                        <View style={styles.imageContainer}>
+                          <Image
+                            source={{
+                              uri:
+                                show.imgUrl && show.imgUrl.startsWith("http")
+                                  ? show.imgUrl
+                                  : "https://ugc.futurelearn.com/uploads/images/d5/6d/d56d20b4-1072-48c0-b832-deecf6641d49.jpg",
+                            }}
+                            style={styles.showImage}
+                            contentFit="cover"
+                            transition={300}
+                            placeholder={require("../../../assets/images/test_image.png")}
+                            cachePolicy="memory-disk"
                           />
-                          <Text style={styles.showDate}>
-                            {formatDate(show.startDate)} -{" "}
-                            {formatDate(show.endDate)}
-                          </Text>
-                        </View>
-                        <View style={styles.infoRow}>
-                          <Ionicons
-                            name="location-outline"
-                            size={14}
-                            color={COLORS.text.secondary}
+                          <LinearGradient
+                            colors={["transparent", "rgba(0,0,0,0.85)"]}
+                            style={styles.imageGradient}
                           />
-                          <Text style={styles.showLocation} numberOfLines={1}>
-                            {show.location || "Chưa cập nhật địa điểm"}
-                          </Text>
+                          <LinearGradient
+                            colors={COLORS.primaryGradient}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.statusBadge}>
+                            <Text style={styles.statusText}>
+                              {translateStatus(show.status)}
+                            </Text>
+                          </LinearGradient>
                         </View>
-                        <LinearGradient
-                          colors={['#F8F8F8', '#FFFFFF']}
-                          style={styles.cardFooter}
-                        >
-                          <View style={styles.participantInfo}>
+                        <View style={styles.showDetails}>
+                          <Text style={styles.showName} numberOfLines={1}>
+                            {show.name || "Chưa cập nhật tên cuộc thi"}
+                          </Text>
+                          <View style={styles.infoRow}>
                             <Ionicons
-                              name="people-outline"
+                              name="calendar-outline"
                               size={14}
                               color={COLORS.text.secondary}
                             />
-                            <Text style={styles.participantText}>
-                              {show.minParticipants}-{show.maxParticipants}
+                            <Text style={styles.showDate}>
+                              {formatDate(show.startDate)} -{" "}
+                              {formatDate(show.endDate)}
                             </Text>
                           </View>
-                        </LinearGradient>
-                      </View>
-                    </MicroInteraction>
-                  </FadeInView>
-                </ParallaxItem>
-              ))}
-            </ScrollView>
-          ) : (
-            // Hiển thị thông báo khi không có kết quả tìm kiếm
-            <View style={styles.noResultsContainer}>
-              {searchQuery.length > 0 ? (
-                <>
-                  <Ionicons name="search-outline" size={40} color={COLORS.text.secondary} style={{ marginBottom: 10 }} />
-                  <Text style={styles.noResultsText}>Không tìm thấy cuộc thi nào phù hợp</Text>
-                  <Text style={styles.noResultsSubText}>Vui lòng thử tìm kiếm với từ khóa khác</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="calendar-outline" size={40} color={COLORS.text.secondary} style={{ marginBottom: 10 }} />
-                  <Text style={styles.noResultsText}>Hiện tại chưa có cuộc thi nào</Text>
-                </>
-              )}
-            </View>
-          )}
-        </View>
-      </>
-    );
-  }, [scrollY, isSearchFocused, loading, searchQuery, handleShowPress, formatDate]);
+                          <View style={styles.infoRow}>
+                            <Ionicons
+                              name="location-outline"
+                              size={14}
+                              color={COLORS.text.secondary}
+                            />
+                            <Text style={styles.showLocation} numberOfLines={1}>
+                              {show.location || "Chưa cập nhật địa điểm"}
+                            </Text>
+                          </View>
+                          <LinearGradient
+                            colors={["#F8F8F8", "#FFFFFF"]}
+                            style={styles.cardFooter}>
+                            <View style={styles.participantInfo}>
+                              <Ionicons
+                                name="people-outline"
+                                size={14}
+                                color={COLORS.text.secondary}
+                              />
+                              <Text style={styles.participantText}>
+                                {show.minParticipants}-{show.maxParticipants}
+                              </Text>
+                            </View>
+                          </LinearGradient>
+                        </View>
+                      </MicroInteraction>
+                    </FadeInView>
+                  </ParallaxItem>
+                ))}
+              </ScrollView>
+            ) : (
+              // Hiển thị thông báo khi không có kết quả tìm kiếm
+              <View style={styles.noResultsContainer}>
+                {searchQuery.length > 0 ? (
+                  <>
+                    <Ionicons
+                      name="search-outline"
+                      size={40}
+                      color={COLORS.text.secondary}
+                      style={{ marginBottom: 10 }}
+                    />
+                    <Text style={styles.noResultsText}>
+                      Không tìm thấy cuộc thi nào phù hợp
+                    </Text>
+                    <Text style={styles.noResultsSubText}>
+                      Vui lòng thử tìm kiếm với từ khóa khác
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={40}
+                      color={COLORS.text.secondary}
+                      style={{ marginBottom: 10 }}
+                    />
+                    <Text style={styles.noResultsText}>
+                      Hiện tại chưa có cuộc thi nào
+                    </Text>
+                  </>
+                )}
+              </View>
+            )}
+          </View>
+        </>
+      );
+    },
+    [
+      scrollY,
+      isSearchFocused,
+      loading,
+      searchQuery,
+      handleShowPress,
+      formatDate,
+    ]
+  );
 
   // Render search bar component for shows
   const renderShowSearchBar = useCallback(() => {
@@ -538,14 +644,19 @@ const Homepage: React.FC = () => {
           autoFocus={true}
         />
         {searchQuery.length > 0 ? (
-          <TouchableOpacity
-            onPress={clearSearch}
-            style={styles.clearButton}
-          >
-            <Ionicons name="close-circle" size={18} color={COLORS.text.secondary} />
+          <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+            <Ionicons
+              name="close-circle"
+              size={18}
+              color={COLORS.text.secondary}
+            />
           </TouchableOpacity>
         ) : (
-          <Ionicons name="search-outline" size={18} color={COLORS.text.secondary} />
+          <Ionicons
+            name="search-outline"
+            size={18}
+            color={COLORS.text.secondary}
+          />
         )}
       </View>
     );
@@ -572,15 +683,19 @@ const Homepage: React.FC = () => {
             height={450}
             scrollY={scrollY}
             parallaxFactor={0.5}
-            style={styles.heroSection}
-          >
+            style={styles.heroSection}>
             {loading ? (
               <HeroSkeleton />
             ) : shows.length > 0 ? (
               <View style={styles.carouselWrapper}>
-                <FadeInView delay={300} duration={800} from={{ opacity: 0, translateY: -20 }}>
+                <FadeInView
+                  delay={300}
+                  duration={800}
+                  from={{ opacity: 0, translateY: -20 }}>
                   <Text style={styles.heroSectionTitle}>
-                    {shows.length > 0 ? 'Các cuộc thi nổi bật' : 'Vietnam Koi Show 2024'}
+                    {shows.length > 0
+                      ? "Các cuộc thi nổi bật"
+                      : "Vietnam Koi Show 2024"}
                   </Text>
                 </FadeInView>
                 <Carousel3DLandscape
@@ -590,23 +705,28 @@ const Homepage: React.FC = () => {
                   showControls={false}
                   onCardPress={handleCardPress}
                   containerStyle={{
-                    height: '90%',
+                    height: "90%",
                     padding: 0,
-                    justifyContent: 'center',
-                    alignItems: 'center',
+                    justifyContent: "center",
+                    alignItems: "center",
                   }}
                   backgroundColor="#222"
                 />
               </View>
             ) : (
               <View style={styles.noShowsContainer}>
-                <Text style={styles.noShowsText}>Hiện tại chưa có cuộc thi nào</Text>
+                <Text style={styles.noShowsText}>
+                  Hiện tại chưa có cuộc thi nào
+                </Text>
               </View>
             )}
           </ParallaxHeroSection>
 
           {/* Quick Access Section */}
-          <FadeInView delay={400} duration={800} from={{ opacity: 0, translateY: 30 }}>
+          <FadeInView
+            delay={400}
+            duration={800}
+            from={{ opacity: 0, translateY: 30 }}>
             <View style={styles.quickAccess}>
               <Text style={styles.sectionTitle}>Truy cập tính năng</Text>
               {renderQuickAccessButtons()}
@@ -620,7 +740,10 @@ const Homepage: React.FC = () => {
           {loading ? (
             <CarouselSkeleton title="Các cuộc thi nổi bật" />
           ) : (
-            <FadeInView delay={500} duration={800} from={{ opacity: 0, translateY: 30 }}>
+            <FadeInView
+              delay={500}
+              duration={800}
+              from={{ opacity: 0, translateY: 30 }}>
               {renderShowCarousel(shows, "Các cuộc thi nổi bật", 600, false)}
             </FadeInView>
           )}
@@ -629,92 +752,103 @@ const Homepage: React.FC = () => {
           {loading ? (
             <CarouselSkeleton title="Các cuộc thi sắp diễn ra" />
           ) : (
-            <FadeInView delay={600} duration={800} from={{ opacity: 0, translateY: 30 }}>
-              {renderShowCarousel(upcomingShows, "Các cuộc thi sắp diễn ra", 900, true)}
+            <FadeInView
+              delay={600}
+              duration={800}
+              from={{ opacity: 0, translateY: 30 }}>
+              {renderShowCarousel(
+                upcomingShows,
+                "Các cuộc thi sắp diễn ra",
+                900,
+                true
+              )}
             </FadeInView>
           )}
 
           {/* News and Blogs with Parallax */}
-          <FadeInView delay={800} duration={800} from={{ opacity: 0, translateY: 30 }}>
+          <FadeInView
+            delay={800}
+            duration={800}
+            from={{ opacity: 0, translateY: 30 }}>
             <View style={styles.newsAndBlogs}>
               <ParallaxItem
                 scrollY={scrollY}
                 startPosition={1500}
                 endPosition={1800}
-                parallaxFactor={0.2}
-              >
-                <Text style={styles.sectionTitleWhite}>Tin tức và bài viết mới</Text>
-              </ParallaxItem>
-
-              <ParallaxItem
-                scrollY={scrollY}
-                startPosition={1550}
-                endPosition={1850}
-                parallaxFactor={0.15}
-              >
-                <View style={styles.searchContainer}>
-                  <TextInput
-                    style={[styles.searchInput, { color: '#FFFFFF' }]}
-                    placeholder="Tìm kiếm tin tức và bài viết..."
-                    placeholderTextColor="#E1E1E1"
-                  />
-                  <Ionicons name="search-outline" size={18} color="#E1E1E1" />
+                parallaxFactor={0.2}>
+                <View style={styles.sectionTitleRow}>
+                  <Text style={styles.sectionTitleWhite}>
+                    Tin tức và bài viết mới
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      router.push("/(tabs)/blog" as any);
+                    }}>
+                    <Text style={styles.viewAllText}>Xem tất cả</Text>
+                    <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
                 </View>
               </ParallaxItem>
 
               <View style={styles.articles}>
-                {loading ? (
+                {blogLoading ? (
                   // Skeleton for articles with shimmer effect
                   [1, 2].map((index) => (
-                    <FadeInView key={index} delay={index * 200 + 800} duration={500} from={{ opacity: 0, scale: 0.9 }}>
+                    <FadeInView
+                      key={index}
+                      delay={index * 200 + 800}
+                      duration={500}
+                      from={{ opacity: 0, scale: 0.9 }}>
                       <View style={styles.articleCard}>
                         <SkeletonBox width="100%" height={120} />
                         <View style={{ padding: 10 }}>
-                          <SkeletonBox width="90%" height={18} style={{ marginBottom: 8 }} />
-                          <SkeletonBox width="100%" height={12} style={{ marginBottom: 4 }} />
+                          <SkeletonBox
+                            width="90%"
+                            height={18}
+                            style={{ marginBottom: 8 }}
+                          />
+                          <SkeletonBox
+                            width="100%"
+                            height={12}
+                            style={{ marginBottom: 4 }}
+                          />
                           <SkeletonBox width="80%" height={12} />
                         </View>
                       </View>
                     </FadeInView>
                   ))
-                ) : (
-                  [
-                    {
-                      image:
-                        "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                      title: "Kỹ thuật nuôi cá Koi",
-                     description:
-                       "Tổng hợp những kinh nghiệm và kỹ thuật nuôi cá Koi từ các chuyên gia hàng đầu...",
-                     date: "20/07/2024",
-                   },
-                   {
-                     image:
-                       "https://plus.unsplash.com/premium_photo-1723351183913-f1015b61b230?q=80&w=2070&auto=format&fit=crop",
-                     title: "Bệnh thường gặp ở cá Koi",
-                     description:
-                       "Hướng dẫn nhận biết và điều trị các bệnh phổ biến ở cá Koi...",
-                     date: "15/07/2024",
-                    },
-                  ].map((article, index) => (
+                ) : blogPosts.length > 0 ? (
+                  blogPosts.map((post, index) => (
                     <ParallaxItem
                       key={index}
                       scrollY={scrollY}
                       startPosition={1600 + index * 50}
                       endPosition={1900 + index * 50}
-                      parallaxFactor={0.1 + (index * 0.05)}
-                      direction={index % 2 === 0 ? "horizontal" : "vertical"}
-                    >
-                      <FadeInView delay={index * 200 + 800} duration={500} from={{ opacity: 0, scale: 0.9 }}>
-                        <MicroInteraction 
-                          scaleOnPress={true} 
+                      parallaxFactor={0.1 + index * 0.05}
+                      direction={index % 2 === 0 ? "horizontal" : "vertical"}>
+                      <FadeInView
+                        delay={index * 200 + 800}
+                        duration={500}
+                        from={{ opacity: 0, scale: 0.9 }}>
+                        <MicroInteraction
+                          scaleOnPress={true}
                           springConfig={{ damping: 10, stiffness: 100 }}
-                          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-                        >
+                          onPress={() => {
+                            Haptics.impactAsync(
+                              Haptics.ImpactFeedbackStyle.Light
+                            );
+                            router.push({
+                              pathname: "/(tabs)/blog/[blogId]",
+                              params: { blogId: post.id },
+                            } as any);
+                          }}>
                           <View style={styles.articleCard}>
                             <View style={styles.articleImageContainer}>
                               <Image
                                 source={{
-                                  uri: article.image,
+                                  uri: post.imgUrl,
                                 }}
                                 style={styles.articleImage}
                                 contentFit="cover"
@@ -722,38 +856,70 @@ const Homepage: React.FC = () => {
                                 cachePolicy="memory-disk"
                               />
                               <LinearGradient
-                                colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
+                                colors={[
+                                  "transparent",
+                                  "rgba(0,0,0,0.7)",
+                                  "rgba(0,0,0,0.9)",
+                                ]}
                                 style={styles.articleImageGradient}
                               />
                             </View>
                             <View style={styles.articleContent}>
                               <View>
-                                <Text style={styles.articleTitle}>{article.title}</Text>
-                                <Text style={styles.articleDescription} numberOfLines={3}>
-                                  {article.description}
+                                <Text style={styles.articleTitle}>
+                                  {post.title}
+                                </Text>
+                                <Text
+                                  style={styles.articleDescription}
+                                  numberOfLines={3}>
+                                  {extractTextFromHtml(post.content, 150)}
                                 </Text>
                               </View>
 
                               <View style={styles.articleFooter}>
                                 <View style={styles.articleMetaRow}>
                                   <View style={styles.articleMetaItem}>
-                                    <Ionicons name="calendar-outline" size={14} color="#FFF" />
-                                    <Text style={styles.articleMetaText}>{article.date}</Text>
+                                    <Ionicons
+                                      name="calendar-outline"
+                                      size={14}
+                                      color="#FFF"
+                                    />
+                                    <Text style={styles.articleMetaText}>
+                                      {formatDate(post.createdAt)}
+                                    </Text>
                                   </View>
                                 </View>
-                                <MicroInteraction 
-                                  scaleOnPress={true} 
+                                <MicroInteraction
+                                  scaleOnPress={true}
                                   springConfig={{ damping: 8, stiffness: 80 }}
-                                  onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-                                >
+                                  onPress={() =>
+                                    Haptics.impactAsync(
+                                      Haptics.ImpactFeedbackStyle.Light
+                                    )
+                                  }>
                                   <LinearGradient
-                                    colors={['#FF8C00', '#FFA500', '#FFD700'] as readonly [string, string, ...string[]]}
+                                    colors={
+                                      [
+                                        "#FF8C00",
+                                        "#FFA500",
+                                        "#FFD700",
+                                      ] as readonly [
+                                        string,
+                                        string,
+                                        ...string[]
+                                      ]
+                                    }
                                     start={{ x: 0, y: 0 }}
                                     end={{ x: 1, y: 0 }}
-                                    style={styles.readMoreButton}
-                                  >
-                                    <Text style={styles.readMoreText}>Xem thêm</Text>
-                                    <Ionicons name="chevron-forward" size={14} color="#FFF" />
+                                    style={styles.readMoreButton}>
+                                    <Text style={styles.readMoreText}>
+                                      Xem thêm
+                                    </Text>
+                                    <Ionicons
+                                      name="chevron-forward"
+                                      size={14}
+                                      color="#FFF"
+                                    />
                                   </LinearGradient>
                                 </MicroInteraction>
                               </View>
@@ -763,13 +929,25 @@ const Homepage: React.FC = () => {
                       </FadeInView>
                     </ParallaxItem>
                   ))
+                ) : (
+                  <View style={styles.noResultsContainer}>
+                    <Ionicons
+                      name="newspaper-outline"
+                      size={40}
+                      color="#666666"
+                      style={{ marginBottom: 10 }}
+                    />
+                    <Text style={styles.noResultsText}>
+                      Không có bài viết nào
+                    </Text>
+                  </View>
                 )}
               </View>
             </View>
           </FadeInView>
 
           {/* Add bottom padding to avoid content being hidden by footer */}
-          <View style={{ height: 80 }} />
+          <View style={{ height: 60 }} />
         </Animated.ScrollView>
       </SafeAreaView>
     </GestureHandlerRootView>
@@ -782,54 +960,54 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   noResultsContainer: {
-    width: '100%',
+    width: "100%",
     height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.02)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.02)",
     borderRadius: 12,
     marginVertical: 10,
     paddingHorizontal: 20,
   },
   noResultsText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.text.secondary,
     marginBottom: 8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   noResultsSubText: {
     fontSize: 14,
     color: COLORS.text.secondary,
     opacity: 0.8,
-    textAlign: 'center',
+    textAlign: "center",
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: COLORS.text.primary,
-    fontFamily: 'Roboto',
+    fontFamily: "Roboto",
     padding: 0,
-    height: '100%',
-    backgroundColor: 'transparent',
+    height: "100%",
+    backgroundColor: "transparent",
   },
   clearButton: {
     padding: 4,
   },
   sectionTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
     marginBottom: 20,
   },
   searchButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   scrollView: {
     flexGrow: 1,
@@ -843,10 +1021,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    overflow: 'hidden',
+    overflow: "hidden",
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.3,
         shadowRadius: 10,
@@ -872,16 +1050,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginVertical: 15,
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
     zIndex: 10, // Đảm bảo tiêu đề hiển thị phía trên carousel
   },
   carousel3DContainer: {
-    height: '90%', // Đảm bảo carousel lấp đầy chiều cao của hero section
+    height: "90%", // Đảm bảo carousel lấp đầy chiều cao của hero section
     padding: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   heroImage: {
     width: "100%",
@@ -889,7 +1067,7 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   heroGradient: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
@@ -907,18 +1085,18 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FFFFFF",
     marginBottom: 10,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3
+    textShadowRadius: 3,
   },
   heroDescription: {
     fontFamily: "Poppins",
     fontSize: 14,
     color: "#F5F5F5",
     marginBottom: 20,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0.5, height: 0.5 },
-    textShadowRadius: 2
+    textShadowRadius: 2,
   },
   heroButtonContainer: {
     flexDirection: "row",
@@ -976,7 +1154,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 6,
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
     ...Platform.select({
       ios: {
         shadowColor: COLORS.shadow,
@@ -1001,9 +1179,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   quickAccessText: {
@@ -1013,7 +1191,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     textAlign: "center",
     marginTop: 6,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -1027,7 +1205,7 @@ const styles = StyleSheet.create({
     marginTop: 25,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: -6 },
         shadowOpacity: 0.2,
         shadowRadius: 10,
@@ -1057,7 +1235,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.2,
         shadowRadius: 4,
@@ -1085,7 +1263,7 @@ const styles = StyleSheet.create({
     height: 150,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.4,
         shadowRadius: 8,
@@ -1096,7 +1274,7 @@ const styles = StyleSheet.create({
     }),
   },
   articleImageContainer: {
-    position: 'relative',
+    position: "relative",
     width: 150,
     height: "100%",
   },
@@ -1106,18 +1284,18 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   articleImageGradient: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: '100%',
+    height: "100%",
   },
   articleContent: {
     flex: 1,
     padding: 16,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
     borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255, 255, 255, 0.1)',
+    borderLeftColor: "rgba(255, 255, 255, 0.1)",
   },
   articleTitle: {
     fontFamily: "Roboto",
@@ -1133,42 +1311,42 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.8)",
     lineHeight: 18,
     fontWeight: "400",
-    maxWidth: '95%',
+    maxWidth: "95%",
   },
   articleFooter: {
     marginTop: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   articleMetaRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     flex: 1,
   },
   articleMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 12,
     marginRight: 8,
   },
   articleMetaText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 12,
     marginLeft: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   readMoreButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
@@ -1179,9 +1357,9 @@ const styles = StyleSheet.create({
     }),
   },
   readMoreText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     marginRight: 4,
   },
 
@@ -1217,7 +1395,7 @@ const styles = StyleSheet.create({
     height: 180,
   },
   imageGradient: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
@@ -1237,7 +1415,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
@@ -1295,7 +1473,7 @@ const styles = StyleSheet.create({
   participantInfo: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: "rgba(0,0,0,0.05)",
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 12,
@@ -1332,6 +1510,20 @@ const styles = StyleSheet.create({
   noShowsText: {
     color: "#FFF",
     fontSize: 16,
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  viewAllText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 4,
   },
 });
 

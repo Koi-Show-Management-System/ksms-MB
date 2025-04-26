@@ -12,10 +12,11 @@ interface LayoutWithFooterProps {
 // Hàm helper để xác định activeTab dựa vào đường dẫn hiện tại
 const getActiveTabFromPath = (
   path: string
-): "home" | "notifications" | "camera" | "profile" | "shows" => {
+): "home" | "notifications" | "camera" | "profile" | "shows" | "blog" => {
   if (path.includes("/home")) return "home";
   if (path.includes("/Notification")) return "notifications";
   if (path.includes("/shows")) return "shows";
+  if (path.includes("/blog")) return "blog";
   if (
     path.includes("/UserProfile") ||
     path.includes("/Transactions") ||
@@ -58,7 +59,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingBottom: 80, // Thêm padding để tránh nội dung bị che bởi footer
+    paddingBottom: 60, // Giảm padding để loại bỏ khoảng trắng thừa nhưng vẫn đảm bảo nội dung không bị che bởi footer
   },
 });
 

@@ -7,12 +7,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 // Dimensions không còn cần thiết ở đây
 
 interface FooterProps {
-  activeTab?: "home" | "notifications" | "camera" | "profile" | "shows";
+  activeTab?:
+    | "home"
+    | "notifications"
+    | "camera"
+    | "profile"
+    | "shows"
+    | "blog";
   onHomePress?: () => void;
   onNotificationPress?: () => void;
   onCameraPress?: () => void;
   onProfilePress?: () => void;
   onShowsPress?: () => void;
+  onBlogPress?: () => void;
 }
 
 const Footer: React.FC<FooterProps> = ({
@@ -22,6 +29,7 @@ const Footer: React.FC<FooterProps> = ({
   onCameraPress,
   onProfilePress,
   onShowsPress,
+  onBlogPress,
 }) => {
   const insets = useSafeAreaInsets();
   // screenHeight và useEffect không còn cần thiết
@@ -65,6 +73,14 @@ const Footer: React.FC<FooterProps> = ({
       onShowsPress();
     } else {
       router.push("/shows/KoiShowsPage");
+    }
+  };
+
+  const handleBlogPress = () => {
+    if (onBlogPress) {
+      onBlogPress();
+    } else {
+      router.push("/(tabs)/blog");
     }
   };
 
@@ -125,16 +141,28 @@ const Footer: React.FC<FooterProps> = ({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.footerCameraButton]}
-          onPress={handleCameraPress}>
-          <View style={styles.footerCameraCircle}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79CVK7obB3a4bxY/frame-6.png",
-              }}
-              style={styles.footerCameraIcon}
-            />
-          </View>
+          style={[
+            styles.footerItem,
+            activeTab === "blog" && styles.activeFooterItem,
+          ]}
+          onPress={handleBlogPress}>
+          <Image
+            source={{
+              uri: "https://img.icons8.com/material-rounded/24/000000/news.png",
+            }}
+            style={[
+              styles.footerIcon,
+              activeTab === "blog" && styles.activeFooterIcon,
+            ]}
+          />
+          <Text
+            style={[
+              styles.footerText,
+              activeTab === "blog" && styles.activeFooterText,
+            ]}>
+            Tin tức
+          </Text>
+          {activeTab === "blog" && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
 
         <TouchableOpacity

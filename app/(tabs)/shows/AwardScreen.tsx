@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { router } from "expo-router";
 
 interface AwardCardProps {
   title: string;
@@ -102,7 +101,8 @@ const AwardScreen: React.FC = () => {
                 <Text
                   style={[
                     styles.categoryLabel,
-                    selectedCategory === category && styles.selectedCategoryText,
+                    selectedCategory === category &&
+                      styles.selectedCategoryText,
                   ]}>
                   {category}
                 </Text>
@@ -170,30 +170,30 @@ const styles = StyleSheet.create({
     backgroundColor: "#FAFAFA",
   },
   banner: {
-    width: '100%',
+    width: "100%",
     height: 200,
-    backgroundColor: '#E9E9E9',
+    backgroundColor: "#E9E9E9",
   },
   bannerImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   mainContent: {
     padding: 16,
   },
   titleSection: {
     marginVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
-    fontFamily: 'Poppins',
+    fontFamily: "Poppins",
     fontSize: 24,
-    fontWeight: '700',
-    color: '#030303',
+    fontWeight: "700",
+    color: "#030303",
   },
   scrollContent: {
-    paddingBottom: 80, // Thêm padding để tránh bị footer che phủ
+    paddingBottom: 60, // Giảm padding để loại bỏ khoảng trắng thừa nhưng vẫn đảm bảo nội dung không bị che bởi footer
   },
   header: {
     height: 64,

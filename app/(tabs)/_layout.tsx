@@ -27,6 +27,12 @@ export default function TabLayout() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="blog"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }
