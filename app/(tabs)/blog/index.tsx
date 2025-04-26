@@ -6,6 +6,7 @@ import {
   getBlogPosts,
 } from "@/services/blogService";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -191,21 +193,27 @@ const BlogListScreen: React.FC = () => {
       style={styles.blogItem}
       onPress={() => handleBlogPress(item.id)}
       activeOpacity={0.7}>
-      <View style={styles.blogImageContainer}>
-        <Image
-          source={{ uri: item.imgUrl }}
-          style={styles.blogImage}
-          resizeMode="cover"
-        />
-      </View>
+      <Image
+        source={{ uri: item.imgUrl }}
+        style={styles.blogImage}
+        resizeMode="cover"
+      />
+      <LinearGradient
+        colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.7)", "rgba(0,0,0,0.85)"]}
+        style={styles.blogImageGradient}
+      />
       <View style={styles.blogContent}>
-        <Text style={styles.blogCategory}>{item.blogCategory.name}</Text>
-        <Text style={styles.blogTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.blogPreview} numberOfLines={2}>
-          {extractTextFromHtml(item.content)}
-        </Text>
+        <View style={styles.categoryBadge}>
+          <Text style={styles.blogCategory}>{item.blogCategory.name}</Text>
+        </View>
+        <View style={styles.blogTextContent}>
+          <Text style={styles.blogTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <Text style={styles.blogPreview} numberOfLines={2}>
+            {extractTextFromHtml(item.content)}
+          </Text>
+        </View>
         <View style={styles.blogMeta}>
           <View style={styles.authorContainer}>
             <Image
@@ -354,69 +362,120 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   blogItem: {
-    flexDirection: "row",
     marginBottom: 20,
     borderRadius: 12,
     backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
     overflow: "hidden",
-  },
-  blogImageContainer: {
-    width: 120,
-    height: 120,
+    position: "relative",
+    height: 180,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   blogImage: {
+    position: "absolute",
     width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  blogImageGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
     height: "100%",
   },
   blogContent: {
     flex: 1,
-    padding: 12,
+    padding: 16,
     justifyContent: "space-between",
+    position: "relative",
+    zIndex: 2,
+    height: "100%",
+  },
+  categoryBadge: {
+    backgroundColor: "#FF8C00",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 3,
+    elevation: 5,
   },
   blogCategory: {
     fontSize: 12,
-    color: COLORS.primary,
-    fontWeight: "600",
-    marginBottom: 4,
+    color: "#FFFFFF",
+    fontWeight: "700",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
+  },
+  blogTextContent: {
+    flex: 1,
+    justifyContent: "center",
   },
   blogTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "700",
-    color: "#333333",
-    marginBottom: 4,
+    color: "#FFFFFF",
+    marginBottom: 8,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   blogPreview: {
-    fontSize: 13,
-    color: "#666666",
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.9)",
     marginBottom: 8,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   blogMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginTop: 8,
   },
   authorContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
   authorAvatar: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: 6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.5)",
   },
   authorName: {
     fontSize: 12,
-    color: "#666666",
+    color: "#FFFFFF",
+    fontWeight: "500",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   blogDate: {
     fontSize: 12,
-    color: "#999999",
+    color: "rgba(255, 255, 255, 0.8)",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 1,
   },
   loadingContainer: {
     flex: 1,
