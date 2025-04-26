@@ -108,6 +108,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 8,
     maxWidth: "85%",
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Thêm background cho tin nhắn
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
   currentUserContainer: {
     flexDirection: "row-reverse",
@@ -141,18 +145,15 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   messageBubble: {
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 2,
+    paddingHorizontal: 0,
     marginBottom: 2,
   },
   currentUserBubble: {
-    backgroundColor: "rgba(24, 144, 255, 0.8)",
-    borderBottomRightRadius: 4,
+    // Không cần background vì đã thêm vào messageContainer
   },
   otherUserBubble: {
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderBottomLeftRadius: 4,
+    // Không cần background vì đã thêm vào messageContainer
   },
   messageText: {
     color: "#FFF",

@@ -272,15 +272,15 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
 
       <FlatList
         ref={messagesEndRef}
-        data={messages}
+        data={messages.slice(-3)} // Chỉ hiển thị 3 tin nhắn gần nhất
         renderItem={renderMessageItem}
         keyExtractor={(item) => item.id}
         style={styles.messagesList}
         contentContainerStyle={styles.messagesListContent}
         showsVerticalScrollIndicator={false}
-        initialNumToRender={10}
-        maxToRenderPerBatch={5}
-        windowSize={5}
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={3}
         removeClippedSubviews={true}
       />
 
@@ -302,10 +302,10 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 100, // Space for bottom tabs and input
+    bottom: 80, // Hạ thấp thanh chat xuống một chút
     left: 0,
     right: 0,
-    maxHeight: "70%",
+    maxHeight: "30%", // Giới hạn chiều cao để hiển thị ít tin nhắn hơn
     backgroundColor: "transparent",
     zIndex: 10,
   },

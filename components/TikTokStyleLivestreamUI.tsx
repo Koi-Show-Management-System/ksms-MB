@@ -62,11 +62,22 @@ const TikTokStyleLivestreamUI: React.FC<TikTokStyleLivestreamUIProps> = ({
     if (message.trim() && call && !sending) {
       try {
         setSending(true);
-        // In a real implementation, this would send the message to the chat channel
         console.log("Sending message:", message);
 
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        // Import sendChatMessage from chatService
+        const { sendChatMessage } = require("../services/chatService");
+
+        // Send message to Stream Chat
+        await sendChatMessage(
+          livestreamId,
+          {
+            authorId: userId,
+            author: userName,
+            content: message,
+            profileImage: userProfileImage,
+          },
+          call?.id
+        );
 
         // Clear the input
         setMessage("");
@@ -76,7 +87,15 @@ const TikTokStyleLivestreamUI: React.FC<TikTokStyleLivestreamUIProps> = ({
         setSending(false);
       }
     }
-  }, [message, call, sending]);
+  }, [
+    message,
+    call,
+    sending,
+    livestreamId,
+    userId,
+    userName,
+    userProfileImage,
+  ]);
 
   return (
     <View style={styles.container}>
@@ -103,22 +122,12 @@ const TikTokStyleLivestreamUI: React.FC<TikTokStyleLivestreamUIProps> = ({
             />
             <View style={styles.streamerTextInfo}>
               <Text style={styles.streamerName}>{showName}</Text>
-              <Text style={styles.viewerCount}>
-                <Ionicons name="eye-outline" size={12} color="#FFF" />{" "}
-                {participantCount}
-              </Text>
             </View>
           </View>
 
           <TouchableOpacity style={styles.followButton}>
             <Text style={styles.followButtonText}>Follow</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* LIVE indicator */}
-        <View style={styles.liveIndicator}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>LIVE</Text>
         </View>
 
         {/* Chat overlay */}
@@ -169,14 +178,6 @@ const TikTokStyleLivestreamUI: React.FC<TikTokStyleLivestreamUIProps> = ({
                   color={message.trim() ? "#FFF" : "rgba(255, 255, 255, 0.4)"}
                 />
               )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Chỉ giữ lại nút chat */}
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Ionicons name="chatbubble-outline" size={24} color="#FFF" />
-              <Text style={styles.actionButtonBadge}>2</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -286,11 +287,11 @@ const styles = StyleSheet.create({
   },
   bottomControls: {
     position: "absolute",
-    bottom: 10,
+    bottom: 20,
     left: 0,
     right: 0,
     paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingBottom: 10,
     zIndex: 20,
   },
   inputContainer: {
