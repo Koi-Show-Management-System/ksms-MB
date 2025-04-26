@@ -834,7 +834,7 @@ const Homepage: React.FC = () => {
                         from={{ opacity: 0, scale: 0.9 }}>
                         <MicroInteraction
                           scaleOnPress={true}
-                          springConfig={{ damping: 10, stiffness: 100 }}
+                          springConfig={{ damping: 12, stiffness: 120 }}
                           onPress={() => {
                             Haptics.impactAsync(
                               Haptics.ImpactFeedbackStyle.Light
@@ -845,27 +845,54 @@ const Homepage: React.FC = () => {
                             } as any);
                           }}>
                           <View style={styles.articleCard}>
-                            <View style={styles.articleImageContainer}>
-                              <Image
-                                source={{
-                                  uri: post.imgUrl,
-                                }}
-                                style={styles.articleImage}
-                                contentFit="cover"
-                                transition={300}
-                                cachePolicy="memory-disk"
-                              />
-                              <LinearGradient
-                                colors={[
-                                  "transparent",
-                                  "rgba(0,0,0,0.7)",
-                                  "rgba(0,0,0,0.9)",
-                                ]}
-                                style={styles.articleImageGradient}
-                              />
-                            </View>
+                            <Image
+                              source={{
+                                uri: post.imgUrl,
+                              }}
+                              style={styles.articleImage}
+                              contentFit="cover"
+                              transition={300}
+                              cachePolicy="memory-disk"
+                            />
+                            <LinearGradient
+                              colors={[
+                                "rgba(0,0,0,0.5)",
+                                "rgba(0,0,0,0.7)",
+                                "rgba(0,0,0,0.85)",
+                              ]}
+                              style={styles.articleImageGradient}
+                            />
+
                             <View style={styles.articleContent}>
                               <View>
+                                {/* Category Badge */}
+                                <View
+                                  style={{
+                                    backgroundColor: "#FF8C00",
+                                    paddingVertical: 5,
+                                    paddingHorizontal: 10,
+                                    borderRadius: 6,
+                                    alignSelf: "flex-start",
+                                    marginBottom: 10,
+                                    shadowColor: "#000",
+                                    shadowOffset: { width: 0, height: 2 },
+                                    shadowOpacity: 0.8,
+                                    shadowRadius: 3,
+                                    elevation: 5,
+                                  }}>
+                                  <Text
+                                    style={{
+                                      color: "#FFFFFF",
+                                      fontSize: 12,
+                                      fontWeight: "700",
+                                      textShadowColor: "rgba(0, 0, 0, 0.5)",
+                                      textShadowOffset: { width: 0, height: 1 },
+                                      textShadowRadius: 1,
+                                    }}>
+                                    {"Tin tức"}
+                                  </Text>
+                                </View>
+
                                 <Text style={styles.articleTitle}>
                                   {post.title}
                                 </Text>
@@ -878,50 +905,27 @@ const Homepage: React.FC = () => {
 
                               <View style={styles.articleFooter}>
                                 <View style={styles.articleMetaRow}>
-                                  <View style={styles.articleMetaItem}>
+                                  <View
+                                    style={{
+                                      flexDirection: "row",
+                                      alignItems: "center",
+                                    }}>
                                     <Ionicons
-                                      name="calendar-outline"
+                                      name="time-outline"
                                       size={14}
                                       color="#FFF"
                                     />
-                                    <Text style={styles.articleMetaText}>
+                                    <Text
+                                      style={{
+                                        color: "#FFF",
+                                        fontSize: 12,
+                                        marginLeft: 4,
+                                        fontWeight: "500",
+                                      }}>
                                       {formatDate(post.createdAt)}
                                     </Text>
                                   </View>
                                 </View>
-                                <MicroInteraction
-                                  scaleOnPress={true}
-                                  springConfig={{ damping: 8, stiffness: 80 }}
-                                  onPress={() =>
-                                    Haptics.impactAsync(
-                                      Haptics.ImpactFeedbackStyle.Light
-                                    )
-                                  }>
-                                  <LinearGradient
-                                    colors={
-                                      [
-                                        "#FF8C00",
-                                        "#FFA500",
-                                        "#FFD700",
-                                      ] as readonly [
-                                        string,
-                                        string,
-                                        ...string[]
-                                      ]
-                                    }
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 0 }}
-                                    style={styles.readMoreButton}>
-                                    <Text style={styles.readMoreText}>
-                                      Xem thêm
-                                    </Text>
-                                    <Ionicons
-                                      name="chevron-forward"
-                                      size={14}
-                                      color="#FFF"
-                                    />
-                                  </LinearGradient>
-                                </MicroInteraction>
                               </View>
                             </View>
                           </View>
@@ -934,11 +938,18 @@ const Homepage: React.FC = () => {
                     <Ionicons
                       name="newspaper-outline"
                       size={40}
-                      color="#666666"
-                      style={{ marginBottom: 10 }}
+                      color="#FFFFFF"
+                      style={{ marginBottom: 10, opacity: 0.7 }}
                     />
                     <Text style={styles.noResultsText}>
                       Không có bài viết nào
+                    </Text>
+                    <Text
+                      style={[
+                        styles.noResultsText,
+                        { fontSize: 14, opacity: 0.7, marginTop: 5 },
+                      ]}>
+                      Vui lòng quay lại sau
                     </Text>
                   </View>
                 )}
@@ -964,17 +975,31 @@ const styles = StyleSheet.create({
     height: 200,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.02)",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 20,
     marginVertical: 10,
     paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
   noResultsText: {
     fontSize: 18,
-    fontWeight: "600",
-    color: COLORS.text.secondary,
+    fontWeight: "700",
+    color: "#FFFFFF",
     marginBottom: 8,
     textAlign: "center",
+    letterSpacing: 0.3,
   },
   noResultsSubText: {
     fontSize: 14,
@@ -1255,30 +1280,28 @@ const styles = StyleSheet.create({
   },
   articleCard: {
     width: "100%",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 16,
     marginBottom: 16,
     overflow: "hidden",
-    flexDirection: "row",
-    height: 150,
+    position: "relative",
+    height: 220,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.4,
-        shadowRadius: 8,
+        shadowRadius: 10,
       },
       android: {
         elevation: 8,
       },
     }),
   },
-  articleImageContainer: {
-    position: "relative",
-    width: 150,
-    height: "100%",
-  },
   articleImage: {
+    position: "absolute",
     width: "100%",
     height: "100%",
     resizeMode: "cover",
@@ -1288,33 +1311,41 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    top: 0,
     height: "100%",
   },
   articleContent: {
     flex: 1,
-    padding: 16,
+    padding: 20,
     justifyContent: "space-between",
-    borderLeftWidth: 1,
-    borderLeftColor: "rgba(255, 255, 255, 0.1)",
+    position: "relative",
+    zIndex: 2,
   },
   articleTitle: {
     fontFamily: "Roboto",
     fontSize: 18,
-    color: COLORS.text.light,
+    color: "#FFFFFF",
     marginBottom: 8,
     fontWeight: "700",
     letterSpacing: 0.2,
+    lineHeight: 24,
+    textShadowColor: "rgba(0, 0, 0, 0.8)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   articleDescription: {
     fontFamily: "Roboto",
-    fontSize: 13,
-    color: "rgba(255, 255, 255, 0.8)",
-    lineHeight: 18,
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.9)",
+    lineHeight: 20,
     fontWeight: "400",
     maxWidth: "95%",
+    textShadowColor: "rgba(0, 0, 0, 0.8)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   articleFooter: {
-    marginTop: 12,
+    marginTop: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -1326,24 +1357,26 @@ const styles = StyleSheet.create({
   articleMetaItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    borderRadius: 10,
     marginRight: 8,
   },
   articleMetaText: {
     color: "#FFF",
-    fontSize: 12,
+    fontSize: 11,
     marginLeft: 4,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   readMoreButton: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
     ...Platform.select({
       ios: {
         shadowColor: "#000",
@@ -1359,8 +1392,9 @@ const styles = StyleSheet.create({
   readMoreText: {
     color: "#FFF",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "700",
     marginRight: 4,
+    letterSpacing: 0.2,
   },
 
   // Enhanced show carousel styles
