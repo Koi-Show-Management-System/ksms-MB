@@ -54,7 +54,7 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 3;
   const messagesEndRef = useRef<FlatList>(null);
-  const messagesContainerRef = useRef<View>(null);
+  const messagesContainerRef = useRef<View | null>(null);
 
   // Initialize chat
   const initializeChat = useCallback(async () => {
@@ -258,7 +258,11 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
 
   // Render chat overlay
   return (
-    <View style={styles.container} ref={messagesContainerRef}>
+    <View
+      style={styles.container}
+      ref={(ref) => {
+        messagesContainerRef.current = ref;
+      }}>
       {error && (
         <TouchableOpacity style={styles.errorBanner} onPress={handleRetry}>
           <Ionicons name="warning-outline" size={14} color="#FFD700" />

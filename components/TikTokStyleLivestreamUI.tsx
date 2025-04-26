@@ -36,25 +36,19 @@ const TikTokStyleLivestreamUI: React.FC<TikTokStyleLivestreamUIProps> = ({
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Ensure the call object is available
+  // Get call object and participant count
   const call = useCall();
+  const { useParticipantCount } = useCallStateHooks();
+  const participantCount = useParticipantCount() || 0;
+
+  // Early return if call is not available
   if (!call) {
-    // Safely handle the case where call is not available yet
     console.warn("TikTokStyleLivestreamUI: Call object is not available");
     return (
       <View style={styles.centeredContent}>
         <Text style={styles.infoText}>Loading stream data...</Text>
       </View>
     );
-  }
-
-  // Safely access hook from useCallStateHooks
-  let participantCount = 0;
-  try {
-    const { useParticipantCount } = useCallStateHooks();
-    participantCount = useParticipantCount() || 0;
-  } catch (error) {
-    console.warn("Error using participant count hook:", error);
   }
 
   // Handle leaving the livestream
@@ -133,7 +127,8 @@ const TikTokStyleLivestreamUI: React.FC<TikTokStyleLivestreamUIProps> = ({
           userName={userName}
           livestreamId={livestreamId}
           showName={showName}
-          userProfileImage={userProfileImage}
+          callId={call?.id}
+          profileImage={userProfileImage}
         />
 
         {/* Bottom controls */}

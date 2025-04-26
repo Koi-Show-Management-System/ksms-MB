@@ -22,7 +22,7 @@ const TikTokStyleMessage: React.FC<TikTokStyleMessageProps> = ({
   isCurrentUser = false,
 }) => {
   // Format timestamp
-  const formatTime = (date: Date) => {
+  const formatTime = (date: Date | undefined) => {
     if (!date) return "";
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };

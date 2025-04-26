@@ -24,6 +24,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import TikTokStyleLivestreamUI from "../../../components/TikTokStyleLivestreamUI";
 import api from "../../../services/api";
 import {
   getLivestreamDetails,
