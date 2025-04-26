@@ -601,11 +601,11 @@ const Homepage: React.FC = () => {
                     <Ionicons
                       name="calendar-outline"
                       size={40}
-                      color={COLORS.text.secondary}
+                      color="#888888"
                       style={{ marginBottom: 10 }}
                     />
-                    <Text style={styles.noResultsText}>
-                      Hiện tại chưa có cuộc thi nào
+                    <Text style={styles.emptyStateText}>
+                      Không có cuộc thi mới trong thời gian tới
                     </Text>
                   </>
                 )}
@@ -972,26 +972,50 @@ const styles = StyleSheet.create({
   },
   noResultsContainer: {
     width: "100%",
-    height: 200,
+    height: 180,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 20,
+    backgroundColor: "#EEEEEE",
+    borderRadius: 8,
     marginVertical: 10,
     paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  emptyStateIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(255, 140, 0, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  browseShowsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FF8C00",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    marginTop: 20,
+    width: 200,
     ...Platform.select({
       ios: {
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 5,
+        elevation: 3,
       },
     }),
+  },
+  browseShowsButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+    marginRight: 8,
   },
   noResultsText: {
     fontSize: 18,
@@ -1000,6 +1024,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: "center",
     letterSpacing: 0.3,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#555555",
+    textAlign: "center",
+    letterSpacing: 0.2,
   },
   noResultsSubText: {
     fontSize: 14,
