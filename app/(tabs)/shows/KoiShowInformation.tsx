@@ -1214,7 +1214,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollViewContent: {
-    paddingBottom: 120, // Đủ không gian cho footer và các nút
+    paddingBottom: 150, // Tăng padding để đảm bảo đủ không gian cho footer và các nút
   },
   // Section styles
   sectionContainer: {
@@ -1628,17 +1628,17 @@ const styles = StyleSheet.create({
   // Footer styles
   footer: {
     backgroundColor: "#ffffff",
-    padding: 6, // Giảm padding từ 8px xuống 6px
-    paddingHorizontal: 10, // Thêm padding ngang để nút không quá sát cạnh
-    paddingBottom: 4, // Giảm padding dưới thêm
+    padding: 8, // Khôi phục padding để nút có đủ không gian
+    paddingHorizontal: 12, // Tăng padding ngang để nút không quá sát cạnh
+    paddingBottom: 8, // Khôi phục padding dưới
     flexDirection: "row",
     borderTopWidth: 1,
     borderTopColor: "#e5e7eb",
-    gap: 8, // Giữ nguyên gap giữa các nút
+    gap: 10, // Tăng gap giữa các nút
     justifyContent: "space-between",
     position: "absolute",
     bottom: 0,
-    marginBottom: -6, // Tăng margin âm để đẩy footer xuống dưới nhiều hơn
+    marginBottom: 0, // Loại bỏ margin âm để footer không bị đẩy xuống quá thấp
     left: 0,
     right: 0,
     zIndex: 10,
@@ -1649,13 +1649,13 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
   },
   actionButton: {
-    borderRadius: 6,
-    paddingVertical: 10, // Tăng lại padding để nút có đủ chiều cao
+    borderRadius: 8,
+    paddingVertical: 12, // Tăng padding để nút có đủ chiều cao
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     flex: 1,
-    height: 38, // Đặt chiều cao cố định cho nút
+    height: 44, // Tăng chiều cao cố định cho nút
   },
   ticketButton: {
     backgroundColor: "#1e88e5",

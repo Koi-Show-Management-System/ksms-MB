@@ -155,15 +155,15 @@ const PaymentModal = ({
                 const status = urlObj.searchParams.get("status") || "";
                 const isSuccess = navState.url.includes("/success");
 
-                // Navigate to appropriate screen
+                // Navigate to appropriate screen for registration payment
                 if (isSuccess) {
                   router.push({
-                    pathname: "/(payments)/PaymentSuccess",
+                    pathname: "/(payments)/RegistrationPaymentSuccess",
                     params: { status },
                   });
                 } else {
                   router.push({
-                    pathname: "/(payments)/PaymentFailed",
+                    pathname: "/(payments)/RegistrationPaymentFailed",
                     params: { status },
                   });
                 }
@@ -195,15 +195,15 @@ const PaymentModal = ({
                   console.log("Error parsing URL parameters:", e);
                 }
 
-                // Navigate based on success/failure path
+                // Navigate based on success/failure path for registration payment
                 if (isSuccess) {
                   router.push({
-                    pathname: "/(payments)/PaymentSuccess",
+                    pathname: "/(payments)/RegistrationPaymentSuccess",
                     params: { status },
                   });
                 } else {
                   router.push({
-                    pathname: "/(payments)/PaymentFailed",
+                    pathname: "/(payments)/RegistrationPaymentFailed",
                     params: { status },
                   });
                 }
@@ -2358,7 +2358,11 @@ const KoiRegistrationScreen: React.FC = () => {
                       placeholderTextColor="#94a3b8"
                       value={koiName}
                       onChangeText={setKoiName}
+                      editable={false}
                     />
+                    <Text style={styles.fieldHint}>
+                      (Không thể chỉnh sửa tên Koi)
+                    </Text>
                   </View>
 
                   {/* Input for Register Name */}
@@ -2386,6 +2390,7 @@ const KoiRegistrationScreen: React.FC = () => {
                           onChangeText={setKoiSize}
                           onBlur={() => handleSizeChange(koiSize)}
                           keyboardType="numeric"
+                          editable={false}
                         />
                         <View style={styles.sizeUnit}>
                           <Text style={styles.sizeUnitText}>cm</Text>
@@ -2396,7 +2401,7 @@ const KoiRegistrationScreen: React.FC = () => {
                       <Text style={styles.errorText}>{formErrors.size}</Text>
                     ) : (
                       <Text style={styles.sizeHint}>
-                        Kích thước hợp lệ: 15-75 cm
+                        (Không thể chỉnh sửa kích thước Koi)
                       </Text>
                     )}
                   </View>
@@ -2409,8 +2414,11 @@ const KoiRegistrationScreen: React.FC = () => {
                       placeholderTextColor="#94a3b8"
                       value={koiVariety}
                       onChangeText={setKoiVariety}
-                      editable={false}
+                      editable={false} // Giữ nguyên không cho phép chỉnh sửa giống Koi
                     />
+                    <Text style={styles.fieldHint}>
+                      (Không thể chỉnh sửa giống Koi)
+                    </Text>
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -2422,8 +2430,12 @@ const KoiRegistrationScreen: React.FC = () => {
                       placeholder="Thông tin dòng máu"
                       placeholderTextColor="#94a3b8"
                       value={koiDescription}
-                      editable={false} // Không cho phép chỉnh sửa vì đây là thông tin từ profile
+                      onChangeText={setKoiDescription}
+                      editable={false} // Không cho phép chỉnh sửa thông tin dòng máu
                     />
+                    <Text style={styles.fieldHint}>
+                      (Không thể chỉnh sửa dòng máu Koi)
+                    </Text>
                   </View>
 
                   <View style={styles.inputGroup}>
@@ -3332,6 +3344,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   sizeHint: {
+    color: "#6B7280",
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  fieldHint: {
     color: "#6B7280",
     fontSize: 12,
     marginTop: 4,

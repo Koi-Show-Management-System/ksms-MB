@@ -89,12 +89,12 @@ const KoiShowsPage: React.FC = () => {
     const end = new Date(endDate);
 
     if (start.toDateString() === end.toDateString()) {
-      return format(start, "dd/MM/yyyy", { locale: vi });
+      return format(start, "dd/MM/yyyy HH:mm", { locale: vi });
     }
 
-    return `${format(start, "dd/MM", { locale: vi })} - ${format(
+    return `${format(start, "dd/MM HH:mm", { locale: vi })} - ${format(
       end,
-      "dd/MM/yyyy",
+      "dd/MM/yyyy HH:mm",
       { locale: vi }
     )}`;
   };

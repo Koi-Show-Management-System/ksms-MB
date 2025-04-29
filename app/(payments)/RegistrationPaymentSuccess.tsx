@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 
-const PaymentSuccess = () => {
+const RegistrationPaymentSuccess = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -20,11 +20,10 @@ const PaymentSuccess = () => {
           <Ionicons name="checkmark-circle" size={100} color="#4CAF50" />
         </View>
 
-        <Text style={styles.title}>Thanh toán thành công!</Text>
+        <Text style={styles.title}>Đăng ký thành công!</Text>
 
         <Text style={styles.message}>
-          Đơn hàng vé của bạn đã được xử lý thành công. Bạn sẽ nhận được email
-          xác nhận trong thời gian ngắn.
+          Đơn đăng ký thi đấu của bạn đã được xử lý thành công. Bạn sẽ nhận được email xác nhận trong thời gian ngắn.
         </Text>
 
         <View style={styles.buttonContainer}>
@@ -108,4 +107,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PaymentSuccess;
+export default RegistrationPaymentSuccess;

@@ -20,24 +20,24 @@ const PaymentFailed = () => {
           <Ionicons name="close-circle" size={100} color="#F44336" />
         </View>
 
-        <Text style={styles.title}>Payment Failed</Text>
+        <Text style={styles.title}>Thanh toán thất bại</Text>
 
         <Text style={styles.message}>
-          We couldn't process your payment at this time. Please try again or
-          contact customer support.
+          Chúng tôi không thể xử lý thanh toán của bạn vào lúc này. Vui lòng thử
+          lại hoặc liên hệ với bộ phận hỗ trợ khách hàng.
         </Text>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.primaryButton]}
             onPress={() => router.back()}>
-            <Text style={styles.buttonText}>Try Again</Text>
+            <Text style={styles.buttonText}>Thử lại</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton]}
             onPress={() => router.replace("/(tabs)/")}>
-            <Text style={styles.secondaryButtonText}>Return to Home</Text>
+            <Text style={styles.secondaryButtonText}>Trở về trang chủ</Text>
           </TouchableOpacity>
         </View>
       </View>

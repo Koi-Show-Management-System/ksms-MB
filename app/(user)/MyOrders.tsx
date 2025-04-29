@@ -95,7 +95,12 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+    return `${date.getDate()}/${
+      date.getMonth() + 1
+    }/${date.getFullYear()} ${date.getHours()}:${date
+      .getMinutes()
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   const formatOrderId = (id: string) => {

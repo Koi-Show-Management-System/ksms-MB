@@ -10,34 +10,34 @@ import {
   View,
 } from "react-native";
 
-const PaymentSuccess = () => {
+const RegistrationPaymentFailed = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
 
       <View style={styles.content}>
-        <View style={styles.successIconContainer}>
-          <Ionicons name="checkmark-circle" size={100} color="#4CAF50" />
+        <View style={styles.failureIconContainer}>
+          <Ionicons name="close-circle" size={100} color="#F44336" />
         </View>
 
-        <Text style={styles.title}>Thanh toán thành công!</Text>
+        <Text style={styles.title}>Đăng ký thất bại</Text>
 
         <Text style={styles.message}>
-          Đơn hàng vé của bạn đã được xử lý thành công. Bạn sẽ nhận được email
-          xác nhận trong thời gian ngắn.
+          Chúng tôi không thể xử lý thanh toán đăng ký thi đấu của bạn vào lúc này. Vui lòng thử lại hoặc
+          liên hệ với bộ phận hỗ trợ khách hàng.
         </Text>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.primaryButton]}
-            onPress={() => router.replace("/(tabs)/")}>
-            <Text style={styles.buttonText}>Trở về trang chủ</Text>
+            onPress={() => router.back()}>
+            <Text style={styles.buttonText}>Thử lại</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton]}
-            onPress={() => router.replace("/(tabs)/shows")}>
-            <Text style={styles.secondaryButtonText}>Xem thêm cuộc thi</Text>
+            onPress={() => router.replace("/(tabs)/")}>
+            <Text style={styles.secondaryButtonText}>Trở về trang chủ</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 24,
   },
-  successIconContainer: {
+  failureIconContainer: {
     marginBottom: 24,
   },
   title: {
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     lineHeight: 24,
   },
-  orderIdText: {
+  reasonText: {
     fontSize: 16,
     color: "#666666",
     marginBottom: 32,
@@ -90,12 +90,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   primaryButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#F44336",
   },
   secondaryButton: {
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#4CAF50",
+    borderColor: "#F44336",
   },
   buttonText: {
     color: "#FFFFFF",
@@ -103,9 +103,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   secondaryButtonText: {
-    color: "#4CAF50",
+    color: "#F44336",
+    fontSize: 16,
     fontWeight: "600",
   },
 });
 
-export default PaymentSuccess;
+export default RegistrationPaymentFailed;

@@ -292,11 +292,19 @@ const Homepage: React.FC = () => {
   // Format date function to avoid errors - memoized để tránh tạo lại hàm khi component re-render
   const formatDate = useCallback((dateString: string) => {
     try {
-      return new Date(dateString).toLocaleDateString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
+      const date = new Date(dateString);
+      return (
+        date.toLocaleDateString("vi-VN", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }) +
+        " " +
+        date.toLocaleTimeString("vi-VN", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      );
     } catch (error) {
       console.error("Ngày tháng không hợp lệ:", dateString);
       return "Chưa cập nhật ngày";
@@ -338,6 +346,7 @@ const Homepage: React.FC = () => {
         title: show.name || "Chưa cập nhật tên cuộc thi",
         description: shortDescription,
         showData: show, // Lưu trữ dữ liệu show đầy đủ để sử dụng khi click
+        originalIndex: show.id, // Lưu trữ ID gốc để đảm bảo tính nhất quán khi click
       };
     });
 
@@ -346,7 +355,8 @@ const Homepage: React.FC = () => {
       // Lặp lại các item để đảm bảo có ít nhất 5 items
       const duplicatedItems = [...carouselItems];
       while (duplicatedItems.length < 5) {
-        duplicatedItems.push(...carouselItems);
+        // Thêm các bản sao của items nhưng giữ nguyên originalIndex
+        duplicatedItems.push(...carouselItems.map((item) => ({ ...item })));
       }
       // Giới hạn số lượng item tối đa là 8
       return duplicatedItems.slice(0, 8);
@@ -367,7 +377,9 @@ const Homepage: React.FC = () => {
     (item: any, index: number) => {
       if (item && item.showData) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        // Use the original show data to navigate
         handleShowPress(item.showData);
+        console.log("Opening show with ID:", item.showData.id);
       }
     },
     [handleShowPress]
