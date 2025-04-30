@@ -20,11 +20,11 @@ const RegistrationPaymentFailed = () => {
           <Ionicons name="close-circle" size={100} color="#F44336" />
         </View>
 
-        <Text style={styles.title}>Đăng ký thất bại</Text>
+        <Text style={styles.title}>Thanh toán thất bại</Text>
 
         <Text style={styles.message}>
-          Chúng tôi không thể xử lý thanh toán đăng ký thi đấu của bạn vào lúc này. Vui lòng thử lại hoặc
-          liên hệ với bộ phận hỗ trợ khách hàng.
+          Chúng tôi không thể xử lý thanh toán đăng ký thi đấu của bạn vào lúc
+          này. Vui lòng thử lại hoặc liên hệ với ban tổ chức cuộc thi.
         </Text>
 
         <View style={styles.buttonContainer}>
@@ -72,11 +72,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 24,
     lineHeight: 24,
-  },
-  reasonText: {
-    fontSize: 16,
-    color: "#666666",
-    marginBottom: 32,
   },
   buttonContainer: {
     width: "100%",

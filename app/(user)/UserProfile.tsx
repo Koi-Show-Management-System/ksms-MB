@@ -617,14 +617,14 @@ const UserProfile: React.FC = () => {
         </View>
 
         <View style={styles.editField}>
-          <Text style={styles.editLabel}>Tên người dùng</Text>
+          <Text style={styles.editLabel}>Username</Text>
           <TextInput
             style={styles.editInput}
             value={updateData.username}
             onChangeText={(text) =>
               setUpdateData({ ...updateData, username: text })
             }
-            placeholder="Nhập tên người dùng"
+            placeholder="Nhập username"
             placeholderTextColor="#999"
           />
         </View>
@@ -671,7 +671,6 @@ const UserProfile: React.FC = () => {
       <View style={styles.userInfoContainer}>
         <Text style={styles.userEmail}>{userData.email}</Text>
         <Text style={styles.userStatus}>
-          {userData.role || "Thành viên"} |{" "}
           {userData.status || "Đang hoạt động"}
         </Text>
       </View>
@@ -751,6 +750,36 @@ const UserProfile: React.FC = () => {
             <View style={styles.profileLabelContainer}>
               <Image
                 source={{
+                  uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/user-icon.png",
+                }}
+                style={styles.profileItemIcon}
+              />
+              <Text style={styles.profileLabel}>Họ tên</Text>
+            </View>
+            <Text style={styles.profileValue}>
+              {userData.fullName || "Chưa cập nhật"}
+            </Text>
+          </View>
+
+          <View style={styles.profileInfoRow}>
+            <View style={styles.profileLabelContainer}>
+              <Image
+                source={{
+                  uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/user-icon.png",
+                }}
+                style={styles.profileItemIcon}
+              />
+              <Text style={styles.profileLabel}>Username</Text>
+            </View>
+            <Text style={styles.profileValue}>
+              {userData.username || "Chưa cập nhật"}
+            </Text>
+          </View>
+
+          <View style={styles.profileInfoRow}>
+            <View style={styles.profileLabelContainer}>
+              <Image
+                source={{
                   uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/email-icon.png",
                 }}
                 style={styles.profileItemIcon}
@@ -774,47 +803,22 @@ const UserProfile: React.FC = () => {
               {userData.phone || "Chưa cập nhật"}
             </Text>
           </View>
-
-          <View style={styles.profileInfoRow}>
-            <View style={styles.profileLabelContainer}>
-              <Image
-                source={{
-                  uri: "https://dashboard.codeparrot.ai/api/image/Z79X-67obB3a4bxu/user-icon.png",
-                }}
-                style={styles.profileItemIcon}
-              />
-              <Text style={styles.profileLabel}>Vai trò</Text>
-            </View>
-            <Text style={styles.profileValue}>
-              {userData.role || "Thành viên"}
-            </Text>
-          </View>
         </View>
 
         {/* Nút đổi mật khẩu và đăng xuất */}
         <View style={styles.actionsContainer}>
-          <Text style={styles.sectionTitle}>Quản lý tài khoản</Text>
+          <Text style={[styles.sectionTitle, styles.centeredSectionTitle]}>
+            Quản lý tài khoản
+          </Text>
           <TouchableOpacity
             style={[styles.actionButton, styles.changePasswordButton]}
             onPress={() => setPasswordModalVisible(true)}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/key.png",
-              }}
-              style={styles.actionButtonIcon}
-            />
             <Text style={styles.actionButtonText}>Đổi Mật Khẩu</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.actionButton, styles.logoutButton]}
             onPress={handleLogout}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z7yU5-OoSyo-4k6R/logout.png",
-              }}
-              style={styles.actionButtonIcon}
-            />
             <Text style={styles.actionButtonText}>Đăng Xuất</Text>
           </TouchableOpacity>
         </View>
@@ -972,6 +976,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginLeft: 16,
   },
+  centeredSectionTitle: {
+    textAlign: "center",
+    marginLeft: 0,
+    width: "100%",
+  },
   profileContainer: {
     width: "100%",
     marginTop: 20,
@@ -1121,11 +1130,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 24,
     marginTop: 16,
+    alignItems: "center", // Center the buttons horizontally
   },
   actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
     height: 56,
     marginBottom: 16,
     borderRadius: 12,
@@ -1134,12 +1143,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    width: "80%", // Set a fixed width for the buttons
+  },
+  actionButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
   },
   actionButtonIcon: {
     width: 24,
     height: 24,
-    marginRight: 12,
+    marginRight: 8,
     tintColor: "#FFFFFF",
+    display: "none", // Hide the icon to center the text perfectly
   },
   changePasswordButton: {
     backgroundColor: "#4A90E2",
@@ -1155,6 +1172,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     fontFamily: "Poppins",
+    textAlign: "center", // Center the text within the button
+    width: "100%", // Ensure the text takes up the full width
+    textAlignVertical: "center", // Center vertically (Android)
   },
   modalButtonText: {
     fontFamily: "Poppins",

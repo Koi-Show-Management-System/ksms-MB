@@ -23,20 +23,21 @@ const RegistrationPaymentSuccess = () => {
         <Text style={styles.title}>Đăng ký thành công!</Text>
 
         <Text style={styles.message}>
-          Đơn đăng ký thi đấu của bạn đã được xử lý thành công. Bạn sẽ nhận được email xác nhận trong thời gian ngắn.
+          Đơn đăng ký tham gia cuộc thi của bạn đã được xử lý thành công. Bạn sẽ
+          nhận được email xác nhận trong thời gian ngắn.
         </Text>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.primaryButton]}
-            onPress={() => router.replace("/(tabs)/")}>
-            <Text style={styles.buttonText}>Trở về trang chủ</Text>
+            onPress={() => router.replace("/(tabs)/shows/KoiShowsPage")}>
+            <Text style={styles.buttonText}>Xem các cuộc thi</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton]}
-            onPress={() => router.replace("/(tabs)/shows")}>
-            <Text style={styles.secondaryButtonText}>Xem thêm cuộc thi</Text>
+            onPress={() => router.replace("/(tabs)/")}>
+            <Text style={styles.secondaryButtonText}>Trở về trang chủ</Text>
           </TouchableOpacity>
         </View>
       </View>
