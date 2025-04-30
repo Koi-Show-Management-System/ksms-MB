@@ -37,6 +37,26 @@ export const createTicketOrder = async (orderData: CreateOrderRequest) => {
 };
 
 /**
+ * Get payment URL for an existing order with pending status
+ * @param orderId The ID of the pending order
+ * @returns Payment URL response
+ */
+export const getOrderPaymentUrl = async (orderId: string) => {
+  try {
+    const response = await api.get<{
+      data: PaymentResponse;
+      statusCode: number;
+      message: string;
+    }>(`/api/v1/ticket-order/get-payment-url/${orderId}`);
+
+    return response.data;
+  } catch (error) {
+    console.error("Get payment URL error:", error);
+    throw error;
+  }
+};
+
+/**
  * Get user information from AsyncStorage for payment
  */
 export const getUserPaymentInfo = async () => {

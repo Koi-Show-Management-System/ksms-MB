@@ -675,6 +675,14 @@ const ParticipateResult: React.FC = () => {
                   );
                   handleCloseWebView(); // Đóng modal nếu có lỗi
                 }}
+                onNavigationStateChange={(navState) => {
+                  // Kiểm tra nếu URL là scheme của ứng dụng
+                  if (navState.url.startsWith("ksms://")) {
+                    console.log("Detected app scheme URL:", navState.url);
+                    handleCloseWebView();
+                    // URL sẽ được xử lý bởi urlHandlerService
+                  }
+                }}
               />
             ) : (
               <View style={styles.webViewLoading}>

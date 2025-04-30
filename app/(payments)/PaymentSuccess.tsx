@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useEffect } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -11,6 +11,18 @@ import {
 } from "react-native";
 
 const PaymentSuccess = () => {
+  // Get URL parameters from deep link
+  const params = useLocalSearchParams();
+  const status = params.status as string;
+  const orderId = params.orderId as string;
+
+  useEffect(() => {
+    // Log the parameters received from the deep link
+    console.log("Payment Success Parameters:", { status, orderId });
+
+    // You could update order status in database or perform other actions here
+  }, [status, orderId]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -27,17 +39,21 @@ const PaymentSuccess = () => {
           xác nhận trong thời gian ngắn.
         </Text>
 
+        {orderId && (
+          <Text style={styles.orderIdText}>Mã đơn hàng: {orderId}</Text>
+        )}
+
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.primaryButton]}
-            onPress={() => router.replace("/(tabs)/")}>
-            <Text style={styles.buttonText}>Trở về trang chủ</Text>
+            onPress={() => router.replace("/(user)/MyOrders")}>
+            <Text style={styles.buttonText}>Xem đơn hàng của tôi</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton]}
-            onPress={() => router.replace("/(tabs)/shows")}>
-            <Text style={styles.secondaryButtonText}>Xem thêm cuộc thi</Text>
+            onPress={() => router.replace("/(tabs)/")}>
+            <Text style={styles.secondaryButtonText}>Trở về trang chủ</Text>
           </TouchableOpacity>
         </View>
       </View>

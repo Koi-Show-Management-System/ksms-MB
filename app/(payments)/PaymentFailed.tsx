@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React from "react";
+import React, { useEffect } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -11,6 +11,19 @@ import {
 } from "react-native";
 
 const PaymentFailed = () => {
+  // Get URL parameters from deep link
+  const params = useLocalSearchParams();
+  const status = params.status as string;
+  const orderId = params.orderId as string;
+  const reason = params.reason as string;
+
+  useEffect(() => {
+    // Log the parameters received from the deep link
+    console.log("Payment Failed Parameters:", { status, orderId, reason });
+
+    // You could update order status in database or perform other actions here
+  }, [status, orderId, reason]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -26,6 +39,12 @@ const PaymentFailed = () => {
           Chúng tôi không thể xử lý thanh toán của bạn vào lúc này. Vui lòng thử
           lại hoặc liên hệ với bộ phận hỗ trợ khách hàng.
         </Text>
+
+        {reason && <Text style={styles.reasonText}>Lý do: {reason}</Text>}
+
+        {orderId && (
+          <Text style={styles.reasonText}>Mã đơn hàng: {orderId}</Text>
+        )}
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity

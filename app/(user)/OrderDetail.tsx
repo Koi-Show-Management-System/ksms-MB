@@ -4,9 +4,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +21,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { WebView } from "react-native-webview";
 import api from "../../services/api";
 import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
 
@@ -103,6 +106,11 @@ const OrderDetail = () => {
   const [error, setError] = useState("");
   const [ticketError, setTicketError] = useState("");
 
+  // WebView modal state for payment
+  const [showPaymentWebView, setShowPaymentWebView] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
+  const [loadingPayment, setLoadingPayment] = useState(false);
+
   // Logic cho hiển thị mã đơn hàng
   const [showFullOrderId, setShowFullOrderId] = useState(false);
   const orderIdAnimValue = useSharedValue(0);
@@ -125,7 +133,7 @@ const OrderDetail = () => {
     try {
       setLoading(true);
 
-      // 1. Trước tiên, lấy thông tin đơn hàng từ API get-paging-orders để có status
+      // 1. Trước tiên, lấy thông tin đơn hàng từ API get-paging-orders để có status và paymentUrl
       const ordersResponse = await api.get<OrdersResponse>(
         `/api/v1/ticket-order/get-paging-orders?page=1&size=20`
       );
@@ -147,9 +155,14 @@ const OrderDetail = () => {
         return;
       }
 
-      // Lưu thông tin trạng thái đơn hàng và mã giao dịch
+      // Lưu thông tin trạng thái đơn hàng, mã giao dịch, và URL thanh toán nếu có
       const orderStatus = currentOrder.status; // "pending", "paid", hoặc "cancelled"
       console.log("Trạng thái đơn hàng từ API:", orderStatus);
+
+      // Lưu URL thanh toán vào state nếu đơn hàng có trạng thái pending
+      if (orderStatus.toLowerCase() === "pending" && currentOrder.paymentUrl) {
+        setPaymentUrl(currentOrder.paymentUrl);
+      }
 
       // Cập nhật orderInfo với transactionCode
       setOrderInfo({
@@ -477,6 +490,77 @@ const OrderDetail = () => {
     };
   });
 
+  // Xử lý mở WebView thanh toán
+  const handleContinuePayment = async () => {
+    try {
+      setLoadingPayment(true);
+
+      // Sử dụng URL thanh toán đã có từ API
+      if (paymentUrl) {
+        setShowPaymentWebView(true);
+      } else {
+        // Nếu không có URL, thử tải lại dữ liệu đơn hàng để lấy URL mới nhất
+        try {
+          const ordersResponse = await api.get<OrdersResponse>(
+            `/api/v1/ticket-order/get-paging-orders?page=1&size=20`
+          );
+
+          if (ordersResponse.data.statusCode === 200) {
+            const currentOrder = ordersResponse.data.data.items.find(
+              (order) => order.id === orderId
+            );
+
+            if (
+              currentOrder?.status?.toLowerCase() === "pending" &&
+              currentOrder.paymentUrl
+            ) {
+              setPaymentUrl(currentOrder.paymentUrl);
+              setShowPaymentWebView(true);
+              return;
+            }
+          }
+        } catch (error) {
+          console.error("Lỗi khi tải lại thông tin đơn hàng:", error);
+        }
+
+        // Nếu vẫn không có URL thanh toán, hiển thị thông báo
+        Alert.alert(
+          "Thông báo",
+          "Không thể tìm thấy đường dẫn thanh toán cho đơn hàng này. Bạn có muốn tạo đơn hàng mới không?",
+          [
+            {
+              text: "Không",
+              style: "cancel",
+            },
+            {
+              text: "Có",
+              onPress: () => {
+                // Quay lại màn hình trước đó và có thể chuyển đến trang mua vé
+                router.back();
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error("Lỗi xử lý thanh toán:", error);
+      Alert.alert(
+        "Lỗi",
+        "Đã xảy ra lỗi khi chuẩn bị thanh toán. Vui lòng thử lại sau."
+      );
+    } finally {
+      setLoadingPayment(false);
+    }
+  };
+
+  // Xử lý đóng WebView thanh toán
+  const handleCloseWebView = () => {
+    setShowPaymentWebView(false);
+    setPaymentUrl(null);
+    // Tải lại dữ liệu sau khi đóng webview để cập nhật trạng thái thanh toán
+    fetchOrderDetails();
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -600,6 +684,28 @@ const OrderDetail = () => {
             </Text>
           </View>
 
+          {/* Nút Tiếp tục thanh toán cho trạng thái "pending" */}
+          {orderInfo.status && orderInfo.status.toLowerCase() === "pending" && (
+            <View style={styles.continuePaymentContainer}>
+              <TouchableOpacity
+                style={styles.continuePaymentButton}
+                onPress={handleContinuePayment}
+                disabled={loadingPayment}>
+                {loadingPayment ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.continuePaymentText}>
+                    Tiếp tục thanh toán
+                  </Text>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.paymentNote}>
+                Lưu ý: Đơn hàng sẽ tự động hủy nếu không được thanh toán trong
+                thời gian quy định
+              </Text>
+            </View>
+          )}
+
           {/* Hiển thị danh sách vé với QR code khi đã thanh toán */}
           {orderInfo?.status && orderInfo.status.toLowerCase() === "paid" && (
             <View style={styles.ticketsHeaderContainer}>
@@ -717,6 +823,62 @@ const OrderDetail = () => {
       </View>
 
       <View style={styles.contentContainer}>{renderContent()}</View>
+
+      {/* WebView Modal for Payment */}
+      <Modal
+        visible={showPaymentWebView}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCloseWebView}>
+        <View style={styles.webViewModalContainer}>
+          <View style={styles.webViewHeader}>
+            <Text style={styles.webViewHeaderTitle}>Thanh toán đơn hàng</Text>
+            <TouchableOpacity
+              onPress={handleCloseWebView}
+              style={styles.webViewCloseButton}>
+              <Ionicons name="close" size={24} color="#333" />
+            </TouchableOpacity>
+          </View>
+          {paymentUrl ? (
+            <WebView
+              source={{ uri: paymentUrl }}
+              style={styles.webView}
+              startInLoadingState={true}
+              renderLoading={() => (
+                <ActivityIndicator
+                  color="#FFA500"
+                  size="large"
+                  style={styles.webViewLoading}
+                />
+              )}
+              onError={(syntheticEvent) => {
+                const { nativeEvent } = syntheticEvent;
+                console.error("WebView error:", nativeEvent);
+                Alert.alert(
+                  "Lỗi tải trang",
+                  "Không thể tải trang thanh toán. Vui lòng thử lại."
+                );
+                handleCloseWebView();
+              }}
+              onNavigationStateChange={(navState) => {
+                // Kiểm tra nếu URL là scheme của ứng dụng
+                if (navState.url.startsWith("ksms://")) {
+                  console.log("Detected app scheme URL:", navState.url);
+                  handleCloseWebView();
+                  // URL sẽ được xử lý bởi urlHandlerService
+                }
+              }}
+            />
+          ) : (
+            <View style={styles.webViewLoading}>
+              <ActivityIndicator size="large" color="#FFA500" />
+              <Text style={styles.loadingText}>
+                Đang tải trang thanh toán...
+              </Text>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1063,6 +1225,87 @@ const styles = StyleSheet.create({
   },
   reloadButton: {
     padding: 8,
+  },
+  webViewModalContainer: {
+    flex: 1,
+    justifyContent: "center",
+    backgroundColor: "white",
+    margin: 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: "hidden",
+  },
+  webViewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEEEEE",
+  },
+  webViewHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  webViewCloseButton: {
+    padding: 8,
+  },
+  webView: {
+    flex: 1,
+  },
+  webViewLoading: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeWebViewButton: {
+    position: "absolute",
+    top: 40,
+    right: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 10,
+    elevation: 2,
+  },
+  closeWebViewButtonText: {
+    color: "#000",
+    fontWeight: "bold",
+  },
+  continuePaymentContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  continuePaymentButton: {
+    backgroundColor: "#F59E0B", // Màu cam như trong ParticipateResult.tsx
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  continuePaymentText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  paymentNote: {
+    marginTop: 12,
+    color: "#666666",
+    fontSize: 13,
+    textAlign: "center",
+    fontStyle: "italic",
   },
 });
 
