@@ -1,8 +1,9 @@
-// app/(user)/MyOrders.tsx
+// app/(user)/CompetitionTicket.tsx
 import { router } from "expo-router";
-import React from "react";
+import React, { useCallback, useState } from "react";
 import {
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -103,6 +104,17 @@ const TicketCard: React.FC<{ ticket: TicketProps }> = ({ ticket }) => {
 };
 
 const CompetitionTicket: React.FC = () => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Simulate fetching data
+    setTimeout(() => {
+      // In a real app, you would fetch the tickets data here
+      setRefreshing(false);
+    }, 1000);
+  }, []);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -122,7 +134,15 @@ const CompetitionTicket: React.FC = () => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollViewContent}>
+        contentContainerStyle={styles.scrollViewContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#4A90E2"]}
+            tintColor="#4A90E2"
+          />
+        }>
         {tickets.length > 0 ? (
           tickets.map((ticket) => (
             <TicketCard key={ticket.id} ticket={ticket} />

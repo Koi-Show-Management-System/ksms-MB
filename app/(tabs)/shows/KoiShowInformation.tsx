@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -244,13 +245,32 @@ const InfoTabContent = ({
     },
   });
 
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    // Simulate fetching data
+    setTimeout(() => {
+      // In a real app, you would fetch the show data here
+      setRefreshing(false);
+    }, 1000);
+  }, []);
+
   return (
     <View style={{ flex: 1 }}>
       <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}>
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#3B82F6"]}
+            tintColor="#3B82F6"
+          />
+        }>
         {/* Chi tiết sự kiện */}
         <View style={styles.sectionContainer}>
           <TouchableOpacity

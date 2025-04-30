@@ -4,6 +4,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -101,7 +102,18 @@ const CommentsSection = React.forwardRef<CommentsSectionRef, {}>(
       },
     ]);
 
+    const [refreshing, setRefreshing] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
+
+    // Handle pull-to-refresh
+    const onRefresh = useCallback(() => {
+      setRefreshing(true);
+      // Simulate fetching new comments
+      setTimeout(() => {
+        // In a real app, you would fetch new comments here
+        setRefreshing(false);
+      }, 1000);
+    }, []);
 
     // Function to add a new comment
     const addComment = useCallback((newComment: CommentType) => {
@@ -124,7 +136,18 @@ const CommentsSection = React.forwardRef<CommentsSectionRef, {}>(
 
     return (
       <View style={styles.commentsContainer}>
-        <ScrollView ref={scrollViewRef} style={styles.commentsScrollContainer}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.commentsScrollContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#FFFFFF"]}
+              tintColor="#FFFFFF"
+              progressBackgroundColor="rgba(0, 0, 0, 0.5)"
+            />
+          }>
           {comments.map((comment) => (
             <View key={comment.id} style={styles.commentContainer}>
               <View style={styles.commentHeader}>

@@ -55,18 +55,19 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
   const [showAllContestants, setShowAllContestants] = useState(false);
   const [activeTabInModal, setActiveTabInModal] = useState("info");
   const [currentPage, setCurrentPage] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const itemsPerPage = 4;
 
   // Lấy danh sách hạng mục thi đấu
-  useEffect(() => {
-    const fetchCategories = async () => {
-      setLoading(true);
+  const fetchCategories = useCallback(
+    async (isRefreshing = false) => {
+      if (!isRefreshing) setLoading(true);
       setError(null);
       try {
         const response = await getCompetitionCategories(showId);
         if (response?.data?.items) {
           setCategories(response.data.items);
-          if (response.data.items.length > 0) {
+          if (response.data.items.length > 0 && !selectedCategory) {
             setSelectedCategory(response.data.items[0].id);
             setSelectedCategoryName(response.data.items[0].name);
           }
@@ -78,27 +79,56 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
         setError("Đã xảy ra lỗi khi tải danh sách hạng mục");
       } finally {
         setLoading(false);
+        if (isRefreshing) setRefreshing(false);
       }
-    };
+    },
+    [showId, selectedCategory]
+  );
 
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchCategories(true);
+
+    // If we have selected category and round type, refresh rounds
+    if (selectedCategory && selectedRoundType) {
+      fetchRounds(true);
+    }
+
+    // If we have selected round, refresh contestants
+    if (selectedRound) {
+      fetchContestants(true);
+    }
+  }, [
+    selectedCategory,
+    selectedRoundType,
+    selectedRound,
+    fetchCategories,
+    fetchRounds,
+    fetchContestants,
+  ]);
+
+  useEffect(() => {
     if (showId) {
       fetchCategories();
     }
-  }, [showId]);
+  }, [showId, fetchCategories]);
 
   // Lấy danh sách vòng đấu khi chọn hạng mục và loại vòng
-  useEffect(() => {
-    const fetchRounds = async () => {
+  const fetchRounds = useCallback(
+    async (isRefreshing = false) => {
       if (!selectedCategory || !selectedRoundType) return;
 
-      setLoading(true);
+      if (!isRefreshing) setLoading(true);
       setError(null);
       try {
         const response = await getRounds(selectedCategory, selectedRoundType);
         if (response?.data?.items) {
           setRounds(response.data.items);
-          setSelectedRound(null);
-          setContestants([]);
+          if (!isRefreshing) {
+            setSelectedRound(null);
+            setContestants([]);
+          }
         } else {
           setError(
             `Không tìm thấy vòng đấu ${roundTypeLabels[selectedRoundType]}`
@@ -110,21 +140,25 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
           `Đã xảy ra lỗi khi tải vòng đấu ${roundTypeLabels[selectedRoundType]}`
         );
       } finally {
-        setLoading(false);
+        if (!isRefreshing) setLoading(false);
+        if (isRefreshing && !selectedRound) setRefreshing(false);
       }
-    };
+    },
+    [selectedCategory, selectedRoundType, roundTypeLabels, selectedRound]
+  );
 
+  useEffect(() => {
     if (selectedCategory && selectedRoundType) {
       fetchRounds();
     }
-  }, [selectedCategory, selectedRoundType, roundTypeLabels]);
+  }, [selectedCategory, selectedRoundType, fetchRounds]);
 
   // Lấy danh sách thí sinh khi chọn vòng đấu
-  useEffect(() => {
-    const fetchContestants = async () => {
+  const fetchContestants = useCallback(
+    async (isRefreshing = false) => {
       if (!selectedRound) return;
 
-      setLoading(true);
+      if (!isRefreshing) setLoading(true);
       setError(null);
       try {
         const response = await getContestants(selectedRound);
@@ -140,14 +174,18 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
         console.error("Lỗi khi lấy danh sách thí sinh:", error);
         setError("Đã xảy ra lỗi khi tải danh sách thí sinh");
       } finally {
-        setLoading(false);
+        if (!isRefreshing) setLoading(false);
+        if (isRefreshing) setRefreshing(false);
       }
-    };
+    },
+    [selectedRound]
+  );
 
+  useEffect(() => {
     if (selectedRound) {
       fetchContestants();
     }
-  }, [selectedRound]);
+  }, [selectedRound, fetchContestants]);
 
   // Tính số trang
   const totalPages = Math.ceil(contestants.length / itemsPerPage);
@@ -404,7 +442,15 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContentContainer}>
+        contentContainerStyle={styles.scrollContentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#3B82F6"]}
+            tintColor="#3B82F6"
+          />
+        }>
         {/* Breadcrumb navigation */}
         <View style={styles.breadcrumbContainer}>
           <Text style={styles.breadcrumbText}>
@@ -450,7 +496,11 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
 
         {/* Danh sách vòng đấu phụ */}
         {selectedRoundType && rounds.length > 0 && (
-          <View style={[styles.sectionContainer, { marginBottom: 24, paddingBottom: 12 }]}>
+          <View
+            style={[
+              styles.sectionContainer,
+              { marginBottom: 24, paddingBottom: 12 },
+            ]}>
             <Text style={styles.sectionTitle}>Vòng đấu phụ</Text>
             <FlatList
               data={rounds}

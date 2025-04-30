@@ -302,8 +302,59 @@ export const updateKoiStatus = async (
     );
     console.log("Kết quả cập nhật trạng thái cá Koi:", response.data);
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Lỗi khi cập nhật trạng thái cá Koi:", error);
-    throw error;
+
+    // Nếu có response từ server, trả về thông báo lỗi từ server
+    if (error.response && error.response.data) {
+      try {
+        // Kiểm tra nếu response.data là chuỗi JSON
+        if (typeof error.response.data === "string") {
+          try {
+            const parsedData = JSON.parse(error.response.data);
+            if (parsedData.Error) {
+              return {
+                data: null,
+                statusCode: error.response.status || 400,
+                message: parsedData.Error,
+              };
+            }
+          } catch (parseError) {
+            console.log("Không thể parse chuỗi JSON:", parseError);
+          }
+        }
+
+        // Kiểm tra các trường hợp khác
+        if (error.response.data.Error) {
+          return {
+            data: null,
+            statusCode: error.response.status || 400,
+            message: error.response.data.Error,
+          };
+        } else if (error.response.data.message) {
+          return {
+            data: null,
+            statusCode: error.response.status || 400,
+            message: error.response.data.message,
+          };
+        }
+      } catch (parseError) {
+        console.log("Lỗi khi xử lý dữ liệu phản hồi:", parseError);
+      }
+
+      // Fallback nếu không tìm thấy thông báo lỗi cụ thể
+      return {
+        data: null,
+        statusCode: error.response.status || 500,
+        message: "Lỗi khi cập nhật trạng thái cá Koi",
+      };
+    }
+
+    // Nếu là lỗi network hoặc lỗi khác
+    throw {
+      data: null,
+      statusCode: 500,
+      message: error.message || "Không thể kết nối với máy chủ",
+    };
   }
 };

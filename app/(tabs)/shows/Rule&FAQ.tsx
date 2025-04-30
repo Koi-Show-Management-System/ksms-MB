@@ -216,9 +216,29 @@ const FAQSection: React.FC = () => {
 
 // --- Main Component ---
 const RuleAndFAQ: React.FC = () => {
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // Simulate fetching data
+    setTimeout(() => {
+      // In a real app, you would fetch the rules and FAQ data here
+      setRefreshing(false);
+    }, 1000);
+  }, []);
+
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollViewContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#4A90E2"]}
+            tintColor="#4A90E2"
+          />
+        }>
         <RulesSection />
         <EnteringKoiSection />
         <FAQSection />

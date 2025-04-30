@@ -6,13 +6,14 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { VideoView, useVideoPlayer } from "expo-video";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
   Modal,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -74,6 +75,7 @@ export default function KoiInformation() {
 
   const [koiData, setKoiData] = useState<KoiProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [selectedMediaType, setSelectedMediaType] = useState<"Image" | "Video">(
@@ -193,12 +195,13 @@ export default function KoiInformation() {
     },
   ];
 
-  useEffect(() => {
-    const fetchKoiData = async () => {
+  const fetchKoiData = useCallback(
+    async (isRefreshing = false) => {
       try {
         if (!koiId) {
           setError("Không tìm thấy ID cá Koi");
           setIsLoading(false);
+          if (isRefreshing) setRefreshing(false);
           return;
         }
 
@@ -233,11 +236,21 @@ export default function KoiInformation() {
         setError("Đã xảy ra lỗi khi tải thông tin cá Koi");
       } finally {
         setIsLoading(false);
+        if (isRefreshing) setRefreshing(false);
       }
-    };
+    },
+    [koiId]
+  );
 
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchKoiData(true);
+  }, [fetchKoiData]);
+
+  useEffect(() => {
     fetchKoiData();
-  }, [koiId]);
+  }, [fetchKoiData]);
 
   const handleMediaPress = (mediaUrl: string, mediaType: "Image" | "Video") => {
     setFullscreenMedia(mediaUrl);
@@ -405,7 +418,15 @@ export default function KoiInformation() {
 
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#007AFF"]}
+            tintColor="#007AFF"
+          />
+        }>
         {/* Media Carousel sử dụng FlatList */}
         {mediaItems.length > 0 ? (
           <View style={styles.heroSection}>
@@ -523,22 +544,28 @@ export default function KoiInformation() {
                     <View
                       style={[
                         styles.achievementIcon,
-                        achievement.awardType === "first" 
-                          ? styles.goldIcon 
-                          : achievement.awardType === "second" 
-                          ? styles.silverIcon 
-                          : achievement.awardType === "third" 
-                          ? styles.bronzeIcon 
-                          : achievement.awardType === "grand_champion" 
-                          ? styles.grandChampionIcon 
+                        achievement.awardType === "first"
+                          ? styles.goldIcon
+                          : achievement.awardType === "second"
+                          ? styles.silverIcon
+                          : achievement.awardType === "third"
+                          ? styles.bronzeIcon
+                          : achievement.awardType === "grand_champion"
+                          ? styles.grandChampionIcon
                           : styles.otherAwardIcon,
                       ]}>
                       <Text style={styles.achievementIconText}>
-                        {achievement.awardType === "first" ? "🥇" : 
-                         achievement.awardType === "second" ? "🥈" : 
-                         achievement.awardType === "third" ? "🥉" : 
-                         achievement.awardType === "grand_champion" ? "🏆" : 
-                         achievement.awardType === "peoples_choice" ? "👑" : "🎖️"}
+                        {achievement.awardType === "first"
+                          ? "🥇"
+                          : achievement.awardType === "second"
+                          ? "🥈"
+                          : achievement.awardType === "third"
+                          ? "🥉"
+                          : achievement.awardType === "grand_champion"
+                          ? "🏆"
+                          : achievement.awardType === "peoples_choice"
+                          ? "👑"
+                          : "🎖️"}
                       </Text>
                     </View>
                     <View style={styles.achievementTitleContainer}>
@@ -546,7 +573,8 @@ export default function KoiInformation() {
                         {achievement.awardName}
                       </Text>
                       <Text style={styles.achievementSubtitle}>
-                        {achievement.showName} - {new Date(achievement.competitionDate).getFullYear()}
+                        {achievement.showName} -{" "}
+                        {new Date(achievement.competitionDate).getFullYear()}
                       </Text>
                     </View>
                   </View>
@@ -572,14 +600,19 @@ export default function KoiInformation() {
                         <Text style={styles.achievementDetailLabel}>
                           Giá trị giải thưởng:
                         </Text>{" "}
-                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(achievement.prizeValue)}
+                        {new Intl.NumberFormat("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                        }).format(achievement.prizeValue)}
                       </Text>
                     )}
                     <Text style={styles.achievementDetail}>
                       <Text style={styles.achievementDetailLabel}>
                         Ngày thi đấu:
                       </Text>{" "}
-                      {new Date(achievement.competitionDate).toLocaleDateString('vi-VN')}
+                      {new Date(achievement.competitionDate).toLocaleDateString(
+                        "vi-VN"
+                      )}
                     </Text>
                   </View>
                 </View>

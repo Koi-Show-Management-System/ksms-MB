@@ -205,6 +205,7 @@ const TicketDetail: React.FC = () => {
   // Get params from URL
   const params = useLocalSearchParams();
   const [expandedQR, setExpandedQR] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
   const [processedQrUrl, setProcessedQrUrl] = React.useState<string | null>(
     null
   );
@@ -292,6 +293,16 @@ const TicketDetail: React.FC = () => {
     setProcessedQrUrl(url);
   };
 
+  // Handle pull-to-refresh
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    // Simulate fetching data
+    setTimeout(() => {
+      // In a real app, you would fetch the ticket data here
+      setRefreshing(false);
+    }, 1000);
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -314,7 +325,15 @@ const TicketDetail: React.FC = () => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#4A90E2"]}
+            tintColor="#4A90E2"
+          />
+        }>
         <EventDetails
           showName={eventData.showName}
           dateTime={eventData.dateTime}
