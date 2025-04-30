@@ -1,4 +1,5 @@
 import { useColorScheme } from "@/hooks/useColorScheme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   DarkTheme,
   DefaultTheme,
@@ -34,19 +35,80 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  // Thiết lập xử lý khi người dùng nhấn vào thông báo
+  // Thiết lập xử lý khi người dùng nhấn vào thông báo và khởi tạo SignalR
   useEffect(() => {
     // Đặt callback cho SignalR service để xử lý khi người dùng nhấn vào thông báo
-    signalRService.setOnToastPress((notification) => {
-      console.log("User tapped on notification toast:", notification);
-      router.push("/(user)/Notification");
-    });
+    if (
+      signalRService &&
+      typeof signalRService.setOnToastPress === "function"
+    ) {
+      signalRService.setOnToastPress((notification) => {
+        console.log("User tapped on notification toast:", notification);
+        router.push("/(user)/Notification");
+      });
+    } else {
+      console.error(
+        "signalRService or setOnToastPress method is not available"
+      );
+    }
+
+    // Kiểm tra xem người dùng đã đăng nhập chưa và khởi tạo SignalR nếu đã đăng nhập
+    const initializeSignalR = async () => {
+      try {
+        // Kiểm tra xem SignalR đã kết nối chưa
+        if (
+          signalRService &&
+          typeof signalRService.isConnected === "function" &&
+          signalRService.isConnected()
+        ) {
+          console.log("SignalR is already connected");
+          return;
+        }
+
+        // Sử dụng try-catch riêng cho AsyncStorage để xác định lỗi chính xác
+        let token = null;
+        try {
+          token = await AsyncStorage.getItem("userToken");
+          console.log("Token retrieved successfully:", token ? "Yes" : "No");
+        } catch (asyncStorageError) {
+          console.error("AsyncStorage error:", asyncStorageError);
+          return; // Thoát sớm nếu không thể lấy token
+        }
+
+        if (
+          token &&
+          signalRService &&
+          typeof signalRService.ensureConnection === "function"
+        ) {
+          console.log("User is logged in, initializing SignalR connection");
+          // Thiết lập kết nối SignalR
+          await signalRService.ensureConnection();
+        } else {
+          console.log(
+            "User is not logged in or signalRService not available, skipping SignalR initialization"
+          );
+        }
+      } catch (error) {
+        console.error("Error initializing SignalR:", error);
+      }
+    };
+
+    // Khởi tạo SignalR sau một khoảng thời gian ngắn để đảm bảo ứng dụng đã khởi động hoàn toàn
+    const timer = setTimeout(() => {
+      initializeSignalR();
+    }, 1000);
 
     return () => {
+      clearTimeout(timer);
       // Xóa callback khi component unmount bằng cách đặt một hàm rỗng
-      signalRService.setOnToastPress(() => {
-        // Hàm rỗng để cleanup
-      });
+      if (
+        signalRService &&
+        typeof signalRService.setOnToastPress === "function"
+      ) {
+        signalRService.setOnToastPress(() => {
+          // Hàm rỗng để cleanup
+        });
+      }
     };
   }, []);
 

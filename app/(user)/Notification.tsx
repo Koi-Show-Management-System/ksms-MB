@@ -30,6 +30,7 @@ import {
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from "../../services/notificationService";
+import { signalRService } from "../../services/signalRService";
 
 // Hàm log debug
 const logDebug = (message: string, data?: any) => {
@@ -632,65 +633,139 @@ const Notifications: React.FC = () => {
     // Đảm bảo kết nối SignalR đang hoạt động
     const setupSignalR = async () => {
       try {
-        // Tắt Toast khi đang ở màn hình Notification để tránh hiển thị trùng lặp
-        signalRService.setShowToast(false);
+        // Kiểm tra xem signalRService có tồn tại không
+        if (!signalRService) {
+          logDebug("signalRService không tồn tại");
+          return;
+        }
 
-        // Đảm bảo kết nối SignalR đang hoạt động
-        await signalRService.ensureConnection();
+        // Tắt Toast khi đang ở màn hình Notification để tránh hiển thị trùng lặp
+        if (typeof signalRService.setShowToast === "function") {
+          signalRService.setShowToast(false);
+        } else {
+          logDebug("Phương thức setShowToast không tồn tại");
+          return;
+        }
+
+        // Kiểm tra xem SignalR đã kết nối chưa
+        if (
+          typeof signalRService.isConnected === "function" &&
+          signalRService.isConnected()
+        ) {
+          logDebug("SignalR đã được kết nối, không cần thiết lập lại");
+        } else {
+          logDebug("SignalR chưa kết nối, đảm bảo kết nối");
+          // Đảm bảo kết nối SignalR đang hoạt động
+          if (typeof signalRService.ensureConnection === "function") {
+            const connectionResult = await signalRService.ensureConnection();
+
+            if (!connectionResult) {
+              logDebug("Không thể thiết lập kết nối SignalR, sẽ thử lại sau");
+              // Thử lại sau 5 giây nếu kết nối thất bại
+              setTimeout(() => {
+                if (
+                  typeof signalRService.isConnected === "function" &&
+                  !signalRService.isConnected()
+                ) {
+                  logDebug("Thử lại kết nối SignalR sau 5 giây");
+                  if (typeof signalRService.ensureConnection === "function") {
+                    signalRService.ensureConnection().catch((err) => {
+                      logDebug("Vẫn không thể kết nối SignalR:", err);
+                    });
+                  }
+                }
+              }, 5000);
+            }
+          } else {
+            logDebug("Phương thức ensureConnection không tồn tại");
+            return;
+          }
+        }
 
         // Đăng ký callback để nhận thông báo mới
-        const unsubscribe = signalRService.onNotification((notification) => {
-          logDebug("Nhận được thông báo mới từ SignalR:", notification);
+        if (typeof signalRService.onNotification === "function") {
+          const unsubscribe = signalRService.onNotification((notification) => {
+            logDebug("Nhận được thông báo mới từ SignalR:", notification);
 
-          // Chuyển đổi thông báo SignalR sang định dạng UI
-          const newNotification: Notification = {
-            id: notification.id,
-            title: notification.title,
-            description: notification.message,
-            type: notification.type as NotificationType,
-            date: notification.timestamp.toString(), // SignalR trả về timestamp dạng Date
-            isRead: false,
-            icon: getIconForNotificationType(
-              notification.type as NotificationType
-            ),
-            actionUrl: getActionUrlForNotificationType(
-              notification.type as NotificationType,
-              notification.message
-            ),
-          };
+            // Kiểm tra dữ liệu thông báo
+            if (!notification || !notification.id) {
+              logDebug("Thông báo không hợp lệ, bỏ qua:", notification);
+              return;
+            }
 
-          // Thêm thông báo mới vào đầu danh sách (chỉ khi đang ở tab phù hợp)
-          setNotifications((prevNotifications) => {
-            // Kiểm tra nếu thông báo đã tồn tại
-            if (prevNotifications.some((n) => n.id === notification.id)) {
+            // Chuyển đổi thông báo SignalR sang định dạng UI
+            const newNotification: Notification = {
+              id: notification.id,
+              title: notification.title || "Thông báo mới",
+              description: notification.message || "",
+              type: notification.type as NotificationType,
+              date: notification.timestamp
+                ? notification.timestamp.toString()
+                : new Date().toISOString(),
+              isRead: false,
+              icon: getIconForNotificationType(
+                notification.type as NotificationType
+              ),
+              actionUrl: getActionUrlForNotificationType(
+                notification.type as NotificationType,
+                notification.message || ""
+              ),
+            };
+
+            logDebug(
+              "Đã chuyển đổi thông báo SignalR sang định dạng UI:",
+              newNotification
+            );
+
+            // Thêm thông báo mới vào đầu danh sách (chỉ khi đang ở tab phù hợp)
+            setNotifications((prevNotifications) => {
+              // Kiểm tra nếu thông báo đã tồn tại
+              if (prevNotifications.some((n) => n.id === notification.id)) {
+                logDebug(
+                  "Thông báo đã tồn tại trong danh sách, không thêm lại"
+                );
+                return prevNotifications;
+              }
+
+              // Chỉ thêm thông báo mới khi đang ở tab phù hợp
+              if (
+                filter === "all" ||
+                filter === "unread" ||
+                filter === notification.type
+              ) {
+                logDebug("Thêm thông báo mới vào đầu danh sách");
+                // Thêm thông báo mới vào đầu danh sách
+                return [newNotification, ...prevNotifications];
+              }
+
+              // Không thêm thông báo nếu đang ở tab không phù hợp
+              logDebug(
+                "Không thêm thông báo vì đang ở tab không phù hợp:",
+                filter
+              );
               return prevNotifications;
-            }
+            });
 
-            // Chỉ thêm thông báo mới khi đang ở tab phù hợp
-            if (
-              filter === "all" ||
-              filter === "unread" ||
-              filter === notification.type
-            ) {
-              // Thêm thông báo mới vào đầu danh sách
-              return [newNotification, ...prevNotifications];
-            }
+            // Cập nhật trạng thái có thông báo mới
+            setHasNewNotifications(true);
 
-            // Không thêm thông báo nếu đang ở tab không phù hợp
-            return prevNotifications;
+            // Phát âm thanh hoặc rung khi có thông báo mới
+            // Có thể thêm code để phát âm thanh hoặc rung ở đây nếu cần
           });
 
-          // Cập nhật trạng thái có thông báo mới
-          setHasNewNotifications(true);
-        });
-
-        // Cleanup khi component unmount
-        return () => {
-          unsubscribe();
-          // Bật lại Toast khi rời khỏi màn hình Notification
-          signalRService.setShowToast(true);
-          logDebug("Đã hủy đăng ký lắng nghe thông báo SignalR");
-        };
+          // Cleanup khi component unmount
+          return () => {
+            unsubscribe();
+            // Bật lại Toast khi rời khỏi màn hình Notification
+            if (typeof signalRService.setShowToast === "function") {
+              signalRService.setShowToast(true);
+            }
+            logDebug("Đã hủy đăng ký lắng nghe thông báo SignalR");
+          };
+        } else {
+          logDebug("Phương thức onNotification không tồn tại");
+          return;
+        }
       } catch (error) {
         logDebug("Lỗi khi thiết lập SignalR:", error);
         console.error("Lỗi khi thiết lập SignalR:", error);
@@ -707,17 +782,20 @@ const Notifications: React.FC = () => {
 
   // Hàm hỗ trợ xác định icon cho loại thông báo
   const getIconForNotificationType = (type: NotificationType): string => {
-    switch (type) {
-      case NotificationType.Registration:
-        return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-2.png";
-      case NotificationType.Payment:
-        return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-3.png";
-      case NotificationType.Show:
-        return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-4.png";
-      case NotificationType.System:
-        return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-5.png";
-      default:
-        return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group.png";
+    // Chuyển đổi về chữ thường để xử lý không phân biệt hoa thường
+    const typeStr = String(type).toLowerCase();
+
+    if (typeStr.includes("registration")) {
+      return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-2.png";
+    } else if (typeStr.includes("payment") || typeStr.includes("transaction")) {
+      return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-3.png";
+    } else if (typeStr.includes("show") || typeStr.includes("event")) {
+      return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-4.png";
+    } else if (typeStr.includes("system") || typeStr.includes("admin")) {
+      return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group-5.png";
+    } else {
+      // Mặc định cho các loại thông báo khác
+      return "https://dashboard.codeparrot.ai/api/image/Z79HGa7obB3a4bxe/group.png";
     }
   };
 
@@ -726,22 +804,61 @@ const Notifications: React.FC = () => {
     type: NotificationType,
     content: string
   ): ValidRoute | undefined => {
-    switch (type) {
-      case NotificationType.Registration:
-        // Kiểm tra nội dung để xác định chính xác route
-        if (content.includes("check in")) {
-          return "/(tabs)/shows/KoiShowsPage";
-        } else if (content.includes("chấp nhận")) {
-          return "/(tabs)/shows/KoiShowsPage";
-        } else {
-          return "/(tabs)/shows/KoiRegistration";
-        }
-      case NotificationType.Show:
+    // Chuyển đổi về chữ thường để xử lý không phân biệt hoa thường
+    const typeStr = String(type).toLowerCase();
+    const contentLower = content.toLowerCase();
+
+    // Xử lý dựa trên loại thông báo
+    if (typeStr.includes("registration")) {
+      // Kiểm tra nội dung để xác định chính xác route
+      if (
+        contentLower.includes("check in") ||
+        contentLower.includes("checkin")
+      ) {
         return "/(tabs)/shows/KoiShowsPage";
-      case NotificationType.Payment:
+      } else if (
+        contentLower.includes("chấp nhận") ||
+        contentLower.includes("accepted")
+      ) {
+        return "/(tabs)/shows/KoiShowsPage";
+      } else if (
+        contentLower.includes("đăng ký") ||
+        contentLower.includes("register")
+      ) {
+        return "/(tabs)/shows/KoiRegistration";
+      } else {
+        return "/(tabs)/shows/KoiRegistration";
+      }
+    } else if (typeStr.includes("show") || typeStr.includes("event")) {
+      // Kiểm tra nội dung để xác định chính xác route cho sự kiện
+      if (
+        contentLower.includes("livestream") ||
+        contentLower.includes("live")
+      ) {
+        return "/(tabs)/shows/LiveStream";
+      } else if (
+        contentLower.includes("award") ||
+        contentLower.includes("giải thưởng")
+      ) {
+        return "/(tabs)/shows/AwardScreen";
+      } else {
+        return "/(tabs)/shows/KoiShowsPage";
+      }
+    } else if (typeStr.includes("payment") || typeStr.includes("transaction")) {
+      // Kiểm tra nội dung để xác định chính xác route cho thanh toán
+      if (contentLower.includes("ticket") || contentLower.includes("vé")) {
         return "/(tabs)/shows/BuyTickets";
-      default:
-        return undefined;
+      } else {
+        return "/(tabs)/shows/BuyTickets";
+      }
+    } else if (
+      typeStr.includes("system") &&
+      (contentLower.includes("profile") || contentLower.includes("tài khoản"))
+    ) {
+      return "/(tabs)/home/UserMenu";
+    } else {
+      // Mặc định cho các loại thông báo khác
+      return "/(tabs)/home/homepage";
     }
   };
 
