@@ -3,6 +3,7 @@ import { navigateToAuth } from "@/utils/navigationService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import Toast from "react-native-toast-message";
+import { UserRole } from "../context/AuthContext";
 
 const api = axios.create({
   baseURL: "https://api.ksms.news",
@@ -13,23 +14,49 @@ const api = axios.create({
   withCredentials: false,
 });
 
+// Define public endpoints that don't require authentication
+const publicEndpoints = [
+  "/api/v1/koi-show/paged",
+  "/api/v1/koi-show/",
+  "/api/v1/competition-category/get-page",
+  "/api/v1/blog/get-page",
+  "/api/v1/livestream/get-all",
+];
+
+// Helper function to check if a URL is a public endpoint
+const isPublicEndpoint = (url: string | undefined): boolean => {
+  if (!url) return false;
+  return publicEndpoints.some((endpoint) => url.includes(endpoint));
+};
+
 // Add request interceptor to add auth token
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
+      // Check if user is in guest mode
+      const userRole = await AsyncStorage.getItem("userRole");
+      const isGuest = userRole === UserRole.GUEST;
+
+      // Get token if available
       const token = await AsyncStorage.getItem("userToken");
+
       console.log(
         `[Interceptor] Token from AsyncStorage for ${config.url}:`,
-        token ? token.substring(0, 10) + "..." : "null"
+        token ? token.substring(0, 10) + "..." : "null",
+        isGuest ? " (Guest Mode)" : ""
       );
-      if (token) {
+
+      // Add token to headers if available and not in guest mode
+      if (token && !isGuest) {
         config.headers.Authorization = `Bearer ${token}`;
         console.log(
           `[Interceptor] Authorization header SET for ${config.url}.`
         );
       } else {
         console.log(
-          `[Interceptor] Authorization header NOT SET for ${config.url} (no token).`
+          `[Interceptor] Authorization header NOT SET for ${config.url}. ${
+            isGuest ? "User is in guest mode." : "No token available."
+          }`
         );
       }
       // Axios sẽ tự đặt Content-Type phù hợp (multipart khi là FormData, json khi là object)
@@ -151,12 +178,30 @@ api.interceptors.response.use(
       const errorMessage = responseData?.Error || responseData?.message; // Ưu tiên Error, sau đó đến message
       const statusCode = error.response.status;
 
+      // Check if user is in guest mode
+      const userRole = await AsyncStorage.getItem("userRole");
+      const isGuest = userRole === UserRole.GUEST;
+
+      // Check if the request was for a public endpoint
+      const isPublicUrl = isPublicEndpoint(error.config?.url);
+
       if (statusCode === 401) {
+        // If in guest mode and trying to access a public endpoint, don't show error
+        if (isGuest && isPublicUrl) {
+          console.log(
+            "Guest user accessing public endpoint, ignoring 401 error"
+          );
+          return Promise.reject(error);
+        }
+
+        // For regular users or protected endpoints, handle normally
         await AsyncStorage.removeItem("userToken");
         Toast.show({
           type: "error",
-          text1: "Phiên đăng nhập hết hạn",
-          text2: "Vui lòng đăng nhập lại.",
+          text1: isGuest ? "Yêu cầu đăng nhập" : "Phiên đăng nhập hết hạn",
+          text2: isGuest
+            ? "Vui lòng đăng nhập để sử dụng tính năng này."
+            : "Vui lòng đăng nhập lại.",
           visibilityTime: 4000,
           autoHide: true,
           onHide: () => navigateToAuth(),

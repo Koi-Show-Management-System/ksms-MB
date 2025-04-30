@@ -1,6 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { UserRole } from "../context/AuthContext";
 import api from "./api";
 import { signalRService } from "./signalRService";
+
+// Constants for AsyncStorage keys
+const STORAGE_KEYS = {
+  USER_TOKEN: "userToken",
+  USER_ID: "userId",
+  USER_EMAIL: "userEmail",
+  USER_ROLE: "userRole",
+  USER_FULLNAME: "userFullName",
+  REMEMBER_ME: "rememberMe",
+};
 
 // Define interface for login response
 interface LoginResponseData {
@@ -18,7 +29,11 @@ interface ApiResponse {
 }
 
 // Login function
-export const login = async (email: string, password: string) => {
+export const login = async (
+  email: string,
+  password: string,
+  rememberMe: boolean = false
+) => {
   try {
     const response = await api.post<ApiResponse>("/api/v1/auth/login", {
       email,
@@ -32,12 +47,21 @@ export const login = async (email: string, password: string) => {
       // Ensure essential data exists before storing
       if (userData.token && userData.id && userData.email && userData.role) {
         // Store user data in AsyncStorage
-        await AsyncStorage.setItem("userToken", userData.token);
-        await AsyncStorage.setItem("userId", userData.id);
-        await AsyncStorage.setItem("userEmail", userData.email);
-        await AsyncStorage.setItem("userRole", userData.role);
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_TOKEN, userData.token);
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userData.id);
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_EMAIL, userData.email);
+        await AsyncStorage.setItem(STORAGE_KEYS.USER_ROLE, userData.role);
         // Handle potential null fullName safely
-        await AsyncStorage.setItem("userFullName", userData.fullName ?? "");
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.USER_FULLNAME,
+          userData.fullName ?? ""
+        );
+
+        // Store the remember me preference
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.REMEMBER_ME,
+          rememberMe ? "true" : "false"
+        );
 
         // Thiết lập kết nối SignalR sau khi đăng nhập thành công
         try {
@@ -95,11 +119,12 @@ export const logout = async () => {
 
     // Remove all stored user data
     await AsyncStorage.multiRemove([
-      "userToken",
-      "userId",
-      "userEmail",
-      "userRole",
-      "userFullName",
+      STORAGE_KEYS.USER_TOKEN,
+      STORAGE_KEYS.USER_ID,
+      STORAGE_KEYS.USER_EMAIL,
+      STORAGE_KEYS.USER_ROLE,
+      STORAGE_KEYS.USER_FULLNAME,
+      STORAGE_KEYS.REMEMBER_ME,
     ]);
   } catch (error) {
     console.error("Logout error:", error);
@@ -109,8 +134,20 @@ export const logout = async () => {
 
 // Check if user is already logged in
 export const isAuthenticated = async () => {
-  const token = await AsyncStorage.getItem("userToken");
+  const token = await AsyncStorage.getItem(STORAGE_KEYS.USER_TOKEN);
   return !!token;
+};
+
+// Check if user is in guest mode
+export const isGuestMode = async () => {
+  const role = await AsyncStorage.getItem(STORAGE_KEYS.USER_ROLE);
+  return role === UserRole.GUEST;
+};
+
+// Check if user has enabled "Remember Me"
+export const shouldRememberUser = async () => {
+  const rememberMe = await AsyncStorage.getItem(STORAGE_KEYS.REMEMBER_ME);
+  return rememberMe === "true";
 };
 
 // Register function

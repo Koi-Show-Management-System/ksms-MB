@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import GuestRestrictionWrapper from "../../../components/GuestRestrictionWrapper";
+import { useAuth } from "../../../context/AuthContext";
 import api from "../../../services/api"; // Đảm bảo đường dẫn đúng
 import {
   GetVotingRegistrationsResponse,
@@ -135,6 +137,7 @@ const ResultItem: React.FC<ResultItemProps> = React.memo(({ item }) => {
 
 // --- Component chính ---
 export function KoiShowVoting({ showId }: KoiShowVotingProps) {
+  const { isGuest } = useAuth();
   const [registrations, setRegistrations] = useState<VotingRegistration[]>([]);
   const [results, setResults] = useState<VotingResultItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -490,13 +493,17 @@ export function KoiShowVoting({ showId }: KoiShowVotingProps) {
 
   return (
     <View style={styles.container}>
-      {renderContent()}
-      {isSubmittingVote && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#ffffff" />
-          <Text style={styles.loadingOverlayText}>Đang gửi bình chọn...</Text>
-        </View>
-      )}
+      <GuestRestrictionWrapper
+        message="Bạn cần phải login để tham gia bình chọn"
+        showLoginButton={true}>
+        {renderContent()}
+        {isSubmittingVote && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color="#ffffff" />
+            <Text style={styles.loadingOverlayText}>Đang gửi bình chọn...</Text>
+          </View>
+        )}
+      </GuestRestrictionWrapper>
     </View>
   );
 }

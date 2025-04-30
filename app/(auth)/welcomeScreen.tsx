@@ -1,9 +1,19 @@
 import { router } from "expo-router"; // Import router
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useAuth } from "../../context/AuthContext";
 
-// Removed unused WelcomeScreenProps interface and onGetStarted prop
 const WelcomeScreen: React.FC = () => {
+  const { loginAsGuest } = useAuth();
+
+  const handleGuestLogin = async () => {
+    try {
+      await loginAsGuest();
+    } catch (error) {
+      console.error("Error logging in as guest:", error);
+    }
+  };
+
   return (
     <View style={styles.welcomeScreen}>
       <View style={styles.contentContainer}>
@@ -26,7 +36,11 @@ const WelcomeScreen: React.FC = () => {
           style={styles.getStartedButton}
           onPress={() => router.push("/(auth)/signIn")} // Navigate to signIn screen
         >
-          <Text style={styles.getStartedButtonText}>Bắt đầu</Text>
+          <Text style={styles.getStartedButtonText}>Đăng nhập</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.guestButton} onPress={handleGuestLogin}>
+          <Text style={styles.guestButtonText}>Tiếp tục với tư cách khách</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -95,9 +109,29 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 0,
+    marginBottom: 16,
   },
   getStartedButtonText: {
     color: "#ffffff",
+    fontFamily: "Poppins-Regular", // You might need to adjust this based on your font setup
+    fontSize: 16,
+    fontWeight: "400",
+  },
+  guestButton: {
+    width: 327,
+    height: 56,
+    backgroundColor: "#ffffff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#000000",
+    cursor: "pointer", // This won't have a visual effect in React Native
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 0,
+  },
+  guestButtonText: {
+    color: "#000000",
     fontFamily: "Poppins-Regular", // You might need to adjust this based on your font setup
     fontSize: 16,
     fontWeight: "400",

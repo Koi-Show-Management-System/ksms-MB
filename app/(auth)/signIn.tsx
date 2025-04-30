@@ -1,26 +1,29 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { z } from "zod";
-import { login } from "../../services/authService";
-import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from "../../context/AuthContext";
 
 // Define validation schema using zod
 const signInSchema = z.object({
-  email: z.string()
+  email: z
+    .string()
     .min(1, "Email không được để trống")
     .email("Email không hợp lệ")
-    .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Email không đúng định dạng"),
-  password: z.string()
-    .min(1, "Mật khẩu không được để trống"),
+    .regex(
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+      "Email không đúng định dạng"
+    ),
+  password: z.string().min(1, "Mật khẩu không được để trống"),
 });
 
 // Type for validation errors state
@@ -42,11 +45,15 @@ const SignIn: React.FC<SignInProps> = ({
     router.push("/(auth)/signUp");
   },
 }) => {
+  const { login, loginAsGuest } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [rememberMe, setRememberMe] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>(
+    {}
+  );
 
   const handleSignIn = async () => {
     // Validate form data using zod schema
@@ -65,7 +72,7 @@ const SignIn: React.FC<SignInProps> = ({
     setIsLoading(true);
 
     try {
-      // Call login service with validated data
+      // Call login function from AuthContext
       await login(validationResult.data.email, validationResult.data.password);
       console.log("Login successful");
       // Navigate on success (interceptor handles success toast if API returns message)
@@ -124,29 +131,45 @@ const SignIn: React.FC<SignInProps> = ({
           />
           <TouchableOpacity
             style={styles.eyeIcon}
-            onPress={() => setShowPassword(!showPassword)}
-          >
-            <Ionicons 
-              name={showPassword ? "eye-outline" : "eye-off-outline"} 
-              size={24} 
+            onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons
+              name={showPassword ? "eye-outline" : "eye-off-outline"}
+              size={24}
               color="#666"
             />
           </TouchableOpacity>
         </View>
         {/* Display password validation error */}
         {validationErrors.password && (
-          <Text style={styles.fieldErrorText}>{validationErrors.password[0]}</Text>
+          <Text style={styles.fieldErrorText}>
+            {validationErrors.password[0]}
+          </Text>
         )}
 
-        {/* Forgot password link */}
-        <TouchableOpacity
-          onPress={() => router.push('/(auth)/forgot-password')}
-          style={{ alignSelf: 'flex-end', marginBottom: 10 }}
-          accessibilityRole="button"
-          accessibilityLabel="Quên mật khẩu"
-        >
-          <Text style={{ color: '#1976d2', fontWeight: '600', fontSize: 14 }}>Quên mật khẩu?</Text>
-        </TouchableOpacity>
+        {/* Remember Me checkbox */}
+        <View style={styles.rememberMeContainer}>
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => setRememberMe(!rememberMe)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: rememberMe }}>
+            <View
+              style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+              {rememberMe && (
+                <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+              )}
+            </View>
+            <Text style={styles.rememberMeText}>Ghi nhớ đăng nhập</Text>
+          </TouchableOpacity>
+
+          {/* Forgot password link */}
+          <TouchableOpacity
+            onPress={() => router.push("/(auth)/forgot-password")}
+            accessibilityRole="button"
+            accessibilityLabel="Quên mật khẩu">
+            <Text style={styles.forgotPasswordText}>Quên mật khẩu?</Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           style={[styles.joinButton, isLoading && styles.joinButtonDisabled]}
@@ -158,6 +181,23 @@ const SignIn: React.FC<SignInProps> = ({
           ) : (
             <Text style={styles.joinButtonText}>Đăng nhập</Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.guestButton}
+          onPress={async () => {
+            try {
+              setIsLoading(true);
+              await loginAsGuest();
+              router.push("/(tabs)/home/homepage");
+            } catch (error) {
+              console.error("Guest login failed:", error);
+            } finally {
+              setIsLoading(false);
+            }
+          }}
+          disabled={isLoading}>
+          <Text style={styles.guestButtonText}>Tiếp tục với tư cách khách</Text>
         </TouchableOpacity>
 
         <View style={styles.signupContainer}>
@@ -218,7 +258,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 20,
-    position: 'relative',
+    position: "relative",
   },
   input: {
     flex: 1,
@@ -237,7 +277,7 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   eyeIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: 12,
     padding: 5,
   },
@@ -249,12 +289,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 10,
+    marginBottom: 10,
   },
   joinButtonText: {
     fontFamily: "Poppins",
     fontSize: 16,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  guestButton: {
+    width: "100%",
+    height: 48,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#0A0A0A",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  guestButtonText: {
+    fontFamily: "Poppins",
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#0A0A0A",
   },
   signupContainer: {
     flexDirection: "row",
@@ -280,11 +338,47 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins",
     fontSize: 12,
     marginBottom: 15,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     marginLeft: 5,
   },
   joinButtonDisabled: {
     backgroundColor: "#888888",
+  },
+  rememberMeContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 15,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: "#D2D2D7",
+    borderRadius: 4,
+    marginRight: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: "#0A0A0A",
+    borderColor: "#0A0A0A",
+  },
+  rememberMeText: {
+    fontFamily: "Poppins",
+    fontSize: 14,
+    fontWeight: "400",
+    color: "#030303",
+  },
+  forgotPasswordText: {
+    color: "#1976d2",
+    fontWeight: "600",
+    fontSize: 14,
   },
 });
 

@@ -9,9 +9,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { memo, useCallback, useEffect, useState } from "react";
 import { Dimensions } from "react-native";
 import { TabBar, TabView } from "react-native-tab-view";
+import { useAuth } from "../../../context/AuthContext";
 
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   RefreshControl,
@@ -681,6 +683,7 @@ const LazyKoiShowVoting = ({ showId }: { showId: string | undefined }) => {
 // Main content component
 const KoiShowInformationContent = () => {
   const { showData, categories, isLoading, error, refetch } = useKoiShow();
+  const { isGuest } = useAuth();
   const [expandedSections, setExpandedSections] = useState({
     eventDetails: true,
     categories: true,
@@ -689,12 +692,20 @@ const KoiShowInformationContent = () => {
     timeline: true,
   });
   const [index, setIndex] = useState(0);
-  const [routes] = useState([
-    { key: "info", title: "Chi tiết" },
-    { key: "contestants", title: "Thí sinh" },
-    { key: "results", title: "Kết quả" },
-    { key: "vote", title: "Bình chọn" },
-  ]);
+  const [routes] = useState(() => {
+    const baseRoutes = [
+      { key: "info", title: "Chi tiết" },
+      { key: "contestants", title: "Thí sinh" },
+      { key: "results", title: "Kết quả" },
+    ];
+
+    // Only add voting tab for authenticated users
+    if (!isGuest()) {
+      baseRoutes.push({ key: "vote", title: "Bình chọn" });
+    }
+
+    return baseRoutes;
+  });
   const [livestreamInfo, setLivestreamInfo] = useState<LivestreamInfo | null>(
     null
   );
@@ -1154,24 +1165,58 @@ const KoiShowInformationContent = () => {
       <View style={styles.footer}>
         <TouchableOpacity
           style={[styles.actionButton, styles.registerButton]}
-          onPress={() =>
-            router.push({
-              pathname: "/(tabs)/shows/KoiRegistration",
-              params: { showId: showData.id },
-            })
-          }>
+          onPress={() => {
+            if (isGuest()) {
+              Alert.alert(
+                "Yêu cầu đăng nhập",
+                "Bạn cần phải login để đăng ký thi đấu",
+                [
+                  {
+                    text: "Đăng nhập",
+                    onPress: () => router.push("/(auth)/signIn"),
+                  },
+                  {
+                    text: "Hủy",
+                    style: "cancel",
+                  },
+                ]
+              );
+            } else {
+              router.push({
+                pathname: "/(tabs)/shows/KoiRegistration",
+                params: { showId: showData.id },
+              });
+            }
+          }}>
           <FontAwesome5 name="fish" size={18} color="#FFFFFF" />
           <Text style={styles.buttonText}>Đăng ký thi đấu</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.actionButton, styles.ticketButton]}
-          onPress={() =>
-            router.push({
-              pathname: "/(tabs)/shows/BuyTickets",
-              params: { showId: showData.id },
-            })
-          }>
+          onPress={() => {
+            if (isGuest()) {
+              Alert.alert(
+                "Yêu cầu đăng nhập",
+                "Bạn cần phải login để mua vé tham dự",
+                [
+                  {
+                    text: "Đăng nhập",
+                    onPress: () => router.push("/(auth)/signIn"),
+                  },
+                  {
+                    text: "Hủy",
+                    style: "cancel",
+                  },
+                ]
+              );
+            } else {
+              router.push({
+                pathname: "/(tabs)/shows/BuyTickets",
+                params: { showId: showData.id },
+              });
+            }
+          }}>
           <MaterialIcons name="confirmation-number" size={20} color="#FFFFFF" />
           <Text style={styles.buttonText}>Mua vé tham dự</Text>
         </TouchableOpacity>

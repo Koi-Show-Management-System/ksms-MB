@@ -1,8 +1,16 @@
 import React from "react"; // Removed duplicate import and unused useEffect/useState
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native"; // Removed Dimensions
+import {
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native"; // Removed Dimensions
 // Removed unused imports: LinearGradient, BlurView, StatusBar
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "../context/AuthContext";
 
 // Dimensions không còn cần thiết ở đây
 
@@ -32,6 +40,7 @@ const Footer: React.FC<FooterProps> = ({
   onBlogPress,
 }) => {
   const insets = useSafeAreaInsets();
+  const { isGuest } = useAuth();
   // screenHeight và useEffect không còn cần thiết
 
   // Xử lý các sự kiện nếu không được truyền vào
@@ -47,7 +56,24 @@ const Footer: React.FC<FooterProps> = ({
     if (onNotificationPress) {
       onNotificationPress();
     } else {
-      router.push("/Notification");
+      if (isGuest()) {
+        Alert.alert(
+          "Yêu cầu đăng nhập",
+          "Bạn cần phải login để xem thông báo",
+          [
+            {
+              text: "Đăng nhập",
+              onPress: () => router.push("/(auth)/signIn"),
+            },
+            {
+              text: "Hủy",
+              style: "cancel",
+            },
+          ]
+        );
+      } else {
+        router.push("/Notification");
+      }
     }
   };
 
@@ -64,7 +90,24 @@ const Footer: React.FC<FooterProps> = ({
     if (onProfilePress) {
       onProfilePress();
     } else {
-      router.push("/UserProfile");
+      if (isGuest()) {
+        Alert.alert(
+          "Yêu cầu đăng nhập",
+          "Bạn cần phải login để xem thông tin tài khoản",
+          [
+            {
+              text: "Đăng nhập",
+              onPress: () => router.push("/(auth)/signIn"),
+            },
+            {
+              text: "Hủy",
+              style: "cancel",
+            },
+          ]
+        );
+      } else {
+        router.push("/UserProfile");
+      }
     }
   };
 
