@@ -581,14 +581,12 @@ const UserProfile: React.FC = () => {
         style: "destructive",
         onPress: async () => {
           try {
-            // Xóa tất cả dữ liệu người dùng khỏi AsyncStorage
-            await AsyncStorage.multiRemove([
-              "userToken",
-              "userId",
-              "userEmail",
-              "userRole",
-              "userFullName",
-            ]);
+            // Import authService to use the centralized logout function
+            const authService = require("../../services/authService");
+
+            // Use the centralized logout function that handles Stream Chat disconnection
+            await authService.logout();
+
             // Chuyển hướng đến màn hình đăng nhập
             router.replace("/(auth)/signIn");
           } catch (error) {

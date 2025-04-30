@@ -80,6 +80,19 @@ export const logout = async () => {
     // Dừng kết nối SignalR trước khi xóa token
     await signalRService.stopConnection();
 
+    // Disconnect from Stream Chat
+    try {
+      const { disconnectUser } = require("./chatService");
+      await disconnectUser(); // This now also clears tokens
+      console.log("[AuthService] Successfully disconnected from Stream Chat");
+    } catch (chatError) {
+      console.error(
+        "[AuthService] Error disconnecting from Stream Chat:",
+        chatError
+      );
+      // Continue with logout even if Stream Chat disconnect fails
+    }
+
     // Remove all stored user data
     await AsyncStorage.multiRemove([
       "userToken",

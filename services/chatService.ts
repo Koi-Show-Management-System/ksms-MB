@@ -216,14 +216,21 @@ export async function getChatToken(
 
         if (response.data?.token) {
           const token = response.data.token;
-          console.log("[ChatService] Successfully got token from VIEWER token API");
-          console.log("[ChatService] VIEWER Token:", token.substring(0, 20) + "...");
+          console.log(
+            "[ChatService] Successfully got token from VIEWER token API"
+          );
+          console.log(
+            "[ChatService] VIEWER Token:",
+            token.substring(0, 20) + "..."
+          );
 
           // Save the token for future use
           await saveUserTokenToStorage(userId, token);
           return token;
         } else {
-          console.warn("[ChatService] Viewer token API response missing token data");
+          console.warn(
+            "[ChatService] Viewer token API response missing token data"
+          );
           throw new Error("Invalid token response from API");
         }
       } catch (viewerTokenError: any) {
@@ -231,7 +238,11 @@ export async function getChatToken(
           "[ChatService] Error getting token from livestream viewer API:",
           viewerTokenError.message || viewerTokenError
         );
-        throw new Error(`Failed to get chat token: ${viewerTokenError.message || "Unknown error"}`);
+        throw new Error(
+          `Failed to get chat token: ${
+            viewerTokenError.message || "Unknown error"
+          }`
+        );
       }
     }
 
@@ -253,10 +264,29 @@ export async function getChatToken(
 }
 
 /**
+ * Clear Stream Chat tokens from storage
+ */
+export async function clearChatTokens(): Promise<void> {
+  try {
+    console.log("[ChatService] Clearing Stream Chat tokens from storage");
+    await AsyncStorage.removeItem(STREAM_TOKEN_STORAGE_KEY);
+    await AsyncStorage.removeItem(STREAM_USER_STORAGE_KEY);
+    console.log("[ChatService] Stream Chat tokens cleared successfully");
+  } catch (error) {
+    console.error("[ChatService] Error clearing Stream Chat tokens:", error);
+  }
+}
+
+/**
  * Disconnect user from Stream Chat
  */
 export async function disconnectUser(): Promise<void> {
-  if (!chatClientInstance) return;
+  if (!chatClientInstance) {
+    console.log("[ChatService] No active chat client instance to disconnect");
+    // Still clear tokens even if no client instance
+    await clearChatTokens();
+    return;
+  }
 
   try {
     console.log("[ChatService] Disconnecting user from Stream Chat");
@@ -273,9 +303,22 @@ export async function disconnectUser(): Promise<void> {
       delete subscribedChannels[key];
     });
 
+    // Clear tokens from storage
+    await clearChatTokens();
+
     console.log("[ChatService] User disconnected successfully");
   } catch (error) {
     console.error("[ChatService] Error disconnecting user:", error);
+
+    // Still try to clear tokens even if disconnection fails
+    try {
+      await clearChatTokens();
+    } catch (tokenError) {
+      console.error(
+        "[ChatService] Error clearing tokens after disconnect failure:",
+        tokenError
+      );
+    }
   }
 }
 
@@ -528,7 +571,8 @@ export async function getChatMessages(
       authorId: msg.user?.id || "unknown",
       content: msg.text || "",
       timestamp: new Date(msg.created_at ? msg.created_at : Date.now()),
-      profileImage: typeof msg.user?.image === 'string' ? msg.user?.image : undefined,
+      profileImage:
+        typeof msg.user?.image === "string" ? msg.user?.image : undefined,
     }));
 
     console.log(
