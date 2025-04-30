@@ -1,4 +1,5 @@
 import { MaterialIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ResizeMode, Video } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
@@ -323,6 +324,21 @@ const KoiRegistrationScreen: React.FC = () => {
     loadVarieties();
     loadCategories(); // Tải tất cả các hạng mục của cuộc thi
     loadShowInfo();
+
+    // Load user's full name from AsyncStorage
+    const loadUserName = async () => {
+      try {
+        const userFullName = await AsyncStorage.getItem("userFullName");
+        if (userFullName) {
+          setRegisterNameInput(userFullName);
+          console.log("Loaded user name from AsyncStorage:", userFullName);
+        }
+      } catch (error) {
+        console.error("Error loading user name from AsyncStorage:", error);
+      }
+    };
+
+    loadUserName();
   }, []);
 
   // Kiểm tra showId khi component được mount
@@ -791,15 +807,11 @@ const KoiRegistrationScreen: React.FC = () => {
       return;
     }
     if (!registerNameInput.trim()) {
-      Alert.alert("Cần thông tin", "Vui lòng nhập Tên Đăng Ký Thi Đấu");
+      Alert.alert("Cần thông tin", "Vui lòng nhập Tên Người Đăng Ký Thi Đấu");
       return;
     }
 
-    // Kiểm tra ghi chú đăng ký
-    if (!registrationNote.trim()) {
-      Alert.alert("Cần thông tin", "Vui lòng nhập Ghi chú đăng ký");
-      return;
-    }
+    // Note: Removed the check for registration note as it is now optional
 
     if (!showId) {
       Alert.alert(
@@ -2367,7 +2379,7 @@ const KoiRegistrationScreen: React.FC = () => {
 
                   {/* Input for Register Name */}
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Tên Đăng Ký Thi Đấu</Text>
+                    <Text style={styles.label}>Tên Người Đăng Ký Thi Đấu</Text>
                     <TextInput
                       style={styles.input}
                       placeholder="Nhập tên bạn muốn hiển thị khi thi đấu"

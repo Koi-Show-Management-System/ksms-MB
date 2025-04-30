@@ -388,24 +388,14 @@ const Homepage: React.FC = () => {
   // Quick access routes
   const quickAccessRoutes = [
     {
-      text: "Shows",
+      text: "Triển lãm",
       icon: "trophy-outline" as const,
       route: "/(tabs)/shows/KoiShowsPage",
     },
     {
-      text: "Blogs",
+      text: "Tin tức",
       icon: "create-outline" as const,
       route: "/(tabs)/blog",
-    },
-    {
-      text: "Ban giám khảo",
-      icon: "star-outline" as const,
-      route: "/(tabs)/judges",
-    },
-    {
-      text: "Tài khoản",
-      icon: "person-outline" as const,
-      route: "/(tabs)/user/UserProfile",
     },
   ];
 
@@ -414,9 +404,8 @@ const Homepage: React.FC = () => {
     return (
       <View style={styles.quickAccessButtons}>
         {quickAccessRoutes.map((item, index) => {
-          // Chọn gradient khác nhau cho mỗi nút
-          const gradientColors =
-            index % 2 === 0 ? COLORS.primaryGradient : COLORS.secondaryGradient;
+          // Sử dụng cùng một gradient màu xanh nước cho tất cả các nút
+          const gradientColors = COLORS.secondaryGradient;
 
           return (
             <MicroInteraction

@@ -8,7 +8,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { memo, useCallback, useEffect, useState } from "react";
 import { Dimensions } from "react-native";
-import { SceneMap, TabBar, TabView } from "react-native-tab-view";
+import { TabBar, TabView } from "react-native-tab-view";
 
 import {
   ActivityIndicator,
@@ -231,6 +231,7 @@ const InfoTabContent = ({
   formatRuleContent,
   formatCriterionContent,
   formatTimelineContent,
+  getTimelineItemColor,
   detailedCategories,
   isCategoryDetailsLoading,
   categoryDetailsError,
@@ -512,6 +513,11 @@ const InfoTabContent = ({
                     )
                     .map((status, index, sortedArray) => {
                       const isLast = index === sortedArray.length - 1;
+                      const statusDescription = formatTimelineContent(
+                        status.description
+                      );
+                      const dotColor = getTimelineItemColor(statusDescription);
+
                       return (
                         <View key={status.id}>
                           <View style={styles.timelineItemContainer}>
@@ -519,92 +525,85 @@ const InfoTabContent = ({
                               <View
                                 style={[
                                   styles.timelineDot,
+                                  {
+                                    backgroundColor: dotColor,
+                                    borderColor: dotColor,
+                                  },
                                   status.isActive && styles.timelineDotActive,
                                 ]}
                               />
-                              {!isLast && <View style={styles.timelineLine} />}
+                              {!isLast && (
+                                <View
+                                  style={[
+                                    styles.timelineLine,
+                                    { backgroundColor: "#e0e0e0" },
+                                  ]}
+                                />
+                              )}
                             </View>
 
                             <View style={styles.timelineRightColumn}>
-                              <View
-                                style={[
-                                  styles.timelineContent,
-                                  status.isActive &&
-                                    styles.timelineContentActive,
-                                ]}>
-                                <Text
-                                  style={[
-                                    styles.timelineDateTimeInside,
-                                    status.isActive &&
-                                      styles.timelineDateTimeInsideActive,
-                                  ]}>
-                                  {(() => {
-                                    try {
-                                      const start = new Date(status.startDate);
-                                      const end = new Date(status.endDate);
-                                      const startDay = start.getDate();
-                                      const endDay = end.getDate();
-                                      const startMonth = start.getMonth() + 1;
-                                      const endMonth = end.getMonth() + 1;
-                                      const startYear = start.getFullYear();
-                                      const endYear = end.getFullYear();
-                                      const startTime =
-                                        start.toLocaleTimeString("vi-VN", {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        });
-                                      const endTime = end.toLocaleTimeString(
-                                        "vi-VN",
-                                        { hour: "2-digit", minute: "2-digit" }
-                                      );
-
-                                      const isSameDay =
-                                        startDay === endDay &&
-                                        startMonth === endMonth &&
-                                        startYear === endYear;
-
-                                      if (isSameDay) {
-                                        return `${startTime} - ${endTime} / ${startDay
-                                          .toString()
-                                          .padStart(2, "0")}/${startMonth
-                                          .toString()
-                                          .padStart(2, "0")}/${startYear}`;
-                                      } else {
-                                        const endDayFormatted = endDay
-                                          .toString()
-                                          .padStart(2, "0");
-                                        const endMonthFormatted = endMonth
-                                          .toString()
-                                          .padStart(2, "0");
-                                        const endYearFormatted = endYear;
-                                        return `${startTime} - ${startDay
-                                          .toString()
-                                          .padStart(
-                                            2,
-                                            "0"
-                                          )} / ${endTime} - ${endDayFormatted}/${endMonthFormatted}/${endYearFormatted}`;
+                              <Text style={styles.timelineTitle}>
+                                {statusDescription}
+                              </Text>
+                              <Text style={styles.timelineDateTimeOutside}>
+                                {(() => {
+                                  try {
+                                    const start = new Date(status.startDate);
+                                    const end = new Date(status.endDate);
+                                    const startDay = start
+                                      .getDate()
+                                      .toString()
+                                      .padStart(2, "0");
+                                    const startMonth = (start.getMonth() + 1)
+                                      .toString()
+                                      .padStart(2, "0");
+                                    const startYear = start.getFullYear();
+                                    const startTime = start.toLocaleTimeString(
+                                      "vi-VN",
+                                      {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
                                       }
-                                    } catch (e) {
-                                      console.error(
-                                        "Error formatting timeline date:",
-                                        e
-                                      );
-                                      return formatDateAndTime(
-                                        status.startDate,
-                                        status.endDate
-                                      );
+                                    );
+                                    const endTime = end.toLocaleTimeString(
+                                      "vi-VN",
+                                      {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      }
+                                    );
+
+                                    const isSameDay =
+                                      start.getDate() === end.getDate() &&
+                                      start.getMonth() === end.getMonth() &&
+                                      start.getFullYear() === end.getFullYear();
+
+                                    if (isSameDay) {
+                                      return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endTime}`;
+                                    } else {
+                                      const endDay = end
+                                        .getDate()
+                                        .toString()
+                                        .padStart(2, "0");
+                                      const endMonth = (end.getMonth() + 1)
+                                        .toString()
+                                        .padStart(2, "0");
+                                      const endYear = end.getFullYear();
+                                      return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endDay}/${endMonth}/${endYear}, ${endTime}`;
                                     }
-                                  })()}
-                                </Text>
-                                <Text
-                                  style={[
-                                    styles.timelineTitle,
-                                    status.isActive &&
-                                      styles.timelineTitleActive,
-                                  ]}>
-                                  {formatTimelineContent(status.description)}
-                                </Text>
-                              </View>
+                                  } catch (e) {
+                                    console.error(
+                                      "Error formatting timeline date:",
+                                      e
+                                    );
+                                    return formatDateAndTime(
+                                      status.startDate,
+                                      status.endDate
+                                    );
+                                  }
+                                })()}
+                              </Text>
                             </View>
                           </View>
                         </View>
@@ -627,6 +626,38 @@ const InfoTabContent = ({
   );
 };
 
+// Add new lazy loaded component for Voting
+const LazyKoiShowVoting = ({ showId }: { showId: string | undefined }) => {
+  const [isTabMounted, setIsTabMounted] = useState(false);
+
+  useEffect(() => {
+    // Set the component as mounted when it's rendered for the first time
+    setIsTabMounted(true);
+  }, []);
+
+  if (!showId) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text>Không tìm thấy thông tin cuộc thi</Text>
+      </View>
+    );
+  }
+
+  // Only render the actual component when the tab has been visited
+  if (!isTabMounted) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#007bff" />
+        <Text style={{ marginTop: 16, color: "#666" }}>
+          Đang tải dữ liệu bình chọn...
+        </Text>
+      </View>
+    );
+  }
+
+  return <KoiShowVoting showId={showId} />;
+};
+
 // Main content component
 const KoiShowInformationContent = () => {
   const { showData, categories, isLoading, error, refetch } = useKoiShow();
@@ -635,7 +666,7 @@ const KoiShowInformationContent = () => {
     categories: true,
     criteria: false,
     rules: false,
-    timeline: false,
+    timeline: true,
   });
   const [index, setIndex] = useState(0);
   const [routes] = useState([
@@ -754,6 +785,27 @@ const KoiShowInformationContent = () => {
       return JSON.stringify(content);
     }
     return String(content || "");
+  }, []);
+
+  // Determine color for timeline item based on description
+  const getTimelineItemColor = useCallback((description: string): string => {
+    const desc = description.toLowerCase();
+
+    if (desc.includes("đăng ký")) return "#0a7ea4"; // Xanh dương
+    if (desc.includes("check-in cá") || desc.includes("checkin cá"))
+      return "#00BCD4"; // Xanh ngọc
+    if (desc.includes("check-in vé") || desc.includes("checkin vé"))
+      return "#FF5252"; // Đỏ
+    if (desc.includes("sơ khảo")) return "#4CAF50"; // Xanh lá
+    if (desc.includes("đánh giá chính") || desc.includes("chính"))
+      return "#9C27B0"; // Tím
+    if (desc.includes("chung kết")) return "#FFC107"; // Vàng
+    if (desc.includes("triển lãm")) return "#00BCD4"; // Xanh ngọc
+    if (desc.includes("công bố kết quả")) return "#FFEB3B"; // Vàng nhạt
+    if (desc.includes("trao giải")) return "#000000"; // Đen
+    if (desc.includes("kết thúc")) return "#FF5722"; // Cam đỏ
+
+    return "#aaaaaa"; // Màu mặc định
   }, []);
 
   // Format rule content để đảm bảo là string
@@ -898,29 +950,57 @@ const KoiShowInformationContent = () => {
     });
   }, [livestreamInfo, router, showData?.name]);
 
-  // Define the scene renderers for TabView
-  const renderScene = SceneMap({
-    info: () => (
-      <InfoTabContent
-        showData={showData}
-        categories={categories}
-        expandedSections={expandedSections}
-        toggleSection={toggleSection}
-        formatDateAndTime={formatDateAndTime}
-        formatRuleContent={formatRuleContent}
-        formatCriterionContent={formatCriterionContent}
-        formatTimelineContent={formatTimelineContent}
-        detailedCategories={detailedCategories}
-        isCategoryDetailsLoading={isCategoryDetailsLoading}
-        categoryDetailsError={categoryDetailsError}
-        renderCategoryItem={renderCategoryItem}
-        ItemSeparator={ItemSeparator}
-      />
-    ),
-    contestants: () => <KoiContestants showId={showData?.id} />,
-    results: () => <KoiShowResults showId={showData?.id} />,
-    vote: () => <KoiShowVoting showId={showData?.id} />,
-  });
+  // Define the scene renderers for TabView - modify to use the lazy loaded voting component
+  const renderScene = useCallback(
+    ({ route }) => {
+      switch (route.key) {
+        case "info":
+          return (
+            <InfoTabContent
+              showData={showData}
+              categories={categories}
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+              formatDateAndTime={formatDateAndTime}
+              formatRuleContent={formatRuleContent}
+              formatCriterionContent={formatCriterionContent}
+              formatTimelineContent={formatTimelineContent}
+              getTimelineItemColor={getTimelineItemColor}
+              detailedCategories={detailedCategories}
+              isCategoryDetailsLoading={isCategoryDetailsLoading}
+              categoryDetailsError={categoryDetailsError}
+              renderCategoryItem={renderCategoryItem}
+              ItemSeparator={ItemSeparator}
+            />
+          );
+        case "contestants":
+          return <KoiContestants showId={showData?.id} />;
+        case "results":
+          return <KoiShowResults showId={showData?.id} />;
+        case "vote":
+          // Only render the voting component when this tab is selected (lazy loading)
+          return <LazyKoiShowVoting showId={showData?.id} />;
+        default:
+          return null;
+      }
+    },
+    [
+      showData,
+      categories,
+      expandedSections,
+      toggleSection,
+      formatDateAndTime,
+      formatRuleContent,
+      formatCriterionContent,
+      formatTimelineContent,
+      getTimelineItemColor,
+      detailedCategories,
+      isCategoryDetailsLoading,
+      categoryDetailsError,
+      renderCategoryItem,
+      ItemSeparator,
+    ]
+  );
 
   // Custom tab bar renderer
   const renderTabBar = (props) => (
@@ -1020,7 +1100,7 @@ const KoiShowInformationContent = () => {
           </View>
         </Animated.View>
 
-        {/* Tab Bar - Positioned directly below the banner */}
+        {/* Tab Bar - Modified to use the callback renderScene instead of SceneMap */}
         <TabView
           navigationState={{ index, routes }}
           renderScene={renderScene}
@@ -1028,6 +1108,7 @@ const KoiShowInformationContent = () => {
           initialLayout={{ width: Dimensions.get("window").width }}
           renderTabBar={renderTabBar}
           style={styles.tabView}
+          lazy={true}
         />
       </View>
 
@@ -1218,7 +1299,7 @@ const styles = StyleSheet.create({
   },
   // Section styles
   sectionContainer: {
-    backgroundColor: "#e9e9e9",
+    backgroundColor: "#ffffff",
     borderRadius: 10,
     marginHorizontal: 16,
     marginVertical: 8,
@@ -1231,15 +1312,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1.0,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 16,
-    backgroundColor: "#e9e9e9",
+    backgroundColor: "#ffffff",
     borderBottomWidth: 0,
-    borderBottomColor: "#dadada",
+    borderBottomColor: "#f0f0f0",
   },
   sectionHeaderExpanded: {
     borderBottomWidth: 1,
@@ -1256,7 +1339,7 @@ const styles = StyleSheet.create({
   },
   sectionContent: {
     padding: 16,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#ffffff",
   },
   descriptionText: {
     fontSize: 14,
@@ -1287,7 +1370,7 @@ const styles = StyleSheet.create({
   // Timeline styles
   timelineContainer: {
     paddingLeft: 8,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#ffffff",
   },
   timelineItemContainer: {
     flexDirection: "row",
@@ -1298,58 +1381,37 @@ const styles = StyleSheet.create({
     width: 20,
   },
   timelineDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#aaaaaa",
-    borderWidth: 2,
-    borderColor: "#888888",
-  },
-  timelineDotActive: {
-    backgroundColor: "#000000",
-    borderColor: "#000000",
     width: 16,
     height: 16,
     borderRadius: 8,
+    backgroundColor: "#aaaaaa",
+    borderWidth: 0,
+  },
+  timelineDotActive: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
   },
   timelineLine: {
     width: 2,
     flex: 1,
-    backgroundColor: "#aaaaaa",
+    backgroundColor: "#e0e0e0",
     marginTop: 2,
   },
   timelineRightColumn: {
     flex: 1,
-  },
-  timelineContent: {
-    backgroundColor: "#ffffff",
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: "#c0c0c0",
-  },
-  timelineContentActive: {
-    backgroundColor: "#f8f8f8",
-    borderLeftColor: "#000000",
+    paddingLeft: 12,
+    justifyContent: "center",
   },
   timelineTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#000000",
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#333333",
     marginBottom: 4,
   },
-  timelineTitleActive: {
-    color: "#000000",
-    fontWeight: "700",
-  },
-  timelineDateTimeInside: {
-    fontSize: 12,
-    color: "#7f8c8d",
-    marginBottom: 6,
-  },
-  timelineDateTimeInsideActive: {
-    color: "#555",
-    fontWeight: "500",
+  timelineDateTimeOutside: {
+    fontSize: 13,
+    color: "#666666",
   },
   // Rules styles
   ruleContainer: {
@@ -1603,7 +1665,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#ffffff",
   },
   emptyStateText: {
     marginTop: 8,
