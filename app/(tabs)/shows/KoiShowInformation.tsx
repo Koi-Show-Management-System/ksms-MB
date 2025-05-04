@@ -225,7 +225,37 @@ const CategoryItem = memo(
 );
 
 // Info Tab Content Component
-const InfoTabContent = ({
+interface InfoTabContentProps {
+  showData: any;
+  categories: any[];
+  expandedSections: {
+    eventDetails: boolean;
+    categories: boolean;
+    criteria: boolean;
+    rules: boolean;
+    timeline: boolean;
+  };
+  toggleSection: (
+    section: "eventDetails" | "categories" | "criteria" | "rules" | "timeline"
+  ) => void;
+  formatDateAndTime: (startDate: string, endDate: string) => string;
+  formatRuleContent: (rule: any) => string;
+  formatCriterionContent: (criterion: any) => string;
+  formatTimelineContent: (content: any) => string;
+  getTimelineItemColor: (description: string) => string;
+  detailedCategories: Record<string, CompetitionCategoryDetail>;
+  isCategoryDetailsLoading: boolean;
+  categoryDetailsError: string | null;
+  renderCategoryItem: ({
+    item,
+  }: {
+    item: CompetitionCategory;
+  }) => React.ReactElement;
+  ItemSeparator: () => React.ReactElement;
+  refetch: () => Promise<void>;
+}
+
+const InfoTabContent: React.FC<InfoTabContentProps> = ({
   showData,
   categories,
   expandedSections,
@@ -240,23 +270,19 @@ const InfoTabContent = ({
   categoryDetailsError,
   renderCategoryItem,
   ItemSeparator,
+  refetch,
 }) => {
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      // No need to track scroll position for this tab
-    },
-  });
-
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const onRefresh = React.useCallback(() => {
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    // Simulate fetching data
-    setTimeout(() => {
-      // In a real app, you would fetch the show data here
+    try {
+      // Call the actual refetch function from context
+      await refetch();
+    } finally {
       setRefreshing(false);
-    }, 1000);
-  }, []);
+    }
+  }, [refetch]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -724,8 +750,8 @@ const KoiShowInformationContent = () => {
   const scrollY = useSharedValue(0);
   const BANNER_HEIGHT = 200;
 
-  // Scroll handler
-  const scrollHandler = useAnimatedScrollHandler({
+  // Scroll handler for banner animation
+  useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
     },
@@ -795,16 +821,7 @@ const KoiShowInformationContent = () => {
     []
   );
 
-  // Check if date is today
-  const isToday = useCallback((dateString: string) => {
-    const today = new Date();
-    const date = new Date(dateString);
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
-  }, []);
+  // Removed unused isToday function
 
   // Format timeline content để đảm bảo là string
   const formatTimelineContent = useCallback((content: any): string => {
@@ -983,7 +1000,7 @@ const KoiShowInformationContent = () => {
 
   // Define the scene renderers for TabView - modify to use the lazy loaded voting component
   const renderScene = useCallback(
-    ({ route }) => {
+    ({ route }: { route: { key: string } }) => {
       switch (route.key) {
         case "info":
           return (
@@ -1002,15 +1019,18 @@ const KoiShowInformationContent = () => {
               categoryDetailsError={categoryDetailsError}
               renderCategoryItem={renderCategoryItem}
               ItemSeparator={ItemSeparator}
+              refetch={refetch}
             />
           );
         case "contestants":
-          return <KoiContestants showId={showData?.id} />;
+          return showData?.id ? <KoiContestants showId={showData.id} /> : null;
         case "results":
-          return <KoiShowResults showId={showData?.id} />;
+          return showData?.id ? <KoiShowResults showId={showData.id} /> : null;
         case "vote":
           // Only render the voting component when this tab is selected (lazy loading)
-          return <LazyKoiShowVoting showId={showData?.id} />;
+          return showData?.id ? (
+            <LazyKoiShowVoting showId={showData.id} />
+          ) : null;
         default:
           return null;
       }
@@ -1034,7 +1054,7 @@ const KoiShowInformationContent = () => {
   );
 
   // Custom tab bar renderer
-  const renderTabBar = (props) => (
+  const renderTabBar = (props: any) => (
     <TabBar
       {...props}
       style={styles.tabBar}
