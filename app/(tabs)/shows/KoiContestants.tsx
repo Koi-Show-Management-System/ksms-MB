@@ -274,16 +274,83 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
       style={[
         styles.roundTypeCard,
         selectedRoundType === item && styles.selectedCard,
+        // Thêm style nổi bật hơn
+        {
+          backgroundColor: selectedRoundType === item ? "#3B82F6" : "#f0f0f0",
+          padding: 12,
+          borderRadius: 8,
+          marginHorizontal: 5,
+          minWidth: 100,
+          alignItems: "center",
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
+          elevation: 2,
+        },
       ]}
       onPress={() => {
+        console.log(
+          `[DEBUG] Round type selected: ${item}, label: ${roundTypeLabels[item]}`
+        );
+
+        // Đặt trạng thái loading ngay lập tức để người dùng biết đang xử lý
+        setLoading(true);
+
+        // Cập nhật state
         setSelectedRoundType(item);
         setSelectedRound(null);
         setContestants([]);
+
+        // Gọi API để lấy danh sách vòng đấu phụ
+        if (selectedCategory) {
+          console.log(
+            `[DEBUG] Calling API for rounds with categoryId=${selectedCategory}, roundType=${item}`
+          );
+
+          // Gọi API để lấy danh sách vòng đấu phụ
+          getRounds(selectedCategory, item)
+            .then((response: any) => {
+              console.log(
+                `[DEBUG] API response status: ${response.statusCode || 200}`
+              );
+
+              // Xử lý dữ liệu từ API
+              if (response?.data?.items && response.data.items.length > 0) {
+                setRounds(response.data.items);
+                setError(null);
+                console.log(
+                  `[DEBUG] Found ${response.data.items.length} rounds for ${roundTypeLabels[item]}`
+                );
+              } else {
+                setRounds([]);
+                setError(`Không tìm thấy vòng đấu ${roundTypeLabels[item]}`);
+                console.log(
+                  `[DEBUG] No rounds found for ${roundTypeLabels[item]}`
+                );
+              }
+            })
+            .catch((error: any) => {
+              console.error(`[DEBUG] API error:`, error);
+              setRounds([]);
+              setError(
+                `Đã xảy ra lỗi khi tải vòng đấu ${roundTypeLabels[item]}`
+              );
+            })
+            .finally(() => {
+              setLoading(false);
+            });
+        }
       }}>
       <Text
         style={[
           styles.roundTypeName,
           selectedRoundType === item && styles.selectedText,
+          {
+            color: selectedRoundType === item ? "white" : "#333",
+            fontWeight: selectedRoundType === item ? "bold" : "normal",
+            fontSize: 16,
+          },
         ]}>
         {roundTypeLabels[item]}
       </Text>
@@ -296,12 +363,78 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
       style={[
         styles.roundCard,
         selectedRound === item.id && styles.selectedCard,
+        // Thêm style nổi bật hơn
+        {
+          backgroundColor: selectedRound === item.id ? "#3B82F6" : "#f0f0f0",
+          padding: 12,
+          borderRadius: 8,
+          marginHorizontal: 5,
+          minWidth: 120,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
+          elevation: 2,
+        },
       ]}
-      onPress={() => setSelectedRound(item.id)}>
+      onPress={() => {
+        console.log(`[DEBUG] Round selected: ${item.id}, name: ${item.name}`);
+
+        // Đặt trạng thái loading ngay lập tức để người dùng biết đang xử lý
+        setLoading(true);
+
+        // Cập nhật state
+        setSelectedRound(item.id);
+        setContestants([]);
+
+        // Gọi API để lấy danh sách thí sinh
+        console.log(
+          `[DEBUG] Calling API for contestants with roundId=${item.id}`
+        );
+
+        // Gọi API để lấy danh sách thí sinh
+        getContestants(item.id)
+          .then((response: any) => {
+            console.log(
+              `[DEBUG] API response status: ${response.statusCode || 200}`
+            );
+
+            // Xử lý dữ liệu từ API
+            if (response?.data?.items) {
+              console.log(
+                `[DEBUG] Found ${response.data.items.length} contestants`
+              );
+              setContestants(response.data.items);
+              setError(null);
+
+              if (response.data.items.length === 0) {
+                setError("Chưa có thí sinh nào trong vòng đấu này");
+              }
+            } else {
+              console.log(`[DEBUG] No contestants found`);
+              setContestants([]);
+              setError("Không thể tải danh sách thí sinh");
+            }
+          })
+          .catch((error: any) => {
+            console.error(`[DEBUG] API error:`, error);
+            setContestants([]);
+            setError("Đã xảy ra lỗi khi tải danh sách thí sinh");
+          })
+          .finally(() => {
+            setLoading(false);
+          });
+      }}>
       <Text
         style={[
           styles.roundName,
           selectedRound === item.id && styles.selectedText,
+          {
+            color: selectedRound === item.id ? "white" : "#333",
+            fontWeight: selectedRound === item.id ? "bold" : "normal",
+            fontSize: 14,
+            marginBottom: 8,
+          },
         ]}>
         {item.name}
       </Text>
@@ -314,6 +447,15 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               : item.status === "active"
               ? styles.activeStatus
               : styles.upcomingStatus,
+            {
+              fontSize: 12,
+              fontWeight: "500",
+              paddingHorizontal: 8,
+              paddingVertical: 2,
+              borderRadius: 12,
+              overflow: "hidden",
+              color: selectedRound === item.id ? "white" : undefined,
+            },
           ]}>
           {translateStatus(item.status)}
         </Text>
@@ -508,121 +650,293 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
         )}
 
         {/* Danh sách vòng đấu phụ */}
-        {selectedRoundType && rounds.length > 0 && (
+        {selectedRoundType && (
           <View
             style={[
               styles.sectionContainer,
               { marginBottom: 24, paddingBottom: 12 },
             ]}>
-            <Text style={styles.sectionTitle}>Vòng đấu phụ</Text>
-            <FlatList
-              data={rounds}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id}
-              renderItem={renderRoundItem}
-              contentContainerStyle={styles.horizontalListContent}
-              nestedScrollEnabled={true}
-            />
-          </View>
-        )}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}>
+              <Text style={styles.sectionTitle}>Vòng đấu phụ</Text>
+              <Text style={{ color: "#666", fontSize: 14 }}>
+                {rounds.length > 0
+                  ? `${rounds.length} vòng đấu`
+                  : "Đang tải..."}
+              </Text>
+            </View>
 
-        {/* Loading indicator */}
-        {loading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#000000" />
-            <Text style={styles.loadingText}>Đang tải...</Text>
-          </View>
-        )}
-
-        {/* Error message */}
-        {!loading && error && (
-          <View style={styles.errorContainer}>
-            <MaterialIcons name="error-outline" size={40} color="#e74c3c" />
-            <Text style={styles.errorText}>{error}</Text>
+            {loading ? (
+              <View style={{ padding: 20, alignItems: "center" }}>
+                <ActivityIndicator size="small" color="#3B82F6" />
+                <Text style={{ marginTop: 8, color: "#666" }}>
+                  Đang tải danh sách vòng đấu...
+                </Text>
+              </View>
+            ) : rounds.length > 0 ? (
+              <FlatList
+                data={rounds}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+                renderItem={renderRoundItem}
+                contentContainerStyle={styles.horizontalListContent}
+                nestedScrollEnabled={true}
+              />
+            ) : (
+              <View
+                style={{
+                  padding: 20,
+                  alignItems: "center",
+                  backgroundColor: "#f8f8f8",
+                  borderRadius: 8,
+                }}>
+                <MaterialIcons name="info-outline" size={24} color="#666" />
+                <Text
+                  style={{ marginTop: 8, color: "#666", textAlign: "center" }}>
+                  {error ||
+                    `Không tìm thấy vòng đấu ${
+                      roundTypeLabels[selectedRoundType] || ""
+                    }`}
+                </Text>
+                <TouchableOpacity
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: "#3B82F6",
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 5,
+                  }}
+                  onPress={() => {
+                    console.log(
+                      `[DEBUG] Retry button pressed for roundType: ${selectedRoundType}`
+                    );
+                    setLoading(true);
+                    getRounds(selectedCategory || "", selectedRoundType || "")
+                      .then((response: any) => {
+                        if (
+                          response?.data?.items &&
+                          response.data.items.length > 0
+                        ) {
+                          setRounds(response.data.items);
+                          setError(null);
+                        } else {
+                          setRounds([]);
+                          setError(
+                            `Không tìm thấy vòng đấu ${roundTypeLabels[selectedRoundType]}`
+                          );
+                        }
+                      })
+                      .catch(() => {
+                        setRounds([]);
+                        setError(
+                          `Đã xảy ra lỗi khi tải vòng đấu ${roundTypeLabels[selectedRoundType]}`
+                        );
+                      })
+                      .finally(() => {
+                        setLoading(false);
+                      });
+                  }}>
+                  <Text style={{ color: "white", fontWeight: "bold" }}>
+                    Thử lại
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
         {/* Danh sách thí sinh */}
-        {!loading && !error && contestants.length > 0 && (
+        {selectedRound && (
           <View style={styles.contestantsContainer}>
-            <Text style={styles.contestantsTitle}>
-              Thí sinh ({contestants.length})
-            </Text>
-            <View style={styles.carouselContainer}>
-              <FlatList
-                data={getCurrentPageData()}
-                renderItem={renderContestantItem}
-                keyExtractor={(item) => item.id}
-                horizontal={true}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.carouselContent}
-                ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
-                snapToAlignment="start"
-                decelerationRate="fast"
-                snapToInterval={Dimensions.get("window").width * 0.7 + 16}
-                initialNumToRender={4}
-                maxToRenderPerBatch={4}
-                windowSize={5}
-                getItemLayout={(data, index) => ({
-                  length: Dimensions.get("window").width * 0.7,
-                  offset: (Dimensions.get("window").width * 0.7 + 16) * index,
-                  index,
-                })}
-              />
-
-              {/* Pagination */}
-              <View style={styles.paginationContainer}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}>
+              <Text style={styles.contestantsTitle}>
+                Thí sinh{" "}
+                {contestants.length > 0 ? `(${contestants.length})` : ""}
+              </Text>
+              {contestants.length > 0 && (
                 <TouchableOpacity
-                  style={[
-                    styles.pageButton,
-                    currentPage === 0 && styles.pageButtonDisabled,
-                  ]}
-                  onPress={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 0}>
-                  <MaterialIcons
-                    name="chevron-left"
-                    size={24}
-                    color={currentPage === 0 ? "#ccc" : "#000"}
-                  />
+                  style={{
+                    backgroundColor: "#3B82F6",
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    borderRadius: 5,
+                    marginRight: 10,
+                  }}
+                  onPress={() => {
+                    console.log(
+                      `[DEBUG] Refresh contestants button pressed for roundId: ${selectedRound}`
+                    );
+                    setLoading(true);
+                    getContestants(selectedRound)
+                      .then((response: any) => {
+                        if (response?.data?.items) {
+                          setContestants(response.data.items);
+                          setError(null);
+                        } else {
+                          setContestants([]);
+                          setError("Không thể tải danh sách thí sinh");
+                        }
+                      })
+                      .catch(() => {
+                        setContestants([]);
+                        setError("Đã xảy ra lỗi khi tải danh sách thí sinh");
+                      })
+                      .finally(() => {
+                        setLoading(false);
+                      });
+                  }}>
+                  <Text style={{ color: "white", fontWeight: "bold" }}>
+                    Tải lại
+                  </Text>
                 </TouchableOpacity>
+              )}
+            </View>
 
-                <View style={styles.pageIndicatorContainer}>
-                  {Array.from({ length: totalPages }).map((_, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.pageIndicator,
-                        currentPage === index && styles.activePageIndicator,
-                      ]}
-                      onPress={() => handlePageChange(index)}>
-                      <Text
+            {loading ? (
+              <View style={{ padding: 20, alignItems: "center" }}>
+                <ActivityIndicator size="small" color="#3B82F6" />
+                <Text style={{ marginTop: 8, color: "#666" }}>
+                  Đang tải danh sách thí sinh...
+                </Text>
+              </View>
+            ) : contestants.length > 0 ? (
+              <View style={styles.carouselContainer}>
+                <FlatList
+                  data={getCurrentPageData()}
+                  renderItem={renderContestantItem}
+                  keyExtractor={(item) => item.id}
+                  horizontal={true}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselContent}
+                  ItemSeparatorComponent={() => <View style={{ width: 16 }} />}
+                  snapToAlignment="start"
+                  decelerationRate="fast"
+                  snapToInterval={Dimensions.get("window").width * 0.7 + 16}
+                  initialNumToRender={4}
+                  maxToRenderPerBatch={4}
+                  windowSize={5}
+                  getItemLayout={(_data, index) => ({
+                    length: Dimensions.get("window").width * 0.7,
+                    offset: (Dimensions.get("window").width * 0.7 + 16) * index,
+                    index,
+                  })}
+                />
+
+                {/* Pagination */}
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.pageButton,
+                      currentPage === 0 && styles.pageButtonDisabled,
+                    ]}
+                    onPress={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 0}>
+                    <MaterialIcons
+                      name="chevron-left"
+                      size={24}
+                      color={currentPage === 0 ? "#ccc" : "#000"}
+                    />
+                  </TouchableOpacity>
+
+                  <View style={styles.pageIndicatorContainer}>
+                    {Array.from({ length: totalPages }).map((_, index) => (
+                      <TouchableOpacity
+                        key={index}
                         style={[
-                          styles.pageIndicatorText,
-                          currentPage === index &&
-                            styles.activePageIndicatorText,
-                        ]}>
-                        {index + 1}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                          styles.pageIndicator,
+                          currentPage === index && styles.activePageIndicator,
+                        ]}
+                        onPress={() => handlePageChange(index)}>
+                        <Text
+                          style={[
+                            styles.pageIndicatorText,
+                            currentPage === index &&
+                              styles.activePageIndicatorText,
+                          ]}>
+                          {index + 1}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
 
+                  <TouchableOpacity
+                    style={[
+                      styles.pageButton,
+                      currentPage === totalPages - 1 &&
+                        styles.pageButtonDisabled,
+                    ]}
+                    onPress={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages - 1}>
+                    <MaterialIcons
+                      name="chevron-right"
+                      size={24}
+                      color={currentPage === totalPages - 1 ? "#ccc" : "#000"}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View
+                style={{
+                  padding: 20,
+                  alignItems: "center",
+                  backgroundColor: "#f8f8f8",
+                  borderRadius: 8,
+                }}>
+                <MaterialIcons name="info-outline" size={24} color="#666" />
+                <Text
+                  style={{ marginTop: 8, color: "#666", textAlign: "center" }}>
+                  {error || "Chưa có thí sinh nào trong vòng đấu này"}
+                </Text>
                 <TouchableOpacity
-                  style={[
-                    styles.pageButton,
-                    currentPage === totalPages - 1 && styles.pageButtonDisabled,
-                  ]}
-                  onPress={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages - 1}>
-                  <MaterialIcons
-                    name="chevron-right"
-                    size={24}
-                    color={currentPage === totalPages - 1 ? "#ccc" : "#000"}
-                  />
+                  style={{
+                    marginTop: 12,
+                    backgroundColor: "#3B82F6",
+                    paddingHorizontal: 16,
+                    paddingVertical: 8,
+                    borderRadius: 5,
+                  }}
+                  onPress={() => {
+                    console.log(
+                      `[DEBUG] Retry button pressed for roundId: ${selectedRound}`
+                    );
+                    setLoading(true);
+                    getContestants(selectedRound)
+                      .then((response: any) => {
+                        if (response?.data?.items) {
+                          setContestants(response.data.items);
+                          setError(null);
+                        } else {
+                          setContestants([]);
+                          setError("Không thể tải danh sách thí sinh");
+                        }
+                      })
+                      .catch(() => {
+                        setContestants([]);
+                        setError("Đã xảy ra lỗi khi tải danh sách thí sinh");
+                      })
+                      .finally(() => {
+                        setLoading(false);
+                      });
+                  }}>
+                  <Text style={{ color: "white", fontWeight: "bold" }}>
+                    Thử lại
+                  </Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -750,24 +1064,8 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                           label="Hạng Mục"
                           value={selectedCategoryName}
                         />
-                        <InfoRow
-                          label="Phí Đăng Ký"
-                          value={`${
-                            selectedContestant.registration.registrationFee?.toLocaleString(
-                              "vi-VN"
-                            ) || 0
-                          } VND`}
-                        />
-                        <InfoRow
-                          label="Trạng Thái"
-                          value={
-                            <View style={styles.statusBadge}>
-                              <Text style={styles.statusBadgeText}>
-                                {translateStatus(selectedContestant.status)}
-                              </Text>
-                            </View>
-                          }
-                        />
+                        {/* Removed registration fee display */}
+                        {/* Removed status display */}
                         <InfoRow
                           label="Bể"
                           value={selectedContestant.tankName || "Chưa gán bể"}
