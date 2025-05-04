@@ -179,17 +179,17 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
 
   const handleSubmit = () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError("All fields are required");
+      setError("Vui lòng điền đầy đủ thông tin");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError("New passwords don't match");
+      setError("Mật khẩu mới không khớp");
       return;
     }
 
     if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
+      setError("Mật khẩu phải có ít nhất 8 ký tự");
       return;
     }
 
@@ -205,31 +205,34 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
       onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
-          <Text style={styles.modalTitle}>Change Password</Text>
+          <Text style={styles.modalTitle}>Đổi Mật Khẩu</Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+          <Text style={styles.inputLabel}>Mật khẩu hiện tại</Text>
           <TextInput
             style={styles.input}
-            placeholder="Current Password"
+            placeholder="Nhập mật khẩu hiện tại"
             secureTextEntry
             value={currentPassword}
             onChangeText={setCurrentPassword}
             placeholderTextColor="#999"
           />
 
+          <Text style={styles.inputLabel}>Mật khẩu mới</Text>
           <TextInput
             style={styles.input}
-            placeholder="New Password"
+            placeholder="Nhập mật khẩu mới"
             secureTextEntry
             value={newPassword}
             onChangeText={setNewPassword}
             placeholderTextColor="#999"
           />
 
+          <Text style={styles.inputLabel}>Xác nhận mật khẩu</Text>
           <TextInput
             style={styles.input}
-            placeholder="Confirm New Password"
+            placeholder="Nhập lại mật khẩu mới"
             secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -241,7 +244,7 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
               style={[styles.modalButton, styles.cancelButton]}
               onPress={onClose}
               disabled={loading}>
-              <Text style={styles.modalButtonText}>Cancel</Text>
+              <Text style={styles.modalButtonText}>Hủy</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -251,7 +254,7 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
               {loading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.modalButtonText}>Submit</Text>
+                <Text style={styles.modalButtonText}>Xác nhận</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1099,6 +1102,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 16,
     textAlign: "center",
+  },
+  inputLabel: {
+    alignSelf: "flex-start",
+    fontFamily: "Poppins",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333333",
+    marginBottom: 8,
   },
   input: {
     width: "100%",
