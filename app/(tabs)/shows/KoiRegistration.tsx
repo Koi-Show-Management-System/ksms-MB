@@ -2493,47 +2493,53 @@ const KoiRegistrationScreen: React.FC = () => {
 
           {/* Agreement Section - only show if a profile is selected */}
           {selectedKoiProfile && (
-            <View style={styles.section}>
-              <View style={styles.rulesContainer}>
-                <Text style={styles.rulesText}>
+            <>
+              {/* Standalone Rules button with matching styling to the submit button */}
+              <TouchableOpacity 
+                style={styles.submitButton}
+                onPress={() => router.push('/Rules')}
+                activeOpacity={0.7}>
+                <Text style={styles.submitText}>
                   Đọc đầy đủ chi tiết về quy tắc và quy định
                 </Text>
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.agreementContainer}>
+              <View style={styles.section}>
+                <View style={styles.agreementContainer}>
+                  <TouchableOpacity
+                    style={styles.checkbox}
+                    onPress={() => setIsChecked(!isChecked)}>
+                    {isChecked && <Text style={styles.checkmark}>✓</Text>}
+                  </TouchableOpacity>
+
+                  <Text style={styles.termsText}>
+                    Bằng cách nhấp vào đăng ký, bạn xác nhận rằng bạn đã đọc và
+                    sẽ tuân thủ các quy tắc của chúng tôi.
+                  </Text>
+                </View>
+
                 <TouchableOpacity
-                  style={styles.checkbox}
-                  onPress={() => setIsChecked(!isChecked)}>
-                  {isChecked && <Text style={styles.checkmark}>✓</Text>}
-                </TouchableOpacity>
-
-                <Text style={styles.termsText}>
-                  Bằng cách nhấp vào đăng ký, bạn xác nhận rằng bạn đã đọc và sẽ
-                  tuân thủ các quy tắc của chúng tôi.
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[
-                  styles.submitButton,
-                  (!isChecked ||
+                  style={[
+                    styles.submitButton,
+                    (!isChecked ||
+                      !selectedKoiProfile ||
+                      loading ||
+                      mediaItems.length === 0) &&
+                      styles.submitButtonDisabled,
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={
+                    !isChecked ||
                     !selectedKoiProfile ||
                     loading ||
-                    mediaItems.length === 0) &&
-                    styles.submitButtonDisabled,
-                ]}
-                onPress={handleSubmit}
-                disabled={
-                  !isChecked ||
-                  !selectedKoiProfile ||
-                  loading ||
-                  mediaItems.length === 0
-                }>
-                <Text style={styles.submitText}>
-                  {loading ? "Đang xử lý..." : "Đăng ký thi đấu"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                    mediaItems.length === 0
+                  }>
+                  <Text style={styles.submitText}>
+                    {loading ? "Đang xử lý..." : "Đăng ký thi đấu"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
           )}
         </View>
 
@@ -2868,6 +2874,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#F8F9FA",
     marginBottom: 16,
+  },
+  standaloneButton: {
+    marginHorizontal: 16,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    zIndex: 10,
   },
   rulesText: {
     fontFamily: "Roboto",

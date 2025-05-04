@@ -447,14 +447,21 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
               : item.status === "active"
               ? styles.activeStatus
               : styles.upcomingStatus,
-            {
-              fontSize: 12,
-              fontWeight: "500",
-              paddingHorizontal: 8,
-              paddingVertical: 2,
-              borderRadius: 12,
-              overflow: "hidden",
-              color: selectedRound === item.id ? "white" : undefined,
+            // Modify status text styling when selected to ensure visibility
+            selectedRound === item.id && {
+              color:
+                item.status === "completed"
+                  ? "#1b5e20" // Darker green for completed status when selected
+                  : item.status === "active"
+                  ? "#01579b" // Darker blue for active status when selected
+                  : "#37474f", // Darker grey for upcoming status when selected
+              backgroundColor:
+                item.status === "completed"
+                  ? "#a5d6a7" // Lighter green background
+                  : item.status === "active"
+                  ? "#90caf9" // Lighter blue background
+                  : "#cfd8dc", // Lighter grey background
+              fontWeight: "bold",
             },
           ]}>
           {translateStatus(item.status)}

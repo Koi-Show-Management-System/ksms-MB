@@ -214,33 +214,9 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
 
     // Cleanup function
     return () => {
-      console.log(
-        "[TikTokStyleLivestreamChat] Component unmounting, cleaning up..."
-      );
-
-      // Stop watching the channel
       if (channel) {
-        console.log("[TikTokStyleLivestreamChat] Stopping channel watch");
-        channel.stopWatching().catch((err) => {
-          console.error(
-            "[TikTokStyleLivestreamChat] Error stopping channel watch:",
-            err
-          );
-        });
-      }
-
-      // Disconnect user from Stream Chat when component unmounts
-      if (client) {
-        console.log(
-          "[TikTokStyleLivestreamChat] Disconnecting user from Stream Chat"
-        );
-        // We don't want to fully disconnect the user here as it might affect other components
-        // Instead, we'll just clean up the channel and event listeners
-
-        // Remove all event listeners from the channel
-        if (channel) {
-          channel.off();
-        }
+        // Stop watching the channel
+        channel.stopWatching();
       }
     };
   }, [initializeChat]);

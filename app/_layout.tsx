@@ -156,6 +156,7 @@ export default function RootLayout() {
                     options={{ headerShown: false }}
                   />
                   <Stack.Screen name="index" options={{ headerShown: false }} />
+                  <Stack.Screen name="Rules" options={{ headerShown: false }} />
                 </Stack>
                 <StatusBar style="auto" />
                 <Toast />
