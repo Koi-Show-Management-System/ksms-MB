@@ -1,4 +1,4 @@
-import api from './api';
+import api from "./api";
 
 // Interface cho các loại dữ liệu
 export interface CompetitionCategory {
@@ -22,9 +22,9 @@ export interface Round {
   id: string;
   name: string;
   roundOrder: number;
-  roundType: 'Preliminary' | 'Evaluation' | 'Final';
+  roundType: "Preliminary" | "Evaluation" | "Final";
   numberOfRegistrationToAdvance: number;
-  status: 'upcoming' | 'active' | 'completed';
+  status: "upcoming" | "active" | "completed";
 }
 
 export interface RoundResult {
@@ -64,7 +64,7 @@ export interface KoiContestant {
     koiMedia: {
       id: string;
       mediaUrl: string;
-      mediaType: 'Image' | 'Video';
+      mediaType: "Image" | "Video";
     }[];
     koiProfile: {
       name: string;
@@ -104,51 +104,58 @@ interface ApiResponse<T> {
 }
 
 // Lấy danh sách hạng mục thi đấu
-export const getCompetitionCategories = async (showId: string): Promise<ApiResponse<CompetitionCategory>> => {
+export const getCompetitionCategories = async (
+  showId: string
+): Promise<ApiResponse<CompetitionCategory>> => {
   try {
-    const response = await api.get('/api/v1/competition-category/get-page', {
+    const response = await api.get("/api/v1/competition-category/get-page", {
       params: {
         showId,
         page: 1,
-        size: 100
-      }
+        size: 100,
+      },
     });
     return response.data;
   } catch (error) {
-    console.error('Lỗi khi lấy hạng mục:', error);
+    console.error("Lỗi khi lấy hạng mục:", error);
     throw error;
   }
 };
 
 // Lấy danh sách vòng đấu
-export const getRounds = async (competitionCategoryId: string, roundType: string): Promise<ApiResponse<Round>> => {
+export const getRounds = async (
+  competitionCategoryId: string,
+  roundType: string
+): Promise<ApiResponse<Round>> => {
   try {
     const response = await api.get(`/api/v1/round/${competitionCategoryId}`, {
       params: {
         roundType,
         page: 1,
-        size: 10
-      }
+        size: 10,
+      },
     });
     return response.data;
   } catch (error) {
-    console.error('Lỗi khi lấy vòng đấu:', error);
+    console.error("Lỗi khi lấy vòng đấu:", error);
     throw error;
   }
 };
 
 // Lấy danh sách thí sinh trong vòng đấu
-export const getContestants = async (roundId: string): Promise<ApiResponse<KoiContestant>> => {
+export const getContestants = async (
+  roundId: string
+): Promise<ApiResponse<KoiContestant>> => {
   try {
     const response = await api.get(`/api/v1/registration-round/${roundId}`, {
       params: {
         page: 1,
-        size: 1000
-      }
+        size: 1000,
+      },
     });
     return response.data;
   } catch (error) {
-    console.error('Lỗi khi lấy thí sinh:', error);
+    console.error("Lỗi khi lấy thí sinh:", error);
     throw error;
   }
 };
@@ -157,5 +164,5 @@ export const getContestants = async (roundId: string): Promise<ApiResponse<KoiCo
 const getToken = async () => {
   // Implement lấy token từ AsyncStorage hoặc SecureStore
   // return await SecureStore.getItemAsync('auth_token');
-  return 'your_token_here'; // Thay đổi để lấy token thực tế
+  return "your_token_here"; // Thay đổi để lấy token thực tế
 };
