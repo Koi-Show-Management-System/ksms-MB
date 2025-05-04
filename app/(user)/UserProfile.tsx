@@ -177,6 +177,11 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
 
+  // Add state variables for password visibility
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const handleSubmit = () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       setError("Vui lòng điền đầy đủ thông tin");
@@ -210,34 +215,67 @@ const PasswordChangeModal: React.FC<PasswordModalProps> = ({
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <Text style={styles.inputLabel}>Mật khẩu hiện tại</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập mật khẩu hiện tại"
-            secureTextEntry
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            placeholderTextColor="#999"
-          />
+          <View style={styles.passwordInputContainer}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Nhập mật khẩu hiện tại"
+              secureTextEntry={!showCurrentPassword}
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholderTextColor="#999"
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowCurrentPassword(!showCurrentPassword)}>
+              <Ionicons
+                name={showCurrentPassword ? "eye-outline" : "eye-off-outline"}
+                size={24}
+                color="#666"
+              />
+            </TouchableOpacity>
+          </View>
 
           <Text style={styles.inputLabel}>Mật khẩu mới</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập mật khẩu mới"
-            secureTextEntry
-            value={newPassword}
-            onChangeText={setNewPassword}
-            placeholderTextColor="#999"
-          />
+          <View style={styles.passwordInputContainer}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Nhập mật khẩu mới"
+              secureTextEntry={!showNewPassword}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholderTextColor="#999"
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowNewPassword(!showNewPassword)}>
+              <Ionicons
+                name={showNewPassword ? "eye-outline" : "eye-off-outline"}
+                size={24}
+                color="#666"
+              />
+            </TouchableOpacity>
+          </View>
 
           <Text style={styles.inputLabel}>Xác nhận mật khẩu</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Nhập lại mật khẩu mới"
-            secureTextEntry
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            placeholderTextColor="#999"
-          />
+          <View style={styles.passwordInputContainer}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Nhập lại mật khẩu mới"
+              secureTextEntry={!showConfirmPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholderTextColor="#999"
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+              <Ionicons
+                name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
+                size={24}
+                color="#666"
+              />
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.modalButtonsContainer}>
             <TouchableOpacity
@@ -1121,6 +1159,21 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
     color: "#333333",
+  },
+  passwordInputContainer: {
+    position: "relative",
+    width: "100%",
+    marginBottom: 16,
+  },
+  passwordInput: {
+    paddingRight: 50, // Space for the eye icon
+    marginBottom: 0,
+  },
+  eyeIcon: {
+    position: "absolute",
+    right: 12,
+    top: 13,
+    padding: 5,
   },
   modalButtonsContainer: {
     flexDirection: "row",

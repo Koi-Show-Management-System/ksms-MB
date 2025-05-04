@@ -1,9 +1,17 @@
-import { useState } from 'react'
-import { useRouter } from 'expo-router'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
-import { forgotPassword, resetPassword } from '../../services/authService'
-import { Feather } from '@expo/vector-icons'
+import { Ionicons } from "@expo/vector-icons";
+import { router, useRouter } from "expo-router";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { forgotPassword, resetPassword } from "../../services/authService";
+import { validatePassword } from "../../utils/validationUtils";
 
 export default function ForgotAndResetPasswordScreen() {
   const router = useRouter()

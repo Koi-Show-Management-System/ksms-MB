@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 import { register } from "../../services/authService";
 import { Ionicons } from '@expo/vector-icons';
+import { passwordValidator } from "../../utils/validationUtils";
 
 // Define validation schema using zod
 const signUpSchema = z.object({
@@ -35,14 +36,7 @@ const signUpSchema = z.object({
     .max(20, "Tên đăng nhập không được vượt quá 20 ký tự")
     .regex(/^[a-zA-Z0-9_-]+$/, "Tên đăng nhập chỉ được chứa chữ cái, số, gạch ngang và gạch dưới"),
   
-  password: z.string()
-    .min(1, "Mật khẩu không được để trống")
-    .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
-    .max(32, "Mật khẩu không được vượt quá 32 ký tự")
-    .regex(/[A-Z]/, "Mật khẩu phải chứa ít nhất 1 chữ in hoa")
-    .regex(/[a-z]/, "Mật khẩu phải chứa ít nhất 1 chữ thường")
-    .regex(/[0-9]/, "Mật khẩu phải chứa ít nhất 1 số")
-    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt"),
+  password: passwordValidator,
   
   confirmPassword: z.string()
     .min(1, "Xác nhận mật khẩu không được để trống"),

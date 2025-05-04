@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { z } from "zod";
 import { useAuth } from "../../context/AuthContext";
+import { passwordValidator } from "../../utils/validationUtils";
 
 // Define validation schema using zod
 const signInSchema = z.object({
