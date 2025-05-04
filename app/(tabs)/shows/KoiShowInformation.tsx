@@ -9,7 +9,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { memo, useCallback, useEffect, useState } from "react";
 import { Dimensions } from "react-native";
 import { TabBar, TabView } from "react-native-tab-view";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "../../../context/AuthContext"; 
 
 import {
   ActivityIndicator,
