@@ -731,7 +731,27 @@ const KoiRegistrationScreen: React.FC = () => {
       return;
     }
 
-    // Size validation removed - only checking if size is positive is done above
+    // Kiểm tra kích thước có nằm trong phạm vi cho phép của cuộc thi không
+    if (showSizeRange) {
+      const { min, max } = showSizeRange;
+      if (sizeNumber < min || sizeNumber > max) {
+        console.log(`Size out of range: ${sizeNumber} not in [${min}, ${max}]`);
+        setFormErrors((prev) => ({
+          ...prev,
+          size: `Kích thước phải nằm trong khoảng ${min}cm đến ${max}cm (phạm vi cho phép của cuộc thi)`,
+        }));
+        // Reset selectedCategory khi size không hợp lệ
+        setSelectedCategory(null);
+        setSuitableCategories([]);
+
+        Alert.alert(
+          "Kích thước không phù hợp",
+          `Kích thước phải nằm trong khoảng ${min}cm đến ${max}cm theo quy định của cuộc thi này.`,
+          [{ text: "Đã hiểu" }]
+        );
+        return;
+      }
+    }
 
     // Gọi hàm tìm category
     setLoading(true);
