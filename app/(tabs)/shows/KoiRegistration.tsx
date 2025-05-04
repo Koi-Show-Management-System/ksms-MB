@@ -2495,9 +2495,9 @@ const KoiRegistrationScreen: React.FC = () => {
           {selectedKoiProfile && (
             <>
               {/* Standalone Rules button with matching styling to the submit button */}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.submitButton}
-                onPress={() => router.push('/Rules')}
+                onPress={() => router.push("/Rules")}
                 activeOpacity={0.7}>
                 <Text style={styles.submitText}>
                   Đọc đầy đủ chi tiết về quy tắc và quy định
