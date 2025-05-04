@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 
@@ -30,8 +31,12 @@ const TikTokStyleMessage: React.FC<TikTokStyleMessageProps> = ({
   if (type === "joined") {
     return (
       <View style={styles.joinedContainer}>
-        <Ionicons name="person-add" size={14} color="#FFF" />
-        <Text style={styles.joinedText}>@{user.name} joined</Text>
+        <LinearGradient
+          colors={["rgba(0, 0, 0, 0.7)", "rgba(0, 0, 0, 0.5)"]}
+          style={styles.joinedGradient}>
+          <Ionicons name="person-add" size={14} color="#FFF" />
+          <Text style={styles.joinedText}>@{user.name} joined</Text>
+        </LinearGradient>
       </View>
     );
   }
@@ -55,7 +60,16 @@ const TikTokStyleMessage: React.FC<TikTokStyleMessageProps> = ({
           style={styles.avatar}
         />
       )}
-      <View style={styles.messageContent}>
+      <LinearGradient
+        colors={
+          isCurrentUser
+            ? ["rgba(24, 144, 255, 0.9)", "rgba(24, 118, 210, 0.8)"]
+            : ["rgba(0, 0, 0, 0.7)", "rgba(0, 0, 0, 0.5)"]
+        }
+        style={[
+          styles.messageContent,
+          isCurrentUser ? styles.currentUserMessageContent : null,
+        ]}>
         <Text
           style={[
             styles.username,
@@ -85,7 +99,7 @@ const TikTokStyleMessage: React.FC<TikTokStyleMessageProps> = ({
             {formatTime(timestamp)}
           </Text>
         )}
-      </View>
+      </LinearGradient>
       {isCurrentUser && (
         <Image
           source={{
@@ -108,10 +122,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 8,
     maxWidth: "85%",
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // Thêm background cho tin nhắn
-    borderRadius: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
   },
   currentUserContainer: {
     flexDirection: "row-reverse",
@@ -130,6 +140,19 @@ const styles = StyleSheet.create({
   messageContent: {
     flex: 1,
     maxWidth: "80%",
+    borderRadius: 16,
+    padding: 8,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  currentUserMessageContent: {
+    borderTopRightRadius: 4,
   },
   username: {
     color: "#FFF",
@@ -141,7 +164,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
   currentUserName: {
-    color: "#1890ff",
+    color: "#FFFFFF",
     textAlign: "right",
   },
   messageBubble: {
@@ -150,10 +173,10 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   currentUserBubble: {
-    // Không cần background vì đã thêm vào messageContainer
+    // Custom styles for current user bubble
   },
   otherUserBubble: {
-    // Không cần background vì đã thêm vào messageContainer
+    // Custom styles for other user bubble
   },
   messageText: {
     color: "#FFF",
@@ -171,19 +194,23 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
   joinedContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
     alignSelf: "center",
     marginBottom: 8,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  joinedGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
   },
   joinedText: {
     color: "#FFF",
     fontSize: 12,
     marginLeft: 4,
+    fontWeight: "500",
   },
 });
 

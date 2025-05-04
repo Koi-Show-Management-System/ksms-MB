@@ -404,7 +404,10 @@ const KoiRegistrationScreen: React.FC = () => {
   const loadKoiProfiles = async () => {
     try {
       setLoading(true);
-      const response = await getKoiProfiles();
+      const response = await getKoiProfiles({
+        page: 1,
+        size: 10000,
+      });
       // Lọc chỉ những profile có status là "active"
       const activeProfiles = response.data.items.filter(
         (profile) => profile.status.toLowerCase() === "active"
@@ -445,6 +448,9 @@ const KoiRegistrationScreen: React.FC = () => {
       if (response && response.data && response.data.items) {
         setCategories(response.data.items);
         console.log(`Loaded ${response.data.items.length} categories`);
+
+        // Tìm kích thước nhỏ nhất và lớn nhất của các hạng mục
+        findMinMaxSizes(response.data.items);
       } else {
         console.error("Invalid response format in loadCategories:", response);
       }
@@ -452,6 +458,70 @@ const KoiRegistrationScreen: React.FC = () => {
       console.error("Failed to fetch competition categories:", error);
     } finally {
       setProcessingStep("");
+    }
+  };
+
+  // Thêm state để lưu kích thước nhỏ nhất và lớn nhất của các hạng mục
+  const [minMaxSizes, setMinMaxSizes] = useState<{
+    [key: string]: { min: number; max: number };
+  }>();
+  // Thêm state để lưu kích thước toàn bộ show
+  const [showSizeRange, setShowSizeRange] = useState<{
+    min: number;
+    max: number;
+  } | null>(null);
+
+  // Hàm để tìm kích thước nhỏ nhất và lớn nhất của các hạng mục theo từng giống
+  const findMinMaxSizes = (categories: CompetitionCategory[]) => {
+    // Object để lưu trữ kích thước nhỏ nhất và lớn nhất theo varietyId
+    const sizeRanges: { [key: string]: { min: number; max: number } } = {};
+
+    // Tìm kích thước nhỏ nhất và lớn nhất của toàn bộ show
+    let showMin = Number.MAX_SAFE_INTEGER;
+    let showMax = Number.MIN_SAFE_INTEGER;
+
+    categories.forEach((category) => {
+      // Cập nhật min/max của toàn bộ show
+      if (category.sizeMin < showMin) showMin = category.sizeMin;
+      if (category.sizeMax > showMax) showMax = category.sizeMax;
+
+      // Đối với mỗi variety trong hạng mục
+      if (category.varieties && Array.isArray(category.varieties)) {
+        category.varieties.forEach((variety) => {
+          // Nếu chưa có thông tin về variety này, khởi tạo với giá trị từ hạng mục hiện tại
+          if (!sizeRanges[variety]) {
+            sizeRanges[variety] = {
+              min: category.sizeMin,
+              max: category.sizeMax,
+            };
+          } else {
+            // Nếu đã có thông tin, cập nhật min/max nếu cần
+            sizeRanges[variety].min = Math.min(
+              sizeRanges[variety].min,
+              category.sizeMin
+            );
+            sizeRanges[variety].max = Math.max(
+              sizeRanges[variety].max,
+              category.sizeMax
+            );
+          }
+        });
+      }
+    });
+
+    // Lưu thông tin kích thước vào state
+    setMinMaxSizes(sizeRanges);
+    console.log("Size ranges for varieties:", sizeRanges);
+
+    // Lưu thông tin kích thước toàn bộ show
+    if (
+      showMin !== Number.MAX_SAFE_INTEGER &&
+      showMax !== Number.MIN_SAFE_INTEGER
+    ) {
+      setShowSizeRange({ min: showMin, max: showMax });
+      console.log(`Show size range: ${showMin}cm - ${showMax}cm`);
+    } else {
+      setShowSizeRange(null);
     }
   };
 
@@ -661,18 +731,7 @@ const KoiRegistrationScreen: React.FC = () => {
       return;
     }
 
-    // Validate size range (15-75)
-    if (sizeNumber < 15 || sizeNumber > 75) {
-      console.log("Size out of range:", sizeNumber);
-      setFormErrors((prev) => ({
-        ...prev,
-        size: "Kích thước phải từ 15 đến 75 cm",
-      }));
-      // Reset selectedCategory khi size ngoài phạm vi cho phép
-      setSelectedCategory(null);
-      setSuitableCategories([]);
-      return;
-    }
+    // Size validation removed - only checking if size is positive is done above
 
     // Gọi hàm tìm category
     setLoading(true);
@@ -1549,9 +1608,13 @@ const KoiRegistrationScreen: React.FC = () => {
     if (isNaN(size) || size <= 0) {
       errors.size = "Kích thước phải là số dương";
       isValid = false;
-    } else if (size < 15 || size > 75) {
-      errors.size = "Kích thước phải từ 15 đến 75 cm";
-      isValid = false;
+    } else if (showSizeRange) {
+      // Kiểm tra kích thước dựa trên phạm vi kích thước của toàn bộ show
+      const { min, max } = showSizeRange;
+      if (size < min || size > max) {
+        errors.size = `Kích thước phải nằm trong khoảng ${min}cm đến ${max}cm (phạm vi cho phép của cuộc thi)`;
+        isValid = false;
+      }
     }
 
     const age = parseInt(newKoiAge);

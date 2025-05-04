@@ -3,7 +3,6 @@ import { useCall, useCallStateHooks } from "@stream-io/video-react-native-sdk";
 import React, { useCallback, useState } from "react";
 import {
   Dimensions,
-  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -103,32 +102,19 @@ const TikTokStyleLivestreamUI: React.FC<TikTokStyleLivestreamUIProps> = ({
       <View style={styles.videoContainer}>
         {children}
 
-        {/* Header overlay */}
-        <View style={styles.headerOverlay}>
-          <TouchableOpacity style={styles.backButton} onPress={handleLeave}>
-            <Ionicons name="close" size={24} color="#FFF" />
-          </TouchableOpacity>
-
-          <View style={styles.streamerInfo}>
-            <Image
-              source={{
-                uri:
-                  userProfileImage ||
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    showName
-                  )}`,
-              }}
-              style={styles.streamerAvatar}
-            />
-            <View style={styles.streamerTextInfo}>
-              <Text style={styles.streamerName}>{showName}</Text>
-            </View>
+        {/* Hero Section - Show Name and Leave Button */}
+        <View style={styles.heroSection}>
+          <View style={styles.showNameContainer}>
+            <Text style={styles.showNameText}>{showName}</Text>
           </View>
-
-          <TouchableOpacity style={styles.followButton}>
-            <Text style={styles.followButtonText}>Follow</Text>
+          <TouchableOpacity
+            style={styles.leaveStreamButton}
+            onPress={handleLeave}>
+            <Text style={styles.leaveStreamButtonText}>Rời khỏi</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Old header overlay removed */}
 
         {/* Chat overlay */}
         <TikTokStyleLivestreamChat
@@ -205,66 +191,44 @@ const styles = StyleSheet.create({
     flex: 1,
     position: "relative",
   },
-  headerOverlay: {
+  // Hero Section Styles
+  heroSection: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+    zIndex: 30, // Higher than other elements
   },
-  streamerInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginHorizontal: 12,
-  },
-  streamerAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 8,
-  },
-  streamerTextInfo: {
+  showNameContainer: {
     flex: 1,
   },
-  streamerName: {
+  showNameText: {
     color: "#FFF",
-    fontWeight: "bold",
     fontSize: 14,
+    fontWeight: "bold",
   },
-  viewerCount: {
-    color: "#FFF",
-    fontSize: 12,
-    opacity: 0.8,
-  },
-  followButton: {
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 16,
+  leaveStreamButton: {
+    backgroundColor: "#E53935", // Red color for leave button
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    marginLeft: 8,
   },
-  followButtonText: {
+  leaveStreamButtonText: {
     color: "#FFF",
     fontWeight: "bold",
     fontSize: 12,
   },
+  // Old header overlay styles removed
   liveIndicator: {
     position: "absolute",
-    top: 60,
+    top: 40, // Adjusted to be below the hero section
     right: 16,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
     flexDirection: "row",
@@ -287,7 +251,7 @@ const styles = StyleSheet.create({
   },
   bottomControls: {
     position: "absolute",
-    bottom: 20,
+    bottom: 20, // Adjusted to be at the bottom of the screen
     left: 0,
     right: 0,
     paddingHorizontal: 16,

@@ -1,8 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -55,6 +58,14 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
   const maxReconnectAttempts = 3;
   const messagesEndRef = useRef<FlatList>(null);
   const messagesContainerRef = useRef<View | null>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  // Add fade animation value
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Function to check if user is at the bottom of the chat
+  const isUserAtBottom = () => {
+    return isAtBottom;
+  };
 
   // Initialize chat
   const initializeChat = useCallback(async () => {
@@ -67,7 +78,7 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
       console.log("[TikTokStyleLivestreamChat] Got token");
 
       // Initialize chat client
-      const chatClient = await initChatClient();
+      const chatClient = initChatClient();
       if (!chatClient) {
         throw new Error("Failed to initialize chat client");
       }
@@ -146,7 +157,7 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
           user: {
             id: message.user?.id || "unknown",
             name: message.user?.name || "Unknown User",
-            image: message.user?.image,
+            image: message.user?.image as string | undefined,
           },
           text: message.text || "",
           type: "message",
@@ -156,15 +167,23 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
         // Add message to state
         setMessages((prev) => [...prev, chatMessage]);
 
+        // Trigger fade in animation
+        fadeAnim.setValue(0);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+
         // Set new messages flag
         setHasNewMessages(true);
 
-        // Scroll to bottom
-        setTimeout(() => {
-          messagesEndRef.current?.scrollToEnd({ animated: true });
-          // Reset new messages flag after scrolling
-          setHasNewMessages(false);
-        }, 300);
+        // Scroll to bottom if user is already at the bottom or if it's the user's own message
+        if (isUserAtBottom() || message.user?.id === userId) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }
       });
 
       setChannel(channelInstance);
@@ -206,7 +225,15 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [userId, userName, livestreamId, showName, callId, profileImage]);
+  }, [
+    userId,
+    userName,
+    livestreamId,
+    showName,
+    callId,
+    profileImage,
+    fadeAnim,
+  ]);
 
   // Initialize chat on component mount
   useEffect(() => {
@@ -237,77 +264,195 @@ const TikTokStyleLivestreamChat: React.FC<TikTokStyleLivestreamChatProps> = ({
     );
   }
 
-  // Render message item
-  const renderMessageItem = ({ item }: { item: ChatMessage }) => {
+  // Render message item with animation for the last message
+  const renderMessageItem = ({
+    item,
+    index,
+  }: {
+    item: ChatMessage;
+    index: number;
+  }) => {
     const isCurrentUser = item.user.id === userId;
+    const isLastMessage = index === messages.length - 1;
 
     return (
-      <TikTokStyleMessage
-        type={item.type}
-        user={{
-          id: item.user.id,
-          name: item.user.name,
-          image: item.user.image,
-        }}
-        text={item.text}
-        timestamp={item.createdAt}
-        isCurrentUser={isCurrentUser}
-      />
+      <Animated.View
+        style={{
+          opacity: isLastMessage ? fadeAnim : 1,
+          transform: [
+            {
+              translateY: isLastMessage
+                ? fadeAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [10, 0],
+                  })
+                : 0,
+            },
+          ],
+        }}>
+        <TikTokStyleMessage
+          type={item.type}
+          user={{
+            id: item.user.id,
+            name: item.user.name,
+            image: item.user.image,
+          }}
+          text={item.text}
+          timestamp={item.createdAt}
+          isCurrentUser={isCurrentUser}
+        />
+      </Animated.View>
     );
   };
 
-  // Render chat overlay
-  return (
-    <View
-      style={styles.container}
-      ref={(ref) => {
-        messagesContainerRef.current = ref;
-      }}>
-      {error && (
-        <TouchableOpacity style={styles.errorBanner} onPress={handleRetry}>
-          <Ionicons name="warning-outline" size={14} color="#FFD700" />
-          <Text style={styles.errorText}>{error}</Text>
-        </TouchableOpacity>
-      )}
+  // Render chat content function
+  const renderChatContent = () => {
+    return (
+      <>
+        {error && (
+          <TouchableOpacity style={styles.errorBanner} onPress={handleRetry}>
+            <Ionicons name="warning-outline" size={14} color="#FFD700" />
+            <Text style={styles.errorText}>{error}</Text>
+          </TouchableOpacity>
+        )}
 
-      <FlatList
-        ref={messagesEndRef}
-        data={messages.slice(-3)} // Chỉ hiển thị 3 tin nhắn gần nhất
-        renderItem={renderMessageItem}
-        keyExtractor={(item) => item.id}
-        style={styles.messagesList}
-        contentContainerStyle={styles.messagesListContent}
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={3}
-        maxToRenderPerBatch={3}
-        windowSize={3}
-        removeClippedSubviews={true}
-      />
-
-      {hasNewMessages && (
-        <TouchableOpacity
-          style={styles.newMessageIndicator}
-          onPress={() => {
-            messagesEndRef.current?.scrollToEnd({ animated: true });
+        <FlatList
+          ref={messagesEndRef}
+          data={messages}
+          renderItem={renderMessageItem}
+          keyExtractor={(item) => item.id}
+          style={styles.messagesList}
+          contentContainerStyle={styles.messagesListContent}
+          showsVerticalScrollIndicator={true}
+          initialNumToRender={3}
+          maxToRenderPerBatch={5}
+          windowSize={5}
+          removeClippedSubviews={true}
+          inverted={false}
+          onEndReached={() => {
             setHasNewMessages(false);
+            setIsAtBottom(true);
+          }}
+          onEndReachedThreshold={0.1}
+          onScroll={(event) => {
+            const { layoutMeasurement, contentOffset, contentSize } =
+              event.nativeEvent;
+            const paddingToBottom = 20;
+            const isAtBottomNow =
+              layoutMeasurement.height + contentOffset.y >=
+              contentSize.height - paddingToBottom;
+            setIsAtBottom(isAtBottomNow);
+          }}
+          scrollEventThrottle={400}
+        />
+
+        {hasNewMessages && !isAtBottom && (
+          <Animated.View
+            style={[
+              styles.newMessageIndicator,
+              {
+                transform: [
+                  {
+                    translateY: new Animated.Value(0).interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -10],
+                    }),
+                  },
+                ],
+              },
+            ]}>
+            <TouchableOpacity
+              style={styles.newMessageButton}
+              onPress={() => {
+                messagesEndRef.current?.scrollToEnd({ animated: true });
+                setHasNewMessages(false);
+                setIsAtBottom(true);
+              }}>
+              <Ionicons name="chevron-down" size={16} color="#FFF" />
+              <Text style={styles.newMessageText}>Tin nhắn mới</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        {/* Improved scroll indicators */}
+        {messages.length > 3 && (
+          <View style={styles.scrollIndicators}>
+            {!isAtBottom && (
+              <TouchableOpacity
+                style={styles.scrollDownIndicator}
+                onPress={() => {
+                  messagesEndRef.current?.scrollToEnd({ animated: true });
+                  setIsAtBottom(true);
+                }}>
+                <View style={styles.buttonInner}>
+                  <Ionicons name="arrow-down" size={16} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+            )}
+            {isAtBottom && messages.length > 3 && (
+              <TouchableOpacity
+                style={styles.scrollUpIndicator}
+                onPress={() => {
+                  messagesEndRef.current?.scrollToOffset({
+                    offset: 0,
+                    animated: true,
+                  });
+                  setIsAtBottom(false);
+                }}>
+                <View style={styles.buttonInner}>
+                  <Ionicons name="arrow-up" size={16} color="#FFF" />
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </>
+    );
+  };
+
+  // Render chat overlay with blur effect when supported
+  return (
+    <>
+      {Platform.OS === "ios" ? (
+        <BlurView
+          tint="dark"
+          intensity={30}
+          style={[styles.container, styles.blurContainer]}
+          ref={(ref) => {
+            messagesContainerRef.current = ref;
           }}>
-          <Ionicons name="chevron-down" size={16} color="#FFF" />
-          <Text style={styles.newMessageText}>Tin nhắn mới</Text>
-        </TouchableOpacity>
+          {renderChatContent()}
+        </BlurView>
+      ) : (
+        <View
+          style={styles.container}
+          ref={(ref) => {
+            messagesContainerRef.current = ref;
+          }}>
+          {renderChatContent()}
+        </View>
       )}
-    </View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: 80, // Hạ thấp thanh chat xuống một chút
+    bottom: 70,
     left: 0,
     right: 0,
-    maxHeight: "30%", // Giới hạn chiều cao để hiển thị ít tin nhắn hơn
-    backgroundColor: "transparent",
+    maxHeight: "25%",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: 16,
+    marginHorizontal: 8,
     zIndex: 10,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  blurContainer: {
+    backgroundColor: "transparent",
   },
   loadingContainer: {
     padding: 8,
@@ -320,74 +465,40 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.6)",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     marginBottom: 8,
+    marginTop: 4,
     alignSelf: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.3)",
   },
   errorText: {
     color: "#FFD700",
     fontSize: 12,
-    marginLeft: 4,
+    marginLeft: 6,
+    fontWeight: "500",
   },
   messagesList: {
     paddingHorizontal: 12,
+    height: "100%",
   },
   messagesListContent: {
-    paddingBottom: 8,
-  },
-  messageContainer: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 8,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 18,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    maxWidth: "85%",
-  },
-  avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  messageContent: {
-    flex: 1,
-  },
-  username: {
-    color: "#FFF",
-    fontWeight: "bold",
-    fontSize: 12,
-  },
-  messageText: {
-    color: "#FFF",
-    fontSize: 13,
-  },
-  joinedMessage: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    alignSelf: "center",
-    marginBottom: 8,
-  },
-  joinedText: {
-    color: "#FFF",
-    fontSize: 12,
-    marginLeft: 4,
+    paddingVertical: 8,
+    paddingBottom: 12,
   },
   newMessageIndicator: {
     position: "absolute",
     bottom: 16,
     alignSelf: "center",
+    zIndex: 30,
+  },
+  newMessageButton: {
     backgroundColor: "rgba(24, 144, 255, 0.9)",
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     flexDirection: "row",
     alignItems: "center",
     shadowColor: "#000",
@@ -395,12 +506,58 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 3,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   newMessageText: {
     color: "#FFF",
     fontSize: 12,
     fontWeight: "bold",
-    marginLeft: 4,
+    marginLeft: 6,
+  },
+  scrollIndicators: {
+    position: "absolute",
+    right: 8,
+    top: "50%",
+    transform: [{ translateY: -20 }],
+    flexDirection: "column",
+    alignItems: "center",
+    zIndex: 20,
+  },
+  scrollDownIndicator: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginBottom: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  scrollUpIndicator: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  buttonInner: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
 });
 
