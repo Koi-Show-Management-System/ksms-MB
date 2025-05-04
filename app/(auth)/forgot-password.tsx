@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
@@ -14,48 +14,57 @@ import { forgotPassword, resetPassword } from "../../services/authService";
 import { validatePassword } from "../../utils/validationUtils";
 
 export default function ForgotAndResetPasswordScreen() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [otp, setOtp] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
-  const [isOtpSent, setIsOtpSent] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasError, setHasError] = useState('')
-  const [successMsg, setSuccessMsg] = useState('')
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isOtpSent, setIsOtpSent] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
 
   async function handleSendOtp() {
-    setIsLoading(true)
-    setHasError('')
-    setSuccessMsg('')
+    setIsLoading(true);
+    setHasError("");
+    setSuccessMsg("");
     try {
-      await forgotPassword(email)
-      setIsOtpSent(true)
-      setSuccessMsg('Đã gửi mã OTP về email của bạn!')
+      await forgotPassword(email);
+      setIsOtpSent(true);
+      setSuccessMsg("Đã gửi mã OTP về email của bạn!");
     } catch (e: any) {
-      setHasError(e?.message || 'Không gửi được mã OTP')
+      setHasError(e?.message || "Không gửi được mã OTP");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
   async function handleResetPassword() {
-    setIsLoading(true)
-    setHasError('')
-    setSuccessMsg('')
+    setIsLoading(true);
+    setHasError("");
+    setSuccessMsg("");
+
+    // Validate new password
+    const passwordValidation = validatePassword(newPassword);
+    if (passwordValidation !== true) {
+      setHasError(passwordValidation);
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      await resetPassword(email, otp, newPassword)
-      setSuccessMsg('Đặt lại mật khẩu thành công!')
-      setTimeout(() => router.replace('/signIn'), 1000)
+      await resetPassword(email, otp, newPassword);
+      setSuccessMsg("Đặt lại mật khẩu thành công!");
+      setTimeout(() => router.replace("/signIn"), 1000);
     } catch (e: any) {
-      setHasError(e?.message || 'Đặt lại mật khẩu thất bại')
+      setHasError(e?.message || "Đặt lại mật khẩu thất bại");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
   function handleTogglePasswordVisibility() {
-    setIsPasswordVisible((prev) => !prev)
+    setIsPasswordVisible((prev) => !prev);
   }
 
   return (
@@ -76,9 +85,12 @@ export default function ForgotAndResetPasswordScreen() {
             style={styles.button}
             onPress={handleSendOtp}
             disabled={isLoading || !email}
-            accessibilityRole="button"
-          >
-            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Gửi mã OTP</Text>}
+            accessibilityRole="button">
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Gửi mã OTP</Text>
+            )}
           </TouchableOpacity>
         ) : (
           <>
@@ -89,52 +101,63 @@ export default function ForgotAndResetPasswordScreen() {
               keyboardType="number-pad"
               style={styles.input}
             />
-            <View style={{ position: 'relative' }}>
+            <View style={{ position: "relative" }}>
               <TextInput
                 placeholder="Mật khẩu mới"
                 value={newPassword}
                 onChangeText={setNewPassword}
                 secureTextEntry={!isPasswordVisible}
                 style={styles.input}
-                accessible accessibilityLabel="Mật khẩu mới"
+                accessible
+                accessibilityLabel="Mật khẩu mới"
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
                 onPress={handleTogglePasswordVisibility}
-                accessibilityLabel={isPasswordVisible ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-              >
-                <Feather name={isPasswordVisible ? 'eye' : 'eye-off'} size={20} color="#888" />
+                accessibilityLabel={
+                  isPasswordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"
+                }>
+                <Ionicons
+                  name={isPasswordVisible ? "eye-outline" : "eye-off-outline"}
+                  size={20}
+                  color="#888"
+                />
               </TouchableOpacity>
             </View>
             <TouchableOpacity
               style={styles.button}
               onPress={handleResetPassword}
               disabled={isLoading || !otp || !newPassword}
-              accessibilityRole="button"
-            >
-              {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Đặt lại mật khẩu</Text>}
+              accessibilityRole="button">
+              {isLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Đặt lại mật khẩu</Text>
+              )}
             </TouchableOpacity>
           </>
         )}
         {hasError ? <Text style={styles.errorText}>{hasError}</Text> : null}
-        {successMsg ? <Text style={styles.successText}>{successMsg}</Text> : null}
+        {successMsg ? (
+          <Text style={styles.successText}>{successMsg}</Text>
+        ) : null}
       </View>
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 24,
-    backgroundColor: '#fff',
-    width: '100%',
+    backgroundColor: "#fff",
+    width: "100%",
   },
   title: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: 24,
   },
   input: {
@@ -146,32 +169,32 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   button: {
-    backgroundColor: '#1976d2',
+    backgroundColor: "#1976d2",
     padding: 14,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginVertical: 8,
     width: 280,
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   eyeIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: 16,
     top: 14,
     padding: 4,
   },
   errorText: {
-    color: '#e53935',
+    color: "#e53935",
     fontSize: 14,
     marginTop: 8,
   },
   successText: {
-    color: '#43a047',
+    color: "#43a047",
     fontSize: 14,
     marginTop: 8,
   },
-})
+});

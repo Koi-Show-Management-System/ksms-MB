@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -14,36 +15,45 @@ import {
 } from "react-native";
 import { z } from "zod";
 import { register } from "../../services/authService";
-import { Ionicons } from '@expo/vector-icons';
 import { passwordValidator } from "../../utils/validationUtils";
 
 // Define validation schema using zod
-const signUpSchema = z.object({
-  fullName: z.string()
-    .min(1, "Họ tên không được để trống")
-    .min(5, "Họ tên phải có ít nhất 5 ký tự")
-    .max(50, "Họ tên không được vượt quá 50 ký tự")
-    .regex(/^[\p{L}\s]+$/u, "Họ tên chỉ được chứa chữ cái và khoảng trắng"),
-  
-  email: z.string()
-    .min(1, "Email không được để trống")
-    .email("Email không hợp lệ")
-    .regex(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, "Email không đúng định dạng"),
-  
-  username: z.string()
-    .min(1, "Tên đăng nhập không được để trống")
-    .min(4, "Tên đăng nhập phải có ít nhất 4 ký tự")
-    .max(20, "Tên đăng nhập không được vượt quá 20 ký tự")
-    .regex(/^[a-zA-Z0-9_-]+$/, "Tên đăng nhập chỉ được chứa chữ cái, số, gạch ngang và gạch dưới"),
-  
-  password: passwordValidator,
-  
-  confirmPassword: z.string()
-    .min(1, "Xác nhận mật khẩu không được để trống"),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Mật khẩu xác nhận không khớp",
-  path: ["confirmPassword"],
-});
+const signUpSchema = z
+  .object({
+    fullName: z
+      .string()
+      .min(1, "Họ tên không được để trống")
+      .min(5, "Họ tên phải có ít nhất 5 ký tự")
+      .max(50, "Họ tên không được vượt quá 50 ký tự")
+      .regex(/^[\p{L}\s]+$/u, "Họ tên chỉ được chứa chữ cái và khoảng trắng"),
+
+    email: z
+      .string()
+      .min(1, "Email không được để trống")
+      .email("Email không hợp lệ")
+      .regex(
+        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+        "Email không đúng định dạng"
+      ),
+
+    username: z
+      .string()
+      .min(1, "Tên đăng nhập không được để trống")
+      .min(4, "Tên đăng nhập phải có ít nhất 4 ký tự")
+      .max(20, "Tên đăng nhập không được vượt quá 20 ký tự")
+      .regex(
+        /^[a-zA-Z0-9_-]+$/,
+        "Tên đăng nhập chỉ được chứa chữ cái, số, gạch ngang và gạch dưới"
+      ),
+
+    password: passwordValidator,
+
+    confirmPassword: z.string().min(1, "Xác nhận mật khẩu không được để trống"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Mật khẩu xác nhận không khớp",
+    path: ["confirmPassword"],
+  });
 
 // Type for validation errors state
 interface ValidationErrors {
@@ -71,7 +81,9 @@ const Signup: React.FC = () => {
     confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>(
+    {}
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -111,11 +123,9 @@ const Signup: React.FC = () => {
       );
 
       if (result.statusCode === 201) {
-        Alert.alert(
-          "Đăng ký thành công",
-          "Bạn có thể đăng nhập ngay bây giờ",
-          [{ text: "OK", onPress: () => router.push("/(auth)/signIn") }]
-        );
+        Alert.alert("Đăng ký thành công", "Bạn có thể đăng nhập ngay bây giờ", [
+          { text: "OK", onPress: () => router.push("/(auth)/signIn") },
+        ]);
       }
     } catch (error: any) {
       console.error("Registration failed:", error);
@@ -153,7 +163,9 @@ const Signup: React.FC = () => {
               onChangeText={(value) => handleInputChange("fullName", value)}
             />
             {validationErrors.fullName && (
-              <Text style={styles.fieldErrorText}>{validationErrors.fullName[0]}</Text>
+              <Text style={styles.fieldErrorText}>
+                {validationErrors.fullName[0]}
+              </Text>
             )}
           </View>
 
@@ -169,7 +181,9 @@ const Signup: React.FC = () => {
               autoCapitalize="none"
             />
             {validationErrors.email && (
-              <Text style={styles.fieldErrorText}>{validationErrors.email[0]}</Text>
+              <Text style={styles.fieldErrorText}>
+                {validationErrors.email[0]}
+              </Text>
             )}
           </View>
 
@@ -184,7 +198,9 @@ const Signup: React.FC = () => {
               autoCapitalize="none"
             />
             {validationErrors.username && (
-              <Text style={styles.fieldErrorText}>{validationErrors.username[0]}</Text>
+              <Text style={styles.fieldErrorText}>
+                {validationErrors.username[0]}
+              </Text>
             )}
           </View>
 
@@ -201,20 +217,22 @@ const Signup: React.FC = () => {
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons 
-                  name={showPassword ? "eye-outline" : "eye-off-outline"} 
-                  size={24} 
+                onPress={() => setShowPassword(!showPassword)}>
+                <Ionicons
+                  name={showPassword ? "eye-outline" : "eye-off-outline"}
+                  size={24}
                   color="#666"
                 />
               </TouchableOpacity>
             </View>
             {validationErrors.password && (
-              <Text style={styles.fieldErrorText}>{validationErrors.password[0]}</Text>
+              <Text style={styles.fieldErrorText}>
+                {validationErrors.password[0]}
+              </Text>
             )}
             <Text style={styles.passwordHint}>
-              Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt
+              Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số
+              và ký tự đặc biệt
             </Text>
           </View>
 
@@ -226,22 +244,25 @@ const Signup: React.FC = () => {
                 style={[styles.input, styles.passwordInput]}
                 placeholder="******"
                 value={formData.confirmPassword}
-                onChangeText={(value) => handleInputChange("confirmPassword", value)}
+                onChangeText={(value) =>
+                  handleInputChange("confirmPassword", value)
+                }
                 secureTextEntry={!showConfirmPassword}
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons 
-                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
-                  size={24} 
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                <Ionicons
+                  name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
+                  size={24}
                   color="#666"
                 />
               </TouchableOpacity>
             </View>
             {validationErrors.confirmPassword && (
-              <Text style={styles.fieldErrorText}>{validationErrors.confirmPassword[0]}</Text>
+              <Text style={styles.fieldErrorText}>
+                {validationErrors.confirmPassword[0]}
+              </Text>
             )}
           </View>
         </View>
@@ -332,22 +353,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   passwordContainer: {
-    position: 'relative',
-    width: '100%',
+    position: "relative",
+    width: "100%",
   },
   passwordInput: {
     paddingHorizontal: 15,
     paddingRight: 50, // Space for the eye icon
   },
   eyeIcon: {
-    position: 'absolute',
+    position: "absolute",
     right: 12,
     top: 11,
     padding: 5,
   },
   fieldErrorText: {
     color: "#FF3B30",
-    fontFamily: "Poppins", 
+    fontFamily: "Poppins",
     fontSize: 12,
     marginTop: 5,
     marginLeft: 5,

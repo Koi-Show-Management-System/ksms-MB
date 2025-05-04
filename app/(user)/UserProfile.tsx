@@ -18,6 +18,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import {
+  validatePassword,
+  validatePasswordsMatch,
+} from "../../utils/validationUtils";
 
 // --- User Data Interface ---
 interface UserData {
@@ -571,6 +575,25 @@ const UserProfile: React.FC = () => {
     confirmPassword: string
   ) => {
     setLoading(true);
+
+    // Validate mật khẩu mới với các quy tắc chung
+    const passwordValidation = validatePassword(newPassword);
+    if (passwordValidation !== true) {
+      Alert.alert("Lỗi", passwordValidation);
+      setLoading(false);
+      return;
+    }
+
+    // Validate xác nhận mật khẩu
+    const confirmValidation = validatePasswordsMatch(
+      newPassword,
+      confirmPassword
+    );
+    if (confirmValidation !== true) {
+      Alert.alert("Lỗi", confirmValidation);
+      setLoading(false);
+      return;
+    }
 
     // Tạo payload cho API
     const payload = {

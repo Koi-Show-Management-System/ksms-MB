@@ -9,13 +9,17 @@ import { z } from "zod";
  * - Contains at least one number
  * - Contains at least one special character
  */
-export const passwordValidator = z.string()
+export const passwordValidator = z
+  .string()
   .min(8, "Mật khẩu phải có ít nhất 8 ký tự")
   .max(32, "Mật khẩu không được vượt quá 32 ký tự")
   .regex(/[A-Z]/, "Mật khẩu phải chứa ít nhất 1 chữ in hoa")
   .regex(/[a-z]/, "Mật khẩu phải chứa ít nhất 1 chữ thường")
   .regex(/[0-9]/, "Mật khẩu phải chứa ít nhất 1 số")
-  .regex(/[!@#$%^&*(),.?":{}|<>]/, "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt");
+  .regex(
+    /[!@#$%^&*(),.?":{}|<>]/,
+    "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt"
+  );
 
 /**
  * Validates a password with all common criteria
@@ -23,7 +27,7 @@ export const passwordValidator = z.string()
  */
 export const validatePassword = (password: string): true | string => {
   const result = passwordValidator.safeParse(password);
-  
+
   if (result.success) {
     return true;
   } else {

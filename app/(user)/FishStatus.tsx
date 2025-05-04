@@ -117,7 +117,7 @@ const FishDetails: React.FC<FishDetailsProps> = ({
           <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>Tuổi:</Text>
             <Text style={styles.detailValue}>
-              {age ? `${age} tháng` : "Chưa có thông tin"}
+              {age ? `${age} năm` : "Chưa có thông tin"}
             </Text>
           </View>
           <View style={styles.detailItem}>

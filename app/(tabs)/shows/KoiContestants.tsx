@@ -1054,11 +1054,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                         />
                         <InfoRow
                           label="Tuổi Cá"
-                          value={`${
-                            Math.floor(
-                              selectedContestant.registration.koiAge / 12
-                            ) || 0
-                          } năm`}
+                          value={`${selectedContestant.registration.koiAge} năm`}
                         />
                         <InfoRow
                           label="Dòng máu"
