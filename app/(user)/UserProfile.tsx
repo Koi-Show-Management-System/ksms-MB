@@ -541,9 +541,9 @@ const UserProfile: React.FC = () => {
       confirmNewPassword: confirmPassword,
     };
 
-    // Gọi API để đổi mật khẩu
+    // Gọi API để đổi mật khẩu - sử dụng PUT thay vì POST
     api
-      .post("/api/v1/auth/change-password", payload)
+      .put("/api/v1/auth/change-password", payload)
       .then((response) => {
         if (response.data.statusCode === 200) {
           // Hiển thị thông báo thành công
@@ -562,7 +562,8 @@ const UserProfile: React.FC = () => {
         console.error("Lỗi khi đổi mật khẩu:", error);
         Alert.alert(
           "Lỗi",
-          error.response?.data?.message ||
+          error.response?.data?.Error ||
+            error.response?.data?.message ||
             error.message ||
             "Có lỗi xảy ra khi đổi mật khẩu. Vui lòng thử lại."
         );
