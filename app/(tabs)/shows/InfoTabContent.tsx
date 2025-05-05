@@ -288,34 +288,7 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
               {showData?.description || "Chưa có thông tin chi tiết"}
             </Text>
 
-            <View style={styles.detailsGrid}>
-              <View style={styles.detailItem}>
-                <MaterialIcons name="event" size={20} color="#3498db" />
-                <View>
-                  <Text style={styles.detailLabel}>Thời gian biểu diễn</Text>
-                  <Text style={styles.detailValue}>
-                    {formatDateAndTime(
-                      showData?.startExhibitionDate || "",
-                      showData?.endExhibitionDate || ""
-                    )}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.detailItem}>
-                <MaterialIcons
-                  name="hourglass-bottom"
-                  size={20}
-                  color="#3498db"
-                />
-                <View>
-                  <Text style={styles.detailLabel}>Thời lượng</Text>
-                  <Text style={styles.detailValue}>
-                    {/* Existing time duration content */}
-                  </Text>
-                </View>
-              </View>
-            </View>
+            {/* Event details grid removed as requested */}
 
             {/* Add Ticket Types Section */}
             <View style={styles.fullWidthSection}>

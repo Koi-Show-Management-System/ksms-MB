@@ -9,7 +9,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { memo, useCallback, useEffect, useState } from "react";
 import { Dimensions } from "react-native";
 import { TabBar, TabView } from "react-native-tab-view";
-import { useAuth } from "../../../context/AuthContext"; 
+import { useAuth } from "../../../context/AuthContext";
 
 import {
   ActivityIndicator,
@@ -326,34 +326,7 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
                 {showData?.description || "Chưa có thông tin chi tiết"}
               </Text>
 
-              <View style={styles.detailsGrid}>
-                <View style={styles.detailItem}>
-                  <MaterialIcons name="event" size={20} color="#3498db" />
-                  <View>
-                    <Text style={styles.detailLabel}>Thời gian biểu diễn</Text>
-                    <Text style={styles.detailValue}>
-                      {formatDateAndTime(
-                        showData?.startExhibitionDate || "",
-                        showData?.endExhibitionDate || ""
-                      )}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.detailItem}>
-                  <MaterialIcons
-                    name="hourglass-bottom"
-                    size={20}
-                    color="#3498db"
-                  />
-                  <View>
-                    <Text style={styles.detailLabel}>Thời lượng</Text>
-                    <Text style={styles.detailValue}>
-                      {/* Existing time duration content */}
-                    </Text>
-                  </View>
-                </View>
-              </View>
+              {/* Event details grid removed as requested */}
 
               {/* Add Ticket Types Section */}
               <View style={styles.fullWidthSection}>
@@ -566,18 +539,41 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
                       );
                       const dotColor = getTimelineItemColor(statusDescription);
 
+                      // Tự động xác định giai đoạn hiện tại dựa trên thời gian
+                      const now = new Date();
+                      const startDate = new Date(status.startDate);
+                      const endDate = new Date(status.endDate);
+                      const isCurrentStage = now >= startDate && now <= endDate;
+
                       return (
                         <View key={status.id}>
-                          <View style={styles.timelineItemContainer}>
+                          <View
+                            style={[
+                              styles.timelineItemContainer,
+                              (status.isActive || isCurrentStage) &&
+                                styles.timelineItemContainerActive,
+                            ]}>
                             <View style={styles.timelineCenterColumn}>
                               <View
                                 style={[
                                   styles.timelineDot,
                                   {
                                     backgroundColor: dotColor,
-                                    borderColor: dotColor,
+                                    borderColor:
+                                      status.isActive || isCurrentStage
+                                        ? "#ffffff"
+                                        : dotColor,
+                                    transform: [
+                                      {
+                                        scale:
+                                          status.isActive || isCurrentStage
+                                            ? 1.2
+                                            : 1,
+                                      },
+                                    ],
                                   },
-                                  status.isActive && styles.timelineDotActive,
+                                  (status.isActive || isCurrentStage) &&
+                                    styles.timelineDotActive,
                                 ]}
                               />
                               {!isLast && (
@@ -590,11 +586,36 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
                               )}
                             </View>
 
-                            <View style={styles.timelineRightColumn}>
-                              <Text style={styles.timelineTitle}>
-                                {statusDescription}
-                              </Text>
-                              <Text style={styles.timelineDateTimeOutside}>
+                            <View
+                              style={[
+                                styles.timelineRightColumn,
+                                (status.isActive || isCurrentStage) &&
+                                  styles.timelineRightColumnActive,
+                              ]}>
+                              <View style={styles.timelineTitleContainer}>
+                                <Text
+                                  style={[
+                                    styles.timelineTitle,
+                                    (status.isActive || isCurrentStage) &&
+                                      styles.timelineTitleActive,
+                                  ]}>
+                                  {statusDescription}
+                                </Text>
+                                {(status.isActive || isCurrentStage) && (
+                                  <View
+                                    style={styles.activeStatusBadgeContainer}>
+                                    <Text style={styles.activeStatusBadge}>
+                                      Đang diễn ra
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                              <Text
+                                style={[
+                                  styles.timelineDateTimeOutside,
+                                  (status.isActive || isCurrentStage) &&
+                                    styles.timelineDateTimeOutsideActive,
+                                ]}>
                                 {(() => {
                                   try {
                                     const start = new Date(status.startDate);
@@ -1460,6 +1481,20 @@ const styles = StyleSheet.create({
   timelineItemContainer: {
     flexDirection: "row",
     marginBottom: 16,
+    borderRadius: 12,
+    padding: 4,
+  },
+  timelineItemContainerActive: {
+    backgroundColor: "#edf8ff",
+    borderWidth: 1,
+    borderColor: "#c7e6ff",
+    shadowColor: "#4285F4",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 4,
+    marginHorizontal: 4,
+    marginVertical: 4,
   },
   timelineCenterColumn: {
     alignItems: "center",
@@ -1487,6 +1522,22 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingLeft: 12,
     justifyContent: "center",
+    paddingVertical: 8,
+    paddingRight: 8,
+    borderRadius: 8,
+  },
+  timelineRightColumnActive: {
+    backgroundColor: "transparent",
+    borderLeftWidth: 4,
+    borderLeftColor: "#4285F4",
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  timelineTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    marginBottom: 4,
   },
   timelineTitle: {
     fontSize: 15,
@@ -1494,9 +1545,37 @@ const styles = StyleSheet.create({
     color: "#333333",
     marginBottom: 4,
   },
+  timelineTitleActive: {
+    fontWeight: "700",
+    color: "#000000",
+  },
+  activeStatusBadgeContainer: {
+    marginLeft: 8,
+  },
+  activeStatusBadge: {
+    color: "#FF5252",
+    fontWeight: "700",
+    fontSize: 12,
+    backgroundColor: "#FFEBEE",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#FFCDD2",
+    shadowColor: "#FF5252",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
+    elevation: 2,
+  },
   timelineDateTimeOutside: {
     fontSize: 13,
     color: "#666666",
+  },
+  timelineDateTimeOutsideActive: {
+    color: "#333333",
+    fontWeight: "500",
   },
   // Rules styles
   ruleContainer: {
