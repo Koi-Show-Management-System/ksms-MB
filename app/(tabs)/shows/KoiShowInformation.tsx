@@ -121,8 +121,12 @@ const SkeletonLoader = () => {
 
       {/* Footer Skeleton */}
       <View style={styles.footer}>
-        <View style={[styles.actionButton, styles.skeletonButton]} />
-        <View style={[styles.actionButton, styles.skeletonButton]} />
+        <View
+          style={[styles.actionButton, styles.skeletonButton, { flex: 1 }]}
+        />
+        <View
+          style={[styles.actionButton, styles.skeletonButton, { flex: 1 }]}
+        />
       </View>
     </ScrollView>
   );
@@ -278,9 +282,13 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
     React.useState({
       upcoming: true,
       ongoing: true,
+      published: true,
+      finished: true,
     });
 
-  const toggleTimelineCategory = (category: "upcoming" | "ongoing") => {
+  const toggleTimelineCategory = (
+    category: "upcoming" | "ongoing" | "published" | "finished"
+  ) => {
     setExpandedTimelineCategories((prev) => ({
       ...prev,
       [category]: !prev[category],
@@ -577,379 +585,444 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
                     const hasUpcomingStages = upcomingStages.length > 0;
                     const hasOngoingStages = ongoingStages.length > 0;
 
-                    // Check if any stage in each category is active
-                    const isUpcomingActive = upcomingStages.some(
-                      (stage) => stage.isActive
-                    );
-                    const isOngoingActive = ongoingStages.some(
-                      (stage) => stage.isActive
-                    );
+                    // Check status to highlight the appropriate section
+                    const showStatusLower = showData?.status?.toLowerCase();
+
+                    // Highlight "Sắp diễn ra" when status is "upcoming"
+                    const isUpcomingActive = showStatusLower === "upcoming";
+
+                    // Highlight "Đang diễn ra" when status is "inprogress"
+                    const isOngoingActive = showStatusLower === "inprogress";
+
+                    // Highlight "Đã công bố" when status is "published"
+                    const isPublishedActive = showStatusLower === "published";
+
+                    // Highlight "Đã kết thúc" when status is "finished" or "completed"
+                    const isFinishedActive =
+                      showStatusLower === "finished" ||
+                      showStatusLower === "completed";
 
                     return (
                       <>
-                        {/* Upcoming Stages Section */}
-                        {hasUpcomingStages && (
-                          <View style={styles.timelineCategorySection}>
-                            <TouchableOpacity
-                              style={[
-                                styles.timelineCategoryHeader,
-                                isUpcomingActive &&
-                                  styles.timelineCategoryHeaderActive,
-                              ]}
-                              onPress={() =>
-                                toggleTimelineCategory("upcoming")
-                              }>
-                              <View
-                                style={styles.timelineCategoryHeaderContent}>
-                                <MaterialIcons
-                                  name="event-available"
-                                  size={18}
-                                  color={
-                                    isUpcomingActive ? "#0056a8" : "#0a7ea4"
-                                  }
-                                />
-                                <Text
-                                  style={[
-                                    styles.timelineCategoryTitle,
-                                    {
-                                      color: isUpcomingActive
-                                        ? "#0056a8"
-                                        : "#0a7ea4",
-                                    },
-                                    isUpcomingActive &&
-                                      styles.timelineCategoryTitleActive,
-                                  ]}>
-                                  Sắp diễn ra
-                                </Text>
-                              </View>
+                        {/* Published Section - Đã công bố */}
+                        <View style={styles.timelineCategorySection}>
+                          <TouchableOpacity
+                            style={[
+                              styles.timelineCategoryHeader,
+                              isPublishedActive &&
+                                styles.timelineCategoryHeaderActive,
+                            ]}
+                            onPress={() => toggleTimelineCategory("published")}>
+                            <View style={styles.timelineCategoryHeaderContent}>
                               <MaterialIcons
-                                name={
-                                  expandedTimelineCategories.upcoming
-                                    ? "expand-less"
-                                    : "expand-more"
+                                name="check-circle"
+                                size={18}
+                                color={
+                                  isPublishedActive ? "#2E7D32" : "#4CAF50"
                                 }
-                                size={20}
+                              />
+                              <Text
+                                style={[
+                                  styles.timelineCategoryTitle,
+                                  {
+                                    color: isPublishedActive
+                                      ? "#2E7D32"
+                                      : "#4CAF50",
+                                  },
+                                  isPublishedActive &&
+                                    styles.timelineCategoryTitleActive,
+                                ]}>
+                                Đã công bố
+                              </Text>
+                            </View>
+                            <MaterialIcons
+                              name={
+                                expandedTimelineCategories.published
+                                  ? "expand-less"
+                                  : "expand-more"
+                              }
+                              size={20}
+                              color={isPublishedActive ? "#2E7D32" : "#4CAF50"}
+                            />
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Upcoming Stages Section - Luôn hiển thị dù có giai đoạn hay không */}
+                        <View style={styles.timelineCategorySection}>
+                          <TouchableOpacity
+                            style={[
+                              styles.timelineCategoryHeader,
+                              isUpcomingActive &&
+                                styles.timelineCategoryHeaderActive,
+                            ]}
+                            onPress={() => toggleTimelineCategory("upcoming")}>
+                            <View style={styles.timelineCategoryHeaderContent}>
+                              <MaterialIcons
+                                name="event-available"
+                                size={18}
                                 color={isUpcomingActive ? "#0056a8" : "#0a7ea4"}
                               />
-                            </TouchableOpacity>
+                              <Text
+                                style={[
+                                  styles.timelineCategoryTitle,
+                                  {
+                                    color: isUpcomingActive
+                                      ? "#0056a8"
+                                      : "#0a7ea4",
+                                  },
+                                  isUpcomingActive &&
+                                    styles.timelineCategoryTitleActive,
+                                ]}>
+                                Sắp diễn ra
+                              </Text>
+                            </View>
+                            <MaterialIcons
+                              name={
+                                expandedTimelineCategories.upcoming
+                                  ? "expand-less"
+                                  : "expand-more"
+                              }
+                              size={20}
+                              color={isUpcomingActive ? "#0056a8" : "#0a7ea4"}
+                            />
+                          </TouchableOpacity>
 
-                            {expandedTimelineCategories.upcoming &&
-                              upcomingStages.map((status) => {
-                                const statusDescription = formatTimelineContent(
-                                  status.description
-                                );
-                                const dotColor =
-                                  getTimelineItemColor(statusDescription);
+                          {expandedTimelineCategories.upcoming &&
+                            upcomingStages.length > 0 &&
+                            upcomingStages.map((status) => {
+                              const statusDescription = formatTimelineContent(
+                                status.description
+                              );
+                              const dotColor =
+                                getTimelineItemColor(statusDescription);
 
-                                // Check if stage is active
-                                const now = new Date();
-                                const startDate = new Date(status.startDate);
-                                const endDate = new Date(status.endDate);
-                                const isCurrentStage =
-                                  now >= startDate && now <= endDate;
+                              // Không highlight các giai đoạn bên trong nữa
+                              const isCurrentStage = false;
 
-                                return (
-                                  <View key={status.id}>
-                                    <View style={styles.timelineItemContainer}>
-                                      <View style={styles.timelineCenterColumn}>
-                                        <View
-                                          style={[
-                                            styles.timelineLine,
-                                            {
-                                              backgroundColor: dotColor,
-                                              opacity:
-                                                status.isActive ||
-                                                isCurrentStage
-                                                  ? 1
-                                                  : 0.6,
-                                            },
-                                          ]}
-                                        />
-                                      </View>
-
-                                      <View style={styles.timelineRightColumn}>
-                                        <View
-                                          style={styles.timelineTitleContainer}>
-                                          <Text style={styles.timelineTitle}>
-                                            {statusDescription}
-                                          </Text>
-                                        </View>
-                                        <Text
-                                          style={
-                                            styles.timelineDateTimeOutside
-                                          }>
-                                          {(() => {
-                                            try {
-                                              const start = new Date(
-                                                status.startDate
-                                              );
-                                              const end = new Date(
-                                                status.endDate
-                                              );
-                                              const startDay = start
-                                                .getDate()
-                                                .toString()
-                                                .padStart(2, "0");
-                                              const startMonth = (
-                                                start.getMonth() + 1
-                                              )
-                                                .toString()
-                                                .padStart(2, "0");
-                                              const startYear =
-                                                start.getFullYear();
-                                              const startTime =
-                                                start.toLocaleTimeString(
-                                                  "vi-VN",
-                                                  {
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                  }
-                                                );
-                                              const endTime =
-                                                end.toLocaleTimeString(
-                                                  "vi-VN",
-                                                  {
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                  }
-                                                );
-
-                                              const isSameDay =
-                                                start.getDate() ===
-                                                  end.getDate() &&
-                                                start.getMonth() ===
-                                                  end.getMonth() &&
-                                                start.getFullYear() ===
-                                                  end.getFullYear();
-
-                                              if (isSameDay) {
-                                                return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endTime}`;
-                                              } else {
-                                                const endDay = end
-                                                  .getDate()
-                                                  .toString()
-                                                  .padStart(2, "0");
-                                                const endMonth = (
-                                                  end.getMonth() + 1
-                                                )
-                                                  .toString()
-                                                  .padStart(2, "0");
-                                                const endYear =
-                                                  end.getFullYear();
-                                                return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endDay}/${endMonth}/${endYear}, ${endTime}`;
-                                              }
-                                            } catch (e) {
-                                              console.error(
-                                                "Error formatting timeline date:",
-                                                e
-                                              );
-                                              return formatDateAndTime(
-                                                status.startDate,
-                                                status.endDate
-                                              );
-                                            }
-                                          })()}
-                                        </Text>
-                                      </View>
-                                    </View>
-                                  </View>
-                                );
-                              })}
-                          </View>
-                        )}
-
-                        {/* Ongoing Stages Section */}
-                        {hasOngoingStages && (
-                          <View style={styles.timelineCategorySection}>
-                            <TouchableOpacity
-                              style={[
-                                styles.timelineCategoryHeader,
-                                isOngoingActive &&
-                                  styles.timelineCategoryHeaderActive,
-                              ]}
-                              onPress={() => toggleTimelineCategory("ongoing")}>
-                              <View
-                                style={styles.timelineCategoryHeaderContent}>
-                                <MaterialIcons
-                                  name="play-circle-filled"
-                                  size={18}
-                                  color={
-                                    isOngoingActive ? "#7B1FA2" : "#9C27B0"
-                                  }
-                                />
-                                <Text
-                                  style={[
-                                    styles.timelineCategoryTitle,
-                                    {
-                                      color: isOngoingActive
-                                        ? "#7B1FA2"
-                                        : "#9C27B0",
-                                    },
-                                    isOngoingActive &&
-                                      styles.timelineCategoryTitleActive,
-                                  ]}>
-                                  Đang diễn ra
-                                </Text>
-                              </View>
-                              <MaterialIcons
-                                name={
-                                  expandedTimelineCategories.ongoing
-                                    ? "expand-less"
-                                    : "expand-more"
-                                }
-                                size={20}
-                                color={isOngoingActive ? "#7B1FA2" : "#9C27B0"}
-                              />
-                            </TouchableOpacity>
-
-                            {expandedTimelineCategories.ongoing &&
-                              ongoingStages.map((status) => {
-                                const statusDescription = formatTimelineContent(
-                                  status.description
-                                );
-                                const dotColor =
-                                  getTimelineItemColor(statusDescription);
-
-                                // Check if stage is active
-                                const now = new Date();
-                                const startDate = new Date(status.startDate);
-                                const endDate = new Date(status.endDate);
-                                const isCurrentStage =
-                                  now >= startDate && now <= endDate;
-
-                                return (
-                                  <View key={status.id}>
-                                    <View style={styles.timelineItemContainer}>
-                                      <View style={styles.timelineCenterColumn}>
-                                        <View
-                                          style={[
-                                            styles.timelineLine,
-                                            {
-                                              backgroundColor: dotColor,
-                                              opacity: 0.8,
-                                            },
-                                          ]}
-                                        />
-                                      </View>
-
+                              return (
+                                <View key={status.id}>
+                                  <View style={styles.timelineItemContainer}>
+                                    <View style={styles.timelineCenterColumn}>
                                       <View
                                         style={[
-                                          styles.timelineRightColumn,
-                                          (status.isActive || isCurrentStage) &&
-                                            styles.timelineRightColumnActive,
-                                        ]}>
-                                        <View
-                                          style={styles.timelineTitleContainer}>
-                                          <Text
-                                            style={[
-                                              styles.timelineTitle,
-                                              (status.isActive ||
-                                                isCurrentStage) &&
-                                                styles.timelineTitleActive,
-                                            ]}>
-                                            {statusDescription}
-                                          </Text>
-                                        </View>
-                                        <Text
-                                          style={[
-                                            styles.timelineDateTimeOutside,
-                                            (status.isActive ||
-                                              isCurrentStage) &&
-                                              styles.timelineDateTimeOutsideActive,
-                                          ]}>
-                                          {(() => {
-                                            try {
-                                              const start = new Date(
-                                                status.startDate
+                                          styles.timelineLine,
+                                          {
+                                            backgroundColor: dotColor,
+                                            opacity: isCurrentStage ? 1 : 0.6,
+                                          },
+                                        ]}
+                                      />
+                                    </View>
+
+                                    <View style={styles.timelineRightColumn}>
+                                      <View
+                                        style={styles.timelineTitleContainer}>
+                                        <Text style={styles.timelineTitle}>
+                                          {statusDescription}
+                                        </Text>
+                                      </View>
+                                      <Text
+                                        style={styles.timelineDateTimeOutside}>
+                                        {(() => {
+                                          try {
+                                            const start = new Date(
+                                              status.startDate
+                                            );
+                                            const end = new Date(
+                                              status.endDate
+                                            );
+                                            const startDay = start
+                                              .getDate()
+                                              .toString()
+                                              .padStart(2, "0");
+                                            const startMonth = (
+                                              start.getMonth() + 1
+                                            )
+                                              .toString()
+                                              .padStart(2, "0");
+                                            const startYear =
+                                              start.getFullYear();
+                                            const startTime =
+                                              start.toLocaleTimeString(
+                                                "vi-VN",
+                                                {
+                                                  hour: "2-digit",
+                                                  minute: "2-digit",
+                                                }
                                               );
-                                              const end = new Date(
-                                                status.endDate
-                                              );
-                                              const startDay = start
+                                            const endTime =
+                                              end.toLocaleTimeString("vi-VN", {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                              });
+
+                                            const isSameDay =
+                                              start.getDate() ===
+                                                end.getDate() &&
+                                              start.getMonth() ===
+                                                end.getMonth() &&
+                                              start.getFullYear() ===
+                                                end.getFullYear();
+
+                                            if (isSameDay) {
+                                              return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endTime}`;
+                                            } else {
+                                              const endDay = end
                                                 .getDate()
                                                 .toString()
                                                 .padStart(2, "0");
-                                              const startMonth = (
-                                                start.getMonth() + 1
+                                              const endMonth = (
+                                                end.getMonth() + 1
                                               )
                                                 .toString()
                                                 .padStart(2, "0");
-                                              const startYear =
-                                                start.getFullYear();
-                                              const startTime =
-                                                start.toLocaleTimeString(
-                                                  "vi-VN",
-                                                  {
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                  }
-                                                );
-                                              const endTime =
-                                                end.toLocaleTimeString(
-                                                  "vi-VN",
-                                                  {
-                                                    hour: "2-digit",
-                                                    minute: "2-digit",
-                                                  }
-                                                );
-
-                                              const isSameDay =
-                                                start.getDate() ===
-                                                  end.getDate() &&
-                                                start.getMonth() ===
-                                                  end.getMonth() &&
-                                                start.getFullYear() ===
-                                                  end.getFullYear();
-
-                                              if (isSameDay) {
-                                                return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endTime}`;
-                                              } else {
-                                                const endDay = end
-                                                  .getDate()
-                                                  .toString()
-                                                  .padStart(2, "0");
-                                                const endMonth = (
-                                                  end.getMonth() + 1
-                                                )
-                                                  .toString()
-                                                  .padStart(2, "0");
-                                                const endYear =
-                                                  end.getFullYear();
-                                                return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endDay}/${endMonth}/${endYear}, ${endTime}`;
-                                              }
-                                            } catch (e) {
-                                              console.error(
-                                                "Error formatting timeline date:",
-                                                e
-                                              );
-                                              return formatDateAndTime(
-                                                status.startDate,
-                                                status.endDate
-                                              );
+                                              const endYear = end.getFullYear();
+                                              return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endDay}/${endMonth}/${endYear}, ${endTime}`;
                                             }
-                                          })()}
-                                        </Text>
-                                      </View>
+                                          } catch (e) {
+                                            console.error(
+                                              "Error formatting timeline date:",
+                                              e
+                                            );
+                                            return formatDateAndTime(
+                                              status.startDate,
+                                              status.endDate
+                                            );
+                                          }
+                                        })()}
+                                      </Text>
                                     </View>
                                   </View>
-                                );
-                              })}
-                          </View>
-                        )}
+                                </View>
+                              );
+                            })}
 
-                        {/* Show message if no upcoming or ongoing stages */}
-                        {!hasUpcomingStages && !hasOngoingStages && (
-                          <View style={styles.emptyStateContainer}>
+                          {expandedTimelineCategories.upcoming &&
+                            upcomingStages.length === 0 && (
+                              <View style={styles.emptyStateContainer}>
+                                <Text style={styles.emptyStateText}>
+                                  Không có giai đoạn sắp diễn ra nào
+                                </Text>
+                              </View>
+                            )}
+                        </View>
+
+                        {/* Ongoing Stages Section - Luôn hiển thị dù có giai đoạn hay không */}
+                        <View style={styles.timelineCategorySection}>
+                          <TouchableOpacity
+                            style={[
+                              styles.timelineCategoryHeader,
+                              isOngoingActive &&
+                                styles.timelineCategoryHeaderActive,
+                            ]}
+                            onPress={() => toggleTimelineCategory("ongoing")}>
+                            <View style={styles.timelineCategoryHeaderContent}>
+                              <MaterialIcons
+                                name="play-circle-filled"
+                                size={18}
+                                color={isOngoingActive ? "#7B1FA2" : "#9C27B0"}
+                              />
+                              <Text
+                                style={[
+                                  styles.timelineCategoryTitle,
+                                  {
+                                    color: isOngoingActive
+                                      ? "#7B1FA2"
+                                      : "#9C27B0",
+                                  },
+                                  isOngoingActive &&
+                                    styles.timelineCategoryTitleActive,
+                                ]}>
+                                Đang diễn ra
+                              </Text>
+                            </View>
                             <MaterialIcons
-                              name="info"
-                              size={40}
-                              color="#bdc3c7"
+                              name={
+                                expandedTimelineCategories.ongoing
+                                  ? "expand-less"
+                                  : "expand-more"
+                              }
+                              size={20}
+                              color={isOngoingActive ? "#7B1FA2" : "#9C27B0"}
                             />
-                            <Text style={styles.emptyStateText}>
-                              Không có giai đoạn sắp diễn ra hoặc đang diễn ra
-                            </Text>
-                          </View>
-                        )}
+                          </TouchableOpacity>
+
+                          {expandedTimelineCategories.ongoing &&
+                            ongoingStages.length > 0 &&
+                            ongoingStages.map((status) => {
+                              const statusDescription = formatTimelineContent(
+                                status.description
+                              );
+                              const dotColor =
+                                getTimelineItemColor(statusDescription);
+
+                              // Không highlight các giai đoạn bên trong nữa
+                              const isCurrentStage = false;
+
+                              return (
+                                <View key={status.id}>
+                                  <View style={styles.timelineItemContainer}>
+                                    <View style={styles.timelineCenterColumn}>
+                                      <View
+                                        style={[
+                                          styles.timelineLine,
+                                          {
+                                            backgroundColor: dotColor,
+                                            opacity: isCurrentStage ? 1 : 0.6,
+                                          },
+                                        ]}
+                                      />
+                                    </View>
+
+                                    <View
+                                      style={[
+                                        styles.timelineRightColumn,
+                                        isCurrentStage &&
+                                          styles.timelineRightColumnActive,
+                                      ]}>
+                                      <View
+                                        style={styles.timelineTitleContainer}>
+                                        <Text
+                                          style={[
+                                            styles.timelineTitle,
+                                            isCurrentStage &&
+                                              styles.timelineTitleActive,
+                                          ]}>
+                                          {statusDescription}
+                                        </Text>
+                                      </View>
+                                      <Text
+                                        style={[
+                                          styles.timelineDateTimeOutside,
+                                          isCurrentStage &&
+                                            styles.timelineDateTimeOutsideActive,
+                                        ]}>
+                                        {(() => {
+                                          try {
+                                            const start = new Date(
+                                              status.startDate
+                                            );
+                                            const end = new Date(
+                                              status.endDate
+                                            );
+                                            const startDay = start
+                                              .getDate()
+                                              .toString()
+                                              .padStart(2, "0");
+                                            const startMonth = (
+                                              start.getMonth() + 1
+                                            )
+                                              .toString()
+                                              .padStart(2, "0");
+                                            const startYear =
+                                              start.getFullYear();
+                                            const startTime =
+                                              start.toLocaleTimeString(
+                                                "vi-VN",
+                                                {
+                                                  hour: "2-digit",
+                                                  minute: "2-digit",
+                                                }
+                                              );
+                                            const endTime =
+                                              end.toLocaleTimeString("vi-VN", {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                              });
+
+                                            const isSameDay =
+                                              start.getDate() ===
+                                                end.getDate() &&
+                                              start.getMonth() ===
+                                                end.getMonth() &&
+                                              start.getFullYear() ===
+                                                end.getFullYear();
+
+                                            if (isSameDay) {
+                                              return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endTime}`;
+                                            } else {
+                                              const endDay = end
+                                                .getDate()
+                                                .toString()
+                                                .padStart(2, "0");
+                                              const endMonth = (
+                                                end.getMonth() + 1
+                                              )
+                                                .toString()
+                                                .padStart(2, "0");
+                                              const endYear = end.getFullYear();
+                                              return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endDay}/${endMonth}/${endYear}, ${endTime}`;
+                                            }
+                                          } catch (e) {
+                                            console.error(
+                                              "Error formatting timeline date:",
+                                              e
+                                            );
+                                            return formatDateAndTime(
+                                              status.startDate,
+                                              status.endDate
+                                            );
+                                          }
+                                        })()}
+                                      </Text>
+                                    </View>
+                                  </View>
+                                </View>
+                              );
+                            })}
+
+                          {expandedTimelineCategories.ongoing &&
+                            ongoingStages.length === 0 && (
+                              <View style={styles.emptyStateContainer}>
+                                <Text style={styles.emptyStateText}>
+                                  Không có giai đoạn đang diễn ra nào
+                                </Text>
+                              </View>
+                            )}
+                        </View>
+
+                        {/* Finished Section - Đã kết thúc */}
+                        <View style={styles.timelineCategorySection}>
+                          <TouchableOpacity
+                            style={[
+                              styles.timelineCategoryHeader,
+                              isFinishedActive &&
+                                styles.timelineCategoryHeaderActive,
+                            ]}
+                            onPress={() => toggleTimelineCategory("finished")}>
+                            <View style={styles.timelineCategoryHeaderContent}>
+                              <MaterialIcons
+                                name="done-all"
+                                size={18}
+                                color={isFinishedActive ? "#C62828" : "#F44336"}
+                              />
+                              <Text
+                                style={[
+                                  styles.timelineCategoryTitle,
+                                  {
+                                    color: isFinishedActive
+                                      ? "#C62828"
+                                      : "#F44336",
+                                  },
+                                  isFinishedActive &&
+                                    styles.timelineCategoryTitleActive,
+                                ]}>
+                                Đã kết thúc
+                              </Text>
+                            </View>
+                            <MaterialIcons
+                              name={
+                                expandedTimelineCategories.finished
+                                  ? "expand-less"
+                                  : "expand-more"
+                              }
+                              size={20}
+                              color={isFinishedActive ? "#C62828" : "#F44336"}
+                            />
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Đã xóa thông báo "Không có giai đoạn sắp diễn ra hoặc đang diễn ra" để nó luôn hiện các danh mục */}
                       </>
                     );
                   })()}
@@ -1434,7 +1507,7 @@ const KoiShowInformationContent = () => {
 
           <View style={styles.overlay}>
             <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>
+              {/* <Text style={styles.statusText}>
                 {showData?.status === "upcoming"
                   ? "Sắp diễn ra"
                   : showData?.status === "active"
@@ -1442,7 +1515,7 @@ const KoiShowInformationContent = () => {
                   : showData?.status === "completed"
                   ? "Đã kết thúc"
                   : "Đã lên lịch"}
-              </Text>
+              </Text> */}
             </View>
           </View>
         </Animated.View>
@@ -1477,9 +1550,13 @@ const KoiShowInformationContent = () => {
         </TouchableOpacity>
       ) : null}
 
-      {/* Footer với 2 nút: đăng ký thi đấu và mua vé - chỉ hiển thị khi show sắp diễn ra */}
-      {showData?.status === "upcoming" && (
-        <View style={styles.footer}>
+      {/* Footer với 2 nút: đăng ký thi đấu và mua vé */}
+      <View style={styles.footer}>
+        {/* Nút đăng ký thi đấu - hiển thị khi show có status là Published hoặc Upcoming */}
+        {(showData?.status === "upcoming" ||
+          showData?.status === "Upcoming" ||
+          showData?.status === "published" ||
+          showData?.status === "Published") && (
           <TouchableOpacity
             style={[styles.actionButton, styles.registerButton]}
             onPress={() => {
@@ -1508,9 +1585,27 @@ const KoiShowInformationContent = () => {
             <FontAwesome5 name="fish" size={18} color="#FFFFFF" />
             <Text style={styles.buttonText}>Đăng ký thi đấu</Text>
           </TouchableOpacity>
+        )}
 
+        {/* Nút mua vé tham dự - hiển thị khi show có status là Published, InProgress hoặc Upcoming */}
+        {(showData?.status === "published" ||
+          showData?.status === "Published" ||
+          showData?.status === "upcoming" ||
+          showData?.status === "Upcoming" ||
+          showData?.status === "inprogress" ||
+          showData?.status === "InProgress") && (
           <TouchableOpacity
-            style={[styles.actionButton, styles.ticketButton]}
+            style={[
+              styles.actionButton,
+              styles.ticketButton,
+              // Nếu không có nút đăng ký thi đấu, nút mua vé sẽ chiếm toàn bộ chiều rộng
+              !(
+                showData?.status === "upcoming" ||
+                showData?.status === "Upcoming" ||
+                showData?.status === "published" ||
+                showData?.status === "Published"
+              ) && { flex: 2 },
+            ]}
             onPress={() => {
               if (isGuest()) {
                 Alert.alert(
@@ -1541,8 +1636,8 @@ const KoiShowInformationContent = () => {
             />
             <Text style={styles.buttonText}>Mua vé tham dự</Text>
           </TouchableOpacity>
-        </View>
-      )}
+        )}
+      </View>
     </View>
   );
 };

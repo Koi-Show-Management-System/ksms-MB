@@ -225,9 +225,34 @@ const BuyTickets: React.FC = () => {
           Alert.alert("Lỗi", "Xử lý thanh toán thất bại. Vui lòng thử lại.");
         }
       } catch (error: any) {
-        const errorMessage =
-          error.response?.data?.message ||
-          "Xử lý thanh toán thất bại. Vui lòng thử lại.";
+        let errorMessage = "Xử lý thanh toán thất bại. Vui lòng thử lại.";
+
+        // Trích xuất thông báo lỗi từ API response
+        if (error.response?.data) {
+          try {
+            // Kiểm tra nếu data là chuỗi JSON
+            if (typeof error.response.data === "string") {
+              const parsedData = JSON.parse(error.response.data);
+              errorMessage =
+                parsedData.Error || parsedData.message || errorMessage;
+            }
+            // Kiểm tra nếu data là object có trường data là chuỗi JSON
+            else if (typeof error.response.data.data === "string") {
+              const parsedData = JSON.parse(error.response.data.data);
+              errorMessage =
+                parsedData.Error || parsedData.message || errorMessage;
+            }
+            // Kiểm tra nếu data là object có trường Error hoặc message
+            else {
+              errorMessage =
+                error.response.data.Error ||
+                error.response.data.message ||
+                errorMessage;
+            }
+          } catch (parseError) {
+            console.error("Lỗi khi phân tích dữ liệu lỗi:", parseError);
+          }
+        }
 
         // Handle 401 error specifically
         if (error.response?.status === 401) {
@@ -244,7 +269,37 @@ const BuyTickets: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Lỗi thanh toán:", err);
-      setError(err?.response?.data?.message || "Thanh toán thất bại");
+
+      let errorMessage = "Thanh toán thất bại";
+
+      // Trích xuất thông báo lỗi từ API response
+      if (err?.response?.data) {
+        try {
+          // Kiểm tra nếu data là chuỗi JSON
+          if (typeof err.response.data === "string") {
+            const parsedData = JSON.parse(err.response.data);
+            errorMessage =
+              parsedData.Error || parsedData.message || errorMessage;
+          }
+          // Kiểm tra nếu data là object có trường data là chuỗi JSON
+          else if (typeof err.response.data.data === "string") {
+            const parsedData = JSON.parse(err.response.data.data);
+            errorMessage =
+              parsedData.Error || parsedData.message || errorMessage;
+          }
+          // Kiểm tra nếu data là object có trường Error hoặc message
+          else {
+            errorMessage =
+              err.response.data.Error ||
+              err.response.data.message ||
+              errorMessage;
+          }
+        } catch (parseError) {
+          console.error("Lỗi khi phân tích dữ liệu lỗi:", parseError);
+        }
+      }
+
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

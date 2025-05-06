@@ -484,157 +484,49 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
           <View style={styles.sectionContent}>
             {showData?.showStatuses && showData.showStatuses.length > 0 ? (
               <View style={styles.timelineContainer}>
-                {[...showData.showStatuses]
-                  .sort(
-                    (a, b) =>
-                      new Date(a.startDate).getTime() -
-                      new Date(b.startDate).getTime()
-                  )
-                  .map((status, index, sortedArray) => {
-                    const isLast = index === sortedArray.length - 1;
-                    const statusDescription = formatTimelineContent(
-                      status.description
-                    );
-                    const dotColor = getTimelineItemColor(statusDescription);
+                {/* Đã công bố */}
+                <View style={styles.timelineItemContainer}>
+                  <View style={styles.timelineCenterColumn}>
+                    <MaterialIcons name="check-circle" size={20} color="#28a745" />
+                    <View style={[styles.timelineLine, { backgroundColor: "#e0e0e0" }]} />
+                  </View>
+                  <View style={styles.timelineRightColumn}>
+                    <Text style={[styles.timelineTitle, { color: "#28a745" }]}>Đã công bố</Text>
+                  </View>
+                </View>
 
-                    // Tự động xác định giai đoạn hiện tại dựa trên thời gian
-                    const now = new Date();
-                    const startDate = new Date(status.startDate);
-                    const endDate = new Date(status.endDate);
-                    const isCurrentStage = now >= startDate && now <= endDate;
+                {/* Sắp diễn ra */}
+                <View style={styles.timelineItemContainer}>
+                  <View style={styles.timelineCenterColumn}>
+                    <MaterialIcons name="calendar-today" size={20} color="#6c757d" />
+                    <View style={[styles.timelineLine, { backgroundColor: "#e0e0e0" }]} />
+                  </View>
+                  <View style={styles.timelineRightColumn}>
+                    <Text style={[styles.timelineTitle, { color: "#6c757d" }]}>Sắp diễn ra</Text>
+                  </View>
+                </View>
 
-                    return (
-                      <View key={status.id}>
-                        <View
-                          style={[
-                            styles.timelineItemContainer,
-                            (status.isActive || isCurrentStage) &&
-                              styles.timelineItemContainerActive,
-                          ]}>
-                          <View style={styles.timelineCenterColumn}>
-                            <View
-                              style={[
-                                styles.timelineDot,
-                                {
-                                  backgroundColor: dotColor,
-                                  borderColor:
-                                    status.isActive || isCurrentStage
-                                      ? "#ffffff"
-                                      : dotColor,
-                                  transform: [
-                                    {
-                                      scale:
-                                        status.isActive || isCurrentStage
-                                          ? 1.2
-                                          : 1,
-                                    },
-                                  ],
-                                },
-                                (status.isActive || isCurrentStage) &&
-                                  styles.timelineDotActive,
-                              ]}
-                            />
-                            {!isLast && (
-                              <View
-                                style={[
-                                  styles.timelineLine,
-                                  { backgroundColor: "#e0e0e0" },
-                                ]}
-                              />
-                            )}
-                          </View>
+                {/* Đang diễn ra */}
+                <View style={styles.timelineItemContainer}>
+                  <View style={styles.timelineCenterColumn}>
+                    <MaterialIcons name="play-circle-fill" size={20} color="#6c757d" />
+                    <View style={[styles.timelineLine, { backgroundColor: "#e0e0e0" }]} />
+                  </View>
+                  <View style={styles.timelineRightColumn}>
+                    <Text style={[styles.timelineTitle, { color: "#6c757d" }]}>Đang diễn ra</Text>
+                  </View>
+                </View>
 
-                          <View
-                            style={[
-                              styles.timelineRightColumn,
-                              (status.isActive || isCurrentStage) &&
-                                styles.timelineRightColumnActive,
-                            ]}>
-                            <View style={styles.timelineTitleContainer}>
-                              <Text
-                                style={[
-                                  styles.timelineTitle,
-                                  (status.isActive || isCurrentStage) &&
-                                    styles.timelineTitleActive,
-                                ]}>
-                                {statusDescription}
-                              </Text>
-                              {(status.isActive || isCurrentStage) && (
-                                <View style={styles.activeStatusBadgeContainer}>
-                                  <Text style={styles.activeStatusBadge}>
-                                    Đang diễn ra
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                            <Text
-                              style={[
-                                styles.timelineDateTimeOutside,
-                                (status.isActive || isCurrentStage) &&
-                                  styles.timelineDateTimeOutsideActive,
-                              ]}>
-                              {(() => {
-                                try {
-                                  const start = new Date(status.startDate);
-                                  const end = new Date(status.endDate);
-                                  const startDay = start
-                                    .getDate()
-                                    .toString()
-                                    .padStart(2, "0");
-                                  const startMonth = (start.getMonth() + 1)
-                                    .toString()
-                                    .padStart(2, "0");
-                                  const startYear = start.getFullYear();
-                                  const startTime = start.toLocaleTimeString(
-                                    "vi-VN",
-                                    {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    }
-                                  );
-                                  const endTime = end.toLocaleTimeString(
-                                    "vi-VN",
-                                    {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    }
-                                  );
-
-                                  const isSameDay =
-                                    start.getDate() === end.getDate() &&
-                                    start.getMonth() === end.getMonth() &&
-                                    start.getFullYear() === end.getFullYear();
-
-                                  if (isSameDay) {
-                                    return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endTime}`;
-                                  } else {
-                                    const endDay = end
-                                      .getDate()
-                                      .toString()
-                                      .padStart(2, "0");
-                                    const endMonth = (end.getMonth() + 1)
-                                      .toString()
-                                      .padStart(2, "0");
-                                    const endYear = end.getFullYear();
-                                    return `${startDay}/${startMonth}/${startYear}, ${startTime} - ${endDay}/${endMonth}/${endYear}, ${endTime}`;
-                                  }
-                                } catch (e) {
-                                  console.error(
-                                    "Error formatting timeline date:",
-                                    e
-                                  );
-                                  return formatDateAndTime(
-                                    status.startDate,
-                                    status.endDate
-                                  );
-                                }
-                              })()}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })}
+                {/* Đã kết thúc */}
+                <View style={styles.timelineItemContainer}>
+                  <View style={styles.timelineCenterColumn}>
+                    <MaterialIcons name="check-circle" size={20} color="#dc3545" />
+                    {/* No line after the last item */}
+                  </View>
+                  <View style={styles.timelineRightColumn}>
+                    <Text style={[styles.timelineTitle, { color: "#dc3545" }]}>Đã kết thúc</Text>
+                  </View>
+                </View>
               </View>
             ) : (
               <View style={styles.emptyStateContainer}>
