@@ -158,6 +158,11 @@ const CategoryItem = memo(
     <View style={styles.categoryCard}>
       <View style={styles.categoryHeader}>
         <Text style={styles.categoryName}>{item.name}</Text>
+        {item.status === "cancelled" && (
+          <View style={styles.cancelledStatusBadge}>
+            <Text style={styles.cancelledStatusText}>Bị huỷ</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.categoryFeeContainer}>
@@ -563,27 +568,56 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
                       return desc.includes("đăng ký");
                     };
 
-                    const isCompletedStage = (status: ShowStatus) => {
+                    const isFinishedStage = (status: ShowStatus) => {
                       const now = new Date();
                       const endDate = new Date(status.endDate);
                       return now > endDate;
                     };
 
+                    const isOngoingStage = (status: ShowStatus) => {
+                      const now = new Date();
+                      const startDate = new Date(status.startDate);
+                      const endDate = new Date(status.endDate);
+                      return startDate <= now && now <= endDate;
+                    };
+
+                    const isUpcomingStage = (status: ShowStatus) => {
+                      const now = new Date();
+                      const startDate = new Date(status.startDate);
+                      return now < startDate && !isRegistrationStage(status);
+                    };
+
                     // Group stages into categories
-                    const upcomingStages = sortedStatuses.filter(
-                      (status) =>
-                        isRegistrationStage(status) && !isCompletedStage(status)
+                    const registrationStages = sortedStatuses.filter((status) =>
+                      isRegistrationStage(status)
                     );
 
-                    const ongoingStages = sortedStatuses.filter(
+                    const upcomingStages = sortedStatuses.filter((status) =>
+                      isUpcomingStage(status)
+                    );
+
+                    const ongoingStages = sortedStatuses.filter((status) =>
+                      isOngoingStage(status)
+                    );
+
+                    const finishedStages = sortedStatuses.filter((status) =>
+                      isFinishedStage(status)
+                    );
+
+                    const publishedStages = sortedStatuses.filter(
                       (status) =>
                         !isRegistrationStage(status) &&
-                        !isCompletedStage(status)
+                        !isUpcomingStage(status) &&
+                        !isOngoingStage(status) &&
+                        !isFinishedStage(status)
                     );
 
                     // Check if we have any stages in each category
                     const hasUpcomingStages = upcomingStages.length > 0;
                     const hasOngoingStages = ongoingStages.length > 0;
+                    const hasRegistrationStages = registrationStages.length > 0;
+                    const hasFinishedStages = finishedStages.length > 0;
+                    const hasPublishedStages = publishedStages.length > 0;
 
                     // Check status to highlight the appropriate section
                     const showStatusLower = showData?.status?.toLowerCase();
@@ -2322,6 +2356,21 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: "#ffffff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  // Cancelled status badge styles
+  cancelledStatusBadge: {
+    backgroundColor: "#FEF2F2",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    marginLeft: 8,
+  },
+  cancelledStatusText: {
+    color: "#DC2626",
+    fontSize: 12,
     fontWeight: "600",
   },
   // Skeleton styles
