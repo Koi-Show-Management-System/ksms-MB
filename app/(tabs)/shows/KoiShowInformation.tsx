@@ -562,10 +562,8 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
 
                     // Helper functions to categorize stages
                     const isRegistrationStage = (status: ShowStatus) => {
-                      const desc = formatTimelineContent(
-                        status.description
-                      ).toLowerCase();
-                      return desc.includes("đăng ký");
+                      // Kiểm tra xem giai đoạn có phải là giai đoạn đăng ký không
+                      return status.statusName === "RegistrationOpen";
                     };
 
                     const isFinishedStage = (status: ShowStatus) => {
@@ -575,16 +573,13 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
                     };
 
                     const isOngoingStage = (status: ShowStatus) => {
-                      const now = new Date();
-                      const startDate = new Date(status.startDate);
-                      const endDate = new Date(status.endDate);
-                      return startDate <= now && now <= endDate;
+                      // Hiển thị tất cả các giai đoạn có statusName khác "RegistrationOpen"
+                      return status.statusName !== "RegistrationOpen";
                     };
 
                     const isUpcomingStage = (status: ShowStatus) => {
-                      const now = new Date();
-                      const startDate = new Date(status.startDate);
-                      return now < startDate && !isRegistrationStage(status);
+                      // Chỉ trả về true nếu là giai đoạn đăng ký
+                      return isRegistrationStage(status);
                     };
 
                     // Group stages into categories
@@ -592,6 +587,7 @@ const InfoTabContent: React.FC<InfoTabContentProps> = ({
                       isRegistrationStage(status)
                     );
 
+                    // upcomingStages bây giờ chỉ chứa các giai đoạn có statusName là "RegistrationOpen"
                     const upcomingStages = sortedStatuses.filter((status) =>
                       isUpcomingStage(status)
                     );
