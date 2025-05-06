@@ -702,6 +702,9 @@ export default function KoiInformation() {
                 <View key={index} style={styles.competitionCard}>
                   <Text style={styles.competitionTitle}>
                     {competition.year} - {competition.showName}
+                    {competition.showStatus === "cancelled" && (
+                      <Text style={styles.cancelledLabel}> (Đã huỷ)</Text>
+                    )}
                   </Text>
                   <Text style={styles.competitionDetail}>
                     <Text style={styles.competitionLabel}>Địa điểm:</Text>{" "}
@@ -713,7 +716,9 @@ export default function KoiInformation() {
                   </Text>
                   {competition.eliminationRound && (
                     <Text style={styles.competitionDetail}>
-                      <Text style={styles.competitionLabel}>Vòng loại:</Text>{" "}
+                      <Text style={styles.competitionLabel}>
+                        Bị loại tại vòng:
+                      </Text>{" "}
                       {competition.eliminationRound}
                     </Text>
                   )}
@@ -1146,6 +1151,10 @@ const styles = StyleSheet.create({
   statusInProgress: {
     backgroundColor: "#FFF9C4",
     color: "#FFA000",
+  },
+  cancelledLabel: {
+    color: "#EF4444", // Red color for cancelled status
+    fontFamily: "Poppins_700Bold",
   },
   viewDetailsButton: {
     paddingVertical: 6,

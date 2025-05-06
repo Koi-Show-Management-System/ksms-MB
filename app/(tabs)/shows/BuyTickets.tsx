@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage"; // Import AsyncStorage
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -5,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Image,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -313,6 +315,39 @@ const BuyTickets: React.FC = () => {
     </View>
   );
 
+  // Payment Method Card Component
+  const PaymentMethodCard = () => (
+    <View style={styles.paymentMethodCard}>
+      <View style={styles.paymentMethodContent}>
+        <View style={styles.paymentMethodTextContainer}>
+          <Text style={styles.paymentMethodTitle}>
+            Thanh toán với phương thức:
+          </Text>
+          <Text style={styles.paymentMethodAmount}>Payos</Text>
+          <View style={styles.paymentMethodStats}>
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={16}
+              color="#FFFFFF"
+            />
+            <Text style={styles.paymentMethodStatsText}>
+              Thanh toán an toàn
+            </Text>
+          </View>
+        </View>
+        <View style={styles.paymentMethodLogoContainer}>
+          <View style={styles.paymentMethodLogoFrame}>
+            <Image
+              source={require("../../../assets/images/payos_logo.jpg")}
+              style={styles.paymentMethodLogo}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
   // Payment Modal Component
   const PaymentModal = () => (
     <Modal
@@ -459,6 +494,9 @@ const BuyTickets: React.FC = () => {
                 autoComplete="email"
               />
             </View>
+
+            {/* Payment Method Card */}
+            <PaymentMethodCard />
 
             {Object.keys(selectedTickets).length > 0 && <SelectedTickets />}
 
@@ -683,6 +721,69 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.8)",
+  },
+  // Payment Method Card styles
+  paymentMethodCard: {
+    borderRadius: 12,
+    marginBottom: 20,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    backgroundColor: "#6C5CE7", // Purple background color
+    borderWidth: 1,
+    borderColor: "#8E44AD",
+  },
+  paymentMethodContent: {
+    padding: 4,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  paymentMethodTextContainer: {
+    flex: 1,
+  },
+  paymentMethodTitle: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    opacity: 0.9,
+    marginBottom: 8,
+  },
+  paymentMethodAmount: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    marginBottom: 8,
+  },
+  paymentMethodStats: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  paymentMethodStatsText: {
+    fontSize: 14,
+    color: "#FFFFFF",
+    marginLeft: 6,
+  },
+  paymentMethodLogoContainer: {
+    marginLeft: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  paymentMethodLogoFrame: {
+    width: 50,
+    height: 50,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  paymentMethodLogo: {
+    width: 40,
+    height: 40,
   },
 });
 
