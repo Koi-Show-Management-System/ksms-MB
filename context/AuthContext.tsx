@@ -26,7 +26,7 @@ interface AuthContextType {
   isLoading: boolean;
   userData: UserData | null;
   userRole: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<any>;
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   isGuest: () => boolean;
@@ -108,10 +108,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Login function
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, rememberMe: boolean = false) => {
     try {
       setIsLoading(true);
-      const user = await apiLogin(email, password);
+      const user = await apiLogin(email, password, rememberMe);
       
       setUserData({
         id: user.id,
@@ -160,8 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserRole(UserRole.GUEST);
       setIsAuthenticated(false); // Guest is not technically authenticated
       
-      // Navigate to home page
-      router.push('/(tabs)/home/homepage');
+      // Điều hướng sẽ được xử lý từ component, không xử lý ở đây
     } catch (error) {
       console.error('Guest login error:', error);
       throw error;
@@ -197,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserRole(null);
       setIsAuthenticated(false);
       
-      // Navigate to auth screen
+      // Đảm bảo sử dụng replace để ngăn người dùng quay lại màn hình chính sau khi đăng xuất
       router.replace('/(auth)/welcomeScreen');
     } catch (error) {
       console.error('Logout error:', error);

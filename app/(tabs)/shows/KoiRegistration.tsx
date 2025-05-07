@@ -12,6 +12,7 @@ import {
   FlatList,
   Image,
   Modal,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -308,6 +309,9 @@ const KoiRegistrationScreen: React.FC = () => {
 
   // State để kiểm soát việc hiển thị đầy đủ description
   const [showFullDescription, setShowFullDescription] = useState(false);
+
+  // Thêm state cho refreshing
+  const [refreshing, setRefreshing] = useState(false);
 
   // Đảm bảo khi state cập nhật, refs cũng cập nhật theo
   useEffect(() => {
@@ -1133,7 +1137,7 @@ const KoiRegistrationScreen: React.FC = () => {
             }, 15 * 60 * 1000);
 
             // Lưu ID timeout để có thể xóa nếu cần
-            setPaymentTimeoutId(paymentTimeout);
+            setPaymentTimeoutId(paymentTimeout as unknown as NodeJS.Timeout);
           } else {
             throw new Error("Không nhận được URL thanh toán");
           }
@@ -2352,10 +2356,46 @@ const KoiRegistrationScreen: React.FC = () => {
     };
   }, [paymentTimeoutId]);
 
+  // Thêm hàm refresh để tải lại dữ liệu
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    console.log("Đang làm mới dữ liệu...");
+
+    try {
+      // Tải lại tất cả dữ liệu cần thiết
+      await Promise.all([
+        loadKoiProfiles(),
+        loadVarieties(),
+        loadCategories(),
+        loadShowInfo()
+      ]);
+      
+      // Làm mới danh sách hạng mục phù hợp nếu đã chọn profile
+      if (profileRef.current && koiSize) {
+        await findCategory(profileRef.current.variety.id, koiSize);
+      }
+    } catch (error) {
+      console.error("Lỗi khi làm mới dữ liệu:", error);
+      Alert.alert("Lỗi", "Không thể tải dữ liệu mới. Vui lòng thử lại sau.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [showId, koiSize]); // Loại bỏ profileRef.current khỏi dependencies
+
   return (
     <ScrollView
       style={styles.scrollView}
-      contentContainerStyle={styles.scrollViewContent}>
+      contentContainerStyle={styles.scrollViewContent}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={["#5664F5"]}
+          tintColor="#5664F5"
+          title="Đang tải dữ liệu..."
+          titleColor="#5664F5"
+        />
+      }>
       <View style={styles.container}>
         {/* Banner */}
         {renderBanner()}

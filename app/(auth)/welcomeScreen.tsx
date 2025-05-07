@@ -9,6 +9,7 @@ const WelcomeScreen: React.FC = () => {
   const handleGuestLogin = async () => {
     try {
       await loginAsGuest();
+      router.replace("/(tabs)/home/homepage");
     } catch (error) {
       console.error("Error logging in as guest:", error);
     }

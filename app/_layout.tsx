@@ -20,7 +20,13 @@ import AndroidSafeAreaConfig from "../components/AndroidSafeAreaConfig";
 import { AuthProvider } from "../context/AuthContext";
 import { QueryProvider } from "../context/QueryProvider";
 import { signalRService } from "../services/signalRService";
+import { disableConsoleInProduction } from "../utils/disableConsoleInProduction";
+import { logger } from "../utils/logger";
 // import { navigationRef } from '@/utils/navigationService';
+
+// Vô hiệu hóa console.log trong môi trường production
+disableConsoleInProduction();
+
 enableScreens(true);
 SplashScreen.preventAutoHideAsync();
 
@@ -44,11 +50,11 @@ export default function RootLayout() {
       typeof signalRService.setOnToastPress === "function"
     ) {
       signalRService.setOnToastPress((notification) => {
-        console.log("User tapped on notification toast:", notification);
+        logger.info("User tapped on notification toast:", notification);
         router.push("/(user)/Notification");
       });
     } else {
-      console.error(
+      logger.error(
         "signalRService or setOnToastPress method is not available"
       );
     }
@@ -62,7 +68,7 @@ export default function RootLayout() {
           typeof signalRService.isConnected === "function" &&
           signalRService.isConnected()
         ) {
-          console.log("SignalR is already connected");
+          logger.info("SignalR is already connected");
           return;
         }
 
@@ -70,9 +76,9 @@ export default function RootLayout() {
         let token = null;
         try {
           token = await AsyncStorage.getItem("userToken");
-          console.log("Token retrieved successfully:", token ? "Yes" : "No");
+          logger.debug("Token retrieved successfully:", token ? "Yes" : "No");
         } catch (asyncStorageError) {
-          console.error("AsyncStorage error:", asyncStorageError);
+          logger.error("AsyncStorage error:", asyncStorageError);
           return; // Thoát sớm nếu không thể lấy token
         }
 
@@ -81,16 +87,16 @@ export default function RootLayout() {
           signalRService &&
           typeof signalRService.ensureConnection === "function"
         ) {
-          console.log("User is logged in, initializing SignalR connection");
+          logger.info("User is logged in, initializing SignalR connection");
           // Thiết lập kết nối SignalR
           await signalRService.ensureConnection();
         } else {
-          console.log(
+          logger.info(
             "User is not logged in or signalRService not available, skipping SignalR initialization"
           );
         }
       } catch (error) {
-        console.error("Error initializing SignalR:", error);
+        logger.error("Error initializing SignalR:", error);
       }
     };
 

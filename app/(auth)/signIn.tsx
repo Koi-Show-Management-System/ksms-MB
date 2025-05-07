@@ -39,7 +39,7 @@ interface SignInProps {
 
 const SignIn: React.FC<SignInProps> = ({
   onSignIn = () => {
-    router.push("/(tabs)/home/homepage");
+    router.replace("/(tabs)/home/homepage");
   },
   onSignUp = () => {
     router.push("/(auth)/signUp");
@@ -72,11 +72,11 @@ const SignIn: React.FC<SignInProps> = ({
     setIsLoading(true);
 
     try {
-      // Call login function from AuthContext
-      await login(validationResult.data.email, validationResult.data.password);
+      // Call login function from AuthContext, passing rememberMe
+      await login(validationResult.data.email, validationResult.data.password, rememberMe);
       console.log("Login successful");
-      // Navigate on success (interceptor handles success toast if API returns message)
-      router.push("/(tabs)/home/homepage");
+      // Sử dụng replace thay vì push để xóa màn hình đăng nhập khỏi navigation history
+      router.replace("/(tabs)/home/homepage");
     } catch (error: any) {
       // Interceptor handles API error toasts.
       console.error("Login failed in component catch:", error);
@@ -189,7 +189,7 @@ const SignIn: React.FC<SignInProps> = ({
             try {
               setIsLoading(true);
               await loginAsGuest();
-              router.push("/(tabs)/home/homepage");
+              router.replace("/(tabs)/home/homepage");
             } catch (error) {
               console.error("Guest login failed:", error);
             } finally {

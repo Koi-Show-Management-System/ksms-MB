@@ -11,7 +11,13 @@ export default function HomeLayout() {
           gestureEnabled: true,
           gestureDirection: "horizontal",
         }}>
-        <Stack.Screen name="homepage" options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="homepage" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: false 
+          }} 
+        />
         <Stack.Screen
           name="UserMenu"
           options={{
