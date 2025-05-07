@@ -2,7 +2,8 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +25,7 @@ import {
   ShowMemberDetail,
 } from "../../services/competitionService";
 import { translateStatus } from "../../utils/statusTranslator";
+import CustomRefreshControl from "../../components/common/CustomRefreshControl";
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
@@ -420,6 +422,7 @@ const ParticipateResult: React.FC = () => {
   const competitionId = params.competitionId as string;
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   // Cập nhật kiểu dữ liệu với enhancedData
   const [showDetail, setShowDetail] = useState<
     | (EnhancedShowMemberDetail & {
@@ -465,8 +468,15 @@ const ParticipateResult: React.FC = () => {
       setError(error.message || "Có lỗi xảy ra khi tải dữ liệu");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }; // Kết thúc hàm fetchShowDetail
+
+  // Xử lý pull-to-refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchShowDetail();
+  }, [competitionId]);
 
   useEffect(() => {
     fetchShowDetail(); // Gọi hàm đã định nghĩa ở trên
@@ -529,18 +539,13 @@ const ParticipateResult: React.FC = () => {
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/back-icon.png",
-              }}
-              style={styles.backIcon}
-            />
-            <Text style={styles.backText}>Quay lại</Text>
+            <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Chi tiết cuộc thi</Text>
+          <View style={styles.headerButtonPlaceholder} />
         </View>
 
-        {loading ? (
+        {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4A90E2" />
             <Text style={styles.loadingText}>Đang tải dữ liệu...</Text>
@@ -565,7 +570,15 @@ const ParticipateResult: React.FC = () => {
           <Animated.ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
-            style={{ opacity: fadeAnim }}>
+            style={{ opacity: fadeAnim }}
+            refreshControl={
+              <CustomRefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#4A90E2", "#FFA500"]}
+                tintColor="#4A90E2"
+              />
+            }>
             <CompetitionDetails showDetail={showDetail} />
 
             {showDetail.registrations.length > 0 ? (
@@ -694,7 +707,7 @@ const ParticipateResult: React.FC = () => {
       </Modal>
     </View>
   );
-}; // Sửa lỗi cú pháp: Đặt dấu chấm phẩy đúng vị trí
+};
 
 // --- Styles ---
 const styles = StyleSheet.create({
@@ -705,6 +718,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 12,
@@ -718,27 +732,18 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   backButton: {
-    flexDirection: "row",
+    padding: 8,
+    width: 40,
     alignItems: "center",
-    marginRight: 16,
   },
-  backIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 4,
-  },
-  backText: {
-    fontSize: 16,
-    color: "#4A90E2",
-    fontWeight: "500",
+  headerButtonPlaceholder: {
+    width: 40,
   },
   headerTitle: {
-    flex: 1,
     fontSize: 20,
     fontWeight: "700",
     color: "#333333",
     textAlign: "center",
-    marginRight: 40, // To center the title accounting for the back button
   },
   scrollContent: {
     paddingBottom: 30,

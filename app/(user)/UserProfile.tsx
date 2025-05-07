@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  RefreshControl,
 } from "react-native";
 import {
   validatePassword,
@@ -353,6 +354,7 @@ const UserProfile: React.FC = () => {
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchUserData();
@@ -396,6 +398,15 @@ const UserProfile: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetchUserData();
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   const handleUpdateProfile = async () => {
     setLoading(true);
@@ -752,13 +763,26 @@ const UserProfile: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ padding: 8 }}>
+          <Ionicons name="arrow-back" size={24} color="#333333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thông tin cá nhân</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Thông tin tài khoản</Text>
+        <View style={{ width: 40 }} />
       </View>
-      <ScrollView contentContainerStyle={styles.contentContainer}>
+      <ScrollView 
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#4A90E2"]}
+            tintColor="#4A90E2"
+            progressBackgroundColor="#ffffff"
+          />
+        }
+      >
         {/* Profile Information Section */}
         <View style={styles.profileInfoSection}>
           <View style={styles.profileImageContainer}>

@@ -21,8 +21,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import KoiStatusSwitch from "../../components/KoiStatusSwitch"; // Import component KoiStatusSwitch
 import {
   KoiProfile as BaseKoiProfile,
@@ -235,12 +237,25 @@ export default function KoiInformation() {
             setSelectedMedia(firstItem.mediaUrl);
             setSelectedMediaType(firstItem.mediaType);
           }
+          
+          // Thêm phản hồi rung nhẹ khi tải dữ liệu thành công trong trường hợp refresh
+          if (isRefreshing) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
         } else {
           setError(`Không thể tải thông tin cá Koi: ${response.message}`);
+          // Phản hồi rung khi có lỗi
+          if (isRefreshing) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
         }
       } catch (err) {
         console.error("Lỗi khi tải thông tin cá Koi:", err);
         setError("Đã xảy ra lỗi khi tải thông tin cá Koi");
+        // Phản hồi rung khi có lỗi
+        if (isRefreshing) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
       } finally {
         setIsLoading(false);
         if (isRefreshing) setRefreshing(false);
@@ -249,9 +264,11 @@ export default function KoiInformation() {
     [koiId]
   );
 
-  // Handle pull-to-refresh
+  // Handle pull-to-refresh with haptic feedback
   const onRefresh = useCallback(() => {
     setRefreshing(true);
+    // Tạo phản hồi rung nhẹ khi người dùng kéo để làm mới
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     fetchKoiData(true);
   }, [fetchKoiData]);
 
@@ -429,8 +446,10 @@ export default function KoiInformation() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={["#007AFF"]}
-            tintColor="#007AFF"
+            colors={["#FFA500", "#4A90E2"]} // Sử dụng màu cam làm màu chính và màu xanh làm màu thứ hai
+            tintColor="#FFA500" // Màu cam cho iOS
+            progressBackgroundColor="#ffffff" // Nền trắng cho thanh tiến trình
+            title="Đang cập nhật..." // Thêm văn bản (chỉ hiển thị trên iOS)
           />
         }>
         {/* Media Carousel sử dụng FlatList */}

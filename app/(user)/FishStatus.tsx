@@ -2,7 +2,8 @@ import { ResizeMode, Video } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   Dimensions,
@@ -23,6 +24,7 @@ import {
   ShowDetailRegistration,
 } from "../../services/competitionService";
 import { translateStatus } from "../../utils/statusTranslator"; // Import hàm dịch mới
+import CustomRefreshControl from "../../components/common/CustomRefreshControl";
 
 // Lấy kích thước màn hình
 const { width } = Dimensions.get("window");
@@ -870,6 +872,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ media }) => {
 const FishStatus: React.FC = () => {
   const params = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fishData, setFishData] = useState<ShowDetailRegistration | null>(null);
   const [totalParticipants, setTotalParticipants] = useState<
@@ -879,37 +882,47 @@ const FishStatus: React.FC = () => {
   const showId = params.showId as string;
   const registrationId = params.registrationId as string;
 
-  useEffect(() => {
-    const fetchFishData = async () => {
-      try {
+  const fetchFishData = async () => {
+    try {
+      if (!refreshing) {
         setLoading(true);
-        if (!showId) throw new Error("Không tìm thấy ID cuộc thi");
-
-        const data = await getShowMemberDetail(showId);
-        const registration = data.registrations.find(
-          (reg) => reg.registrationId === registrationId
-        );
-
-        if (!registration)
-          throw new Error("Không tìm thấy thông tin đăng ký của cá Koi này");
-
-        setFishData(registration);
-        const categoryRegistrations = data.registrations.filter(
-          (r) => r.categoryId === registration.categoryId
-        );
-        setTotalParticipants(categoryRegistrations.length);
-        setError(null);
-      } catch (err: any) {
-        console.error("Lỗi khi lấy thông tin chi tiết cá:", err);
-        setError(err.message || "Có lỗi xảy ra khi tải dữ liệu");
-      } finally {
-        setLoading(false);
       }
-    };
+      if (!showId) throw new Error("Không tìm thấy ID cuộc thi");
+
+      const data = await getShowMemberDetail(showId);
+      const registration = data.registrations.find(
+        (reg) => reg.registrationId === registrationId
+      );
+
+      if (!registration)
+        throw new Error("Không tìm thấy thông tin đăng ký của cá Koi này");
+
+      setFishData(registration);
+      const categoryRegistrations = data.registrations.filter(
+        (r) => r.categoryId === registration.categoryId
+      );
+      setTotalParticipants(categoryRegistrations.length);
+      setError(null);
+    } catch (err: any) {
+      console.error("Lỗi khi lấy thông tin chi tiết cá:", err);
+      setError(err.message || "Có lỗi xảy ra khi tải dữ liệu");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Xử lý pull-to-refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
     fetchFishData();
   }, [showId, registrationId]);
 
-  if (loading) {
+  useEffect(() => {
+    fetchFishData();
+  }, [showId, registrationId]);
+
+  if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="dark" />
@@ -918,12 +931,7 @@ const FishStatus: React.FC = () => {
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => router.back()}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/back-icon.png",
-              }}
-              style={[styles.headerIcon, { tintColor: "#333" }]}
-            />
+            <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text style={styles.simpleHeaderTitle}>Chi tiết cá Koi</Text>
           <View style={styles.headerButton} />
@@ -945,12 +953,7 @@ const FishStatus: React.FC = () => {
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => router.back()}>
-            <Image
-              source={{
-                uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/back-icon.png",
-              }}
-              style={[styles.headerIcon, { tintColor: "#333" }]}
-            />
+            <Ionicons name="arrow-back" size={24} color="#333" />
           </TouchableOpacity>
           <Text style={styles.simpleHeaderTitle}>Chi tiết cá Koi</Text>
           <View style={styles.headerButton} />
@@ -981,29 +984,28 @@ const FishStatus: React.FC = () => {
     "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/default-koi-image.png";
 
   return (
-    // Bỏ View ngoài cùng không cần thiết
     <SafeAreaView style={styles.safeArea}>
-      {/* Đặt StatusBar ở đây */}
       <StatusBar style="dark" />
-      {/* Header chuẩn, không absolute */}
       <View style={styles.simpleHeader}>
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => router.back()}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z79c2XnogYAtZdZn/back-icon.png",
-            }}
-            style={[styles.headerIcon, { tintColor: "#333" }]}
-          />
+          <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
         <Text style={styles.simpleHeaderTitle}>Chi tiết cá Koi</Text>
         <View style={styles.headerButton} />
       </View>
       <ScrollView
         contentContainerStyle={styles.scrollViewContent}
-        showsVerticalScrollIndicator={false}>
-        {/* Nội dung cuộn bắt đầu từ đây */}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <CustomRefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={["#4A90E2", "#FFA500"]}
+            tintColor="#4A90E2"
+          />
+        }>
         <FishProfileHeader
           fishName={fishData.koiName || "Cá Koi"}
           fishImage={fishImage}
@@ -1059,8 +1061,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F8F9FA",
   },
-  // Bỏ style container không cần thiết
-  // container: { ... },
   simpleHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1070,7 +1070,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#EEEEEE",
     backgroundColor: "#FFFFFF",
-    // Không cần paddingTop vì SafeAreaView đã xử lý
   },
   simpleHeaderTitle: {
     fontSize: 18,
@@ -1086,13 +1085,9 @@ const styles = StyleSheet.create({
   headerIcon: {
     width: 24,
     height: 24,
-    // tintColor sẽ được override khi cần
   },
-  // Bỏ các style của customHeader
-  /* customHeader: { ... },
-     customHeaderTitle: { ... }, */
   scrollViewContent: {
-    paddingBottom: 30, // Giữ lại padding bottom nếu cần khoảng trống ở cuối
+    paddingBottom: 30,
   },
   headerContainer: {
     width: "100%",
@@ -1136,7 +1131,7 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
-    marginTop: -20, // Đã sửa giá trị này
+    marginTop: -20,
     borderRadius: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -1641,8 +1636,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   videoThumbContainer: { marginRight: 12, alignItems: "center", width: 80 },
-  videoThumbActive: { opacity: 1 /* Có thể thêm style khác nếu muốn */ },
-  videoThumbActiveBorder: { borderColor: "#4A90E2" }, // Style viền khi active
+  videoThumbActive: { opacity: 1 },
+  videoThumbActiveBorder: { borderColor: "#4A90E2" },
   videoThumb: {
     width: 70,
     height: 70,
@@ -1743,7 +1738,7 @@ const styles = StyleSheet.create({
   imageThumbActive: {
     /* Có thể thêm style khác nếu muốn */
   },
-  imageThumbActiveBorder: { borderColor: "#4A90E2" }, // Style viền khi active
+  imageThumbActiveBorder: { borderColor: "#4A90E2" },
   imageThumb: {
     width: 70,
     height: 70,
@@ -1754,7 +1749,6 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   imageThumbImage: {
-    // Thêm style cho ảnh thumbnail image
     width: "100%",
     height: "100%",
   },

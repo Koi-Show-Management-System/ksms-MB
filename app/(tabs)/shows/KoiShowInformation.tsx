@@ -16,6 +16,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -36,6 +37,7 @@ import KoiShowVoting from "./KoiShowVoting";
 
 import { KoiShowProvider, useKoiShow } from "../../../context/KoiShowContext";
 import {
+  CategoryCriteria,
   CompetitionCategoryDetail,
   getCompetitionCategoryDetail,
 } from "../../../services/competitionService";
@@ -144,7 +146,7 @@ const KoiShowInformation = () => {
   );
 };
 
-// Memoized CategoryItem - Updated to accept detailedCategory
+// Memoized CategoryItem - Updated to add the criteria button and modal
 const CategoryItem = memo(
   ({
     item,
@@ -154,84 +156,296 @@ const CategoryItem = memo(
     item: CompetitionCategory;
     detailedCategory?: CompetitionCategoryDetail;
     isLoadingDetails: boolean;
-  }) => (
-    <View style={styles.categoryCard}>
-      <View style={styles.categoryHeader}>
-        <Text style={styles.categoryName}>{item.name}</Text>
-        {item.status === "cancelled" && (
-          <View style={styles.cancelledStatusBadge}>
-            <Text style={styles.cancelledStatusText}>Bị huỷ</Text>
+  }) => {
+    const [modalVisible, setModalVisible] = useState(false);
+    
+    // Group criteria by round type
+    const criteriaByRound: Record<string, CategoryCriteria[]> = {};
+    
+    // Process criteria and organize by round if available
+    if (detailedCategory?.criteriaCompetitionCategories) {
+      detailedCategory.criteriaCompetitionCategories.forEach(criteria => {
+        if (!criteriaByRound[criteria.roundType]) {
+          criteriaByRound[criteria.roundType] = [];
+        }
+        criteriaByRound[criteria.roundType].push(criteria);
+      });
+    }
+    
+    // Thêm vòng sơ khảo mặc định nếu không có
+    if (!criteriaByRound["Preliminary"]) {
+      criteriaByRound["Preliminary"] = [];
+    }
+    
+    // Sắp xếp các vòng theo thứ tự (sơ khảo -> đánh giá chính -> chung kết)
+    const sortedRounds = Object.keys(criteriaByRound).sort((a, b) => {
+      const roundOrder: Record<string, number> = {
+        "Preliminary": 1,
+        "Evaluation": 2,
+        "SemiFinal": 2, // Cả hai đều là vòng đánh giá chính
+        "Final": 3
+      };
+      return (roundOrder[a] || 99) - (roundOrder[b] || 99);
+    });
+    
+    // Calculate total weight for each round
+    const roundTotals: Record<string, number> = {};
+    Object.entries(criteriaByRound).forEach(([roundType, criteria]) => {
+      roundTotals[roundType] = criteria.reduce((sum, item) => sum + item.weight, 0);
+    });
+    
+    // Sort criteria by weight in each round (from high to low)
+    Object.keys(criteriaByRound).forEach(roundType => {
+      criteriaByRound[roundType].sort((a, b) => b.weight - a.weight);
+    });
+    
+    // Get color for round type
+    const getRoundColor = (roundType: string): string => {
+      switch (roundType) {
+        case "Preliminary":
+          return "#FF9800"; // Cam nhạt - Vòng sơ khảo
+        case "Evaluation":
+        case "SemiFinal":
+          return "#00BCD4"; // Xanh nước - Vòng đánh giá chính/bán kết
+        case "Final":
+          return "#4CAF50"; // Xanh lá - Vòng chung kết
+        default:
+          return "#4CAF50"; // Xanh lá - Mặc định
+      }
+    };
+    
+    // Chuẩn hóa tên hiển thị vòng
+    const getRoundDisplayName = (roundType: string): string => {
+      switch (roundType) {
+        case "Preliminary":
+          return "Vòng sơ khảo";
+        case "Evaluation":
+        case "SemiFinal":
+          return "Vòng đánh giá chính";
+        case "Final":
+          return "Vòng chung kết";
+        default:
+          return roundType;
+      }
+    };
+
+    const renderCriteriaModal = () => (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Tiêu chí chấm điểm</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <MaterialIcons name="close" size={24} color="#000000" />
+              </TouchableOpacity>
+            </View>
+            
+            {Object.keys(criteriaByRound).length > 0 ? (
+              <ScrollView style={styles.modalContent}>
+                {sortedRounds.map((roundType, roundIndex) => (
+                  <View key={roundIndex} style={styles.roundSection}>
+                    <View style={[
+                      styles.roundHeader, 
+                      { backgroundColor: `${getRoundColor(roundType)}20` }
+                    ]}>
+                      <View style={[
+                        styles.roundDot, 
+                        { backgroundColor: getRoundColor(roundType) }
+                      ]} />
+                      <Text style={[
+                        styles.roundTitle,
+                        { color: getRoundColor(roundType) }
+                      ]}>
+                        {getRoundDisplayName(roundType)}
+                      </Text>
+                    </View>
+                    
+                    {roundType === "Preliminary" ? (
+                      // Hiển thị thông tin cố định cho vòng sơ khảo
+                      <View style={styles.fixedInfoContainer}>
+                        <View style={styles.fixedInfoContent}>
+                          <Text style={styles.fixedInfoText}>
+                            <Text style={styles.fixedInfoTitle}>Vòng Sơ Khảo </Text>
+                            chỉ áp dụng hình thức chấm đạt/không đạt (Pass/Fail). Trong tài sẽ đánh giá các cá thể có đủ điều kiện tham gia vòng tiếp theo hay không.
+                          </Text>
+                        </View>                        
+                      </View>
+                    ) : (
+                      // Hiển thị bảng tiêu chí cho các vòng khác
+                      <View style={styles.criteriaTable}>
+                        <View style={styles.tableHeader}>
+                          <Text style={styles.tableHeaderText}>Tiêu chí</Text>
+                          <Text style={[styles.tableHeaderText, styles.weightColumn]}>Trọng số</Text>
+                        </View>
+                        
+                        {criteriaByRound[roundType].map((criterion, critIndex) => (
+                          <View 
+                            key={critIndex} 
+                            style={[
+                              styles.criterionRow,
+                              critIndex % 2 === 0 ? styles.evenRow : styles.oddRow,
+                              critIndex === criteriaByRound[roundType].length - 1 && styles.lastRow,
+                            ]}
+                          >
+                            <View style={styles.criterionInfo}>
+                              <Text style={styles.criterionName}>{criterion.criteria.name}</Text>
+                              {criterion.criteria.description && (
+                                <Text style={styles.criterionDescription}>{criterion.criteria.description}</Text>
+                              )}
+                            </View>
+                            <View style={styles.criterionWeight}>
+                              <Text style={styles.weightValue}>
+                                {roundTotals[roundType] > 0 
+                                  ? `${Math.round((criterion.weight / roundTotals[roundType]) * 100)}%` 
+                                  : "0%"}
+                              </Text>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.emptyModalContent}>
+                <MaterialIcons name="info-outline" size={48} color="#d1d5db" />
+                <Text style={styles.emptyStateText}>
+                  Chưa có tiêu chí chấm điểm nào được thiết lập
+                </Text>
+              </View>
+            )}
+            
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Đóng</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
+        </View>
+      </Modal>
+    );
+    
+    return (
+      <View style={styles.categoryCard}>
+        <View style={styles.categoryHeader}>
+          <Text style={styles.categoryName}>{item.name}</Text>
+          {item.status === "cancelled" && (
+            <View style={styles.cancelledStatusBadge}>
+              <Text style={styles.cancelledStatusText}>Bị huỷ</Text>
+            </View>
+          )}
+        </View>
 
-      <View style={styles.categoryFeeContainer}>
-        <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
-        <Text style={styles.categoryFee}>
-          {item.registrationFee.toLocaleString("vi-VN")} đ
-        </Text>
-      </View>
-
-      <View style={styles.categoryDetailsContainer}>
-        <View style={styles.categoryDetailItem}>
-          <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
-          <Text style={styles.categoryDetailValue}>
-            {item.sizeMin} - {item.sizeMax} cm
+        <View style={styles.categoryFeeContainer}>
+          <Text style={styles.categoryFeeLabel}>Phí đăng ký:</Text>
+          <Text style={styles.categoryFee}>
+            {item.registrationFee.toLocaleString("vi-VN")} đ
           </Text>
         </View>
 
-        <View style={styles.categoryDetailItem}>
-          <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
-          <Text style={styles.categoryDetailValue}>{item.maxEntries} Koi</Text>
-        </View>
-      </View>
+        <View style={styles.categoryDetailsContainer}>
+          <View style={styles.categoryDetailItem}>
+            <Text style={styles.categoryDetailLabel}>Kích thước:</Text>
+            <Text style={styles.categoryDetailValue}>
+              {item.sizeMin} - {item.sizeMax} cm
+            </Text>
+          </View>
 
-      {item.description && (
-        <Text style={styles.categoryDescription}>{item.description}</Text>
-      )}
-
-      {item.varieties && item.varieties.length > 0 && (
-        <View style={styles.varietiesContainer}>
-          <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
-          <View style={styles.varietiesList}>
-            {item.varieties.map((variety, index) => (
-              <View key={index} style={styles.varietyTag}>
-                <Text style={styles.varietyTagText}>{variety}</Text>
-              </View>
-            ))}
+          <View style={styles.categoryDetailItem}>
+            <Text style={styles.categoryDetailLabel}>Số lượng tối đa:</Text>
+            <Text style={styles.categoryDetailValue}>{item.maxEntries} Koi</Text>
           </View>
         </View>
-      )}
 
-      {/* Awards Section */}
-      {isLoadingDetails ? (
-        <ActivityIndicator
-          size="small"
-          color="#666"
-          style={styles.awardsLoading}
-        />
-      ) : detailedCategory?.awards && detailedCategory.awards.length > 0 ? (
-        <View style={styles.awardsContainer}>
-          <Text style={styles.awardsTitle}>Giải thưởng</Text>
-          {detailedCategory.awards.map((award) => (
-            <View key={award.id} style={styles.awardItem}>
-              <FontAwesome name="trophy" size={16} color="#FFD700" />
-              <View style={styles.awardDetails}>
-                <Text style={styles.awardName}>{award.name}</Text>
-                <Text style={styles.awardPrize}>
-                  {award.prizeValue.toLocaleString("vi-VN")} VNĐ
-                </Text>
-              </View>
+        {item.description && (
+          <Text style={styles.categoryDescription}>{item.description}</Text>
+        )}
+
+        {/* Thêm nút Tiêu chí chấm điểm */}
+        <TouchableOpacity 
+          style={[
+            styles.criteriaButton,
+            (isLoadingDetails || (!detailedCategory && !criteriaByRound["Preliminary"])) && styles.criteriaButtonDisabled
+          ]}
+          onPress={() => setModalVisible(true)}
+          disabled={isLoadingDetails || (!detailedCategory && !criteriaByRound["Preliminary"])}
+        >
+          <MaterialIcons name="assessment" size={16} color="#FFFFFF" />
+          <Text style={styles.criteriaButtonText}>Tiêu chí chấm điểm</Text>
+        </TouchableOpacity>
+
+        {item.varieties && item.varieties.length > 0 && (
+          <View style={styles.varietiesContainer}>
+            <Text style={styles.varietiesTitle}>Giống Koi được phép:</Text>
+            <View style={styles.varietiesList}>
+              {item.varieties.map((variety, index) => (
+                <View key={index} style={styles.varietyTag}>
+                  <Text style={styles.varietyTagText}>{variety}</Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
-      ) : (
-        !isLoadingDetails && (
-          <Text style={styles.noAwardsText}>Chưa có thông tin giải thưởng</Text>
-        )
-      )}
-    </View>
-  )
+          </View>
+        )}
+
+        {/* Awards Section */}
+        {isLoadingDetails ? (
+          <ActivityIndicator
+            size="small"
+            color="#666"
+            style={styles.awardsLoading}
+          />
+        ) : detailedCategory?.awards && detailedCategory.awards.length > 0 ? (
+          <View style={styles.awardsContainer}>
+            <Text style={styles.awardsTitle}>Giải thưởng</Text>
+            {[...detailedCategory.awards]
+              .sort((a, b) => {
+                // Định nghĩa thứ tự ưu tiên cho các loại giải
+                const awardOrder = {
+                  first: 1, // Giải nhất
+                  second: 2, // Giải nhì
+                  third: 3, // Giải ba
+                  honorable: 4, // Giải khuyến khích
+                };
+
+                // Lấy thứ tự ưu tiên của mỗi giải, nếu không có trong danh sách thì đặt ở cuối
+                const orderA =
+                  awardOrder[a.awardType as keyof typeof awardOrder] || 999;
+                const orderB =
+                  awardOrder[b.awardType as keyof typeof awardOrder] || 999;
+
+                // Sắp xếp tăng dần theo thứ tự ưu tiên
+                return orderA - orderB;
+              })
+              .map((award) => (
+                <View key={award.id} style={styles.awardItem}>
+                  <FontAwesome name="trophy" size={16} color="#FFD700" />
+                  <View style={styles.awardDetails}>
+                    <Text style={styles.awardName}>{award.name}</Text>
+                    <Text style={styles.awardPrize}>
+                      {award.prizeValue.toLocaleString("vi-VN")} VNĐ
+                    </Text>
+                  </View>
+                </View>
+              ))}
+          </View>
+        ) : (
+          !isLoadingDetails && (
+            <Text style={styles.noAwardsText}>Chưa có thông tin giải thưởng</Text>
+          )
+        )}
+        
+        {/* Hiển thị modal tiêu chí chấm điểm */}
+        {renderCriteriaModal()}
+      </View>
+    );
+  }
 );
 
 // Info Tab Content Component
@@ -2404,6 +2618,230 @@ const styles = StyleSheet.create({
   skeletonButton: {
     backgroundColor: "#e0e0e0",
     height: 48,
+  },
+  criteriaButton: {
+    backgroundColor: "#FFD54F", // Vàng nhạt
+    borderRadius: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    marginBottom: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  criteriaButtonDisabled: {
+    backgroundColor: "#FFE082", // Vàng nhạt hơn
+    opacity: 0.7,
+  },
+  criteriaButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    marginLeft: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalContainer: {
+    backgroundColor: "#FFFFFF",
+    padding: 20,
+    borderRadius: 10,
+    width: "90%",
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 15,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000000",
+  },
+  modalContent: {
+    width: "100%",
+    marginBottom: 20,
+    maxHeight: "70%",
+  },
+  roundSection: {
+    marginBottom: 16,
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+  },
+  roundHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+  },
+  roundDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  roundTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  criteriaTable: {
+    width: "100%",
+  },
+  tableHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#f9f9f9",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eeeeee",
+  },
+  tableHeaderText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#666666",
+  },
+  weightColumn: {
+    width: 80,
+    textAlign: "right",
+  },
+  criterionRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  evenRow: {
+    backgroundColor: "#ffffff",
+  },
+  oddRow: {
+    backgroundColor: "#f9f9f9",
+  },
+  lastRow: {
+    borderBottomWidth: 0,
+  },
+  criterionInfo: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  criterionName: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#000000",
+  },
+  criterionDescription: {
+    fontSize: 12,
+    color: "#666666",
+    marginTop: 2,
+  },
+  criterionWeight: {
+    width: 80,
+    alignItems: "flex-end",
+  },
+  weightValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#000000",
+  },
+  weightPercent: {
+    fontSize: 12,
+    color: "#666666",
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#f5f5f5",
+    borderTopWidth: 1,
+    borderTopColor: "#eeeeee",
+  },
+  totalLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#000000",
+  },
+  totalValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#000000",
+  },
+  closeButton: {
+    backgroundColor: "#FFD54F", // Vàng nhạt (cùng màu với nút Tiêu chí chấm điểm)
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignSelf: "center",
+    width: "50%",
+  },
+  closeButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  emptyModalContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    height: 200,
+  },
+  fixedInfoContainer: {
+    padding: 16,
+    backgroundColor: "#ffffff",
+  },
+  fixedInfoContent: {
+    marginBottom: 24,
+    backgroundColor: "#FFF3E0", // Màu nền cam nhạt phù hợp với màu vòng sơ khảo
+    padding: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: "#FF9800", // Màu cam cho viền bên trái
+  },
+  fixedInfoText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#333333",
+  },
+  fixedInfoTitle: {
+    fontWeight: "700",
+    color: "#F57C00", // Màu cam đậm hơn cho tiêu đề
+    fontSize: 15,
+  },
+  noCriteriaContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 24,
+  },
+  noCriteriaIconContainer: {
+    marginBottom: 12,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 50,
+    width: 64,
+    height: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noCriteriaText: {
+    fontSize: 14,
+    color: "#666666",
+    marginTop: 8,
   },
 });
 

@@ -1,4 +1,3 @@
-// KoiList.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { ResizeMode, Video } from "expo-av";
 import { BlurView } from "expo-blur";
@@ -152,9 +151,9 @@ const KoiList: React.FC = () => {
     const genderText = item.gender;
 
     return (
-      <View style={styles.koiCardShadow}>
+      <View style={styles.koiCardContainer}>
         <TouchableOpacity
-          style={styles.koiCard}
+          style={styles.koiCardModern}
           onPress={() => {
             console.log(`Navigating to KoiInformation with ID: ${item.id}`);
             router.push({
@@ -162,47 +161,59 @@ const KoiList: React.FC = () => {
               params: { id: item.id },
             });
           }}>
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.koiImageEnhanced}
-            resizeMode="cover"
-          />
-          <View style={styles.koiInfoEnhanced}>
-            <Text style={styles.koiNameEnhanced} numberOfLines={1}>
-              {item.name}
-            </Text>
-
-            <View style={styles.koiDetailRow}>
-              <Text style={styles.koiDetailLabel}>Tuổi:</Text>
-              <Text style={styles.koiDetailValue}>{ageText}</Text>
+          <View style={styles.koiCardContent}>
+            {/* Cột 1: Ảnh */}
+            <View style={styles.koiImageColumn}>
+              <Image
+                source={{ uri: imageUrl }}
+                style={styles.koiImage}
+                resizeMode="cover"
+              />
             </View>
-
-            <View style={styles.koiDetailRow}>
-              <Text style={styles.koiDetailLabel}>Giống:</Text>
-              <Text style={styles.koiDetailValue} numberOfLines={1}>
-                {varietyText}
+            
+            {/* Cột 2: Thông tin */}
+            <View style={styles.koiInfoColumn}>
+              <Text style={styles.koiNameHorizontal} numberOfLines={1}>
+                {item.name}
               </Text>
-            </View>
-
-            <View style={styles.koiDetailRow}>
-              <Text style={styles.koiDetailLabel}>Kích thước:</Text>
-              <Text style={styles.koiDetailValue}>{sizeText}</Text>
-            </View>
-
-            <View style={styles.koiDetailRow}>
-              <Text style={styles.koiDetailLabel}>Dòng máu:</Text>
-              <Text style={styles.koiDetailValue} numberOfLines={1}>
-                {bloodlineText}
-              </Text>
-            </View>
-
-            <View style={styles.koiTags}>
-              <View
-                style={[
-                  styles.koiTag,
-                  genderText === "Đực" ? styles.maleTag : styles.femaleTag,
+              
+              <View style={styles.koiInfoHeader}>
+                <View style={[
+                  styles.koiTagModern,
+                  genderText === "Đực" ? styles.maleTagModern : styles.femaleTagModern,
                 ]}>
-                <Text style={styles.koiTagText}>{genderText}</Text>
+                  <Text style={styles.koiTagTextModern}>{genderText}</Text>
+                </View>
+                
+                <View style={styles.koiSizeTag}>
+                  <Text style={styles.koiSizeText}>{sizeText}</Text>
+                </View>
+              </View>
+              
+              <View style={styles.koiDetailsContainer}>
+                <View style={styles.koiDetailItemModern}>
+                  <Text style={styles.koiDetailLabelModern}>Tuổi</Text>
+                  <Text style={styles.koiDetailValueModern}>{ageText}</Text>
+                </View>
+                
+                <View style={styles.koiDetailItemModern}>
+                  <Text style={styles.koiDetailLabelModern}>Giống</Text>
+                  <Text style={styles.koiDetailValueModern} numberOfLines={1}>
+                    {varietyText}
+                  </Text>
+                </View>
+                
+                <View style={styles.koiDetailItemModern}>
+                  <Text style={styles.koiDetailLabelModern}>Dòng máu</Text>
+                  <Text style={styles.koiDetailValueModern} numberOfLines={1}>
+                    {bloodlineText}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.viewDetailsButton}>
+                <Text style={styles.viewDetailsText}>Xem chi tiết</Text>
+                <Ionicons name="chevron-forward" size={16} color="#5664F5" />
               </View>
             </View>
           </View>
@@ -226,7 +237,7 @@ const KoiList: React.FC = () => {
 
         console.log("Đang fetch Koi profiles với tham số:", {
           page: currentPage,
-          size: 10,
+          size: 10000,
           name: searchName || undefined,
           varietyIds:
             selectedVarietyIds.length > 0 ? selectedVarietyIds : undefined,
@@ -236,7 +247,7 @@ const KoiList: React.FC = () => {
 
         const response = await getKoiProfiles({
           page: currentPage,
-          size: 10,
+          size: 10000,
           name: searchName || undefined,
           varietyIds:
             selectedVarietyIds.length > 0 ? selectedVarietyIds : undefined,
@@ -247,11 +258,23 @@ const KoiList: React.FC = () => {
         if (response.statusCode === 200) {
           console.log(`Nhận được ${response.data.items.length} cá Koi từ API`);
           const newKoiList = response.data.items;
+          
+          // Lọc bỏ các ID trùng lặp trước khi cập nhật state
           if (refresh || currentPage === 1) {
-            setKoiList(newKoiList);
+            // Đảm bảo không có ID trùng lặp trong danh sách mới
+            const uniqueKoiList = Array.from(new Map(newKoiList.map(item => [item.id, item])).values());
+            console.log(`Sau khi lọc còn ${uniqueKoiList.length} cá Koi duy nhất`);
+            setKoiList(uniqueKoiList);
           } else {
-            setKoiList((prev) => [...prev, ...newKoiList]);
+            // Kết hợp danh sách cũ và mới, loại bỏ trùng lặp
+            setKoiList((prev) => {
+              const combinedList = [...prev, ...newKoiList];
+              const uniqueCombinedList = Array.from(new Map(combinedList.map(item => [item.id, item])).values());
+              console.log(`Sau khi kết hợp và lọc còn ${uniqueCombinedList.length} cá Koi duy nhất`);
+              return uniqueCombinedList;
+            });
           }
+          
           setTotalPages(response.data.totalPages);
           setError(null);
         } else {
@@ -935,7 +958,7 @@ const KoiList: React.FC = () => {
                   <FlatList
                     data={koiList}
                     renderItem={renderKoiCard}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item, index) => `${item.id}_${index}`}
                     contentContainerStyle={styles.koiListContainer}
                     refreshControl={
                       <RefreshControl
@@ -1361,7 +1384,7 @@ const KoiList: React.FC = () => {
                   <FlatList
                     data={varieties}
                     renderItem={renderVarietyItem}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={(item, index) => `${item.id}_${index}`}
                     contentContainerStyle={styles.varietyListEnhanced}
                     showsVerticalScrollIndicator={true}
                   />
@@ -1603,134 +1626,117 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  koiCardShadow: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
+  koiCardContainer: {
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    overflow: "hidden",
-  },
-  koiCard: {
-    flexDirection: "row",
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  koiImageEnhanced: {
-    width: 120,
-    height: 150,
-    backgroundColor: "#F0F2FF",
-  },
-  koiInfoEnhanced: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    justifyContent: "center",
-    flex: 1,
-  },
-  koiNameEnhanced: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1A2138",
-    marginBottom: 8,
-  },
-  koiDetailRow: {
-    flexDirection: "row",
-    marginBottom: 6,
-  },
-  koiDetailLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#8190A5",
-    width: 85,
-  },
-  koiDetailValue: {
-    fontSize: 14,
-    color: "#1A2138",
-    flex: 1,
-  },
-  koiTags: {
-    flexDirection: "row",
-    marginTop: 8,
-    gap: 8,
-  },
-  koiTag: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-  },
-  koiTagText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  maleTag: {
-    backgroundColor: "#22A1F0",
-  },
-  femaleTag: {
-    backgroundColor: "#FFA500",
-  },
-  loadingMore: {
-    padding: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-  },
-  loadingMoreText: {
-    fontSize: 14,
-    color: "#8190A5",
-    marginLeft: 8,
-  },
-  footerContainer: {
-    height: 70,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
-  },
-  footerBlur: {
-    flex: 1,
-  },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-  },
-  footerItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  footerIcon: {
-    width: 28,
-    height: 28,
-  },
-  footerText: {
-    fontFamily: "Lexend Deca",
-    fontSize: 14,
-    color: "#030303",
-  },
-  footerCameraButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  footerCameraCircle: {
-    width: 32,
-    height: 32,
     borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
-    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  footerCameraIcon: {
-    width: 20,
-    height: 20,
+  koiCardModern: {
+    flexDirection: 'column',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E0E3F5',
+  },
+  koiCardContent: {
+    flexDirection: 'row',
+    height: 200,
+  },
+  koiImageColumn: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: '#F0F2FF',
+  },
+  koiInfoColumn: {
+    flex: 2,
+    padding: 16,
+  },
+  koiImage: {
+    width: '100%',
+    height: '100%',
+  },
+  koiNameHorizontal: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A2138',
+    marginBottom: 10,
+  },
+  koiInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  koiDetailsContainer: {
+    borderRadius: 8,
+    backgroundColor: '#F8F9FF',
+    padding: 10,
+    marginBottom: 12,
+  },
+  koiTagModern: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  maleTagModern: {
+    backgroundColor: 'rgba(34, 161, 240, 0.15)',
+  },
+  femaleTagModern: {
+    backgroundColor: 'rgba(255, 165, 0, 0.15)',
+  },
+  koiTagTextModern: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1A2138',
+  },
+  koiSizeTag: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    backgroundColor: '#F0F2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  koiSizeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5664F5',
+  },
+  koiDetailItemModern: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  koiDetailLabelModern: {
+    fontSize: 14,
+    color: '#8190A5',
+    fontWeight: '500',
+  },
+  koiDetailValueModern: {
+    fontSize: 14,
+    color: '#1A2138',
+    fontWeight: '600',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  viewDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  viewDetailsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5664F5',
+    marginRight: 4,
   },
   formContainerEnhanced: {
     padding: 16,
@@ -2183,6 +2189,17 @@ const styles = StyleSheet.create({
   requiredField: {
     color: "#e53e3e",
     fontWeight: "700",
+  },
+  loadingMore: {
+    padding: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    color: "#8190A5",
+    marginLeft: 8,
   },
 });
 

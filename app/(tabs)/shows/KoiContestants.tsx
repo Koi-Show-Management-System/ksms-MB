@@ -38,7 +38,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
   ]);
   const [roundTypeLabels] = useState<Record<string, string>>({
     Preliminary: "Sơ khảo",
-    Evaluation: "Đánh giá",
+    Evaluation: "Đánh giá chính",
     Final: "Chung kết",
   });
   const [selectedRoundType, setSelectedRoundType] = useState<string | null>(
@@ -302,44 +302,117 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
         setSelectedRound(null);
         setContestants([]);
 
-        // Gọi API để lấy danh sách vòng đấu phụ
-        if (selectedCategory) {
+        // Xử lý đặc biệt cho Sơ khảo và Chung kết - tải trực tiếp thí sinh mà không chọn vòng
+        if (item === "Preliminary" || item === "Final") {
+          console.log(
+            `[DEBUG] Direct contestant loading for ${roundTypeLabels[item]}`
+          );
+          
+          // Gọi API để lấy danh sách vòng đấu phụ trước
+          if (selectedCategory) {
+            getRounds(selectedCategory, item)
+              .then((response: any) => {
+                console.log(
+                  `[DEBUG] API response status: ${response.statusCode || 200}`
+                );
+
+                // Xử lý dữ liệu từ API
+                if (response?.data?.items && response.data.items.length > 0) {
+                  setRounds(response.data.items);
+                  setError(null);
+                  console.log(
+                    `[DEBUG] Found ${response.data.items.length} rounds for ${roundTypeLabels[item]}`
+                  );
+                  
+                  // Lấy vòng đầu tiên và tải thí sinh
+                  const firstRound = response.data.items[0];
+                  setSelectedRound(firstRound.id);
+                  
+                  // Tải danh sách thí sinh của vòng đầu tiên
+                  return getContestants(firstRound.id);
+                } else {
+                  setRounds([]);
+                  setError(`Không tìm thấy vòng đấu ${roundTypeLabels[item]}`);
+                  console.log(
+                    `[DEBUG] No rounds found for ${roundTypeLabels[item]}`
+                  );
+                  throw new Error("No rounds found");
+                }
+              })
+              .then((response: any) => {
+                if (response?.data?.items) {
+                  console.log(
+                    `[DEBUG] Found ${response.data.items.length} contestants`
+                  );
+                  setContestants(response.data.items);
+                  setError(null);
+
+                  if (response.data.items.length === 0) {
+                    setError("Chưa có thí sinh nào trong vòng đấu này");
+                  }
+                } else {
+                  console.log(`[DEBUG] No contestants found`);
+                  setContestants([]);
+                  setError("Không thể tải danh sách thí sinh");
+                }
+              })
+              .catch((error: any) => {
+                console.error(`[DEBUG] API error:`, error);
+                setContestants([]);
+                setError(
+                  `Đã xảy ra lỗi khi tải dữ liệu cho ${roundTypeLabels[item]}`
+                );
+              })
+              .finally(() => {
+                setLoading(false);
+              });
+          } else {
+            setError("Vui lòng chọn hạng mục thi đấu");
+            setLoading(false);
+          }
+        } else {
+          // Giữ nguyên logic hiện tại cho vòng Đánh giá
           console.log(
             `[DEBUG] Calling API for rounds with categoryId=${selectedCategory}, roundType=${item}`
           );
 
           // Gọi API để lấy danh sách vòng đấu phụ
-          getRounds(selectedCategory, item)
-            .then((response: any) => {
-              console.log(
-                `[DEBUG] API response status: ${response.statusCode || 200}`
-              );
+          if (selectedCategory) {
+            getRounds(selectedCategory, item)
+              .then((response: any) => {
+                console.log(
+                  `[DEBUG] API response status: ${response.statusCode || 200}`
+                );
 
-              // Xử lý dữ liệu từ API
-              if (response?.data?.items && response.data.items.length > 0) {
-                setRounds(response.data.items);
-                setError(null);
-                console.log(
-                  `[DEBUG] Found ${response.data.items.length} rounds for ${roundTypeLabels[item]}`
-                );
-              } else {
+                // Xử lý dữ liệu từ API
+                if (response?.data?.items && response.data.items.length > 0) {
+                  setRounds(response.data.items);
+                  setError(null);
+                  console.log(
+                    `[DEBUG] Found ${response.data.items.length} rounds for ${roundTypeLabels[item]}`
+                  );
+                } else {
+                  setRounds([]);
+                  setError(`Không tìm thấy vòng đấu ${roundTypeLabels[item]}`);
+                  console.log(
+                    `[DEBUG] No rounds found for ${roundTypeLabels[item]}`
+                  );
+                }
+              })
+              .catch((error: any) => {
+                console.error(`[DEBUG] API error:`, error);
                 setRounds([]);
-                setError(`Không tìm thấy vòng đấu ${roundTypeLabels[item]}`);
-                console.log(
-                  `[DEBUG] No rounds found for ${roundTypeLabels[item]}`
+                setError(
+                  `Đã xảy ra lỗi khi tải vòng đấu ${roundTypeLabels[item]}`
                 );
-              }
-            })
-            .catch((error: any) => {
-              console.error(`[DEBUG] API error:`, error);
-              setRounds([]);
-              setError(
-                `Đã xảy ra lỗi khi tải vòng đấu ${roundTypeLabels[item]}`
-              );
-            })
-            .finally(() => {
-              setLoading(false);
-            });
+              })
+              .finally(() => {
+                setLoading(false);
+              });
+          } else {
+            setError("Vui lòng chọn hạng mục thi đấu");
+            setLoading(false);
+          }
         }
       }}>
       <Text
@@ -643,7 +716,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
         {/* Danh sách loại vòng đấu */}
         {selectedCategory && (
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>Vòng đấu</Text>
+            <Text style={styles.sectionTitle}>Loại vòng</Text>
             <FlatList
               data={roundTypes}
               horizontal
@@ -656,8 +729,8 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
           </View>
         )}
 
-        {/* Danh sách vòng đấu phụ */}
-        {selectedRoundType && (
+        {/* Danh sách vòng đấu - chỉ hiển thị khi chọn vòng Đánh giá */}
+        {selectedRoundType && selectedRoundType === "Evaluation" && (
           <View
             style={[
               styles.sectionContainer,
@@ -670,7 +743,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                 alignItems: "center",
                 marginBottom: 8,
               }}>
-              <Text style={styles.sectionTitle}>Vòng đấu phụ</Text>
+              <Text style={styles.sectionTitle}>Vòng đấu</Text>
               <Text style={{ color: "#666", fontSize: 14 }}>
                 {rounds.length > 0
                   ? `${rounds.length} vòng đấu`
@@ -724,30 +797,35 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                       `[DEBUG] Retry button pressed for roundType: ${selectedRoundType}`
                     );
                     setLoading(true);
-                    getRounds(selectedCategory || "", selectedRoundType || "")
-                      .then((response: any) => {
-                        if (
-                          response?.data?.items &&
-                          response.data.items.length > 0
-                        ) {
-                          setRounds(response.data.items);
-                          setError(null);
-                        } else {
+                    if (selectedCategory && selectedRoundType) {
+                      getRounds(selectedCategory, selectedRoundType)
+                        .then((response: any) => {
+                          if (
+                            response?.data?.items &&
+                            response.data.items.length > 0
+                          ) {
+                            setRounds(response.data.items);
+                            setError(null);
+                          } else {
+                            setRounds([]);
+                            setError(
+                              `Không tìm thấy vòng đấu ${roundTypeLabels[selectedRoundType]}`
+                            );
+                          }
+                        })
+                        .catch(() => {
                           setRounds([]);
                           setError(
-                            `Không tìm thấy vòng đấu ${roundTypeLabels[selectedRoundType]}`
+                            `Đã xảy ra lỗi khi tải vòng đấu ${roundTypeLabels[selectedRoundType]}`
                           );
-                        }
-                      })
-                      .catch(() => {
-                        setRounds([]);
-                        setError(
-                          `Đã xảy ra lỗi khi tải vòng đấu ${roundTypeLabels[selectedRoundType]}`
-                        );
-                      })
-                      .finally(() => {
-                        setLoading(false);
-                      });
+                        })
+                        .finally(() => {
+                          setLoading(false);
+                        });
+                    } else {
+                      setError("Vui lòng chọn hạng mục và loại vòng");
+                      setLoading(false);
+                    }
                   }}>
                   <Text style={{ color: "white", fontWeight: "bold" }}>
                     Thử lại
@@ -758,8 +836,8 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
           </View>
         )}
 
-        {/* Danh sách thí sinh */}
-        {selectedRound && (
+        {/* Danh sách thí sinh - Hiển thị khi chọn một vòng đấu cụ thể trong Đánh giá HOẶC chọn Sơ khảo/Chung kết */}
+        {(selectedRound || (selectedRoundType && selectedRoundType !== "Evaluation")) && (
           <View style={styles.contestantsContainer}>
             <View
               style={{
@@ -786,23 +864,28 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                       `[DEBUG] Refresh contestants button pressed for roundId: ${selectedRound}`
                     );
                     setLoading(true);
-                    getContestants(selectedRound)
-                      .then((response: any) => {
-                        if (response?.data?.items) {
-                          setContestants(response.data.items);
-                          setError(null);
-                        } else {
+                    if (selectedRound) {
+                      getContestants(selectedRound)
+                        .then((response: any) => {
+                          if (response?.data?.items) {
+                            setContestants(response.data.items);
+                            setError(null);
+                          } else {
+                            setContestants([]);
+                            setError("Không thể tải danh sách thí sinh");
+                          }
+                        })
+                        .catch(() => {
                           setContestants([]);
-                          setError("Không thể tải danh sách thí sinh");
-                        }
-                      })
-                      .catch(() => {
-                        setContestants([]);
-                        setError("Đã xảy ra lỗi khi tải danh sách thí sinh");
-                      })
-                      .finally(() => {
-                        setLoading(false);
-                      });
+                          setError("Đã xảy ra lỗi khi tải danh sách thí sinh");
+                        })
+                        .finally(() => {
+                          setLoading(false);
+                        });
+                    } else {
+                      setError("Vui lòng chọn vòng đấu");
+                      setLoading(false);
+                    }
                   }}>
                   <Text style={{ color: "white", fontWeight: "bold" }}>
                     Tải lại
@@ -920,23 +1003,28 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                       `[DEBUG] Retry button pressed for roundId: ${selectedRound}`
                     );
                     setLoading(true);
-                    getContestants(selectedRound)
-                      .then((response: any) => {
-                        if (response?.data?.items) {
-                          setContestants(response.data.items);
-                          setError(null);
-                        } else {
+                    if (selectedRound) {
+                      getContestants(selectedRound)
+                        .then((response: any) => {
+                          if (response?.data?.items) {
+                            setContestants(response.data.items);
+                            setError(null);
+                          } else {
+                            setContestants([]);
+                            setError("Không thể tải danh sách thí sinh");
+                          }
+                        })
+                        .catch(() => {
                           setContestants([]);
-                          setError("Không thể tải danh sách thí sinh");
-                        }
-                      })
-                      .catch(() => {
-                        setContestants([]);
-                        setError("Đã xảy ra lỗi khi tải danh sách thí sinh");
-                      })
-                      .finally(() => {
-                        setLoading(false);
-                      });
+                          setError("Đã xảy ra lỗi khi tải danh sách thí sinh");
+                        })
+                        .finally(() => {
+                          setLoading(false);
+                        });
+                    } else {
+                      setError("Vui lòng chọn vòng đấu");
+                      setLoading(false);
+                    }
                   }}>
                   <Text style={{ color: "white", fontWeight: "bold" }}>
                     Thử lại
