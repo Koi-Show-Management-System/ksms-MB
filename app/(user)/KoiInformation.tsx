@@ -22,6 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import KoiStatusSwitch from "../../components/KoiStatusSwitch"; // Import component KoiStatusSwitch
 import {
   KoiProfile as BaseKoiProfile,
@@ -42,6 +43,12 @@ interface Achievement {
   year: number;
   show: string;
   location?: string;
+  awardType?: "first" | "second" | "third" | "grand_champion" | "peoples_choice" | string;
+  awardName?: string;
+  showName?: string;
+  competitionDate?: string;
+  categoryName?: string;
+  prizeValue?: number;
 }
 
 // Mở rộng interface KoiProfile để thêm competitionHistory
@@ -301,7 +308,8 @@ export default function KoiInformation() {
       {item.mediaType === "Image" ? (
         <TouchableOpacity
           style={styles.mediaTouchable}
-          onPress={() => handleMediaPress(item.mediaUrl, "Image")}>
+          onPress={() => handleMediaPress(item.mediaUrl, "Image")}
+          accessibilityLabel="Xem ảnh cá Koi">
           <Image
             source={{ uri: item.mediaUrl }}
             style={styles.mediaImage}
@@ -311,6 +319,7 @@ export default function KoiInformation() {
             colors={["rgba(0,0,0,0.3)", "transparent", "rgba(0,0,0,0.3)"]}
             style={styles.mediaGradient}
           />
+          <Text style={{display: 'none'}}></Text>
         </TouchableOpacity>
       ) : (
         <View style={styles.mediaVideoContainer}>
@@ -328,7 +337,8 @@ export default function KoiInformation() {
           />
           <TouchableOpacity
             style={styles.videoControls}
-            onPress={handlePlayPause}>
+            onPress={handlePlayPause}
+            accessibilityLabel="Phát/Tạm dừng video">
             {!isPlaying && (
               <Image
                 source={{
@@ -337,6 +347,7 @@ export default function KoiInformation() {
                 style={styles.playIcon}
               />
             )}
+            <Text style={{display: 'none'}}></Text>
           </TouchableOpacity>
         </View>
       )}
@@ -399,12 +410,7 @@ export default function KoiInformation() {
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backButtonContainer}>
-          <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z8MggG37P2WCQpLp/frame.png",
-            }}
-            style={styles.backButtonIcon}
-          />
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Thông tin cá Koi</Text>
         {/* Add Edit Button */}
@@ -460,7 +466,10 @@ export default function KoiInformation() {
                       animated: true,
                     });
                   }}
-                />
+                  accessibilityLabel={`Trang ${index + 1}`} 
+                >
+                  <Text style={{display: 'none'}}></Text>
+                </TouchableOpacity>
               ))}
             </View>
           </View>
@@ -552,6 +561,8 @@ export default function KoiInformation() {
                           ? styles.bronzeIcon
                           : achievement.awardType === "grand_champion"
                           ? styles.grandChampionIcon
+                          : achievement.awardType === "peoples_choice"
+                          ? styles.peoplesChoiceIcon
                           : styles.otherAwardIcon,
                       ]}>
                       <Text style={styles.achievementIconText}>
@@ -574,7 +585,9 @@ export default function KoiInformation() {
                       </Text>
                       <Text style={styles.achievementSubtitle}>
                         {achievement.showName} -{" "}
-                        {new Date(achievement.competitionDate).getFullYear()}
+                        {achievement.competitionDate 
+                          ? new Date(achievement.competitionDate).getFullYear()
+                          : achievement.year}
                       </Text>
                     </View>
                   </View>
@@ -610,9 +623,9 @@ export default function KoiInformation() {
                       <Text style={styles.achievementDetailLabel}>
                         Ngày thi đấu:
                       </Text>{" "}
-                      {new Date(achievement.competitionDate).toLocaleDateString(
-                        "vi-VN"
-                      )}
+                      {achievement.competitionDate
+                        ? new Date(achievement.competitionDate).toLocaleDateString("vi-VN")
+                        : "Không có thông tin"}
                     </Text>
                   </View>
                 </View>
@@ -642,11 +655,13 @@ export default function KoiInformation() {
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       style={styles.thumbnailContainer}
-                      onPress={() => handleMediaPress(item.mediaUrl, "Image")}>
+                      onPress={() => handleMediaPress(item.mediaUrl, "Image")}
+                      accessibilityLabel={`Xem ảnh cá Koi`}>
                       <Image
                         source={{ uri: item.mediaUrl }}
                         style={styles.mediaThumbnail}
                       />
+                      <Text style={{display: 'none'}}></Text>
                     </TouchableOpacity>
                   )}
                   contentContainerStyle={styles.mediaThumbnailList}
@@ -671,7 +686,8 @@ export default function KoiInformation() {
                   renderItem={({ item, index }) => (
                     <TouchableOpacity
                       style={styles.thumbnailContainer}
-                      onPress={() => handleMediaPress(item.mediaUrl, "Video")}>
+                      onPress={() => handleMediaPress(item.mediaUrl, "Video")}
+                      accessibilityLabel={`Xem video ${index + 1}`}>
                       <View style={styles.videoThumbnail}>
                         <Text style={styles.videoLabel}>Video {index + 1}</Text>
                         <Image
@@ -681,6 +697,7 @@ export default function KoiInformation() {
                           style={styles.playIconSmall}
                         />
                       </View>
+                      <Text style={{display: 'none'}}></Text>
                     </TouchableOpacity>
                   )}
                   contentContainerStyle={styles.mediaThumbnailList}
@@ -787,13 +804,18 @@ export default function KoiInformation() {
                 contentFit="contain"
                 nativeControls={true}
               />
-              <View style={styles.fullscreenVideoControls}>
+              <View style={styles.videoControlsContainer}>
                 <TouchableOpacity
-                  style={styles.fullscreenPlayButton}
-                  onPress={handleFullscreenPlayPause}>
-                  <Text style={styles.fullscreenPlayButtonText}>
-                    {isFullscreenPlaying ? "Tạm dừng" : "Phát video"}
-                  </Text>
+                  style={styles.playPauseButton}
+                  onPress={handleFullscreenPlayPause}
+                  accessibilityLabel={isFullscreenPlaying ? "Tạm dừng video" : "Phát video"}
+                >
+                  <Ionicons
+                    name={isFullscreenPlaying ? "pause" : "play"}
+                    size={30}
+                    color="#fff"
+                  />
+                  <Text style={{ display: 'none' }}></Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -826,10 +848,6 @@ const styles = StyleSheet.create({
     height: 32,
     justifyContent: "center",
     alignItems: "center",
-  },
-  backButtonIcon: {
-    width: 24,
-    height: 24,
   },
   headerTitle: {
     marginLeft: 16,
@@ -1204,19 +1222,19 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "80%",
   },
-  fullscreenVideoControls: {
+  videoControlsContainer: {
     position: "absolute",
     bottom: 80,
     width: "100%",
     alignItems: "center",
   },
-  fullscreenPlayButton: {
+  playPauseButton: {
     backgroundColor: "#007AFF",
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
   },
-  fullscreenPlayButtonText: {
+  playPauseButtonText: {
     color: "white",
     fontFamily: "Poppins_700Bold",
     fontSize: 16,
@@ -1263,6 +1281,9 @@ const styles = StyleSheet.create({
   },
   grandChampionIcon: {
     backgroundColor: "#FF4500",
+  },
+  peoplesChoiceIcon: {
+    backgroundColor: "#FF1493",
   },
   otherAwardIcon: {
     backgroundColor: "#9370DB",

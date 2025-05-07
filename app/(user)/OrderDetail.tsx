@@ -9,6 +9,7 @@ import {
   FlatList,
   Image,
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -76,6 +77,7 @@ interface Order {
   totalAmount: number;
   paymentMethod: string;
   status: string;
+  paymentUrl?: string; // Thêm trường paymentUrl
 }
 
 interface OrdersResponse {
@@ -105,6 +107,7 @@ const OrderDetail = () => {
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [error, setError] = useState("");
   const [ticketError, setTicketError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
 
   // WebView modal state for payment
   const [showPaymentWebView, setShowPaymentWebView] = useState(false);
@@ -561,6 +564,16 @@ const OrderDetail = () => {
     fetchOrderDetails();
   };
 
+  const handleRefresh = () => {
+    if (!refreshing) {
+      setRefreshing(true);
+      // Gọi lại API để tải lại dữ liệu đơn hàng
+      fetchOrderDetails().finally(() => {
+        setRefreshing(false);
+      });
+    }
+  };
+
   const renderContent = () => {
     if (loading) {
       return (
@@ -602,7 +615,18 @@ const OrderDetail = () => {
     // Cải thiện cấu trúc hiển thị để tổ chức nội dung rõ ràng hơn
     return (
       <View style={styles.container}>
-        <ScrollView style={styles.scrollView}>
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={["#FFA500"]}
+              tintColor="#FFA500"
+              title="Đang cập nhật..."
+              titleColor="#666"
+            />
+          }>
           {/* Tiêu đề và trạng thái đơn hàng */}
           <View style={styles.orderHeaderContainer}>
             <Animated.View

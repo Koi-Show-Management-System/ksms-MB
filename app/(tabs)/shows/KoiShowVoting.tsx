@@ -93,33 +93,34 @@ const ContestantItem: React.FC<ContestantItemProps> = React.memo(
 // --- Component con để hiển thị kết quả ---
 interface ResultItemProps {
   item: VotingResultItem;
+  isWinner?: boolean; // Thêm prop để xác định người chiến thắng
 }
-const ResultItem: React.FC<ResultItemProps> = React.memo(({ item }) => {
+const ResultItem: React.FC<ResultItemProps> = React.memo(({ item, isWinner = false }) => {
   const firstImage = item.koiMedia.find(
     (media: KoiMedia) => media.mediaType === "Image"
   );
-  const rank = item.rank;
 
   return (
-    <View style={[styles.resultCard, rank === 1 && styles.firstPlace]}>
-      {rank !== null && rank > 0 && (
-        <View style={[styles.rankBadge, rank > 3 && styles.rankBadgeOther]}>
-          <Text style={styles.rankText}>{rank}</Text>
+    <View style={[styles.resultCard, isWinner && styles.winnerCard]}>
+      {isWinner && (
+        <View style={styles.winnerBadge}>
+          <MaterialIcons name="stars" size={18} color="#8B4513" />
+          <Text style={styles.winnerText}>Người chiến thắng</Text>
         </View>
       )}
       {firstImage ? (
         <Image
           source={{ uri: firstImage.mediaUrl }}
-          style={styles.resultImage}
+          style={[styles.resultImage, isWinner && styles.winnerImage]}
           resizeMode="cover"
         />
       ) : (
-        <View style={styles.placeholderResultImage}>
+        <View style={[styles.placeholderResultImage, isWinner && styles.winnerImage]}>
           <MaterialIcons name="image" size={30} color="#ccc" />
         </View>
       )}
       <View style={styles.resultInfo}>
-        <Text style={styles.resultKoiName}>
+        <Text style={[styles.resultKoiName, isWinner && styles.winnerKoiName]}>
           {item.koiName} ({item.registrationNumber})
         </Text>
         <Text style={styles.resultOwnerName}>Chủ sở hữu: {item.ownerName}</Text>
@@ -129,7 +130,9 @@ const ResultItem: React.FC<ResultItemProps> = React.memo(({ item }) => {
             <Text style={styles.awardText}>{item.award.name}</Text>
           </View>
         ) : (
-          <Text style={styles.resultVoteCount}>Số phiếu: {item.voteCount}</Text>
+          <Text style={[styles.resultVoteCount, isWinner && styles.winnerVoteCount]}>
+            Số phiếu: {item.voteCount}
+          </Text>
         )}
       </View>
     </View>
@@ -175,8 +178,7 @@ export function KoiShowVoting({ showId }: KoiShowVotingProps) {
         );
         const sortedResults = responseResult.data.data.sort(
           (a: VotingResultItem, b: VotingResultItem) =>
-            (a.rank ?? Infinity) - (b.rank ?? Infinity) ||
-            b.voteCount - a.voteCount
+            b.voteCount - a.voteCount // Chỉ sắp xếp theo số phiếu, không dùng rank
         );
         setResults(sortedResults);
         setVotingStatus("closed");
@@ -445,7 +447,9 @@ export function KoiShowVoting({ showId }: KoiShowVotingProps) {
           <View style={{ flex: 1 }}>
             <FlatList
               data={results}
-              renderItem={({ item }) => <ResultItem item={item} />}
+              renderItem={({ item, index }) => (
+                <ResultItem item={item} isWinner={index === 0} />
+              )}
               keyExtractor={(item) => item.registrationId}
               contentContainerStyle={styles.listContainer}
               ListHeaderComponent={
@@ -688,43 +692,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#dee2e6",
-    position: "relative", // Cho rank badge
-  },
-  firstPlace: {
-    borderColor: "#ffc107", // Highlight top 1
-    borderWidth: 2,
-    backgroundColor: "#fffcf1",
-  },
-  rankBadge: {
-    position: "absolute",
-    top: -10,
-    left: -10,
-    backgroundColor: "#dc3545",
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1,
-    borderWidth: 1.5, // Dày hơn chút
-    borderColor: "#fff",
-    shadowColor: "#000", // Thêm shadow cho nổi bật
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 1,
-    elevation: 3,
-  },
-  rankBadgeOther: {
-    // Style khác cho rank > 3
-    backgroundColor: "#6c757d", // Màu xám
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-  },
-  rankText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 12, // Giảm size chữ rank
+    position: "relative", // Thêm position để badge hoạt động đúng
   },
   resultImage: {
     width: 60,
@@ -777,6 +745,57 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "bold",
     color: "#856404", // Màu chữ đậm hơn
+  },
+  winnerCard: {
+    borderWidth: 2,
+    borderColor: "#FFD700",
+    backgroundColor: "#FFFDF0", // Màu nền hơi vàng nhạt
+    shadowColor: "#FFD700",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 6,
+    marginTop: 15, // Thêm margin-top để làm chỗ cho badge
+    padding: 18, // Padding lớn hơn để card rộng rãi hơn
+  },
+  winnerBadge: {
+    position: "absolute",
+    top: -12,
+    alignSelf: "center",
+    backgroundColor: "#FFD700",
+    borderRadius: 20,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: "#FFC700",
+  },
+  winnerText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#8B4513", // Màu nâu đậm
+    marginLeft: 5,
+  },
+  winnerImage: {
+    borderWidth: 2,
+    borderColor: "#FFC700",
+  },
+  winnerKoiName: {
+    fontWeight: "bold",
+    color: "#8B4513", // Màu nâu đậm cho tên
+    fontSize: 16, // Size lớn hơn
+  },
+  winnerVoteCount: {
+    fontWeight: "bold",
+    color: "#FF8C00", // Màu cam đậm cho số phiếu
+    fontSize: 16, // Size lớn hơn
   },
 });
 

@@ -334,7 +334,9 @@ const MyOrders: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    fetchOrders(1, true);
+    if (!refreshing) { // Tránh các lần refresh liên tiếp
+      fetchOrders(1, true);
+    }
   };
 
   const handleLoadMore = () => {
@@ -387,6 +389,8 @@ const MyOrders: React.FC = () => {
             onRefresh={handleRefresh}
             colors={["#FFA500"]}
             tintColor="#FFA500"
+            title="Đang cập nhật..."
+            titleColor="#666"
           />
         }
         onEndReached={handleLoadMore}
