@@ -105,7 +105,10 @@ const ResultItem: React.FC<ResultItemProps> = React.memo(({ item, isWinner = fal
       {isWinner && (
         <View style={styles.winnerBadge}>
           <MaterialIcons name="stars" size={18} color="#8B4513" />
-          <Text style={styles.winnerText}>Người chiến thắng</Text>
+          <Text style={styles.winnerText}>
+            Người chiến thắng 
+            <Text style={styles.winnerVoteHighlight}> • {item.voteCount} phiếu</Text>
+          </Text>
         </View>
       )}
       {firstImage ? (
@@ -127,12 +130,27 @@ const ResultItem: React.FC<ResultItemProps> = React.memo(({ item, isWinner = fal
         {item.award ? (
           <View style={styles.awardContainer}>
             <MaterialIcons name="emoji-events" size={16} color="#ffc107" />
-            <Text style={styles.awardText}>{item.award.name}</Text>
+            <Text style={styles.awardText}>
+              {item.award.name} 
+              {isWinner && <Text style={styles.winnerVoteCount}> • {item.voteCount} phiếu</Text>}
+            </Text>
           </View>
         ) : (
-          <Text style={[styles.resultVoteCount, isWinner && styles.winnerVoteCount]}>
-            Số phiếu: {item.voteCount}
-          </Text>
+          <View style={[styles.voteCountContainer, isWinner && styles.winnerVoteCountContainer]}>
+            <MaterialIcons 
+              name={isWinner ? "how-to-vote" : "thumb-up"} 
+              size={isWinner ? 20 : 16} 
+              color={isWinner ? "#FF8C00" : "#007bff"} 
+            />
+            <Text style={[styles.resultVoteCount, isWinner && styles.winnerVoteCount]}>
+              {item.voteCount} phiếu
+            </Text>
+            {isWinner && (
+              <View style={styles.voteCountBadge}>
+                <Text style={styles.voteCountBadgeText}>Cao nhất</Text>
+              </View>
+            )}
+          </View>
         )}
       </View>
     </View>
@@ -783,6 +801,10 @@ const styles = StyleSheet.create({
     color: "#8B4513", // Màu nâu đậm
     marginLeft: 5,
   },
+  winnerVoteHighlight: {
+    color: "#FF6347", // Màu đỏ cam cho số phiếu trong badge
+    fontWeight: "bold",
+  },
   winnerImage: {
     borderWidth: 2,
     borderColor: "#FFC700",
@@ -796,6 +818,32 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#FF8C00", // Màu cam đậm cho số phiếu
     fontSize: 16, // Size lớn hơn
+  },
+  voteCountContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  winnerVoteCountContainer: {
+    backgroundColor: "rgba(255, 215, 0, 0.15)",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "rgba(255, 140, 0, 0.3)",
+  },
+  voteCountBadge: {
+    backgroundColor: "#FF6347",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  voteCountBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
   },
 });
 
