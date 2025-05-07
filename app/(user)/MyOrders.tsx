@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Image,
   RefreshControl,
   SafeAreaView,
   StyleSheet,
@@ -55,6 +56,42 @@ interface OrderCardProps {
   onPress: (order: OrderItem) => void;
 }
 
+// Thêm interface cho OrderDetailItem và Ticket
+interface OrderDetailItem {
+  id: string;
+  quantity: number;
+  unitPrice: number;
+  ticketType: {
+    name: string;
+    koiShow: {
+      name: string;
+    };
+  };
+}
+
+interface Ticket {
+  id: string;
+  qrcodeData: string;
+  expiredDate: string;
+  isCheckedIn: boolean;
+  checkInTime: string | null;
+  checkInLocation: string | null;
+  status: string;
+  orderDetailId?: string;
+}
+
+interface OrderDetailResponse {
+  data: OrderDetailItem[];
+  statusCode: number;
+  message: string;
+}
+
+interface TicketsResponse {
+  data: Ticket[];
+  statusCode: number;
+  message: string;
+}
+
 type RootStackParamList = {
   OrderDetail: { orderId: string };
 };
@@ -73,6 +110,89 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
   const currentScreenWidth = Dimensions.get("window").width;
   const maxContainerWidth = currentScreenWidth * 0.9;
   const minContainerWidth = currentScreenWidth * 0.3;
+  
+  // Thêm state cho danh sách vé và chi tiết đơn hàng
+  const [orderDetails, setOrderDetails] = useState<OrderDetailItem[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [showTickets, setShowTickets] = useState(false);
+  const [ticketsExpanded, setTicketsExpanded] = useState(false);
+
+  useEffect(() => {
+    // Chỉ tải thông tin vé khi người dùng mở rộng xem vé, không cần kiểm tra status nữa
+    if (showTickets && orderDetails.length === 0) {
+      fetchOrderDetails();
+    }
+  }, [showTickets]);
+
+  const fetchOrderDetails = async () => {
+    try {
+      setLoadingTickets(true);
+      
+      // Lấy chi tiết đơn hàng
+      const response = await api.get<OrderDetailResponse>(
+        `/api/v1/ticket-order/get-order-details/${order.id}`
+      );
+
+      if (response.data.statusCode === 200) {
+        const orderDetailsData = response.data.data;
+        setOrderDetails(orderDetailsData);
+        
+        // Sau khi có chi tiết đơn hàng, tải thông tin vé
+        fetchTickets(orderDetailsData);
+      }
+    } catch (err) {
+      console.error("Lỗi khi tải chi tiết đơn hàng:", err);
+    }
+  };
+
+  const fetchTickets = async (details = orderDetails) => {
+    try {
+      // Kiểm tra nếu details rỗng
+      if (details.length === 0) {
+        console.log("Không có chi tiết đơn hàng để tải vé");
+        setLoadingTickets(false);
+        return;
+      }
+
+      // Đối với mỗi chi tiết đơn hàng, lấy thông tin vé
+      const ticketsPromises = details.map((detail) => {
+        return api
+          .get<TicketsResponse>(
+            `/api/v1/ticket-order/get-all-tickets/${detail.id}`
+          )
+          .catch((error) => {
+            console.error(`Lỗi khi lấy vé cho orderDetailId ${detail.id}:`, error);
+            return {
+              data: {
+                data: [],
+                statusCode: 500,
+                message: `Lỗi khi lấy vé: ${error.message}`,
+              },
+            };
+          });
+      });
+
+      const responses = await Promise.all(ticketsPromises);
+
+      // Gộp tất cả các vé từ các response
+      const allTickets = responses.flatMap((response, index) => {
+        if (response.data.statusCode === 200 && response.data.data) {
+          return response.data.data.map((ticket) => ({
+            ...ticket,
+            orderDetailId: details[index].id,
+          }));
+        }
+        return [];
+      });
+
+      setTickets(allTickets);
+    } catch (err) {
+      console.error("Lỗi khi tải vé:", err);
+    } finally {
+      setLoadingTickets(false);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -90,7 +210,22 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
     }
   };
 
-  // Hàm getStatusText đã được thay thế bằng translateStatus import từ utils
+  // Hàm lấy màu sắc dựa trên trạng thái vé
+  const getTicketStatusColor = (status: string) => {
+    const statusLower = status?.toLowerCase() || "";
+    switch (statusLower) {
+      case "cancelled":
+        return "#FF9800"; // Màu cam cho vé đã bị hủy
+      case "sold":
+        return "#4CAF50"; // Màu xanh lá cho vé chưa sử dụng
+      case "checkin":
+        return "#FF3B30"; // Màu đỏ cho vé đã sử dụng
+      case "refunded":
+        return "#2196F3"; // Màu xanh dương cho vé đã hoàn tiền
+      default:
+        return "#999999"; // Màu xám cho các trạng thái khác
+    }
+  };
 
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return "N/A";
@@ -125,6 +260,68 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
     const prefix = id.slice(0, visibleChars);
 
     return `${prefix}...`.toUpperCase();
+  };
+
+  const navigateToTicketDetail = async (ticket: Ticket) => {
+    try {
+      if (!ticket || !ticket.qrcodeData) {
+        console.error("Thông tin vé không hợp lệ:", ticket);
+        alert("Không thể xem chi tiết vé. Vui lòng thử lại sau.");
+        return;
+      }
+
+      // Tìm orderDetail tương ứng với vé này dựa trên orderDetailId
+      const orderDetail = orderDetails.find(
+        (detail) => detail.id === ticket.orderDetailId
+      );
+
+      const showName = orderDetail?.ticketType.koiShow.name || "Không xác định";
+      const ticketType = orderDetail?.ticketType.name || "Không xác định";
+
+      // Đảm bảo qrCodeUrl là chuỗi URI hợp lệ
+      let qrCodeUrl = ticket.qrcodeData;
+
+      // Kiểm tra nếu là URL Firebase Storage
+      if (qrCodeUrl && qrCodeUrl.includes("firebasestorage.googleapis.com")) {
+        // Logic mã hóa URL Firebase giữ nguyên từ OrderDetail.tsx
+        const pathStartIndex = qrCodeUrl.indexOf(".com/o/");
+        if (pathStartIndex !== -1) {
+          const urlPrefix = qrCodeUrl.substring(0, pathStartIndex + 7);
+          let urlPath = qrCodeUrl.substring(pathStartIndex + 7);
+
+          const queryParamsIndex = urlPath.indexOf("?");
+          let queryParams = "";
+
+          if (queryParamsIndex !== -1) {
+            queryParams = urlPath.substring(queryParamsIndex);
+            urlPath = urlPath.substring(0, queryParamsIndex);
+          }
+
+          const encodedPath = urlPath.replace(/\//g, "%2F");
+          qrCodeUrl = urlPrefix + encodedPath + queryParams;
+        }
+      } else if (
+        !qrCodeUrl.startsWith("http") &&
+        !qrCodeUrl.startsWith("data:")
+      ) {
+        qrCodeUrl = `data:image/png;base64,${ticket.qrcodeData}`;
+      }
+
+      router.push({
+        pathname: "/(user)/TicketDetail",
+        params: {
+          qrCodeUrl: qrCodeUrl,
+          showName: showName,
+          ticketType: ticketType,
+          buyerName: "Người dùng KSMS", // Giá trị mặc định
+          dateTime: new Date(ticket.expiredDate).toLocaleDateString("vi-VN"),
+          venue: "Địa điểm cuộc thi",
+        },
+      });
+    } catch (err) {
+      console.error("Lỗi khi chuyển hướng đến chi tiết vé:", err);
+      alert("Đã xảy ra lỗi khi mở chi tiết vé. Vui lòng thử lại sau.");
+    }
   };
 
   const status = order.orderStatus || order.status || "";
@@ -175,6 +372,20 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
   const handleViewDetail = () => {
     navigation.navigate("OrderDetail", { orderId: order.id });
   };
+  
+  // Hàm để toggle hiển thị danh sách vé
+  const toggleTicketsDisplay = () => {
+    setShowTickets(!showTickets);
+    // Tải dữ liệu vé nếu chưa có, không quan tâm đến status
+    if (!showTickets && tickets.length === 0) {
+      fetchOrderDetails();
+    }
+  };
+  
+  // Hàm toggle mở rộng danh sách vé
+  const toggleTicketsExpanded = () => {
+    setTicketsExpanded(!ticketsExpanded);
+  };
 
   return (
     <TouchableOpacity
@@ -217,6 +428,74 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
           </Text>
         </View>
       </View>
+
+      {/* Toggle nút hiển thị vé cho tất cả đơn hàng, không phụ thuộc vào status */}
+      <TouchableOpacity 
+        style={styles.showTicketsButton}
+        onPress={toggleTicketsDisplay}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.showTicketsText}>
+          {showTickets ? "Ẩn danh sách vé" : "Hiển thị danh sách vé"}
+        </Text>
+        <Ionicons 
+          name={showTickets ? "chevron-up" : "chevron-down"} 
+          size={18} 
+          color="#FFA500" 
+        />
+      </TouchableOpacity>
+
+      {/* Hiển thị danh sách vé khi showTickets = true, không phụ thuộc vào status */}
+      {showTickets && (
+        <View style={styles.ticketsContainer}>
+          {loadingTickets ? (
+            <View style={styles.loadingTicketsContainer}>
+              <ActivityIndicator size="small" color="#FFA500" />
+              <Text style={styles.loadingTicketsText}>Đang tải vé...</Text>
+            </View>
+          ) : orderDetails.length === 0 ? (
+            <Text style={styles.noTicketsText}>
+              {status.toLowerCase() === 'pending' ? 
+                "Đơn hàng chưa thanh toán. Vui lòng thanh toán để nhận vé." : 
+                "Không tìm thấy thông tin vé"}
+            </Text>
+          ) : (
+            <>
+              {/* Hiển thị danh sách vé theo loại vé */}
+              {orderDetails.map((detail, index) => (
+                <View key={detail.id} style={styles.ticketTypeItem}>
+                  <View style={styles.ticketTypeHeader}>
+                    <Text style={styles.ticketTypeName}>{detail.ticketType.name}</Text>
+                  </View>
+                  
+                  <View style={styles.ticketTypeDetails}>
+                    <View style={styles.ticketDetailRow}>
+                      <Text style={styles.ticketDetailLabel}>Số lượng:</Text>
+                      <Text style={styles.ticketDetailValue}>{detail.quantity}</Text>
+                    </View>
+                    
+                    <View style={styles.ticketDetailRow}>
+                      <Text style={styles.ticketDetailLabel}>Giá vé:</Text>
+                      <Text style={styles.ticketDetailValue}>
+                        {detail.unitPrice.toLocaleString("vi-VN")} VNĐ
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.ticketDetailRow}>
+                      <Text style={styles.ticketDetailLabel}>Thành tiền:</Text>
+                      <Text style={styles.ticketDetailTotal}>
+                        {(detail.quantity * detail.unitPrice).toLocaleString("vi-VN")} VNĐ
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  {index < orderDetails.length - 1 && <View style={styles.divider} />}
+                </View>
+              ))}
+            </>
+          )}
+        </View>
+      )}
 
       <View style={styles.viewDetailContainer}>
         <Text style={styles.viewDetailText}>Xem chi tiết</Text>
@@ -799,6 +1078,87 @@ const styles = StyleSheet.create({
     color: "#FFA500",
     fontWeight: "500",
     marginRight: 2,
+  },
+  // Thêm styles mới cho phần hiển thị danh sách vé
+  showTicketsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    borderTopWidth: 0.5,
+    borderTopColor: "#E0E0E0",
+    marginTop: 8,
+  },
+  showTicketsText: {
+    fontSize: 14,
+    color: "#FFA500",
+    fontWeight: "500",
+    marginRight: 4,
+  },
+  ticketsContainer: {
+    marginTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: "#E0E0E0",
+    paddingTop: 10,
+  },
+  loadingTicketsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 10,
+  },
+  loadingTicketsText: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 8,
+  },
+  noTicketsText: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    padding: 10,
+  },
+  ticketTypeItem: {
+    padding: 10,
+    borderRadius: 6,
+    backgroundColor: "#F9F9F9",
+    marginBottom: 8,
+  },
+  ticketTypeHeader: {
+    marginBottom: 8,
+  },
+  ticketTypeName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+  },
+  ticketTypeDetails: {
+    marginBottom: 4,
+  },
+  ticketDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  ticketDetailLabel: {
+    fontSize: 13,
+    color: "#666",
+  },
+  ticketDetailValue: {
+    fontSize: 13,
+    color: "#333",
+    fontWeight: "500",
+  },
+  ticketDetailTotal: {
+    fontSize: 14,
+    color: "#FFA500",
+    fontWeight: "600",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#E0E0E0",
+    marginVertical: 8,
   },
 });
 
