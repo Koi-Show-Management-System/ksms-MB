@@ -890,7 +890,7 @@ const KoiRegistrationScreen: React.FC = () => {
       return;
     }
     if (!registerNameInput.trim()) {
-      Alert.alert("Cần thông tin", "Vui lòng nhập Tên Người Đăng Ký Thi Đấu");
+      Alert.alert("Cần thông tin", "Vui lòng nhập Tên Chủ Sở Hữu");
       return;
     }
 
@@ -2502,7 +2502,7 @@ const KoiRegistrationScreen: React.FC = () => {
 
                   {/* Input for Register Name */}
                   <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Tên Người Đăng Ký Thi Đấu</Text>
+                    <Text style={styles.label}>Tên Chủ Sở Hữu</Text>
                     <TextInput
                       style={styles.input}
                       placeholder="Nhập tên bạn muốn hiển thị khi thi đấu"

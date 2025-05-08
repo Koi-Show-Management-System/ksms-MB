@@ -1047,7 +1047,7 @@ const KoiContestants: React.FC<KoiContestantsProps> = ({ showId }) => {
                           }
                         />
                         <InfoRow
-                          label="Tên Người Đăng Ký"
+                          label="Tên Chủ Sở Hữu"
                           value={
                             selectedContestant.registration.registerName ||
                             "Không có thông tin"
