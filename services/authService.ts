@@ -121,6 +121,7 @@ export const logout = async () => {
       STORAGE_KEYS.USER_ROLE,
       STORAGE_KEYS.USER_FULLNAME,
       STORAGE_KEYS.REMEMBER_ME,
+      "userAvatar", // Also clear the user avatar
     ]);
   } catch (error) {
     console.error("Logout error:", error);

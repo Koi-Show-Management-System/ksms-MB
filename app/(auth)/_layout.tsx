@@ -1,15 +1,13 @@
 import { Stack } from "expo-router";
 import React from "react";
-import MainLayout from '@/components/MainLayout';
 
 export default function AuthLayout() {
   return (
-    <MainLayout title="Đăng nhập / Đăng ký" description="Chào mừng đến với KSMS" showFooter={false} showHeader={false}>
-      <Stack>
-        <Stack.Screen name="signIn" options={{ headerShown: false }} />
-        <Stack.Screen name="signUp" options={{ headerShown: false }} />
-        <Stack.Screen name="welcomeScreen" options={{ headerShown: false }} />
-      </Stack>
-    </MainLayout>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="signIn" />
+      <Stack.Screen name="signUp" />
+      <Stack.Screen name="welcomeScreen" />
+      <Stack.Screen name="forgot-password" />
+    </Stack>
   );
 }

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   ActivityIndicator,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -91,7 +92,11 @@ const SignIn: React.FC<SignInProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.scrollViewContent}
+      style={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
       <Image
         source={require("../../assets/images/signinlogo.png")}
         style={styles.logo}
@@ -208,7 +213,7 @@ const SignIn: React.FC<SignInProps> = ({
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -216,7 +221,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  scrollViewContent: {
+    flexGrow: 1,
     padding: 20,
+    paddingBottom: 40, // Add extra padding at the bottom
     alignItems: "center",
   },
   logo: {

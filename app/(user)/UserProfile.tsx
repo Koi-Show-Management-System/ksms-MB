@@ -375,6 +375,11 @@ const UserProfile: React.FC = () => {
 
       if (response.data.statusCode === 200) {
         const userInfo = response.data.data;
+        // Lưu avatar vào AsyncStorage để các component khác có thể sử dụng
+        if (userInfo.avatar) {
+          await AsyncStorage.setItem("userAvatar", userInfo.avatar);
+        }
+
         setUserData({
           ...userInfo,
           phoneNumber: userInfo.phone, // Ánh xạ phone sang phoneNumber để tương thích với giao diện cũ
@@ -464,6 +469,11 @@ const UserProfile: React.FC = () => {
       });
 
       if (response.data.statusCode === 200) {
+        // Lưu avatar vào AsyncStorage nếu có trong response
+        if (response.data.data && response.data.data.avatar) {
+          await AsyncStorage.setItem("userAvatar", response.data.data.avatar);
+        }
+
         Alert.alert("Thành công", "Cập nhật thông tin thành công");
         setIsEditing(false);
         fetchUserData(); // Tải lại dữ liệu sau khi cập nhật
@@ -556,6 +566,14 @@ const UserProfile: React.FC = () => {
           );
 
           if (response.data.statusCode === 200) {
+            // Lưu URL ảnh mới vào AsyncStorage
+            if (response.data.data && response.data.data.avatar) {
+              await AsyncStorage.setItem("userAvatar", response.data.data.avatar);
+            } else {
+              // Nếu không có avatar trong response, lưu URL local tạm thời
+              await AsyncStorage.setItem("userAvatar", localUri);
+            }
+
             Alert.alert("Thành công", "Cập nhật ảnh đại diện thành công");
             fetchUserData(); // Tải lại dữ liệu sau khi cập nhật
           } else {
@@ -771,7 +789,7 @@ const UserProfile: React.FC = () => {
         <Text style={styles.headerTitle}>Thông tin tài khoản</Text>
         <View style={{ width: 40 }} />
       </View>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.contentContainer}
         refreshControl={
           <RefreshControl

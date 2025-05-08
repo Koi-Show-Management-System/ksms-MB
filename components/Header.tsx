@@ -5,6 +5,7 @@ import { router } from "expo-router"; // Import the router
 import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native"; // Added Image
 import { useAuth } from "../context/AuthContext";
+import api from "../services/api";
 import NotificationBadge from "./NotificationBadge";
 
 interface HeaderProps {
@@ -14,33 +15,49 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title }) => {
   // Removed description
-  const { userData, userRole, isGuest } = useAuth();
-  const [userFullName, setUserFullName] = useState<string>("");
+  const { userData, isGuest } = useAuth();
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  // Lấy tên người dùng từ context hoặc AsyncStorage khi component mount
+  // Lấy ảnh đại diện từ context hoặc AsyncStorage khi component mount
   useEffect(() => {
-    if (userData && userData.fullName) {
-      setUserFullName(userData.fullName);
-    } else {
-      const getUserName = async () => {
-        try {
-          const fullName = await AsyncStorage.getItem("userFullName");
-          if (fullName) {
-            setUserFullName(fullName);
+
+    // Lấy ảnh đại diện từ AsyncStorage hoặc từ API
+    const getUserAvatar = async () => {
+      try {
+        const userId = await AsyncStorage.getItem("userId");
+        if (userId) {
+          // Nếu có userId, thử lấy thông tin avatar từ AsyncStorage
+          const avatar = await AsyncStorage.getItem("userAvatar");
+          if (avatar) {
+            setProfileImage(avatar);
+          } else {
+            // Nếu không có trong AsyncStorage, thử lấy từ API
+            try {
+              const response = await api.get(`/api/v1/account/${userId}`);
+              if (response.data.statusCode === 200 && response.data.data.avatar) {
+                setProfileImage(response.data.data.avatar);
+                // Lưu vào AsyncStorage để lần sau không cần gọi API
+                await AsyncStorage.setItem("userAvatar", response.data.data.avatar);
+              }
+            } catch (apiError) {
+              console.error("Lỗi khi lấy avatar từ API:", apiError);
+            }
           }
-        } catch (error) {
-          console.error("Lỗi khi lấy tên người dùng:", error);
         }
-      };
-      getUserName();
-    }
+      } catch (error) {
+        console.error("Lỗi khi lấy ảnh đại diện:", error);
+      }
+    };
+    getUserAvatar();
   }, [userData]);
 
-  // Function to navigate to UserMenu screen or sign in if guest
-  const navigateToUserMenu = () => {
+  // Function to handle user icon click
+  const handleUserIconClick = () => {
     if (isGuest()) {
+      // For guest users, navigate directly to sign in screen
       router.push("/(auth)/signIn");
     } else {
+      // For authenticated users, navigate to user menu
       router.push("/(tabs)/home/UserMenu");
     }
   };
@@ -48,15 +65,6 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
   // Function to navigate to Home screen
   const navigateToHome = () => {
     router.push("/(tabs)/home/homepage");
-  };
-
-  // Function to navigate to Notification screen
-  const navigateToNotification = () => {
-    if (isGuest()) {
-      router.push("/(auth)/signIn");
-    } else {
-      router.push("/(user)/Notification");
-    }
   };
 
   return (
@@ -79,13 +87,21 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
           {isGuest() ? "Chế độ khách" : ``}
         </Text>
         {!isGuest() && <NotificationBadge style={styles.notificationIcon} />}
-        <TouchableOpacity onPress={navigateToUserMenu}>
+        <TouchableOpacity onPress={handleUserIconClick}>
           <View style={styles.profileIconContainer}>
-            <Feather
-              name={isGuest() ? "log-in" : "user"}
-              size={24}
-              color="#666"
-            />
+            {!isGuest() && profileImage ? (
+              <Image
+                source={{ uri: profileImage }}
+                style={styles.profileImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Feather
+                name={isGuest() ? "log-in" : "user"}
+                size={24}
+                color="#666"
+              />
+            )}
           </View>
         </TouchableOpacity>
       </View>
@@ -140,11 +156,12 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: "#F5F5F5",
+    overflow: "hidden",
   },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   notificationIcon: {
     marginRight: 8,

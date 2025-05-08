@@ -25,21 +25,8 @@ const UserMenu: React.FC<UserMenuProps> = ({
   // Check if user is in guest mode and redirect if necessary
   useEffect(() => {
     if (isGuest()) {
-      Alert.alert(
-        "Yêu cầu đăng nhập",
-        "Bạn cần phải login để xem menu người dùng.",
-        [
-          {
-            text: "Đăng nhập",
-            onPress: () => router.push("/(auth)/signIn"),
-          },
-          {
-            text: "Quay lại",
-            onPress: () => router.back(),
-            style: "cancel",
-          },
-        ]
-      );
+      // Redirect to sign in screen directly without showing alert
+      router.replace("/(auth)/signIn");
     }
   }, [isGuest]);
 
