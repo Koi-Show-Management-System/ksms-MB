@@ -23,14 +23,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  BackHandler,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, {
   useAnimatedScrollHandler,
   useSharedValue,
 } from "react-native-reanimated";
-import Toast from "react-native-toast-message";
 import FadeInView from "../../../components/animations/FadeInView";
 import MicroInteraction from "../../../components/animations/MicroInteraction";
 import ParallaxHeroSection from "../../../components/animations/ParallaxHeroSection";
@@ -181,58 +179,11 @@ const Homepage: React.FC = () => {
   const flatListRef = useRef<FlatList>(null);
   const searchInputRef = useRef<TextInput>(null);
   const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
-  const backPressedOnceRef = useRef(false); // Tham chiếu để theo dõi việc nhấn nút back
 
   // Animation values
   const scrollY = useSharedValue(0);
   const heroScale = useSharedValue(1);
   const heroOpacity = useSharedValue(1);
-
-  // Xử lý sự kiện nút back
-  useEffect(() => {
-    // Chỉ áp dụng cho Android vì iOS không có nút back vật lý
-    if (Platform.OS === 'android') {
-      let resetTimer: NodeJS.Timeout; // Biến để lưu tham chiếu đến timeout
-
-      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-        // Nếu đã nhấn back một lần trước đó
-        if (backPressedOnceRef.current) {
-          // Cho phép hành vi mặc định (thoát ứng dụng)
-          return false;
-        }
-
-        // Đặt cờ là đã nhấn back một lần
-        backPressedOnceRef.current = true;
-        
-        // Tạo phản hồi haptic (rung nhẹ) để người dùng biết họ đã nhấn nút back
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        
-        // Hiển thị thông báo
-        Toast.show({
-          type: 'info',
-          text1: 'Thông báo',
-          text2: 'Nhấn back hai lần để thoát ứng dụng',
-          position: 'bottom',
-          visibilityTime: 2000,
-        });
-
-        // Đặt hẹn giờ để reset trạng thái sau 2 giây
-        resetTimer = setTimeout(() => {
-          backPressedOnceRef.current = false;
-        }, 2000);
-
-        // Ngăn chặn hành vi mặc định (thoát ứng dụng) trong lần nhấn đầu tiên
-        return true;
-      });
-
-      // Dọn dẹp khi component unmount
-      return () => {
-        backHandler.remove();
-        // Xóa timeout nếu component bị unmount
-        if (resetTimer) clearTimeout(resetTimer);
-      };
-    }
-  }, []);
 
   // Handle scroll events
   const scrollHandler = useAnimatedScrollHandler({
@@ -1006,8 +957,8 @@ const Homepage: React.FC = () => {
             </View>
           </FadeInView>
 
-          {/* Add bottom padding to avoid content being hidden by footer */}
-          <View style={{ height: 60 }} />
+          {/* Add a small padding to prevent content from being hidden by footer */}
+          <View style={{ height: 70 }} />
         </Animated.ScrollView>
       </SafeAreaView>
     </GestureHandlerRootView>

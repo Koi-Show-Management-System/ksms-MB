@@ -26,7 +26,7 @@ interface AuthContextType {
   isLoading: boolean;
   userData: UserData | null;
   userRole: string | null;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<any>;
+  login: (email: string, password: string, rememberMe?: boolean, setupSignalR?: boolean) => Promise<any>;
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   isGuest: () => boolean;
@@ -108,10 +108,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Login function
-  const login = async (email: string, password: string, rememberMe: boolean = false) => {
+  const login = async (email: string, password: string, rememberMe: boolean = false, setupSignalR: boolean = false) => {
     try {
       setIsLoading(true);
-      const user = await apiLogin(email, password, rememberMe);
+      const user = await apiLogin(email, password, rememberMe, setupSignalR);
       
       setUserData({
         id: user.id,

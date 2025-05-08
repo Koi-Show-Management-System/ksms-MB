@@ -76,7 +76,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
       {/* Right side: User greeting, notification and profile icon */}
       <View style={styles.headerRightContainer}>
         <Text style={styles.homeText}>
-          {isGuest() ? "Chế độ khách" : `Xin Chào ${userFullName}`}
+          {isGuest() ? "Chế độ khách" : ``}
         </Text>
         {!isGuest() && <NotificationBadge style={styles.notificationIcon} />}
         <TouchableOpacity onPress={navigateToUserMenu}>

@@ -26,9 +26,7 @@ const WelcomeScreen: React.FC = () => {
         </View>
         <View style={styles.koiImageContainer}>
           <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/assets/Z4F9ZAIBBLnlud8N",
-            }}
+            source={require("../../assets/images/Koifishillustration.png")}
             alt="Koi fish illustration"
             style={styles.koiImage}
           />

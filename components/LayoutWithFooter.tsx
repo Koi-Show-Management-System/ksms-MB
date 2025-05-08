@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingBottom: 60, // Giảm padding để loại bỏ khoảng trắng thừa nhưng vẫn đảm bảo nội dung không bị che bởi footer
+    paddingBottom: 0, // Không cần padding ở đây vì Footer đã có chiều cao riêng
   },
 });
 

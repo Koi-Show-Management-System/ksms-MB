@@ -1,6 +1,7 @@
 import {
   HubConnection,
   HubConnectionBuilder,
+  HubConnectionState,
   LogLevel,
 } from "@microsoft/signalr";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -34,18 +35,24 @@ class SignalRService {
         console.log(
           "[SignalR] Connection setup already in progress, waiting for it to complete"
         );
-        await this.connectionPromise;
-        return;
+        try {
+          await this.connectionPromise;
+          return;
+        } catch (connectionError) {
+          console.error("[SignalR] Error in existing connection promise:", connectionError);
+          // Reset connection promise nếu có lỗi
+          this.connectionPromise = null;
+        }
       }
 
       // Nếu đã có kết nối và đang hoạt động, không cần thiết lập lại
-      if (this.connection && this.connection.state === "Connected") {
+      if (this.connection && this.connection.state === HubConnectionState.Connected) {
         console.log("[SignalR] Connection already exists and is connected");
         return;
       }
 
       // Nếu đang có kết nối nhưng không ở trạng thái Connected, dừng kết nối cũ
-      if (this.connection && this.connection.state !== "Connected") {
+      if (this.connection && this.connection.state !== HubConnectionState.Connected) {
         console.log(
           `[SignalR] Stopping existing connection in state: ${this.connection.state}`
         );
@@ -285,18 +292,30 @@ class SignalRService {
   // Bắt đầu kết nối đến hub
   private async startConnection(): Promise<void> {
     if (!this.connection) {
+      console.error("[SignalR] Connection has not been initialized");
       throw new Error("[SignalR] Connection has not been initialized");
     }
 
     try {
       // Kiểm tra nếu kết nối đã được thiết lập
-      if (this.connection.state === "Connected") {
+      if (this.connection.state === HubConnectionState.Connected) {
         console.log("[SignalR] Connection is already in Connected state");
         return;
       }
 
       console.log("[SignalR] Starting connection to notification hub...");
-      await this.connection.start();
+
+      // Đặt timeout để tránh treo quá lâu
+      const connectionPromise = this.connection.start();
+      const timeoutPromise = new Promise((_, reject) => {
+        const timeout = setTimeout(() => {
+          clearTimeout(timeout as unknown as NodeJS.Timeout);
+          reject(new Error("[SignalR] Connection start timed out after 15 seconds"));
+        }, 15000);
+      });
+
+      // Race giữa kết nối và timeout
+      await Promise.race([connectionPromise, timeoutPromise]);
       console.log("[SignalR] Connected to notification hub successfully");
 
       // Reset reconnect attempts on successful connection
@@ -326,7 +345,7 @@ class SignalRService {
 
   // Join user-specific notification group
   private async joinUserGroup(): Promise<void> {
-    if (!this.connection || this.connection.state !== "Connected") {
+    if (!this.connection || this.connection.state !== HubConnectionState.Connected) {
       console.warn("[SignalR] Cannot join group: Connection not ready");
       return;
     }
@@ -341,119 +360,15 @@ class SignalRService {
         return;
       }
 
-      console.log(`[SignalR] Attempting to join group for user: ${userId}`);
+      // Theo tài liệu Microsoft: "SignalR gửi tin nhắn đến clients và groups dựa trên mô hình pub/sub,
+      // và server không duy trì danh sách các nhóm hoặc thành viên nhóm."
+      // Vì vậy, chúng ta không cần cố gắng tham gia nhóm từ client, server sẽ tự động xử lý
+      console.log(`[SignalR] User ${userId} connected. Server handles group membership automatically.`);
 
-      // Based on Microsoft's documentation, try standard SignalR group methods
-      // in order of most likely to be implemented on the server
-      const methodsToTry = [
-        { name: "AddToGroup", camelCase: "addToGroup" },
-        { name: "JoinGroup", camelCase: "joinGroup" },
-        { name: "Subscribe", camelCase: "subscribe" },
-        { name: "SubscribeToUser", camelCase: "subscribeToUser" },
-        // Add methods that match your server implementation
-        { name: "JoinUserGroup", camelCase: "joinUserGroup" },
-        { name: "ConnectUser", camelCase: "connectUser" },
-      ];
-
-      let success = false;
-      let lastError = null;
-
-      // Try each method with both PascalCase and camelCase variations
-      for (const method of methodsToTry) {
-        if (success) break;
-
-        try {
-          // Try PascalCase (C# style)
-          await this.connection.invoke(method.name, userId);
-          console.log(
-            `[SignalR] Successfully joined group using ${method.name}`
-          );
-          success = true;
-          break;
-        } catch (error) {
-          console.log(
-            `[SignalR] Method ${method.name} failed, trying camelCase version`
-          );
-
-          try {
-            // Try camelCase (JavaScript style)
-            await this.connection.invoke(method.camelCase, userId);
-            console.log(
-              `[SignalR] Successfully joined group using ${method.camelCase}`
-            );
-            success = true;
-            break;
-          } catch (camelError) {
-            console.log(`[SignalR] Method ${method.camelCase} also failed`);
-            lastError = camelError;
-          }
-        }
-      }
-
-      if (!success) {
-        console.log(
-          "[SignalR] All standard group join methods failed, trying direct connection"
-        );
-
-        // If all standard methods fail, the server might not require explicit group joining
-        // The connection itself might be enough (server handles it automatically)
-        try {
-          // Try to send a test message to verify connection
-          await this.connection.invoke("Ping");
-          console.log("[SignalR] Connection verified with Ping");
-          success = true;
-        } catch (pingError) {
-          console.log("[SignalR] Ping failed, trying PingServer");
-
-          try {
-            await this.connection.invoke("PingServer");
-            console.log("[SignalR] Connection verified with PingServer");
-            success = true;
-          } catch (pingServerError) {
-            console.log("[SignalR] PingServer also failed");
-
-            // Thử thêm một số phương thức khác có thể được sử dụng trong SignalR
-            try {
-              await this.connection.invoke("GetConnectionId");
-              console.log("[SignalR] Connection verified with GetConnectionId");
-              success = true;
-            } catch (getConnectionIdError) {
-              console.log("[SignalR] GetConnectionId also failed");
-
-              try {
-                // Thử gửi một tin nhắn echo đơn giản
-                await this.connection.invoke("Echo", "Test");
-                console.log("[SignalR] Connection verified with Echo");
-                success = true;
-              } catch (echoError) {
-                console.log("[SignalR] Echo also failed");
-                lastError = echoError;
-              }
-            }
-          }
-        }
-      }
-
-      if (!success) {
-        console.log(
-          "[SignalR] All group join methods failed, but connection is established"
-        );
-        console.log(
-          "[SignalR] Server might handle group joining automatically or not require explicit group joining"
-        );
-
-        // Không cần tham gia nhóm một cách rõ ràng, kết nối vẫn có thể hoạt động
-        // Nhiều máy chủ SignalR không yêu cầu tham gia nhóm rõ ràng và tự động xử lý dựa trên token
-        console.log(
-          "[SignalR] Connection is considered successful even without explicit group joining"
-        );
-        success = true;
-      } else {
-        console.log("[SignalR] Successfully joined notification group");
-      }
+      return;
     } catch (error) {
-      console.error("[SignalR] Error setting up user group:", error);
-      // Don't throw here to prevent connection setup failure
+      console.error("[SignalR] Error in joinUserGroup:", error);
+      // Don't throw here to prevent disconnecting the SignalR connection
     }
   }
 
@@ -509,7 +424,7 @@ class SignalRService {
         }
 
         // Cleanup existing connection
-        if (this.connection && this.connection.state !== "Disconnected") {
+        if (this.connection && this.connection.state !== HubConnectionState.Disconnected) {
           try {
             await this.connection.stop();
             console.log(
@@ -683,28 +598,9 @@ class SignalRService {
         // Try to leave any groups before disconnecting
         try {
           const userId = await AsyncStorage.getItem("userId");
-          if (userId && this.connection.state === "Connected") {
-            // Try common leave group methods
-            const leaveMethodsToTry = [
-              "RemoveFromGroup",
-              "removeFromGroup",
-              "LeaveGroup",
-              "leaveGroup",
-              "Unsubscribe",
-              "unsubscribe",
-            ];
-
-            for (const method of leaveMethodsToTry) {
-              try {
-                await this.connection.invoke(method, userId);
-                console.log(
-                  `[SignalR] Successfully left group using ${method}`
-                );
-                break;
-              } catch (error) {
-                // Silently continue to the next method
-              }
-            }
+          if (userId && this.connection.state === HubConnectionState.Connected) {
+            // Không cần cố gắng rời khỏi nhóm vì server tự động xử lý
+            console.log(`[SignalR] Disconnecting user ${userId}. Server will handle group membership.`);
           }
         } catch (leaveError) {
           // Don't let group leaving errors prevent connection closure
@@ -729,7 +625,7 @@ class SignalRService {
 
   // Kiểm tra trạng thái kết nối
   isConnected(): boolean {
-    return this.connection?.state === "Connected";
+    return this.connection?.state === HubConnectionState.Connected;
   }
 
   // Đảm bảo kết nối đang hoạt động trước khi thực hiện hành động
@@ -777,12 +673,12 @@ class SignalRService {
         console.log("[SignalR] Connection already active");
 
         // Kiểm tra trạng thái kết nối
-        if (this.connection?.state === "Connected") {
+        if (this.connection?.state === HubConnectionState.Connected) {
           console.log("[SignalR] Connection is in Connected state");
           return true;
         } else if (
-          this.connection?.state === "Connecting" ||
-          this.connection?.state === "Reconnecting"
+          this.connection?.state === HubConnectionState.Connecting ||
+          this.connection?.state === HubConnectionState.Reconnecting
         ) {
           console.log(
             `[SignalR] Connection is in ${this.connection.state} state, waiting...`
@@ -790,7 +686,8 @@ class SignalRService {
           // Đợi một chút để kết nối hoàn thành
           try {
             await new Promise((resolve) => setTimeout(resolve, 2000));
-            if (this.connection?.state === "Connected") {
+            // Kiểm tra lại trạng thái kết nối sau khi đợi
+            if (this.isConnected()) {
               console.log(
                 "[SignalR] Connection is now in Connected state after waiting"
               );

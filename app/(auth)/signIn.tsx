@@ -72,11 +72,16 @@ const SignIn: React.FC<SignInProps> = ({
     setIsLoading(true);
 
     try {
-      // Call login function from AuthContext, passing rememberMe
-      await login(validationResult.data.email, validationResult.data.password, rememberMe);
+      // Call login function from AuthContext, passing rememberMe but NOT setting up SignalR immediately
+      // Set setupSignalR to false để tránh trì hoãn đăng nhập
+      await login(validationResult.data.email, validationResult.data.password, rememberMe, false);
       console.log("Login successful");
+      
       // Sử dụng replace thay vì push để xóa màn hình đăng nhập khỏi navigation history
       router.replace("/(tabs)/home/homepage");
+      
+      // Chỉ thiết lập kết nối SignalR sau khi đã chuyển hướng thành công
+      // Điều này sẽ được xử lý bởi _layout.tsx thông qua initializeSignalR
     } catch (error: any) {
       // Interceptor handles API error toasts.
       console.error("Login failed in component catch:", error);
@@ -88,9 +93,7 @@ const SignIn: React.FC<SignInProps> = ({
   return (
     <View style={styles.container}>
       <Image
-        source={{
-          uri: "https://dashboard.codeparrot.ai/api/image/Z5ve2-xZjZ9DnB_k/group-2.png",
-        }}
+        source={require("../../assets/images/signinlogo.png")}
         style={styles.logo}
       />
 
@@ -109,9 +112,7 @@ const SignIn: React.FC<SignInProps> = ({
             autoCapitalize="none"
           />
           <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z5ve2-xZjZ9DnB_k/frame.png",
-            }}
+            source={require("../../assets/images/fishicon.png")}
             style={styles.inputIcon}
           />
         </View>

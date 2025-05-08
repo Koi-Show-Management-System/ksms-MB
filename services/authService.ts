@@ -32,7 +32,8 @@ interface ApiResponse {
 export const login = async (
   email: string,
   password: string,
-  rememberMe: boolean = false
+  rememberMe: boolean = false,
+  setupSignalR: boolean = true
 ) => {
   try {
     const response = await api.post<ApiResponse>("/api/v1/auth/login", {
@@ -63,12 +64,23 @@ export const login = async (
           rememberMe ? "true" : "false"
         );
 
-        // Thiết lập kết nối SignalR sau khi đăng nhập thành công
-        try {
-          await signalRService.setupConnection();
-        } catch (signalRError) {
-          console.error("Error setting up SignalR connection:", signalRError);
-          // Không throw lỗi ở đây để tránh ảnh hưởng đến luồng đăng nhập
+        // Thiết lập kết nối SignalR sau khi đăng nhập thành công chỉ khi cần
+        if (setupSignalR) {
+          setTimeout(() => {
+            // Sử dụng Promise.race với timeout để tránh kết nối SignalR bị treo quá lâu
+            const signalRPromise = signalRService.setupConnection();
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error("SignalR connection timeout")), 5000);
+            });
+            
+            Promise.race([signalRPromise, timeoutPromise])
+              .catch(signalRError => {
+                console.error("Error setting up SignalR connection:", signalRError);
+                // Không ảnh hưởng đến luồng đăng nhập chính vì đây là promise riêng biệt
+              });
+          }, 100); // Độ trễ nhỏ để đảm bảo các AsyncStorage đã được lưu xong
+        } else {
+          console.log("Skipping initial SignalR setup - will be initialized later");
         }
 
         return userData;

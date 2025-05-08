@@ -22,10 +22,16 @@ import { QueryProvider } from "../context/QueryProvider";
 import { signalRService } from "../services/signalRService";
 import { disableConsoleInProduction } from "../utils/disableConsoleInProduction";
 import { logger } from "../utils/logger";
+import ErrorBoundary from "../components/ErrorBoundary";
+import { setupGlobalErrorHandlers } from "../utils/ErrorUtils";
+import BackButtonManager from "../components/BackButtonManager";
 // import { navigationRef } from '@/utils/navigationService';
 
 // Vô hiệu hóa console.log trong môi trường production
 disableConsoleInProduction();
+
+// Cấu hình xử lý lỗi toàn cục
+setupGlobalErrorHandlers();
 
 enableScreens(true);
 SplashScreen.preventAutoHideAsync();
@@ -88,8 +94,20 @@ export default function RootLayout() {
           typeof signalRService.ensureConnection === "function"
         ) {
           logger.info("User is logged in, initializing SignalR connection");
-          // Thiết lập kết nối SignalR
-          await signalRService.ensureConnection();
+
+          // Sử dụng Promise.race với timeout để đảm bảo quá trình thiết lập kết nối không mất quá nhiều thời gian
+          const connectionPromise = signalRService.ensureConnection();
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("SignalR connection setup timed out")), 10000);
+          });
+
+          try {
+            await Promise.race([connectionPromise, timeoutPromise]);
+            logger.info("SignalR connection established successfully");
+          } catch (connectionError) {
+            logger.error("SignalR connection timed out or failed:", connectionError);
+            // Không dừng quá trình, cho phép ứng dụng tiếp tục hoạt động ngay cả khi SignalR không kết nối được
+          }
         } else {
           logger.info(
             "User is not logged in or signalRService not available, skipping SignalR initialization"
@@ -97,13 +115,16 @@ export default function RootLayout() {
         }
       } catch (error) {
         logger.error("Error initializing SignalR:", error);
+        // Vẫn cho phép ứng dụng hoạt động ngay cả khi không thể khởi tạo SignalR
       }
     };
 
-    // Khởi tạo SignalR sau một khoảng thời gian ngắn để đảm bảo ứng dụng đã khởi động hoàn toàn
+    // Khởi tạo SignalR sau khi ứng dụng đã khởi động hoàn toàn
+    // Sử dụng thời gian ngắn hơn (500ms) để đảm bảo kết nối được thiết lập sớm hơn
+    // sau khi đăng nhập thành công
     const timer = setTimeout(() => {
       initializeSignalR();
-    }, 1000);
+    }, 500);
 
     return () => {
       clearTimeout(timer);
@@ -124,53 +145,56 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AndroidSafeAreaConfig />
-        <QueryProvider>
-          <AuthProvider>
-            <OverlayProvider>
-              <ThemeProvider
-                value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-                <Stack
-                  // ref={navigationRef}
-                  screenOptions={{
-                    headerShown: false,
-                    animation: "fade",
-                    contentStyle: {
-                      backgroundColor: colorScheme === "dark" ? "#000" : "#fff",
-                    },
-                  }}>
-                  <Stack.Screen
-                    name="(tabs)"
-                    options={{ headerShown: false }}
-                  />
-                  <Stack.Screen
-                    name="(auth)"
-                    options={{ headerShown: false }}
-                  />
-                  <Stack.Screen
-                    name="(user)"
-                    options={{ headerShown: false }}
-                  />
-                  <Stack.Screen
-                    name="(payments)"
-                    options={{ headerShown: false }}
-                  />
-                  <Stack.Screen
-                    name="+not-found"
-                    options={{ headerShown: false }}
-                  />
-                  <Stack.Screen name="index" options={{ headerShown: false }} />
-                  <Stack.Screen name="Rules" options={{ headerShown: false }} />
-                </Stack>
-                <StatusBar style="auto" />
-                <Toast />
-              </ThemeProvider>
-            </OverlayProvider>
-          </AuthProvider>
-        </QueryProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <AndroidSafeAreaConfig />
+          <QueryProvider>
+            <AuthProvider>
+              <OverlayProvider>
+                <ThemeProvider
+                  value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+                  <Stack
+                    // ref={navigationRef}
+                    screenOptions={{
+                      headerShown: false,
+                      animation: "fade",
+                      contentStyle: {
+                        backgroundColor: colorScheme === "dark" ? "#000" : "#fff",
+                      },
+                    }}>
+                    <Stack.Screen
+                      name="(tabs)"
+                      options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="(auth)"
+                      options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="(user)"
+                      options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="(payments)"
+                      options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                      name="+not-found"
+                      options={{ headerShown: false }}
+                    />
+                    <Stack.Screen name="index" options={{ headerShown: false }} />
+                    <Stack.Screen name="Rules" options={{ headerShown: false }} />
+                  </Stack>
+                  <StatusBar style="auto" />
+                  <Toast />
+                  <BackButtonManager />
+                </ThemeProvider>
+              </OverlayProvider>
+            </AuthProvider>
+          </QueryProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

@@ -353,28 +353,6 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
         </View>
         {!notification.isRead && <View style={styles.unreadIndicator} />}
 
-        {/* Hiển thị nút xóa hoặc nút xem chi tiết */}
-        {showDeleteButton ? (
-          <Pressable
-            style={({ pressed }) => [
-              styles.deleteButton,
-              pressed && Platform.OS === "ios" ? { opacity: 0.7 } : {},
-            ]}
-            android_ripple={{
-              color: "rgba(231, 76, 60, 0.1)",
-              borderless: true,
-            }}
-            onPress={handleDelete}>
-            <AntDesign name="delete" size={20} color="#E74C3C" />
-          </Pressable>
-        ) : (
-          <Feather
-            name="chevron-right"
-            size={20}
-            color="#999999"
-            style={styles.itemChevron}
-          />
-        )}
       </Animated.View>
     </Pressable>
   );

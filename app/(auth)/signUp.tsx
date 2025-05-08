@@ -140,9 +140,7 @@ const Signup: React.FC = () => {
         {/* Header Section */}
         <View style={styles.headerSection}>
           <Image
-            source={{
-              uri: "https://dashboard.codeparrot.ai/api/image/Z5vae-xZjZ9DnB_f/group-2.png",
-            }}
+            source={require("../../assets/images/signuplogo.png")}
             style={styles.logo}
           />
           <Text style={styles.title}>KSMS</Text>
