@@ -958,7 +958,7 @@ const Homepage: React.FC = () => {
           </FadeInView>
 
           {/* Add a small padding to prevent content from being hidden by footer */}
-          <View style={{ height: 70 }} />
+          <View style={{ height: 0 }} />
         </Animated.ScrollView>
       </SafeAreaView>
     </GestureHandlerRootView>
