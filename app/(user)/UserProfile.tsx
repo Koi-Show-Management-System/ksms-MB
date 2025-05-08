@@ -1,4 +1,3 @@
-// app/(user)/UserProfile.tsx
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
