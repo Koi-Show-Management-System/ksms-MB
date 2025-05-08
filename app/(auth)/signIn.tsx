@@ -72,14 +72,14 @@ const SignIn: React.FC<SignInProps> = ({
     setIsLoading(true);
 
     try {
-      // Call login function from AuthContext, passing rememberMe but NOT setting up SignalR immediately
-      // Set setupSignalR to false để tránh trì hoãn đăng nhập
-      await login(validationResult.data.email, validationResult.data.password, rememberMe, false);
+      // Call login function from AuthContext, passing rememberMe
+      // SignalR will be initialized by _layout.tsx after navigation
+      await login(validationResult.data.email, validationResult.data.password, rememberMe);
       console.log("Login successful");
-      
+
       // Sử dụng replace thay vì push để xóa màn hình đăng nhập khỏi navigation history
       router.replace("/(tabs)/home/homepage");
-      
+
       // Chỉ thiết lập kết nối SignalR sau khi đã chuyển hướng thành công
       // Điều này sẽ được xử lý bởi _layout.tsx thông qua initializeSignalR
     } catch (error: any) {

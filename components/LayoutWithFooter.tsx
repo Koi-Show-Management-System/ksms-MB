@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingBottom: 0, // Không cần padding ở đây vì Footer đã có chiều cao riêng
+    paddingBottom: 70, // Không cần padding ở đây vì Footer đã có chiều cao riêng
   },
 });
 

@@ -25,7 +25,7 @@ class SignalRService {
   private showToastOnNotification: boolean = true; // Thêm biến để kiểm soát hiển thị Toast
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 5;
-  private reconnectTimeoutId: NodeJS.Timeout | null = null;
+  private reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   // Thiết lập kết nối tới hub thông báo
   async setupConnection() {
@@ -244,12 +244,7 @@ class SignalRService {
         // Reset reconnect attempts on successful reconnection
         this.reconnectAttempts = 0;
 
-        this.joinUserGroup().catch((err) =>
-          console.error(
-            "[SignalR] Error joining user group after reconnection:",
-            err
-          )
-        );
+        // No need to join user group - server handles this automatically
       });
 
       this.connection.onclose((error) => {
@@ -321,8 +316,7 @@ class SignalRService {
       // Reset reconnect attempts on successful connection
       this.reconnectAttempts = 0;
 
-      // Join the user-specific group
-      await this.joinUserGroup();
+      // No need to join user group - server handles this automatically
     } catch (err) {
       console.error("[SignalR] Error starting connection:", err);
 
@@ -343,34 +337,7 @@ class SignalRService {
     }
   }
 
-  // Join user-specific notification group
-  private async joinUserGroup(): Promise<void> {
-    if (!this.connection || this.connection.state !== HubConnectionState.Connected) {
-      console.warn("[SignalR] Cannot join group: Connection not ready");
-      return;
-    }
-
-    try {
-      // Lấy userId từ AsyncStorage
-      const userId = await AsyncStorage.getItem("userId");
-      if (!userId) {
-        console.warn(
-          "[SignalR] User ID not found, can't join notification group"
-        );
-        return;
-      }
-
-      // Theo tài liệu Microsoft: "SignalR gửi tin nhắn đến clients và groups dựa trên mô hình pub/sub,
-      // và server không duy trì danh sách các nhóm hoặc thành viên nhóm."
-      // Vì vậy, chúng ta không cần cố gắng tham gia nhóm từ client, server sẽ tự động xử lý
-      console.log(`[SignalR] User ${userId} connected. Server handles group membership automatically.`);
-
-      return;
-    } catch (error) {
-      console.error("[SignalR] Error in joinUserGroup:", error);
-      // Don't throw here to prevent disconnecting the SignalR connection
-    }
-  }
+  // We don't need a joinUserGroup method as server handles group membership automatically
 
   // Handle reconnection with exponential backoff
   private handleReconnect() {
@@ -595,18 +562,6 @@ class SignalRService {
 
     if (this.connection) {
       try {
-        // Try to leave any groups before disconnecting
-        try {
-          const userId = await AsyncStorage.getItem("userId");
-          if (userId && this.connection.state === HubConnectionState.Connected) {
-            // Không cần cố gắng rời khỏi nhóm vì server tự động xử lý
-            console.log(`[SignalR] Disconnecting user ${userId}. Server will handle group membership.`);
-          }
-        } catch (leaveError) {
-          // Don't let group leaving errors prevent connection closure
-          console.log("[SignalR] Error leaving groups:", leaveError);
-        }
-
         // Stop the connection
         await this.connection.stop();
         console.log("[SignalR] Connection stopped successfully");

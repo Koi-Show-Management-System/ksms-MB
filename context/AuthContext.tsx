@@ -26,7 +26,7 @@ interface AuthContextType {
   isLoading: boolean;
   userData: UserData | null;
   userRole: string | null;
-  login: (email: string, password: string, rememberMe?: boolean, setupSignalR?: boolean) => Promise<any>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<any>;
   loginAsGuest: () => Promise<void>;
   logout: () => Promise<void>;
   isGuest: () => boolean;
@@ -60,13 +60,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const token = await AsyncStorage.getItem('userToken');
         const role = await AsyncStorage.getItem('userRole');
-        
+
         if (token) {
           // Regular authenticated user
           const userId = await AsyncStorage.getItem('userId') || '';
           const userEmail = await AsyncStorage.getItem('userEmail') || '';
           const userFullName = await AsyncStorage.getItem('userFullName') || '';
-          
+
           setUserData({
             id: userId,
             email: userEmail,
@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             fullName: userFullName,
             token: token,
           });
-          
+
           setUserRole(role);
           setIsAuthenticated(true);
         } else if (role === UserRole.GUEST) {
@@ -85,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: UserRole.GUEST,
             fullName: 'Khách',
           });
-          
+
           setUserRole(UserRole.GUEST);
           setIsAuthenticated(false); // Guest is not technically authenticated
         } else {
@@ -108,11 +108,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Login function
-  const login = async (email: string, password: string, rememberMe: boolean = false, setupSignalR: boolean = false) => {
+  const login = async (email: string, password: string, rememberMe: boolean = false) => {
     try {
       setIsLoading(true);
-      const user = await apiLogin(email, password, rememberMe, setupSignalR);
-      
+      const user = await apiLogin(email, password, rememberMe);
+
       setUserData({
         id: user.id,
         email: user.email,
@@ -120,10 +120,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fullName: user.fullName,
         token: user.token,
       });
-      
+
       setUserRole(user.role);
       setIsAuthenticated(true);
-      
+
       return user;
     } catch (error) {
       console.error('Login error in context:', error);
@@ -137,18 +137,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginAsGuest = async () => {
     try {
       setIsLoading(true);
-      
+
       // Clear any existing auth data
       await AsyncStorage.multiRemove([
         'userToken',
         'userId',
         'userEmail',
       ]);
-      
+
       // Set guest role
       await AsyncStorage.setItem('userRole', UserRole.GUEST);
       await AsyncStorage.setItem('userFullName', 'Khách');
-      
+
       // Update state
       setUserData({
         id: 'guest',
@@ -156,10 +156,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: UserRole.GUEST,
         fullName: 'Khách',
       });
-      
+
       setUserRole(UserRole.GUEST);
       setIsAuthenticated(false); // Guest is not technically authenticated
-      
+
       // Điều hướng sẽ được xử lý từ component, không xử lý ở đây
     } catch (error) {
       console.error('Guest login error:', error);
@@ -173,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       setIsLoading(true);
-      
+
       // If user is not a guest, call the API logout
       if (userRole !== UserRole.GUEST) {
         await apiLogout();
@@ -181,7 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // For guest users, just stop SignalR if it's running
         await signalRService.stopConnection();
       }
-      
+
       // Clear all auth data
       await AsyncStorage.multiRemove([
         'userToken',
@@ -190,12 +190,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         'userRole',
         'userFullName',
       ]);
-      
+
       // Reset state
       setUserData(null);
       setUserRole(null);
       setIsAuthenticated(false);
-      
+
       // Đảm bảo sử dụng replace để ngăn người dùng quay lại màn hình chính sau khi đăng xuất
       router.replace('/(auth)/welcomeScreen');
     } catch (error) {

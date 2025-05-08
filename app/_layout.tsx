@@ -88,43 +88,45 @@ export default function RootLayout() {
           return; // Thoát sớm nếu không thể lấy token
         }
 
-        if (
-          token &&
-          signalRService &&
-          typeof signalRService.ensureConnection === "function"
-        ) {
-          logger.info("User is logged in, initializing SignalR connection");
+        // Skip SignalR initialization if no token
+        if (!token) {
+          logger.info("No user token found, skipping SignalR initialization");
+          return;
+        }
 
-          // Sử dụng Promise.race với timeout để đảm bảo quá trình thiết lập kết nối không mất quá nhiều thời gian
-          const connectionPromise = signalRService.ensureConnection();
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("SignalR connection setup timed out")), 10000);
-          });
+        // Check if signalRService is available
+        if (!signalRService || typeof signalRService.ensureConnection !== "function") {
+          logger.error("SignalR service not available or missing ensureConnection method");
+          return;
+        }
 
-          try {
-            await Promise.race([connectionPromise, timeoutPromise]);
-            logger.info("SignalR connection established successfully");
-          } catch (connectionError) {
-            logger.error("SignalR connection timed out or failed:", connectionError);
-            // Không dừng quá trình, cho phép ứng dụng tiếp tục hoạt động ngay cả khi SignalR không kết nối được
-          }
-        } else {
-          logger.info(
-            "User is not logged in or signalRService not available, skipping SignalR initialization"
-          );
+        logger.info("User is logged in, initializing SignalR connection");
+
+        // Use a shorter timeout (5 seconds) to avoid blocking the UI thread for too long
+        const connectionPromise = signalRService.ensureConnection();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("SignalR connection setup timed out")), 5000);
+        });
+
+        try {
+          await Promise.race([connectionPromise, timeoutPromise]);
+          logger.info("SignalR connection established successfully");
+        } catch (connectionError) {
+          logger.error("SignalR connection timed out or failed:", connectionError);
+          // Don't stop the app, allow it to continue even if SignalR fails to connect
         }
       } catch (error) {
         logger.error("Error initializing SignalR:", error);
-        // Vẫn cho phép ứng dụng hoạt động ngay cả khi không thể khởi tạo SignalR
+        // Still allow the app to function even if SignalR initialization fails
       }
     };
 
     // Khởi tạo SignalR sau khi ứng dụng đã khởi động hoàn toàn
-    // Sử dụng thời gian ngắn hơn (500ms) để đảm bảo kết nối được thiết lập sớm hơn
-    // sau khi đăng nhập thành công
+    // Sử dụng thời gian đủ dài (1000ms) để đảm bảo ứng dụng đã khởi động hoàn toàn
+    // trước khi thiết lập kết nối SignalR
     const timer = setTimeout(() => {
       initializeSignalR();
-    }, 500);
+    }, 1000);
 
     return () => {
       clearTimeout(timer);

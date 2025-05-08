@@ -24,26 +24,52 @@ export function setupGlobalErrorHandlers() {
   const handlePromiseRejection = (event: any) => {
     const error = event?.reason || 'Unknown Promise Rejection';
     logger.error('Unhandled Promise Rejection:', error);
+
+    // Log additional details if available
+    if (error && typeof error === 'object') {
+      if (error.stack) logger.error('Error Stack:', error.stack);
+      if (error.message) logger.error('Error Message:', error.message);
+      if (error.name) logger.error('Error Name:', error.name);
+    }
   };
 
   // Đăng ký global error handler cho React Native
-  if (typeof global.ErrorUtils !== 'undefined') {
+  // Use type assertion to handle React Native's global ErrorUtils
+  const globalWithErrorUtils = global as unknown as { ErrorUtils?: ErrorUtilsType };
+
+  if (typeof globalWithErrorUtils.ErrorUtils !== 'undefined') {
     try {
-      const originalGlobalHandler = global.ErrorUtils.getGlobalHandler();
-      
-      global.ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+      const originalGlobalHandler = globalWithErrorUtils.ErrorUtils.getGlobalHandler();
+
+      globalWithErrorUtils.ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
         logger.error(`Global JavaScript Error ${isFatal ? '(FATAL)' : ''}:`, error);
 
-        // Ghi log chi tiết hơn trong chế độ development
+        // Log detailed error information in both DEV and PROD
+        const errorDetails = {
+          message: error.message || 'No message',
+          stack: error.stack || 'No stack trace',
+          name: error.name || 'Unknown Error',
+          isFatal: !!isFatal
+        };
+
+        // In development, show in console
         if (__DEV__) {
-          console.error('Error details:', {
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-          });
+          console.error('Error details:', errorDetails);
+        } else {
+          // In production, log through logger
+          logger.error('Error details:', JSON.stringify(errorDetails));
         }
-        
-        // Gọi global handler gốc
+
+        // For fatal errors, we might want to show a user-friendly message
+        // or navigate to an error screen, but for now we'll just log it
+        if (isFatal) {
+          logger.error('FATAL ERROR: App may be in an unstable state');
+
+          // You could add code here to navigate to an error screen
+          // or show a user-friendly message
+        }
+
+        // Call the original handler
         originalGlobalHandler(error, isFatal);
       });
     } catch (handlerError) {
@@ -58,7 +84,7 @@ export function setupGlobalErrorHandlers() {
       if (typeof global.removeEventListener === 'function') {
         global.removeEventListener('unhandledrejection', handlePromiseRejection);
       }
-      
+
       // Thêm handler mới
       global.addEventListener('unhandledrejection', handlePromiseRejection);
     } catch (listenerError) {
@@ -72,7 +98,7 @@ export function setupGlobalErrorHandlers() {
     console.error = (...args: any[]) => {
       // Log lỗi bằng logger để có thể gửi lên hệ thống theo dõi lỗi trong tương lai
       logger.error('Console Error:', ...args);
-      
+
       // Vẫn giữ hành vi gốc
       originalConsoleError(...args);
     };
@@ -110,12 +136,12 @@ export function safeFunctionWrapper<T extends any[], R>(
     } catch (error) {
       const typedError = error instanceof Error ? error : new Error(String(error));
       logger.error(`Error in wrapped function (${fn.name || 'anonymous'}):`, typedError);
-      
+
       if (errorHandler) {
         errorHandler(typedError, ...args);
       }
-      
+
       return undefined;
     }
   };
-} 
+}
