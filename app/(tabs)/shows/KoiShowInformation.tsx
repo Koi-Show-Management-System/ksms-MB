@@ -158,6 +158,7 @@ const CategoryItem = memo(
     isLoadingDetails: boolean;
   }) => {
     const [modalVisible, setModalVisible] = useState(false);
+    const [roundsModalVisible, setRoundsModalVisible] = useState(false);
     
     // Group criteria by round type
     const criteriaByRound: Record<string, CategoryCriteria[]> = {};
@@ -332,6 +333,250 @@ const CategoryItem = memo(
       </Modal>
     );
     
+    // Tạo modal mới cho vòng thi quy định
+    const renderRoundsModal = () => {
+      // Tổ chức các vòng theo loại
+      const preliminaryRounds = detailedCategory?.rounds?.filter(round => round.roundType === "Preliminary") || [];
+      const evaluationRounds = detailedCategory?.rounds?.filter(round => round.roundType === "Evaluation") || [];
+      const finalRounds = detailedCategory?.rounds?.filter(round => round.roundType === "Final") || [];
+      
+      // Sắp xếp các vòng theo thứ tự
+      const sortedPreliminaryRounds = [...preliminaryRounds].sort((a, b) => a.roundOrder - b.roundOrder);
+      const sortedEvaluationRounds = [...evaluationRounds].sort((a, b) => a.roundOrder - b.roundOrder);
+      const sortedFinalRounds = [...finalRounds].sort((a, b) => a.roundOrder - b.roundOrder);
+      
+      return (
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={roundsModalVisible}
+          onRequestClose={() => setRoundsModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Vòng thi quy định</Text>
+                <TouchableOpacity onPress={() => setRoundsModalVisible(false)}>
+                  <MaterialIcons name="close" size={24} color="#000000" />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.modalContent}>
+                {/* Vòng sơ khảo */}
+                <View style={styles.roundSection}>
+                  <View style={[
+                    styles.roundHeader, 
+                    { backgroundColor: "#FF980020" }
+                  ]}>
+                    <View style={[
+                      styles.roundDot, 
+                      { backgroundColor: "#FF9800" }
+                    ]} />
+                    <Text style={[
+                      styles.roundTitle,
+                      { color: "#FF9800" }
+                    ]}>
+                      Vòng sơ khảo
+                    </Text>
+                  </View>
+                  <View style={styles.fixedInfoContainer}>
+                    <View style={styles.fixedInfoContent}>
+                      <Text style={styles.fixedInfoText}>
+                        <Text style={styles.fixedInfoTitle}>
+                          {sortedPreliminaryRounds.length > 0 
+                            ? `${sortedPreliminaryRounds[0].name} `
+                            : "Vòng 1 "}
+                        </Text>
+                        Ban giám khảo sẽ lựa chọn các cá thể đạt tiêu chuẩn tham gia vòng tiếp theo. Hình thức chấm Pass/Fail (Đạt/Không đạt).
+                      </Text>
+                    </View>
+                    {sortedPreliminaryRounds.length > 0 && sortedPreliminaryRounds[0].numberOfRegistrationToAdvance && (
+                      <View style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginTop: 8,
+                        backgroundColor: "#FFFDE7",
+                        padding: 8,
+                        borderRadius: 4,
+                      }}>
+                        <MaterialIcons name="info-outline" size={20} color="#FF9800" />
+                        <Text style={{
+                          fontSize: 12,
+                          color: "#666666",
+                          marginLeft: 4,
+                          flex: 1,
+                        }}>
+                          Số cá qua vòng là {sortedPreliminaryRounds[0].numberOfRegistrationToAdvance}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Vòng đánh giá chính */}
+                {sortedEvaluationRounds.length > 0 && sortedEvaluationRounds.map((evalRound, index) => (
+                  <View key={evalRound.id} style={styles.roundSection}>
+                    <View style={[
+                      styles.roundHeader, 
+                      { backgroundColor: "#00BCD420" }
+                    ]}>
+                      <View style={[
+                        styles.roundDot, 
+                        { backgroundColor: "#00BCD4" }
+                      ]} />
+                      <Text style={[
+                        styles.roundTitle,
+                        { color: "#00BCD4" }
+                      ]}>
+                        {index === 0 ? "Vòng đánh giá chính" : `Vòng đánh giá ${index + 1}`}
+                      </Text>
+                    </View>
+                    <View style={styles.fixedInfoContainer}>
+                      <View style={styles.fixedInfoContent}>
+                        <Text style={styles.fixedInfoText}>
+                          <Text style={styles.fixedInfoTitle}>{evalRound.name} </Text>
+                          Ban giám khảo sẽ chấm điểm chi tiết theo các tiêu chí quy định. Mỗi cá sẽ được chấm trên thang điểm 100.
+                        </Text>
+                      </View>
+                      {evalRound.numberOfRegistrationToAdvance && (
+                        <View style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginTop: 8,
+                          backgroundColor: "#FFFDE7",
+                          padding: 8,
+                          borderRadius: 4,
+                        }}>
+                          <MaterialIcons name="info-outline" size={20} color="#00BCD4" />
+                          <Text style={{
+                            fontSize: 12,
+                            color: "#666666",
+                            marginLeft: 4,
+                            flex: 1,
+                          }}>
+                            Số cá qua vòng là {evalRound.numberOfRegistrationToAdvance}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ))}
+
+                {/* Nếu không có dữ liệu vòng đánh giá, hiển thị mặc định */}
+                {sortedEvaluationRounds.length === 0 && (
+                  <View style={styles.roundSection}>
+                    <View style={[
+                      styles.roundHeader, 
+                      { backgroundColor: "#00BCD420" }
+                    ]}>
+                      <View style={[
+                        styles.roundDot, 
+                        { backgroundColor: "#00BCD4" }
+                      ]} />
+                      <Text style={[
+                        styles.roundTitle,
+                        { color: "#00BCD4" }
+                      ]}>
+                        Vòng đánh giá chính
+                      </Text>
+                    </View>
+                    <View style={styles.fixedInfoContainer}>
+                      <View style={styles.fixedInfoContent}>
+                        <Text style={styles.fixedInfoText}>
+                          <Text style={styles.fixedInfoTitle}>Vòng 2 </Text>
+                          Ban giám khảo sẽ chấm điểm chi tiết theo các tiêu chí quy định. Mỗi cá sẽ được chấm trên thang điểm 100.
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Vòng chung kết */}
+                <View style={styles.roundSection}>
+                  <View style={[
+                    styles.roundHeader, 
+                    { backgroundColor: "#4CAF5020" }
+                  ]}>
+                    <View style={[
+                      styles.roundDot, 
+                      { backgroundColor: "#4CAF50" }
+                    ]} />
+                    <Text style={[
+                      styles.roundTitle,
+                      { color: "#4CAF50" }
+                    ]}>
+                      Vòng chung kết
+                    </Text>
+                  </View>
+                  <View style={styles.fixedInfoContainer}>
+                    <View style={styles.fixedInfoContent}>
+                      <Text style={styles.fixedInfoText}>
+                        <Text style={styles.fixedInfoTitle}>
+                          {sortedFinalRounds.length > 0 
+                            ? `${sortedFinalRounds[0].name} `
+                            : "Vòng 3 "}
+                        </Text>
+                        Các cá xuất sắc nhất sẽ tranh tài để giành giải cao nhất. Ban giám khảo sẽ chấm điểm chi tiết và quyết định thứ hạng cuối cùng.
+                      </Text>
+                    </View>
+                    {/* Hiển thị số cá xuất sắc nhất dựa trên số lượng giải thưởng */}
+                    {detailedCategory?.awards && detailedCategory.awards.length > 0 ? (
+                      <View style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginTop: 8,
+                        backgroundColor: "#FFFDE7",
+                        padding: 8,
+                        borderRadius: 4,
+                      }}>
+                        <MaterialIcons name="info-outline" size={20} color="#4CAF50" />
+                        <Text style={{
+                          fontSize: 12,
+                          color: "#666666",
+                          marginLeft: 4,
+                          flex: 1,
+                        }}>
+                          {detailedCategory.awards.length === 1 
+                            ? "Tuyển chọn ra cá xuất sắc nhất" 
+                            : `Xếp hạng ${detailedCategory.awards.length} cá xuất sắc nhất`}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginTop: 8,
+                        backgroundColor: "#FFFDE7",
+                        padding: 8,
+                        borderRadius: 4,
+                      }}>
+                        <MaterialIcons name="info-outline" size={20} color="#4CAF50" />
+                        <Text style={{
+                          fontSize: 12,
+                          color: "#666666",
+                          marginLeft: 4,
+                          flex: 1,
+                        }}>
+                          Xếp hạng các cá xuất sắc nhất
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              </ScrollView>
+              
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setRoundsModalVisible(false)}
+              >
+                <Text style={styles.closeButtonText}>Đóng</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      );
+    };
+    
     return (
       <View style={styles.categoryCard}>
         <View style={styles.categoryHeader}>
@@ -368,7 +613,7 @@ const CategoryItem = memo(
           <Text style={styles.categoryDescription}>{item.description}</Text>
         )}
 
-        {/* Thêm nút Tiêu chí chấm điểm */}
+        {/* Nút Tiêu chí chấm điểm */}
         <TouchableOpacity 
           style={[
             styles.criteriaButton,
@@ -379,6 +624,18 @@ const CategoryItem = memo(
         >
           <MaterialIcons name="assessment" size={16} color="#FFFFFF" />
           <Text style={styles.criteriaButtonText}>Tiêu chí chấm điểm</Text>
+        </TouchableOpacity>
+        
+        {/* Thêm nút Vòng thi quy định */}
+        <TouchableOpacity 
+          style={[
+            styles.criteriaButton,
+            styles.roundsButton,
+          ]}
+          onPress={() => setRoundsModalVisible(true)}
+        >
+          <MaterialIcons name="timeline" size={16} color="#FFFFFF" />
+          <Text style={styles.criteriaButtonText}>Vòng thi quy định</Text>
         </TouchableOpacity>
 
         {item.varieties && item.varieties.length > 0 && (
@@ -441,8 +698,9 @@ const CategoryItem = memo(
           )
         )}
         
-        {/* Hiển thị modal tiêu chí chấm điểm */}
+        {/* Hiển thị các modal */}
         {renderCriteriaModal()}
+        {renderRoundsModal()}
       </View>
     );
   }
@@ -2620,7 +2878,7 @@ const styles = StyleSheet.create({
     height: 48,
   },
   criteriaButton: {
-    backgroundColor: "#FFD54F", // Vàng nhạt
+    backgroundColor: "#FFC107", // Đổi từ #FFD54F sang #FFC107 để đồng bộ với roundsButton
     borderRadius: 6,
     flexDirection: "row",
     alignItems: "center",
@@ -2842,6 +3100,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666666",
     marginTop: 8,
+  },
+  roundsButton: {
+    backgroundColor: "#FFC107", // Vàng nhạt
   },
 });
 
