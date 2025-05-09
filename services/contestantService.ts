@@ -160,9 +160,3 @@ export const getContestants = async (
   }
 };
 
-// Lấy token từ secure storage
-const getToken = async () => {
-  // Implement lấy token từ AsyncStorage hoặc SecureStore
-  // return await SecureStore.getItemAsync('auth_token');
-  return "your_token_here"; // Thay đổi để lấy token thực tế
-};
