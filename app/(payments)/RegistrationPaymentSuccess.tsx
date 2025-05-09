@@ -30,13 +30,17 @@ const RegistrationPaymentSuccess = () => {
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.primaryButton]}
-            onPress={() => router.replace("/(tabs)/shows/KoiShowsPage")}>
-            <Text style={styles.buttonText}>Xem các cuộc thi</Text>
+            onPress={() => router.replace({
+              pathname: "/(user)/CompetitionJoined"
+            })}>
+            <Text style={styles.buttonText}>Xem các cuộc thi đã tham gia</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.button, styles.secondaryButton]}
-            onPress={() => router.replace("/(tabs)/")}>
+            onPress={() => router.replace({
+              pathname: "/(tabs)"
+            })}>
             <Text style={styles.secondaryButtonText}>Trở về trang chủ</Text>
           </TouchableOpacity>
         </View>

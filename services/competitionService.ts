@@ -191,13 +191,13 @@ export interface ShowMemberDetail {
 /**
  * Lấy danh sách đăng ký tham gia cuộc thi theo phân trang sử dụng API mới
  * @param page Số trang (mặc định: 1)
- * @param size Số lượng mục mỗi trang (mặc định: 10)
+ * @param size Số lượng mục mỗi trang (mặc định: 100)
  * @param showStatus Trạng thái cuộc thi (Pending, Published, Upcoming, InProgress, Finished, Cancelled)
  * @returns Promise với dữ liệu phân trang của đăng ký
  */
 export const getRegistrationHistory = async (
   page: number = 1,
-  size: number = 10,
+  size: number = 100,
   showStatus?: string | null
 ): Promise<HistoryRegisterShowResponse> => {
   try {

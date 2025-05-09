@@ -22,6 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useNotification } from "../../context/NotificationContext";
 import {
   NotificationItem as ApiNotificationItem,
   NotificationType as ApiNotificationType,
@@ -361,6 +362,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 const Notifications: React.FC = () => {
   logDebug("Rendering Notifications component");
 
+  // Get notification context
+  const { setUnreadCount, refreshUnreadCount } = useNotification();
+
   const [userId, setUserId] = useState<string>("");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -403,19 +407,13 @@ const Notifications: React.FC = () => {
 
   // Fetch notifications
   const fetchNotifications = async (
-    page: number = 1,
-    filterType?: string,
-    shouldAppend: boolean = false
+    filterType?: string
   ) => {
     logDebug(
-      `Bắt đầu fetch thông báo - Page: ${page}, Filter: ${
-        filterType || "all"
-      }, Append: ${shouldAppend}`
+      `Bắt đầu fetch thông báo - Filter: ${filterType || "all"}`
     );
 
-    if (page > 1 && shouldAppend) {
-      setIsLoadingMore(true);
-    }
+    // Không cần phân trang vì lấy tất cả thông báo với size=10000
 
     try {
       setError(null);
@@ -433,8 +431,8 @@ const Notifications: React.FC = () => {
         notificationType?: ApiNotificationType;
         isRead?: boolean;
       } = {
-        page: page,
-        size: 10,
+        page: 1,
+        size: 10000,
       };
 
       // Xử lý các bộ lọc dựa trên API
@@ -498,38 +496,12 @@ const Notifications: React.FC = () => {
             );
           }
 
-          // Nếu nạp thêm, thêm vào danh sách hiện có
-          if (shouldAppend && page > 1) {
-            // Khi nạp thêm, vẫn phải sắp xếp lại toàn bộ danh sách
-            setNotifications((prev) => {
-              const combined = [...prev, ...mappedNotifications];
+          // Luôn thay thế danh sách thông báo vì đã lấy tất cả
+          setNotifications(mappedNotifications);
 
-              // Nếu không ở tab đã đọc/chưa đọc, sắp xếp lại
-              if (filterType !== "unread" && filterType !== "read") {
-                return combined.sort((a, b) => {
-                  // Thông báo chưa đọc ưu tiên lên trên
-                  if (a.isRead !== b.isRead) {
-                    return a.isRead ? 1 : -1;
-                  }
-                  // Nếu cùng trạng thái đọc, thì sắp xếp theo thời gian
-                  return (
-                    new Date(b.date).getTime() - new Date(a.date).getTime()
-                  );
-                });
-              } else {
-                // Khi ở tab đã đọc/chưa đọc, chỉ sắp xếp theo thời gian
-                return combined.sort(
-                  (a, b) =>
-                    new Date(b.date).getTime() - new Date(a.date).getTime()
-                );
-              }
-            });
-          } else {
-            setNotifications(mappedNotifications);
-          }
-
-          setCurrentPage(response.data.page);
-          setTotalPages(response.data.totalPages);
+          // Vẫn lưu thông tin trang để tương thích với code cũ
+          setCurrentPage(1);
+          setTotalPages(1);
 
           logDebug(
             `Đã ánh xạ và sắp xếp ${mappedNotifications.length} thông báo vào UI`
@@ -577,7 +549,7 @@ const Notifications: React.FC = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
-      setIsLoadingMore(false);
+      // Không cần setIsLoadingMore vì không còn phân trang
     }
   };
 
@@ -587,7 +559,10 @@ const Notifications: React.FC = () => {
       logDebug(
         `useEffect - userId thay đổi: ${userId}, gọi fetchNotifications`
       );
-      fetchNotifications();
+      fetchNotifications(filter === "all" ? undefined : filter);
+
+      // Update global unread count
+      refreshUnreadCount();
     }
   }, [userId]);
 
@@ -598,7 +573,7 @@ const Notifications: React.FC = () => {
         `useEffect - filter thay đổi: ${filter}, gọi fetchNotifications`
       );
       setLoading(true);
-      fetchNotifications(1, filter === "all" ? undefined : filter);
+      fetchNotifications(filter === "all" ? undefined : filter);
     }
   }, [filter, userId]);
 
@@ -844,7 +819,10 @@ const Notifications: React.FC = () => {
   const onRefresh = () => {
     logDebug("onRefresh - Làm mới danh sách thông báo");
     setRefreshing(true);
-    fetchNotifications(1, filter === "all" ? undefined : filter);
+    fetchNotifications(filter === "all" ? undefined : filter);
+
+    // Also refresh the global unread count
+    refreshUnreadCount();
   };
 
   // Handle notification press
@@ -911,6 +889,9 @@ const Notifications: React.FC = () => {
           logDebug(
             `Đánh dấu thông báo đã đọc thành công - ID: ${notification.id}`
           );
+
+          // Update global unread count
+          refreshUnreadCount();
         } else {
           // Log lỗi nhưng không cần hiển thị cho người dùng
           console.warn(
@@ -995,6 +976,9 @@ const Notifications: React.FC = () => {
         // Xử lý kết quả API
         if (result.success) {
           logDebug(`Đánh dấu thông báo đã đọc thành công - ID: ${id}`);
+
+          // Update global unread count
+          refreshUnreadCount();
         } else {
           console.warn(
             `Không thể đánh dấu thông báo đã đọc: ${result.message}`
@@ -1065,6 +1049,9 @@ const Notifications: React.FC = () => {
           logDebug(
             `Đánh dấu tất cả thông báo đã đọc thành công - userId: ${userId}`
           );
+
+          // Update global unread count - set to 0 since all are read
+          setUnreadCount(0);
         } else {
           console.warn(
             `Không thể đánh dấu tất cả thông báo đã đọc: ${result.message}`
@@ -1152,16 +1139,10 @@ const Notifications: React.FC = () => {
     `Rendering component với ${notifications.length} thông báo, ${unreadCount} chưa đọc`
   );
 
-  // Handle scroll to end
+  // Handle scroll to end - không cần phân trang vì đã lấy tất cả thông báo
   const handleLoadMore = () => {
-    if (currentPage < totalPages && !isLoadingMore && !refreshing) {
-      logDebug(`handleLoadMore - Tải thêm thông báo, Page: ${currentPage + 1}`);
-      fetchNotifications(
-        currentPage + 1,
-        filter === "all" ? undefined : filter,
-        true
-      );
-    }
+    // Không cần tải thêm vì đã lấy tất cả thông báo với size=10000
+    logDebug("handleLoadMore - Không cần tải thêm vì đã lấy tất cả thông báo");
   };
 
   // Sửa lại hiệu ứng animation cho empty icon - chỉ sử dụng scale để tránh lỗi

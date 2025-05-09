@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { useNotification } from "../context/NotificationContext";
 
 interface NotificationBadgeProps {
   size?: number;
@@ -10,6 +11,7 @@ interface NotificationBadgeProps {
   badgeColor?: string;
   style?: any;
   hasNotifications?: boolean;
+  notificationCount?: number;
   onPress?: () => void;
 }
 
@@ -19,15 +21,21 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
   badgeColor = "#FF3B30",
   style,
   hasNotifications = false,
+  notificationCount,
   onPress,
 }) => {
+  // Get notification context if not provided via props
+  const notificationContext = useNotification();
+  const count = notificationCount ?? notificationContext.unreadCount;
+  const showBadge = hasNotifications || count > 0;
+
   // Animation
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
   // Xử lý animation khi có thông báo mới
   useEffect(() => {
-    if (hasNotifications) {
+    if (showBadge) {
       // Reset animation values
       scaleAnim.setValue(0.5);
       opacityAnim.setValue(0);
@@ -54,7 +62,7 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
         useNativeDriver: true,
       }).start();
     }
-  }, [hasNotifications, scaleAnim, opacityAnim]);
+  }, [showBadge, scaleAnim, opacityAnim]);
 
   // Xử lý khi nhấn vào biểu tượng thông báo
   const handlePress = () => {
@@ -73,7 +81,7 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
       <Ionicons name="notifications" size={size} color={color} />
 
       {/* Badge hiển thị khi có thông báo mới */}
-      {hasNotifications && (
+      {showBadge && (
         <Animated.View
           style={[
             styles.badge,
@@ -83,7 +91,9 @@ const NotificationBadge: React.FC<NotificationBadgeProps> = ({
               opacity: opacityAnim,
             },
           ]}>
-          <Text style={styles.badgeText}>!</Text>
+          <Text style={styles.badgeText}>
+            {count > 0 ? (count > 99 ? "99+" : count.toString()) : "!"}
+          </Text>
         </Animated.View>
       )}
     </TouchableOpacity>
@@ -97,11 +107,11 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: "absolute",
-    top: 0,
-    right: 0,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 4,

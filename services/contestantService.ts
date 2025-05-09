@@ -112,7 +112,7 @@ export const getCompetitionCategories = async (
       params: {
         showId,
         page: 1,
-        size: 100,
+        size: 10000,
       },
     });
     return response.data;
@@ -132,7 +132,7 @@ export const getRounds = async (
       params: {
         roundType,
         page: 1,
-        size: 10,
+        size: 10000,
       },
     });
     return response.data;

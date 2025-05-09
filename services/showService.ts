@@ -56,7 +56,7 @@ interface ShowResponse {
 }
 
 // Fetch shows with pagination
-export const getKoiShows = async (page: number = 1, size: number = 10): Promise<ShowResponse['data']> => {
+export const getKoiShows = async (page: number = 1, size: number = 100): Promise<ShowResponse['data']> => {
   try {
     const response = await api.get<ShowResponse>(`/api/v1/koi-show/paged?page=${page}&size=${size}`);
     return response.data.data;

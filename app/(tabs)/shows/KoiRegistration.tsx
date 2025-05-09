@@ -157,14 +157,14 @@ const PaymentModal = ({
                 const status = urlObj.searchParams.get("status") || "";
                 const isSuccess = navState.url.includes("/success");
 
-                // Navigate to appropriate screen for registration payment
+                // Navigate to appropriate screen for registration payment and clear navigation stack
                 if (isSuccess) {
-                  router.push({
+                  router.replace({
                     pathname: "/(payments)/RegistrationPaymentSuccess",
                     params: { status },
                   });
                 } else {
-                  router.push({
+                  router.replace({
                     pathname: "/(payments)/RegistrationPaymentFailed",
                     params: { status },
                   });
@@ -197,14 +197,14 @@ const PaymentModal = ({
                   console.log("Error parsing URL parameters:", e);
                 }
 
-                // Navigate based on success/failure path for registration payment
+                // Navigate based on success/failure path for registration payment and clear navigation stack
                 if (isSuccess) {
-                  router.push({
+                  router.replace({
                     pathname: "/(payments)/RegistrationPaymentSuccess",
                     params: { status },
                   });
                 } else {
-                  router.push({
+                  router.replace({
                     pathname: "/(payments)/RegistrationPaymentFailed",
                     params: { status },
                   });
@@ -2369,7 +2369,7 @@ const KoiRegistrationScreen: React.FC = () => {
         loadCategories(),
         loadShowInfo()
       ]);
-      
+
       // Làm mới danh sách hạng mục phù hợp nếu đã chọn profile
       if (profileRef.current && koiSize) {
         await findCategory(profileRef.current.variety.id, koiSize);

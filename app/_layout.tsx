@@ -18,6 +18,7 @@ import Toast from "react-native-toast-message";
 import { OverlayProvider } from "stream-chat-expo";
 import AndroidSafeAreaConfig from "../components/AndroidSafeAreaConfig";
 import { AuthProvider } from "../context/AuthContext";
+import { NotificationProvider } from "../context/NotificationContext";
 import { QueryProvider } from "../context/QueryProvider";
 import { signalRService } from "../services/signalRService";
 import { disableConsoleInProduction } from "../utils/disableConsoleInProduction";
@@ -153,9 +154,10 @@ export default function RootLayout() {
           <AndroidSafeAreaConfig />
           <QueryProvider>
             <AuthProvider>
-              <OverlayProvider>
-                <ThemeProvider
-                  value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+              <NotificationProvider>
+                <OverlayProvider>
+                  <ThemeProvider
+                    value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
                   <Stack
                     // ref={navigationRef}
                     screenOptions={{
@@ -192,7 +194,8 @@ export default function RootLayout() {
                   <Toast />
                   <BackButtonManager />
                 </ThemeProvider>
-              </OverlayProvider>
+                </OverlayProvider>
+              </NotificationProvider>
             </AuthProvider>
           </QueryProvider>
         </SafeAreaProvider>

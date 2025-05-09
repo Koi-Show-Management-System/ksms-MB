@@ -110,7 +110,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
   const currentScreenWidth = Dimensions.get("window").width;
   const maxContainerWidth = currentScreenWidth * 0.9;
   const minContainerWidth = currentScreenWidth * 0.3;
-  
+
   // Thêm state cho danh sách vé và chi tiết đơn hàng
   const [orderDetails, setOrderDetails] = useState<OrderDetailItem[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -128,7 +128,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
   const fetchOrderDetails = async () => {
     try {
       setLoadingTickets(true);
-      
+
       // Lấy chi tiết đơn hàng
       const response = await api.get<OrderDetailResponse>(
         `/api/v1/ticket-order/get-order-details/${order.id}`
@@ -137,7 +137,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
       if (response.data.statusCode === 200) {
         const orderDetailsData = response.data.data;
         setOrderDetails(orderDetailsData);
-        
+
         // Sau khi có chi tiết đơn hàng, tải thông tin vé
         fetchTickets(orderDetailsData);
       }
@@ -372,7 +372,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
   const handleViewDetail = () => {
     navigation.navigate("OrderDetail", { orderId: order.id });
   };
-  
+
   // Hàm để toggle hiển thị danh sách vé
   const toggleTicketsDisplay = () => {
     setShowTickets(!showTickets);
@@ -381,7 +381,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
       fetchOrderDetails();
     }
   };
-  
+
   // Hàm toggle mở rộng danh sách vé
   const toggleTicketsExpanded = () => {
     setTicketsExpanded(!ticketsExpanded);
@@ -430,7 +430,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
       </View>
 
       {/* Toggle nút hiển thị vé cho tất cả đơn hàng, không phụ thuộc vào status */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.showTicketsButton}
         onPress={toggleTicketsDisplay}
         activeOpacity={0.7}
@@ -438,10 +438,10 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
         <Text style={styles.showTicketsText}>
           {showTickets ? "Ẩn danh sách vé" : "Hiển thị danh sách vé"}
         </Text>
-        <Ionicons 
-          name={showTickets ? "chevron-up" : "chevron-down"} 
-          size={18} 
-          color="#FFA500" 
+        <Ionicons
+          name={showTickets ? "chevron-up" : "chevron-down"}
+          size={18}
+          color="#FFA500"
         />
       </TouchableOpacity>
 
@@ -455,8 +455,8 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
             </View>
           ) : orderDetails.length === 0 ? (
             <Text style={styles.noTicketsText}>
-              {status.toLowerCase() === 'pending' ? 
-                "Đơn hàng chưa thanh toán. Vui lòng thanh toán để nhận vé." : 
+              {status.toLowerCase() === 'pending' ?
+                "Đơn hàng chưa thanh toán. Vui lòng thanh toán để nhận vé." :
                 "Không tìm thấy thông tin vé"}
             </Text>
           ) : (
@@ -467,20 +467,20 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
                   <View style={styles.ticketTypeHeader}>
                     <Text style={styles.ticketTypeName}>{detail.ticketType.name}</Text>
                   </View>
-                  
+
                   <View style={styles.ticketTypeDetails}>
                     <View style={styles.ticketDetailRow}>
                       <Text style={styles.ticketDetailLabel}>Số lượng:</Text>
                       <Text style={styles.ticketDetailValue}>{detail.quantity}</Text>
                     </View>
-                    
+
                     <View style={styles.ticketDetailRow}>
                       <Text style={styles.ticketDetailLabel}>Giá vé:</Text>
                       <Text style={styles.ticketDetailValue}>
                         {detail.unitPrice.toLocaleString("vi-VN")} VNĐ
                       </Text>
                     </View>
-                    
+
                     <View style={styles.ticketDetailRow}>
                       <Text style={styles.ticketDetailLabel}>Thành tiền:</Text>
                       <Text style={styles.ticketDetailTotal}>
@@ -488,7 +488,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onPress }) => {
                       </Text>
                     </View>
                   </View>
-                  
+
                   {index < orderDetails.length - 1 && <View style={styles.divider} />}
                 </View>
               ))}
@@ -538,7 +538,7 @@ const MyOrders: React.FC = () => {
       setError("");
 
       // Determine if we need to add status filter
-      let endpoint = `/api/v1/ticket-order/get-paging-orders?page=${pageToLoad}&size=10`;
+      let endpoint = `/api/v1/ticket-order/get-paging-orders?page=${pageToLoad}&size=100`;
       if (activeTab !== "all") {
         endpoint += `&orderStatus=${activeTab}`;
       }

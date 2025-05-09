@@ -19,14 +19,14 @@ export const fetchCompetitionCategories = async (showId: string): Promise<Compet
       params: {
         showId,
         page: 1,
-        size: 50 // Lấy tất cả danh mục trong một request
+        size: 10000 // Lấy tất cả danh mục trong một request
       }
     });
-    
+
     if (response.data && response.data.data && response.data.data.items) {
       return response.data.data.items;
     }
-    
+
     return [];
   } catch (error) {
     console.error('Error fetching competition categories:', error);
@@ -49,4 +49,4 @@ export const fetchKoiShowData = async (showId: string): Promise<{
     show: showData,
     categories: categoriesData
   };
-}; 
+};

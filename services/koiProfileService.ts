@@ -144,7 +144,7 @@ export interface Variety {
 export const getVarieties = async () => {
   try {
     console.log("Calling getVarieties API");
-    const response = await api.get("/api/v1/variety/get-page?page=1&size=50");
+    const response = await api.get("/api/v1/variety/get-page?page=1&size=1000");
     console.log("Variety API response:", response.data);
     return response.data;
   } catch (error) {

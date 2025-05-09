@@ -446,14 +446,14 @@ const BuyTickets: React.FC = () => {
                   const status = urlObj.searchParams.get("status") || "";
                   const isSuccess = navState.url.includes("/success");
 
-                  // Navigate to appropriate screen
+                  // Navigate to appropriate screen and clear navigation stack
                   if (isSuccess) {
-                    router.push({
+                    router.replace({
                       pathname: "/(payments)/PaymentSuccess",
                       params: { status },
                     });
                   } else {
-                    router.push({
+                    router.replace({
                       pathname: "/(payments)/PaymentFailed",
                       params: { status },
                     });
@@ -486,14 +486,14 @@ const BuyTickets: React.FC = () => {
                     console.log("Error parsing URL parameters:", e);
                   }
 
-                  // Navigate based on success/failure path
+                  // Navigate based on success/failure path and clear navigation stack
                   if (isSuccess) {
-                    router.push({
+                    router.replace({
                       pathname: "/(payments)/PaymentSuccess",
                       params: { status },
                     });
                   } else {
-                    router.push({
+                    router.replace({
                       pathname: "/(payments)/PaymentFailed",
                       params: { status },
                     });

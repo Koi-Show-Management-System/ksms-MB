@@ -5,6 +5,7 @@ import { router } from "expo-router"; // Import the router
 import React, { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native"; // Added Image
 import { useAuth } from "../context/AuthContext";
+import { useNotification } from "../context/NotificationContext";
 import api from "../services/api";
 import NotificationBadge from "./NotificationBadge";
 
@@ -16,7 +17,15 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ title }) => {
   // Removed description
   const { userData, isGuest } = useAuth();
+  const { unreadCount, refreshUnreadCount } = useNotification();
   const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Refresh unread notification count when component mounts
+  useEffect(() => {
+    if (!isGuest()) {
+      refreshUnreadCount();
+    }
+  }, [isGuest, refreshUnreadCount]);
 
   // Lấy ảnh đại diện từ context hoặc AsyncStorage khi component mount
   useEffect(() => {
@@ -86,7 +95,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
         <Text style={styles.homeText}>
           {isGuest() ? "Chế độ khách" : ``}
         </Text>
-        {!isGuest() && <NotificationBadge style={styles.notificationIcon} />}
+        {!isGuest() && <NotificationBadge style={styles.notificationIcon} notificationCount={unreadCount} />}
         <TouchableOpacity onPress={handleUserIconClick}>
           <View style={styles.profileIconContainer}>
             {!isGuest() && profileImage ? (

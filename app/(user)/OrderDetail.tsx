@@ -138,7 +138,7 @@ const OrderDetail = () => {
 
       // 1. Trước tiên, lấy thông tin đơn hàng từ API get-paging-orders để có status và paymentUrl
       const ordersResponse = await api.get<OrdersResponse>(
-        `/api/v1/ticket-order/get-paging-orders?page=1&size=20`
+        `/api/v1/ticket-order/get-paging-orders?page=1&size=1000`
       );
 
       if (ordersResponse.data.statusCode !== 200) {
@@ -505,7 +505,7 @@ const OrderDetail = () => {
         // Nếu không có URL, thử tải lại dữ liệu đơn hàng để lấy URL mới nhất
         try {
           const ordersResponse = await api.get<OrdersResponse>(
-            `/api/v1/ticket-order/get-paging-orders?page=1&size=20`
+            `/api/v1/ticket-order/get-paging-orders?page=1&size=1000`
           );
 
           if (ordersResponse.data.statusCode === 200) {
